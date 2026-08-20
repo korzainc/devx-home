@@ -1,26 +1,59 @@
 @import "tailwindcss";
 
+/* Dark is the design target; light is a faithful port rather than the other way round.
+   Both live here as plain custom properties so `@theme inline` can expose them as
+   Tailwind utilities (bg-surface, text-ink-muted, border-line, ...). */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --canvas: #ffffff;
+  --surface: #fbfbfc;
+  --surface-raised: #ffffff;
+  --line: #e6e8eb;
+  --line-strong: #d3d7dd;
+  --ink: #101418;
+  --ink-muted: #5b6673;
+  --ink-faint: #8b95a1;
+  --accent: #4f46e5;
+  --accent-contrast: #ffffff;
+  --accent-wash: #eef0fe;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --canvas: #08090b;
+    --surface: #0e1013;
+    --surface-raised: #14171c;
+    --line: #1f242b;
+    --line-strong: #2b3239;
+    --ink: #e8eaed;
+    --ink-muted: #9aa4b2;
+    --ink-faint: #6b7480;
+    --accent: #818cf8;
+    --accent-contrast: #0b0d10;
+    --accent-wash: #171a2e;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-accent: var(--accent);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-accent-wash: var(--accent-wash);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* Tailwind's preflight resets focus rings to the browser default, which is invisible against
+   the dark canvas. Setting it once here keeps every interactive element keyboard-visible
+   without repeating focus classes on each one. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }

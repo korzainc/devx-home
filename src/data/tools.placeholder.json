@@ -1,0 +1,110 @@
+[
+  {
+    "id": "eslint",
+    "name": "ESLint",
+    "summary": "Static analysis for JavaScript and TypeScript, driven by a flat config the repo owns.",
+    "category": "Linting",
+    "capabilities": ["lint"],
+    "stacks": ["javascript", "typescript"],
+    "docsUrl": "https://eslint.org/docs/latest/"
+  },
+  {
+    "id": "prettier",
+    "name": "Prettier",
+    "summary": "Opinionated formatter. Running it in CI removes formatting from code review entirely.",
+    "category": "Formatting",
+    "capabilities": ["format"],
+    "stacks": ["javascript", "typescript"],
+    "docsUrl": "https://prettier.io/docs/en/"
+  },
+  {
+    "id": "typescript",
+    "name": "TypeScript",
+    "summary": "Type checking as a build gate. Catches the class of bug tests rarely reach.",
+    "category": "Types",
+    "capabilities": ["typecheck"],
+    "stacks": ["javascript", "typescript"],
+    "docsUrl": "https://www.typescriptlang.org/docs/"
+  },
+  {
+    "id": "trivy",
+    "name": "Trivy",
+    "summary": "Scans lockfiles, images and IaC for known vulnerabilities. Skips devDependencies unless told otherwise.",
+    "category": "Security",
+    "capabilities": ["sca", "iac-scanning", "container-scanning"],
+    "stacks": ["any"],
+    "docsUrl": "https://trivy.dev/latest/docs/"
+  },
+  {
+    "id": "kingfisher",
+    "name": "Kingfisher",
+    "summary": "Secret scanning that validates findings against the issuing API, so a live credential is distinguishable from a lookalike.",
+    "category": "Security",
+    "capabilities": ["secret-scanning"],
+    "stacks": ["any"],
+    "docsUrl": "https://github.com/mongodb/kingfisher"
+  },
+  {
+    "id": "semgrep",
+    "name": "Semgrep",
+    "summary": "Pattern-based SAST with rules that read like the code they match.",
+    "category": "Security",
+    "capabilities": ["sast"],
+    "stacks": ["any"],
+    "docsUrl": "https://semgrep.dev/docs/"
+  },
+  {
+    "id": "actionlint",
+    "name": "actionlint",
+    "summary": "Lints GitHub Actions workflows, including the inline shell, before a push proves it wrong.",
+    "category": "CI Meta",
+    "capabilities": ["workflow-lint"],
+    "stacks": ["any"],
+    "docsUrl": "https://github.com/rhysd/actionlint"
+  },
+  {
+    "id": "vitest",
+    "name": "Vitest",
+    "summary": "Unit and integration test runner with first-class TypeScript and coverage reporting.",
+    "category": "Testing",
+    "capabilities": ["unit-tests", "coverage"],
+    "stacks": ["javascript", "typescript"],
+    "docsUrl": "https://vitest.dev/guide/"
+  },
+  {
+    "id": "playwright",
+    "name": "Playwright",
+    "summary": "Browser-level end-to-end tests, run against a real build rather than a dev server.",
+    "category": "Testing",
+    "capabilities": ["e2e-tests"],
+    "stacks": ["javascript", "typescript"],
+    "docsUrl": "https://playwright.dev/docs/intro"
+  },
+  {
+    "id": "renovate",
+    "name": "Renovate",
+    "summary": "Automated dependency updates, grouped and scheduled so the noise stays manageable.",
+    "category": "Dependencies",
+    "capabilities": ["dependency-updates"],
+    "stacks": ["any"],
+    "docsUrl": "https://docs.renovatebot.com/"
+  },
+  {
+    "id": "codecov",
+    "name": "Codecov",
+    "summary": "Coverage reporting with per-PR deltas. Useful as a signal, hazardous as a hard gate.",
+    "category": "Testing",
+    "capabilities": ["coverage"],
+    "stacks": ["any"],
+    "docsUrl": "https://docs.codecov.com/docs"
+  },
+  {
+    "id": "spotbugs",
+    "name": "SpotBugs",
+    "summary": "Bytecode-level static analysis for JVM projects, wired into the shared Java CI stack.",
+    "category": "Linting",
+    "capabilities": ["lint", "sast"],
+    "stacks": ["java"],
+    "docsUrl": "https://spotbugs.readthedocs.io/en/stable/"
+  }
+]
