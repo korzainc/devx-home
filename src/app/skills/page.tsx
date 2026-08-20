@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import { SkillsCatalogue } from "@/components/skills-catalogue";
-import { skills } from "@/lib/catalogue";
+import { PluginsCatalogue } from "@/components/plugins-catalogue";
+import { plugins } from "@/lib/catalogue";
 
 export const metadata: Metadata = {
   title: "Skills",
-  description: "Agent skills published to the Korza marketplace.",
+  description:
+    "Plugins published to the Korza marketplace, and the skills they bundle.",
 };
 
 export default function SkillsPage() {
@@ -15,11 +16,13 @@ export default function SkillsPage() {
           Skills
         </h1>
         <p className="leading-relaxed text-ink-muted">
-          Published to the marketplace and installed from there — this page is a
-          catalogue, not an installer. Cards link out.
+          Skills ship as plugins, so a plugin is what you install. Open one to
+          see what it solves and how to install it in Claude Code or Codex.
+          Sources live in their own repos; this is a catalogue, not an
+          installer.
         </p>
       </header>
-      <SkillsCatalogue entries={skills} />
+      <PluginsCatalogue entries={plugins} />
     </div>
   );
 }

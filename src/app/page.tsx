@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { skills, tools } from "@/lib/catalogue";
+import { plugins, tools } from "@/lib/catalogue";
 
 const sections = [
   {
@@ -13,8 +13,8 @@ const sections = [
     href: "/skills",
     title: "Skills",
     description:
-      "Agent skills published to the marketplace, filterable by the agent that runs them.",
-    meta: `${skills.length} skills`,
+      "Plugins on the Korza marketplace, the skills they bundle, and the command to install each one.",
+    meta: `${plugins.length} plugins`,
   },
 ];
 
@@ -43,7 +43,7 @@ export default function Home() {
         </h1>
         <p className="text-lg leading-relaxed text-ink-muted">
           The tools worth adding to a pipeline, the agent skills worth
-          installing, and — soon — a straight answer about what your repo is
+          installing, and soon a straight answer about what your repo is
           missing.
         </p>
       </section>

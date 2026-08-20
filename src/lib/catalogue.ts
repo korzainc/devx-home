@@ -1,10 +1,15 @@
 import toolsData from "@/data/tools.placeholder.json";
-import skillsData from "@/data/skills.placeholder.json";
+import pluginsData from "@/data/plugins.json";
 
-// The tool and skill shapes below are provisional stand-ins. The real tool schema arrives with
-// catalogue.json (built by the catalogue repo) and the real skill schema is authored here; both
-// will replace these outright. Field access is deliberately confined to this module and the two
-// card renderers so that replacement stays a small diff rather than a sweep through the UI.
+// ToolEntry is still a provisional stand-in - the real shape arrives with catalogue.json, built
+// by the catalogue repo. Field access is confined to this module and the card renderers so that
+// swap stays a small diff rather than a sweep through the UI.
+//
+// PluginEntry is not provisional: every field is transcribed from korzainc/marketplace, which
+// publishes plugins bundling skills rather than standalone skills. `versioning` is the one
+// derived field - the manifests carry `ref`, and whether that is a tag or a branch is the thing
+// worth filtering on. `agents` holds display labels rather than manifest ids, because the same
+// strings appear on the facet chips and above the install commands.
 
 export type CatalogueEntry = {
   id: string;
@@ -19,10 +24,18 @@ export type ToolEntry = CatalogueEntry & {
   docsUrl: string;
 };
 
-export type SkillEntry = CatalogueEntry & {
-  category: string;
+export type PluginEntry = CatalogueEntry & {
+  // `problem` and `benefits` are the exception: written here rather than transcribed, because the
+  // upstream manifests carry a one-line description and nothing that answers "why install this".
+  problem: string;
+  benefits: string[];
   agents: string[];
-  marketplaceUrl: string;
+  origin: string;
+  versioning: string;
+  ref: string;
+  sourceRepo: string;
+  homepage: string;
+  skills: string[];
 };
 
 /** Keys whose values a facet can group by: a single string, or a list of them. */
@@ -43,4 +56,36 @@ export function facetValues<T>(entry: T, key: FacetKey<T>): string[] {
 
 export const tools: ToolEntry[] = toolsData;
 
-export const skills: SkillEntry[] = skillsData;
+export const plugins: PluginEntry[] = pluginsData;
+
+export const marketplaceName = "korza-marketplace";
+
+export const marketplaceRepo = "korzainc/marketplace";
+
+export function getPlugin(id: string): PluginEntry | undefined {
+  return plugins.find((plugin) => plugin.id === id);
+}
+
+export type InstallCommand = {
+  agent: string;
+  /** Registers the marketplace. Needed once per machine, not once per plugin. */
+  register: string;
+  install: string;
+};
+
+/** Only the agents whose manifest actually lists the plugin get a command. */
+export function installCommands(plugin: PluginEntry): InstallCommand[] {
+  const all: InstallCommand[] = [
+    {
+      agent: "Claude Code",
+      register: `/plugin marketplace add ${marketplaceRepo}`,
+      install: `/plugin install ${plugin.name}@${marketplaceName}`,
+    },
+    {
+      agent: "Codex CLI",
+      register: `codex plugin marketplace add ${marketplaceRepo} --ref main`,
+      install: `codex plugin add ${plugin.name}@${marketplaceName}`,
+    },
+  ];
+  return all.filter((entry) => plugin.agents.includes(entry.agent));
+}
