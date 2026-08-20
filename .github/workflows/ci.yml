@@ -1,0 +1,160 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A newer push to the same ref supersedes an in-flight run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Read-only by default. No job here writes to the repo, comments on a PR, or uploads SARIF to
+# code scanning, so nothing needs more. Widen per-job if that ever changes, never here.
+permissions:
+  contents: read
+
+jobs:
+  format:
+    name: format
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - run: pnpm format:check
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - run: pnpm lint
+
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      # Runs `next typegen` first - see the script. Plain tsc fails on a clean checkout.
+      - run: pnpm typecheck
+
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - run: pnpm build
+
+  # Dependency vulnerabilities, read from pnpm-lock.yaml. Secret scanning is deliberately left
+  # off here (`scanners: vuln`) - Kingfisher owns that below, and two tools reporting the same
+  # leak means two things to triage for one root cause.
+  dependencies:
+    name: dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Scan dependencies
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        # Trivy skips devDependencies by default, reasoning that they never reach production.
+        # This app is almost entirely devDependencies, which would leave the job scanning three
+        # packages. The action has no input for this, but Trivy reads TRIVY_-prefixed env vars
+        # for every flag.
+        env:
+          TRIVY_INCLUDE_DEV_DEPS: "true"
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          # Blocks only on something actionable. A Critical/High with no released fix is not a
+          # thing this PR's author can do anything about, so it must not wedge every PR in the
+          # repo - it still prints in the log, it just does not gate.
+          ignore-unfixed: true
+          exit-code: "1"
+
+  # Secrets, including git history - a credential that was committed and later deleted is still
+  # leaked. Needs full history, hence fetch-depth: 0.
+  secrets:
+    name: secrets
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Install Kingfisher
+        env:
+          KINGFISHER_VERSION: v1.113.0
+          # Digest of the release asset, verified before the binary is allowed to run. Pinning
+          # the tag alone would still trust whatever that tag points at on the day CI runs.
+          # Re-compute with `shasum -a 256` when bumping the version.
+          KINGFISHER_SHA256: 798affdc312ca1651623856c0511a884baf399aecdf61cebad4ef73548b6f411
+        # Staged under RUNNER_TEMP, never the workspace: the next step scans the checkout, and a
+        # 15MB binary and tarball sitting in it are both noise to scan and a chance to be
+        # committed by accident.
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          curl -sSfL -o kingfisher.tgz \
+            "https://github.com/mongodb/kingfisher/releases/download/${KINGFISHER_VERSION}/kingfisher-linux-x64.tgz"
+          echo "${KINGFISHER_SHA256}  kingfisher.tgz" | sha256sum -c -
+          tar xzf kingfisher.tgz kingfisher
+          sudo install -m 0755 kingfisher /usr/local/bin/kingfisher
+
+      # Kingfisher's exit code carries the result, so it must not abort the step: 0 clean,
+      # 200 unvalidated candidates, 205 a secret confirmed live against a third-party API.
+      # Only 205 blocks. 200 is advisory on purpose - unvalidated matches are the noisy tier,
+      # and a gate that cries wolf gets ignored or bypassed. Anything else is a real tool
+      # failure and must fail loudly rather than read as "clean".
+      # The excludes are for parity with a local run, not for CI: this job never installs or
+      # builds, so neither directory exists on the runner. Without them, anyone running the
+      # same command locally gets a blocking result off dependency READMEs and test fixtures,
+      # and a check that only passes on CI is a check nobody runs before pushing.
+      - name: Scan for secrets
+        run: |
+          set -uo pipefail
+          kingfisher scan . \
+            --exclude '**/node_modules/**' \
+            --exclude '**/.next/**' \
+            --format json --output kingfisher.json
+          code=$?
+          case "$code" in
+            0)
+              echo "No secrets found." >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            200)
+              echo "::warning::Unvalidated secret candidates found - advisory, not blocking."
+              echo "Unvalidated secret candidates found (advisory)." >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            205)
+              echo "::error::A validated, live secret is present. Revoke it, then remove it."
+              echo "Validated live secret found - blocking." >> "$GITHUB_STEP_SUMMARY"
+              exit 1
+              ;;
+            *)
+              echo "::error::Kingfisher itself failed (exit ${code}) - not a clean result."
+              exit "$code"
+              ;;
+          esac
+
+      # Findings can name the secret they matched, so this is only useful to someone who
+      # already has repo access, and it expires quickly.
+      - name: Upload findings
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: kingfisher-findings
+          path: kingfisher.json
+          if-no-files-found: ignore
+          retention-days: 7

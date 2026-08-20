@@ -1,0 +1,9 @@
+# pnpm 11 blocks dependency build scripts unless approved here, and an unapproved one is a hard
+# error on every command, not a warning - pnpm re-checks dependency status before each script, so
+# every script fails until this list is right. `pnpm approve-builds` writes this interactively,
+# which is no use in CI, so it is committed instead.
+#
+# unrs-resolver is the native resolver behind eslint-import-resolver-typescript, pulled in by
+# eslint-config-next. Without its build step `pnpm lint` cannot resolve imports.
+allowBuilds:
+  unrs-resolver: true
