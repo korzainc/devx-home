@@ -12,9 +12,10 @@
   --ink: #101418;
   --ink-muted: #5b6673;
   --ink-faint: #8b95a1;
-  --accent: #4f46e5;
-  --accent-contrast: #ffffff;
-  --accent-wash: #eef0fe;
+  /* Korza's brand red is #ff0000, which only reaches 4:1 on white and fails AA for text.
+     Light mode therefore uses the darker red the marketing site already pairs with it. */
+  --accent: #dc2626;
+  --accent-wash: #fef1f1;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -27,9 +28,9 @@
     --ink: #e8eaed;
     --ink-muted: #9aa4b2;
     --ink-faint: #6b7480;
-    --accent: #818cf8;
-    --accent-contrast: #0b0d10;
-    --accent-wash: #171a2e;
+    /* Lifted off #ff0000: pure red on a near-black canvas reads as vibrating rather than sharp. */
+    --accent: #ff5f5f;
+    --accent-wash: #2a1517;
   }
 }
 
@@ -43,11 +44,27 @@
   --color-ink-muted: var(--ink-muted);
   --color-ink-faint: var(--ink-faint);
   --color-accent: var(--accent);
-  --color-accent-contrast: var(--accent-contrast);
   --color-accent-wash: var(--accent-wash);
 
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-work-sans);
   --font-mono: var(--font-geist-mono);
+
+  --animate-breathe: breathe 3.6s ease-in-out infinite;
+}
+
+/* Slow enough to read as breathing rather than blinking. Opacity and glow only - scaling a
+   glyph inside a word would shift the text around it on every cycle. */
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+    text-shadow: none;
+  }
+  50% {
+    opacity: 1;
+    text-shadow: 0 0 0.6em var(--accent);
+  }
 }
 
 /* Tailwind's preflight resets focus rings to the browser default, which is invisible against

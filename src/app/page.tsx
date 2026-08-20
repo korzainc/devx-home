@@ -38,7 +38,7 @@ export default function Home() {
         <p className="font-mono text-xs tracking-wide text-accent uppercase">
           Developer Experience
         </p>
-        <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
+        <h1 className="font-display text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
           Everything Korza recommends, in one place.
         </h1>
         <p className="text-lg leading-relaxed text-ink-muted">
@@ -56,7 +56,7 @@ export default function Home() {
             className="group flex flex-col gap-3 rounded-xl border border-line bg-surface p-6 transition-colors hover:border-line-strong hover:bg-surface-raised"
           >
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-medium group-hover:text-accent">
+              <h2 className="font-display text-lg font-medium group-hover:text-accent">
                 {section.title}
               </h2>
               <span className="font-mono text-xs text-ink-faint">
