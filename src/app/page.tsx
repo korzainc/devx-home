@@ -24,11 +24,6 @@ const upcoming = [
     description:
       "Point it at a repo. It reads the manifests and CI config, then reports which recommended checks are missing.",
   },
-  {
-    title: "Changelog",
-    description:
-      "What changed in the tooling and when, written by hand rather than generated from commits.",
-  },
 ];
 
 export default function Home() {

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Inter, Work_Sans } from "next/font/google";
+import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import "./globals.css";
 
@@ -48,9 +49,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           {children}
         </main>
         <footer className="border-t border-line">
-          <div className="mx-auto max-w-6xl px-6 py-6 text-xs text-ink-faint">
-            Internal tool. Plugins come from korzainc/marketplace; the tools
-            catalogue is still placeholder data.
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-6 text-xs text-ink-faint">
+            <span>
+              Internal tool. Plugins come from korzainc/marketplace; the tools
+              catalogue is still placeholder data.
+            </span>
+            <Link href="/changelog" className="hover:text-accent">
+              Changelog
+            </Link>
           </div>
         </footer>
       </body>
