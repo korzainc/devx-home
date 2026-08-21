@@ -1,26 +1,123 @@
 @import "tailwindcss";
 
+/* Dark is the design target; light is a faithful port rather than the other way round.
+   Both live here as plain custom properties so `@theme inline` can expose them as
+   Tailwind utilities (bg-surface, text-ink-muted, border-line, ...). */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --canvas: #ffffff;
+  --surface: #fbfbfc;
+  --surface-raised: #ffffff;
+  --line: #e6e8eb;
+  --line-strong: #d3d7dd;
+  --ink: #101418;
+  --ink-muted: #5b6673;
+  --ink-faint: #8b95a1;
+  /* Korza's brand red is #ff0000, which only reaches 4:1 on white and fails AA for text.
+     Light mode therefore uses the darker red the marketing site already pairs with it. */
+  --accent: #dc2626;
+  --accent-wash: #fef1f1;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --canvas: #08090b;
+    --surface: #0e1013;
+    --surface-raised: #14171c;
+    --line: #1f242b;
+    --line-strong: #2b3239;
+    --ink: #e8eaed;
+    --ink-muted: #9aa4b2;
+    --ink-faint: #6b7480;
+    /* Lifted off #ff0000: pure red on a near-black canvas reads as vibrating rather than sharp. */
+    --accent: #ff5f5f;
+    --accent-wash: #2a1517;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-accent: var(--accent);
+  --color-accent-wash: var(--accent-wash);
+
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-work-sans);
+  --font-mono: var(--font-geist-mono);
+
+  --animate-breathe: breathe 3.6s ease-in-out infinite;
+}
+
+/* Slow enough to read as breathing rather than blinking. Opacity and glow only - scaling a
+   glyph inside a word would shift the text around it on every cycle. */
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+    text-shadow: none;
+  }
+  50% {
+    opacity: 1;
+    text-shadow: 0 0 0.6em var(--accent);
+  }
+}
+
+/* Tailwind's preflight resets focus rings to the browser default, which is invisible against
+   the dark canvas. Setting it once here keeps every interactive element keyboard-visible
+   without repeating focus classes on each one. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Markdown from content/ renders to bare HTML with no utility classes on it, and preflight has
+   already stripped list markers and heading sizes. These rules put back only what a changelog
+   body uses, which is why there is no typography plugin here. */
+.prose-body {
+  color: var(--ink-muted);
+  line-height: 1.7;
+}
+.prose-body > * + * {
+  margin-top: 0.75rem;
+}
+.prose-body h3 {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-weight: 500;
+}
+.prose-body h3:not(:first-child) {
+  margin-top: 1.5rem;
+}
+.prose-body ul {
+  list-style: disc;
+  padding-left: 1.15rem;
+}
+.prose-body ol {
+  list-style: decimal;
+  padding-left: 1.15rem;
+}
+.prose-body li + li {
+  margin-top: 0.375rem;
+}
+.prose-body li::marker {
+  color: var(--ink-faint);
+}
+.prose-body strong {
+  color: var(--ink);
+  font-weight: 500;
+}
+.prose-body a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.prose-body code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  color: var(--ink);
 }

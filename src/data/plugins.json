@@ -1,0 +1,118 @@
+[
+  {
+    "id": "codezen",
+    "name": "codezen",
+    "summary": "CodeZen is an AI-powered code plugin to build software with skills.",
+    "problem": "Agent-assisted work tends to jump straight to code. Requirements stay half-specified, and tests and deployment become an afterthought.",
+    "benefits": [
+      "Covers requirements, build, test and deploy, so the work either side of writing code is part of the process.",
+      "Korza's own plugin, so the conventions it applies are the ones your reviewers already expect.",
+      "Depends on superpowers and pyright-lsp, so installing codezen brings both along."
+    ],
+    "agents": ["Claude Code", "Codex CLI"],
+    "origin": "Korza",
+    "versioning": "Tracks main",
+    "ref": "main",
+    "sourceRepo": "korzainc/codezen",
+    "homepage": "https://github.com/korzainc/codezen",
+    "skills": []
+  },
+  {
+    "id": "pyright-lsp",
+    "name": "pyright-lsp",
+    "summary": "Pyright LSP plugin used in codezen.",
+    "problem": "Without a language server the agent reads Python as plain text. It infers signatures instead of looking them up, and type errors an IDE would flag immediately go unnoticed.",
+    "benefits": [
+      "Gives the agent real diagnostics and type information on Python code.",
+      "Maintained in Anthropic's official plugin repo rather than by us.",
+      "codezen already depends on it, so install this directly only if you skip codezen."
+    ],
+    "agents": ["Claude Code"],
+    "origin": "Third party",
+    "versioning": "Tracks main",
+    "ref": "main",
+    "sourceRepo": "anthropics/claude-plugins-official",
+    "homepage": "https://github.com/anthropics/claude-plugins-official",
+    "skills": []
+  },
+  {
+    "id": "superpowers",
+    "name": "superpowers",
+    "summary": "Core skills library: TDD, debugging, collaboration patterns. Referred by codezen.",
+    "problem": "Left to itself, an agent writes code first and reasons about it afterwards. The result reads well and fails under test.",
+    "benefits": [
+      "A vetted library of TDD, debugging and collaboration patterns, so the approach is not improvised on every task.",
+      "Pinned to v6.2.0, so upstream commits cannot land on your machine unreviewed.",
+      "codezen builds on it, so the two are designed to run together."
+    ],
+    "agents": ["Claude Code", "Codex CLI"],
+    "origin": "Third party",
+    "versioning": "Pinned",
+    "ref": "v6.2.0",
+    "sourceRepo": "obra/superpowers",
+    "homepage": "https://github.com/obra/superpowers",
+    "skills": []
+  },
+  {
+    "id": "mattpocock-skills",
+    "name": "mattpocock-skills",
+    "summary": "Matt Pocock's engineering and productivity skills: TDD, code review, domain modeling, bug diagnosis, grilling and more.",
+    "problem": "The jobs around writing code get re-improvised every time: reviewing a PR, diagnosing a bug, turning a spec into tickets, handing work over. How well they go depends on who asked and how.",
+    "benefits": [
+      "Twenty-five task-specific skills covering review, TDD, domain modelling, triage and architecture.",
+      "Includes the communication side of the work: teaching, handoffs, questionnaires, writing for agents.",
+      "Tracks main on purpose, because the newest tag ships four fewer skills."
+    ],
+    "agents": ["Claude Code"],
+    "origin": "Third party",
+    "versioning": "Tracks main",
+    "ref": "main",
+    "sourceRepo": "mattpocock/skills",
+    "homepage": "https://github.com/mattpocock/skills",
+    "skills": [
+      "tdd",
+      "code-review",
+      "diagnosing-bugs",
+      "domain-modeling",
+      "codebase-design",
+      "implement",
+      "to-spec",
+      "to-tickets",
+      "triage",
+      "prototype",
+      "research",
+      "resolving-merge-conflicts",
+      "improve-codebase-architecture",
+      "wayfinder",
+      "wizard",
+      "grill-with-docs",
+      "ask-matt",
+      "setup-matt-pocock-skills",
+      "grilling",
+      "grill-me",
+      "handoff",
+      "teach",
+      "to-questionnaire",
+      "wait-what",
+      "writing-for-agents"
+    ]
+  },
+  {
+    "id": "humanizer",
+    "name": "humanizer",
+    "summary": "Removes signs of AI-generated writing from text, based on Wikipedia's \"Signs of AI writing\" guide.",
+    "problem": "AI prose has tells: inflated symbolism, promotional language, em dash overuse, the rule of three, filler phrases. Readers notice them even when they cannot name them.",
+    "benefits": [
+      "Edits against Wikipedia's documented \"Signs of AI writing\" list rather than a vague sense of tone.",
+      "Worth running on anything customer-facing: docs, release notes, incident writeups.",
+      "Pinned to v2.9.1."
+    ],
+    "agents": ["Claude Code"],
+    "origin": "Third party",
+    "versioning": "Pinned",
+    "ref": "v2.9.1",
+    "sourceRepo": "blader/humanizer",
+    "homepage": "https://github.com/blader/humanizer",
+    "skills": ["humanizer"]
+  }
+]
