@@ -3,7 +3,7 @@ import { ToolsCatalogue } from "@/components/tools-catalogue";
 import { tools } from "@/lib/catalogue";
 
 export const metadata: Metadata = {
-  title: "Tools",
+  title: "CI Tools",
   description: "CI tools Korza recommends, by capability and stack.",
 };
 
@@ -12,7 +12,7 @@ export default function ToolsPage() {
     <div className="flex flex-col gap-10">
       <header className="flex max-w-2xl flex-col gap-3">
         <h1 className="font-display text-3xl font-semibold tracking-tight">
-          Tools
+          CI Tools
         </h1>
         <p className="leading-relaxed text-ink-muted">
           Checks worth having in a pipeline. Filter by what a tool does, or by

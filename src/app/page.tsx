@@ -21,11 +21,42 @@ function Band({
   children: React.ReactNode;
 }) {
   return (
-    <section className={band}>
+    <div className={band}>
       <div className="grid items-center gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:gap-12">
         <div>{visual}</div>
         <div className="flex flex-col gap-4 px-1 sm:px-2">{children}</div>
       </div>
+    </div>
+  );
+}
+
+/* Separates the two sections without a rule: a blurred accent bloom behind the heading, then a
+   step down in type scale from the hero. `isolate` keeps the negative z-index bloom from
+   sliding behind the page background. */
+function Section({
+  heading,
+  blurb,
+  visual,
+  children,
+}: {
+  heading: string;
+  blurb: string;
+  visual: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="flex flex-col gap-6">
+      <div className="relative isolate">
+        <span
+          aria-hidden
+          className="absolute -top-8 -left-10 -z-10 h-28 w-72 rounded-full bg-accent/20 blur-3xl"
+        />
+        <h2 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">
+          {heading}
+        </h2>
+        <p className="mt-2 max-w-xl leading-relaxed text-ink-muted">{blurb}</p>
+      </div>
+      <Band visual={visual}>{children}</Band>
     </section>
   );
 }
@@ -103,9 +134,6 @@ export default function Home() {
   return (
     <div className="flex flex-col gap-14">
       <div className="flex max-w-2xl flex-col gap-4 pt-8">
-        <p className="font-mono text-xs tracking-wide text-accent uppercase">
-          Developer Experience
-        </p>
         <h1 className="font-display text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
           Everything Korza recommends, in one place.
         </h1>
@@ -115,25 +143,17 @@ export default function Home() {
         </p>
       </div>
 
-      <div className="flex flex-col gap-8">
-        <Band visual={<ReportPreview />}>
-          <div className="flex flex-col gap-3">
-            <h2 className="font-display text-2xl font-semibold tracking-tight">
-              Is your pipeline missing anything?
-            </h2>
-            <p className="leading-relaxed text-ink-muted">
-              Point it at a GitHub repository. It reads the manifests and CI
-              config, then reports which of the {tools.length} checks Korza
-              recommends are not running, and names the file each result came
-              from.
-            </p>
-            <Link
-              href="/tools"
-              className="text-sm font-medium text-accent hover:underline"
-            >
-              Browse the checks →
-            </Link>
-          </div>
+      <div className="flex flex-col gap-20">
+        <Section
+          heading="CI Tools"
+          blurb={`The ${tools.length} checks Korza expects a pipeline to run. Find out in a couple of seconds which ones yours is missing.`}
+          visual={<ReportPreview />}
+        >
+          <p className="leading-relaxed text-ink-muted">
+            It reads the root manifests and CI config through the GitHub API,
+            works out your stack, then names the file behind every check it
+            finds. Nothing to clone, nothing to install.
+          </p>
 
           {/* A plain GET form, so the field works before any JavaScript loads. The report page
               reads `repo` from the query string and runs the analysis on arrival. */}
@@ -156,26 +176,32 @@ export default function Home() {
               Analyze
             </button>
           </form>
-        </Band>
 
-        <Band visual={<MarketplacePreview />}>
-          <div className="flex flex-col gap-3">
-            <h2 className="font-display text-2xl font-semibold tracking-tight">
-              Skills your agent should have.
-            </h2>
-            <p className="leading-relaxed text-ink-muted">
-              {plugins.length} plugins on the Korza marketplace, the skills each
-              one bundles, and the command to install it in Claude Code or
-              Codex.
-            </p>
-            <Link
-              href="/skills"
-              className="text-sm font-medium text-accent hover:underline"
-            >
-              Browse the marketplace →
-            </Link>
-          </div>
-        </Band>
+          <Link
+            href="/tools"
+            className="text-sm font-medium text-accent hover:underline"
+          >
+            Browse the checks →
+          </Link>
+        </Section>
+
+        <Section
+          heading="Skills"
+          blurb={`${plugins.length} plugins that make your agent better at this codebase. Each one comes with the command to install it.`}
+          visual={<MarketplacePreview />}
+        >
+          <p className="leading-relaxed text-ink-muted">
+            Read from the same manifests the CLIs read, so the install command
+            on the page is the one that actually works. Codex only shows up
+            where Codex is supported.
+          </p>
+          <Link
+            href="/skills"
+            className="text-sm font-medium text-accent hover:underline"
+          >
+            Browse the marketplace →
+          </Link>
+        </Section>
       </div>
     </div>
   );

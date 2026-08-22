@@ -19,7 +19,13 @@ export default function UpdatesPage() {
 
   return (
     <div className="flex flex-col">
-      <header className="flex max-w-2xl flex-col gap-3 pb-10">
+      {/* Same accent bloom the home page sections open with. `isolate` keeps the negative
+          z-index behind the heading rather than behind the page background. */}
+      <header className="relative isolate flex max-w-2xl flex-col gap-3 pb-10">
+        <span
+          aria-hidden
+          className="absolute -top-10 -left-12 -z-10 h-36 w-96 rounded-full bg-accent/20 blur-3xl"
+        />
         <h1 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
           Updates
         </h1>
