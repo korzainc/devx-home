@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { baseline, plugins, tools } from "@/lib/catalogue";
+import { baseline, plugins } from "@/lib/catalogue";
 
 /* The band's outline is a masked overlay rather than a border on the element itself, which is the
    only way to have it fade out along the bottom. Closed at the top, open at the bottom, so two
@@ -13,51 +13,57 @@ const band =
 const panel =
   "flex h-full flex-col rounded-xl border border-line bg-canvas p-5 shadow-sm";
 
-function Band({
-  visual,
-  children,
-}: {
-  visual: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className={band}>
-      <div className="grid items-center gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:gap-12">
-        <div>{visual}</div>
-        <div className="flex flex-col gap-4 px-1 sm:px-2">{children}</div>
-      </div>
-    </div>
-  );
-}
-
-/* Separates the two sections without a rule: a blurred accent bloom behind the heading, then a
-   step down in type scale from the hero. `isolate` keeps the negative z-index bloom from
-   sliding behind the page background. */
+/* Each section says its piece once, inside the band. The heading outside carries no copy of its
+   own, which is what keeps it working as the break between the two sections. */
 function Section({
   heading,
-  blurb,
   visual,
   children,
 }: {
   heading: string;
-  blurb: string;
   visual: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <section className="flex flex-col gap-6">
+      {/* Separates the two sections without a rule: a blurred accent bloom behind the heading.
+          `isolate` keeps the negative z-index bloom from sliding behind the page background. */}
       <div className="relative isolate">
         <span
           aria-hidden
           className="absolute -top-8 -left-10 -z-10 h-28 w-72 rounded-full bg-accent/20 blur-3xl"
         />
-        <h2 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">
+        <h2 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
           {heading}
         </h2>
-        <p className="mt-2 max-w-xl leading-relaxed text-ink-muted">{blurb}</p>
       </div>
-      <Band visual={visual}>{children}</Band>
+      <div className={band}>
+        <div className="grid items-center gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:gap-12">
+          <div>{visual}</div>
+          <div className="flex flex-col gap-5 px-1 sm:px-2">{children}</div>
+        </div>
+      </div>
     </section>
+  );
+}
+
+/* The line that has to land first, so it takes the display face rather than body copy. */
+const lead =
+  "font-display text-2xl leading-snug font-medium tracking-tight text-ink";
+
+/* Groups the sentence that asks for something with the control that does it. */
+function Action({ children }: { children: React.ReactNode }) {
+  return <div className="flex flex-col gap-2">{children}</div>;
+}
+
+function BottomLink({ href, children }: { href: string; children: string }) {
+  return (
+    <Link
+      href={href}
+      className="self-center pt-1 text-sm font-medium text-accent hover:underline"
+    >
+      {children}
+    </Link>
   );
 }
 
@@ -144,63 +150,57 @@ export default function Home() {
       </div>
 
       <div className="flex flex-col gap-20">
-        <Section
-          heading="CI Tools"
-          blurb={`The ${tools.length} checks Korza expects a pipeline to run. Find out in a couple of seconds which ones yours is missing.`}
-          visual={<ReportPreview />}
-        >
-          <p className="leading-relaxed text-ink-muted">
-            It reads the root manifests and CI config through the GitHub API,
-            works out your stack, then names the file behind every check it
-            finds. Nothing to clone, nothing to install.
+        <Section heading="CI Tools" visual={<ReportPreview />}>
+          <p className={lead}>
+            The checks that keep every Korza pipeline consistent and every
+            delivery up to standard.
           </p>
 
-          {/* A plain GET form, so the field works before any JavaScript loads. The report page
-              reads `repo` from the query string and runs the analysis on arrival. */}
-          <form
-            action="/gap-analysis"
-            className="flex w-full flex-col gap-2 sm:flex-row"
-          >
-            <input
-              name="repo"
-              placeholder="owner/repo"
-              aria-label="Repository to analyze"
-              autoComplete="off"
-              spellCheck={false}
-              className="min-w-0 flex-1 rounded-lg border border-line bg-canvas px-3 py-2 font-mono text-sm text-ink placeholder:text-ink-faint"
-            />
-            <button
-              type="submit"
-              className="rounded-lg border border-accent bg-accent-wash px-4 py-2 text-sm font-medium whitespace-nowrap text-accent transition-opacity hover:opacity-80"
+          <Action>
+            <p className="text-sm text-ink-muted">
+              See where yours falls short and fix it before it reaches a client.
+            </p>
+            {/* A plain GET form, so the field works before any JavaScript loads. The report page
+                reads `repo` from the query string and runs the analysis on arrival. */}
+            <form
+              action="/gap-analysis"
+              className="flex w-full flex-col gap-2 sm:flex-row"
             >
-              Analyze
-            </button>
-          </form>
+              <input
+                name="repo"
+                placeholder="owner/repo"
+                aria-label="Repository to analyze"
+                autoComplete="off"
+                spellCheck={false}
+                className="min-w-0 flex-1 rounded-lg border border-line bg-canvas px-3 py-2 font-mono text-sm text-ink placeholder:text-ink-faint"
+              />
+              <button
+                type="submit"
+                className="rounded-lg border border-accent bg-accent-wash px-4 py-2 text-sm font-medium whitespace-nowrap text-accent transition-opacity hover:opacity-80"
+              >
+                Analyze
+              </button>
+            </form>
+          </Action>
 
-          <Link
-            href="/tools"
-            className="text-sm font-medium text-accent hover:underline"
-          >
-            Browse the checks →
-          </Link>
+          <BottomLink href="/tools">Browse the checks →</BottomLink>
         </Section>
 
-        <Section
-          heading="Skills"
-          blurb={`${plugins.length} plugins that make your agent better at this codebase. Each one comes with the command to install it.`}
-          visual={<MarketplacePreview />}
-        >
-          <p className="leading-relaxed text-ink-muted">
-            Read from the same manifests the CLIs read, so the install command
-            on the page is the one that actually works. Codex only shows up
-            where Codex is supported.
+        <Section heading="Skills" visual={<MarketplacePreview />}>
+          <div className="flex flex-col gap-2">
+            <p className={lead}>Stop repeating yourself to your AI agents.</p>
+            <p className="leading-relaxed text-ink-muted">
+              Korza&apos;s skills marketplace offers fine-tuned workflows for
+              engineering and business alike, keeping your agents consistent and
+              your work moving.
+            </p>
+          </div>
+
+          <p className="text-sm text-ink-muted">
+            Start with the skills we recommend here.
           </p>
-          <Link
-            href="/skills"
-            className="text-sm font-medium text-accent hover:underline"
-          >
-            Browse the marketplace →
-          </Link>
+
+          <BottomLink href="/skills">Browse the marketplace →</BottomLink>
         </Section>
       </div>
     </div>
