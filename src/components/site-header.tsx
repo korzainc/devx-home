@@ -26,6 +26,15 @@ export function SiteHeader() {
             <span className="text-accent motion-safe:animate-breathe">X</span>
           </span>
         </Link>
+
+        <nav className="ml-auto">
+          <Link
+            href="/updates"
+            className="text-sm text-ink-muted transition-colors hover:text-ink"
+          >
+            Updates
+          </Link>
+        </nav>
       </div>
     </header>
   );

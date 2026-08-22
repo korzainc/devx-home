@@ -1,7 +1,7 @@
 # devx-home
 
 Korza's DevX portal: a tools catalogue, a skills catalogue, a CI gap analysis for a given
-repo, and a changelog. Tracked in the Linear project **DevX Home**.
+repo, and product updates. Tracked in the Linear project **DevX Home**.
 
 Bootstrap only right now (DX-31) — no features, no catalogues, no auth.
 

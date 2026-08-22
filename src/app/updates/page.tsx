@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { getChangelog } from "@/lib/changelog";
+import { getUpdates } from "@/lib/updates";
 
 export const metadata: Metadata = {
-  title: "Changelog",
-  description: "What changed in DevX Home, newest first.",
+  title: "Updates",
+  description:
+    "What the DevX team has shipped, newest first, and how to start using it.",
 };
 
 const dateFormat = new Intl.DateTimeFormat("en-GB", {
@@ -13,19 +14,23 @@ const dateFormat = new Intl.DateTimeFormat("en-GB", {
   timeZone: "UTC",
 });
 
-export default function ChangelogPage() {
-  const changelog = getChangelog();
+export default function UpdatesPage() {
+  const updates = getUpdates();
 
   return (
     <div className="flex flex-col">
-      <header className="pb-10">
+      <header className="flex max-w-2xl flex-col gap-3 pb-10">
         <h1 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
-          Changelog
+          Updates
         </h1>
+        <p className="text-lg leading-relaxed text-ink-muted">
+          What the DevX team has shipped. Everything below is live now, so each
+          entry says how to start using it.
+        </p>
       </header>
 
       <ol className="flex flex-col">
-        {changelog.map((entry) => (
+        {updates.map((entry) => (
           <li
             key={entry.slug}
             id={entry.slug}
