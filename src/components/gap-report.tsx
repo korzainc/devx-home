@@ -9,7 +9,7 @@ function StatusChip({ satisfied }: { satisfied: boolean }) {
     <span
       className={`shrink-0 rounded-md border px-1.5 py-0.5 font-mono text-[0.65rem] ${
         satisfied
-          ? "border-line text-ink-faint"
+          ? "border-positive bg-positive-wash text-positive"
           : "border-accent bg-accent-wash text-accent"
       }`}
     >
@@ -68,7 +68,7 @@ export function GapReport({ analysis }: { analysis: Analysis }) {
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-3 border-b border-line pb-8">
-        <div className="flex flex-wrap items-baseline gap-x-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
           <span className="font-mono text-sm text-ink">{analysis.repo}</span>
           <span className="font-mono text-xs text-ink-faint">
             {analysis.defaultBranch}
@@ -76,20 +76,28 @@ export function GapReport({ analysis }: { analysis: Analysis }) {
         </div>
 
         <h2 className="font-display text-2xl font-semibold tracking-tight">
-          {analysis.gapCount === 0
-            ? "Nothing missing against the baseline."
-            : `${analysis.gapCount} ${analysis.gapCount === 1 ? "check" : "checks"} missing.`}
+          {analysis.satisfiedCount} of {expected} recommended checks are
+          running.
         </h2>
 
-        <p className="leading-relaxed text-ink-muted">
-          {analysis.satisfiedCount} of {expected} expected checks already run.{" "}
+        {/* The proportion lands before the numbers do. Green is what runs, red is what does
+            not, which is the same pairing the chips below use. */}
+        <div className="flex h-1.5 overflow-hidden rounded-full bg-line">
+          <div
+            className="bg-positive"
+            style={{ width: `${(analysis.satisfiedCount / expected) * 100}%` }}
+          />
+          <div className="flex-1 bg-accent" />
+        </div>
+
+        <p className="text-sm text-ink-muted">
           {analysis.stacks.length > 0 ? (
             <>
               Compared against the baseline for{" "}
               <span className="text-ink">
                 {analysis.stacks.map((stack) => stack.label).join(", ")}
               </span>
-              .
+              . {analysis.filesRead.length} files read.
             </>
           ) : (
             "No manifest was recognised at the repo root, so only the checks that apply to any repo were compared."

@@ -16,6 +16,10 @@
      Light mode therefore uses the darker red the marketing site already pairs with it. */
   --accent: #dc2626;
   --accent-wash: #fef1f1;
+  /* Same constraint as the accent: this has to carry small text, so it is green-700 rather
+     than a brighter green that would fail AA on white. */
+  --positive: #15803d;
+  --positive-wash: #f0fdf4;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -31,6 +35,8 @@
     /* Lifted off #ff0000: pure red on a near-black canvas reads as vibrating rather than sharp. */
     --accent: #ff5f5f;
     --accent-wash: #2a1517;
+    --positive: #4ade80;
+    --positive-wash: #10261a;
   }
 }
 
@@ -45,6 +51,8 @@
   --color-ink-faint: var(--ink-faint);
   --color-accent: var(--accent);
   --color-accent-wash: var(--accent-wash);
+  --color-positive: var(--positive);
+  --color-positive-wash: var(--positive-wash);
 
   --font-sans: var(--font-inter);
   --font-display: var(--font-work-sans);
