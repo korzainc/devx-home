@@ -4,7 +4,7 @@ import { marked } from "marked";
 import { parse as parseYaml } from "yaml";
 
 // Entries are files rather than JSON because the body is prose.
-export type ChangelogEntry = {
+export type UpdateEntry = {
   /** Filename without the extension. Identity for the anchor link, since dates can repeat. */
   slug: string;
   date: string;
@@ -13,11 +13,11 @@ export type ChangelogEntry = {
   bodyHtml: string;
 };
 
-const contentDir = join(process.cwd(), "content", "changelog");
+const contentDir = join(process.cwd(), "content", "updates");
 
 const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/;
 
-function parseEntry(file: string): ChangelogEntry {
+function parseEntry(file: string): UpdateEntry {
   const raw = readFileSync(join(contentDir, file), "utf8");
   const match = frontmatter.exec(raw);
   if (!match) {
@@ -43,7 +43,7 @@ function parseEntry(file: string): ChangelogEntry {
 //
 // Newest first. Dates are ISO strings, so they sort lexically; slug breaks the tie when two
 // entries land on the same day.
-export function getChangelog(): ChangelogEntry[] {
+export function getUpdates(): UpdateEntry[] {
   return readdirSync(contentDir)
     .filter((file) => file.endsWith(".md"))
     .map(parseEntry)

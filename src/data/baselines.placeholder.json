@@ -1,0 +1,89 @@
+{
+  "categories": [
+    "Security",
+    "Testing",
+    "Linting",
+    "Formatting",
+    "Types",
+    "Dependencies",
+    "CI Meta"
+  ],
+  "capabilities": {
+    "lint": { "label": "Linting", "category": "Linting" },
+    "format": { "label": "Formatting", "category": "Formatting" },
+    "typecheck": { "label": "Type checking", "category": "Types" },
+    "unit-tests": { "label": "Unit tests", "category": "Testing" },
+    "coverage": { "label": "Coverage reporting", "category": "Testing" },
+    "e2e-tests": { "label": "End to end tests", "category": "Testing" },
+    "sast": { "label": "Static analysis for security", "category": "Security" },
+    "sca": {
+      "label": "Dependency vulnerability scanning",
+      "category": "Security"
+    },
+    "secret-scanning": { "label": "Secret scanning", "category": "Security" },
+    "container-scanning": {
+      "label": "Container image scanning",
+      "category": "Security"
+    },
+    "iac-scanning": {
+      "label": "Infrastructure as code scanning",
+      "category": "Security"
+    },
+    "workflow-lint": { "label": "Workflow linting", "category": "CI Meta" },
+    "dependency-updates": {
+      "label": "Automated dependency updates",
+      "category": "Dependencies"
+    }
+  },
+  "universal": ["secret-scanning", "sca", "dependency-updates"],
+  "stacks": [
+    {
+      "id": "javascript",
+      "label": "JavaScript",
+      "markers": ["package.json"],
+      "expects": ["lint", "format", "unit-tests", "sast"]
+    },
+    {
+      "id": "typescript",
+      "label": "TypeScript",
+      "markers": ["tsconfig.json"],
+      "expects": ["typecheck"]
+    },
+    {
+      "id": "java",
+      "label": "Java",
+      "markers": ["pom.xml", "build.gradle", "build.gradle.kts"],
+      "expects": ["lint", "unit-tests", "coverage", "sast"]
+    },
+    {
+      "id": "go",
+      "label": "Go",
+      "markers": ["go.mod"],
+      "expects": ["lint", "unit-tests", "sast"]
+    },
+    {
+      "id": "python",
+      "label": "Python",
+      "markers": ["pyproject.toml", "requirements.txt", "setup.py"],
+      "expects": ["lint", "format", "unit-tests", "sast"]
+    },
+    {
+      "id": "rust",
+      "label": "Rust",
+      "markers": ["Cargo.toml"],
+      "expects": ["lint", "format", "unit-tests"]
+    },
+    {
+      "id": "github-actions",
+      "label": "GitHub Actions",
+      "markers": [".github/workflows"],
+      "expects": ["workflow-lint"]
+    },
+    {
+      "id": "docker",
+      "label": "Docker",
+      "markers": ["Dockerfile"],
+      "expects": ["container-scanning"]
+    }
+  ]
+}

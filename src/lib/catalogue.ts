@@ -1,5 +1,7 @@
+import baselineData from "@/data/baselines.placeholder.json";
 import toolsData from "@/data/tools.placeholder.json";
 import pluginsData from "@/data/plugins.json";
+import type { Baseline, DetectSignals } from "@/lib/gap/types";
 
 // ToolEntry is still a provisional stand-in - the real shape arrives with catalogue.json, built
 // by the catalogue repo. Field access is confined to this module and the card renderers so that
@@ -22,6 +24,8 @@ export type ToolEntry = CatalogueEntry & {
   capabilities: string[];
   stacks: string[];
   docsUrl: string;
+  /** What gap analysis looks for to decide the tool is already in use. */
+  detect: DetectSignals;
 };
 
 export type PluginEntry = CatalogueEntry & {
@@ -57,6 +61,10 @@ export function facetValues<T>(entry: T, key: FacetKey<T>): string[] {
 export const tools: ToolEntry[] = toolsData;
 
 export const plugins: PluginEntry[] = pluginsData;
+
+// Which capabilities a stack is expected to have. Separate from the tools because a baseline is a
+// statement about stacks, not about any one tool, and the two will be published separately.
+export const baseline: Baseline = baselineData;
 
 export const marketplaceName = "korza-marketplace";
 
