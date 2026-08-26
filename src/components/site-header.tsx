@@ -32,6 +32,12 @@ export function SiteHeader() {
 
         <nav className="ml-auto flex items-center gap-5">
           <Link
+            href="/roadmap"
+            className="text-sm text-ink-muted transition-colors hover:text-ink"
+          >
+            Roadmap
+          </Link>
+          <Link
             href="/updates"
             className="text-sm text-ink-muted transition-colors hover:text-ink"
           >
