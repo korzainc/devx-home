@@ -49,13 +49,14 @@ async function request(url: string, token: string, accept?: string) {
 
   if (response.ok) return response;
 
-  // A fine-grained PAT returns 404 rather than 403 for a repo outside its scope, so the two
-  // cases cannot be distinguished and the message has to cover both.
+  // GitHub returns 404 rather than 403 for a private repo the token cannot reach, so a missing
+  // repo and an unreachable one are indistinguishable and the message has to cover both. Public
+  // repos are readable without an installation; private ones need the App installed on them.
   const reason =
     response.status === 404
-      ? "Repository not found, or the configured token cannot see it."
+      ? "Repository not found, or the Korza DevX app is not installed on it. Ask a korzainc owner to add it to the installation."
       : response.status === 401
-        ? "GitHub rejected the token."
+        ? "GitHub rejected the token. Sign in again."
         : response.status === 403 || response.status === 429
           ? "GitHub rate limit or access restriction hit. Try again shortly."
           : `GitHub returned ${response.status}.`;
