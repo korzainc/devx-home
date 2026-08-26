@@ -39,4 +39,20 @@ describe("parseRepoRef", () => {
     ).toBeNull();
     expect(parseRepoRef("https://gitlab.com/korzainc/devx-home")).toBeNull();
   });
+
+  it("rejects dot segments that would redirect the API request", () => {
+    // `/repos/../user` normalises to `/user`, so these would read the caller's own account and
+    // the org list instead of a repository.
+    expect(parseRepoRef("../user")).toBeNull();
+    expect(parseRepoRef("../organizations")).toBeNull();
+    expect(parseRepoRef("korzainc/..")).toBeNull();
+    expect(parseRepoRef("./user")).toBeNull();
+
+    // A leading dot is still a real repository name.
+    expect(parseRepoRef("korzainc/.github")).toEqual({
+      provider: "github",
+      owner: "korzainc",
+      repo: ".github",
+    });
+  });
 });
