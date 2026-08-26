@@ -61,7 +61,7 @@ const tools: AnalysisTool[] = [
 
 function snapshot(paths: string[]): RepoSnapshot {
   return {
-    ref: { owner: "korzainc", repo: "example" },
+    ref: { provider: "github", owner: "korzainc", repo: "example" },
     defaultBranch: "main",
     paths,
     files: {},
@@ -172,7 +172,7 @@ describe("analyze", () => {
   it("reports the repo, branch and files it read", () => {
     const report = analyze(
       {
-        ref: { owner: "korzainc", repo: "devx-home" },
+        ref: { provider: "github", owner: "korzainc", repo: "devx-home" },
         defaultBranch: "trunk",
         paths: ["package.json"],
         files: { "package.json": "{}", ".github/workflows/ci.yml": "" },

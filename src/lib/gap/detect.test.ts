@@ -31,7 +31,7 @@ const baseline: Baseline = {
 
 function snapshot(partial: Partial<RepoSnapshot> = {}): RepoSnapshot {
   return {
-    ref: { owner: "korzainc", repo: "example" },
+    ref: { provider: "github", owner: "korzainc", repo: "example" },
     defaultBranch: "main",
     paths: [],
     files: {},

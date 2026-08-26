@@ -1,12 +1,25 @@
 import { analyze } from "./analyze";
-import { GitHubError, loadSnapshot, parseRepoRef } from "./github";
-import type { Analysis, AnalysisTool, Baseline } from "./types";
+import { githubReader } from "./github";
+import { RepoReadError } from "./types";
+import type { Analysis, AnalysisTool, Baseline, RepoReader } from "./types";
+
+// Adding a provider means adding a reader here. The first one whose `parseRef` recognises the
+// input wins, so each reader decides what it owns rather than this list matching on hostnames.
+const readers: RepoReader[] = [githubReader];
 
 export type RunResult =
   | { ok: true; analysis: Analysis }
   | { ok: false; status: number; error: string };
 
-function statusFor(error: GitHubError) {
+function resolve(input: string) {
+  for (const reader of readers) {
+    const ref = reader.parseRef(input);
+    if (ref) return { reader, ref };
+  }
+  return null;
+}
+
+function statusFor(error: RepoReadError) {
   if (error.status === 404) return 404;
   // A rejected token is a deployment misconfiguration, not a bad request.
   if (error.status === 401) return 500;
@@ -23,8 +36,8 @@ export async function runAnalysis(
   token: string,
   catalogue: { tools: AnalysisTool[]; baseline: Baseline },
 ): Promise<RunResult> {
-  const ref = parseRepoRef(repo);
-  if (!ref) {
+  const resolved = resolve(repo);
+  if (!resolved) {
     return {
       ok: false,
       status: 400,
@@ -33,10 +46,14 @@ export async function runAnalysis(
   }
 
   try {
-    const snapshot = await loadSnapshot(ref, token, catalogue.baseline);
+    const snapshot = await resolved.reader.loadSnapshot(
+      resolved.ref,
+      token,
+      catalogue.baseline,
+    );
     return { ok: true, analysis: analyze(snapshot, catalogue) };
   } catch (error) {
-    if (error instanceof GitHubError) {
+    if (error instanceof RepoReadError) {
       return { ok: false, status: statusFor(error), error: error.message };
     }
     throw error;
