@@ -40,7 +40,38 @@ export type BaselineStack = {
   expects: string[];
 };
 
-export type RepoRef = { owner: string; repo: string };
+export type RepoRef = { provider: "github"; owner: string; repo: string };
+
+/** How a ref is written in the report, so `analyze` never handles a provider's addressing. */
+export function refLabel(ref: RepoRef): string {
+  return `${ref.owner}/${ref.repo}`;
+}
+
+/** Thrown by readers, so `run` can map a status without knowing which provider failed. */
+export class RepoReadError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "RepoReadError";
+  }
+}
+
+/**
+ * One provider's half of the analysis: turn what someone pasted into a ref, then read that repo
+ * into a snapshot. Everything downstream sees only the snapshot, so a second provider means a
+ * second reader rather than a change to `detect` or `analyze`.
+ */
+export type RepoReader = {
+  /** Null when the input does not address this provider, which is how `run` picks a reader. */
+  parseRef(input: string): RepoRef | null;
+  loadSnapshot(
+    ref: RepoRef,
+    token: string,
+    baseline: Baseline,
+  ): Promise<RepoSnapshot>;
+};
 
 export type RepoSnapshot = {
   ref: RepoRef;

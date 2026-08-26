@@ -1,4 +1,5 @@
 import { detectStacks, detectTools } from "./detect";
+import { refLabel } from "./types";
 import type {
   Analysis,
   AnalysisTool,
@@ -85,7 +86,7 @@ export function analyze(
     });
 
   return {
-    repo: `${snapshot.ref.owner}/${snapshot.ref.repo}`,
+    repo: refLabel(snapshot.ref),
     defaultBranch: snapshot.defaultBranch,
     stacks,
     filesRead: Object.keys(snapshot.files).sort(),

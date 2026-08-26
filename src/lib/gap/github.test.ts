@@ -3,7 +3,11 @@ import { parseRepoRef } from "./github";
 
 describe("parseRepoRef", () => {
   it("accepts the forms someone actually pastes", () => {
-    const expected = { owner: "korzainc", repo: "devx-home" };
+    const expected = {
+      provider: "github",
+      owner: "korzainc",
+      repo: "devx-home",
+    };
 
     expect(parseRepoRef("korzainc/devx-home")).toEqual(expected);
     expect(parseRepoRef("https://github.com/korzainc/devx-home")).toEqual(

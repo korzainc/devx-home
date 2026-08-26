@@ -1,5 +1,6 @@
 import { filesToRead } from "./detect";
-import type { Baseline, RepoRef, RepoSnapshot } from "./types";
+import { RepoReadError } from "./types";
+import type { Baseline, RepoReader, RepoRef, RepoSnapshot } from "./types";
 
 // Reads a repo over the API rather than cloning it. A clone needs a writable disk and pulls the
 // whole history for the sake of a dozen files, neither of which suits a serverless function.
@@ -8,16 +9,6 @@ import type { Baseline, RepoRef, RepoSnapshot } from "./types";
 // shared PAT for a per-user OAuth token then changes only the caller.
 
 const api = "https://api.github.com";
-
-export class GitHubError extends Error {
-  constructor(
-    readonly status: number,
-    message: string,
-  ) {
-    super(message);
-    this.name = "GitHubError";
-  }
-}
 
 /** Accepts a GitHub URL, an `owner/repo` pair, or either with a trailing `.git`. */
 export function parseRepoRef(input: string): RepoRef | null {
@@ -34,7 +25,7 @@ export function parseRepoRef(input: string): RepoRef | null {
   const match = /^([\w.-]+)\/([\w.-]+)$/.exec(path);
   if (!match) return null;
 
-  return { owner: match[1], repo: match[2] };
+  return { provider: "github", owner: match[1], repo: match[2] };
 }
 
 function headers(token: string): HeadersInit {
@@ -69,7 +60,7 @@ async function request(url: string, token: string, accept?: string) {
           ? "GitHub rate limit or access restriction hit. Try again shortly."
           : `GitHub returned ${response.status}.`;
 
-  throw new GitHubError(response.status, reason);
+  throw new RepoReadError(response.status, reason);
 }
 
 async function fetchDefaultBranch(
@@ -82,7 +73,7 @@ async function fetchDefaultBranch(
   );
   const body = (await response.json()) as { default_branch?: string };
   if (!body.default_branch) {
-    throw new GitHubError(502, "Repository has no default branch.");
+    throw new RepoReadError(502, "Repository has no default branch.");
   }
   return body.default_branch;
 }
@@ -156,3 +147,8 @@ export async function loadSnapshot(
     files: Object.fromEntries(contents.filter((entry) => entry !== null)),
   };
 }
+
+export const githubReader: RepoReader = {
+  parseRef: parseRepoRef,
+  loadSnapshot,
+};
