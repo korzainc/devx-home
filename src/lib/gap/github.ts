@@ -25,6 +25,11 @@ export function parseRepoRef(input: string): RepoRef | null {
   const match = /^([\w.-]+)\/([\w.-]+)$/.exec(path);
   if (!match) return null;
 
+  // A segment of nothing but dots is not a name GitHub issues, and `..` would resolve the request
+  // URL onto a different endpoint entirely: `../user` would reach /user rather than a repo. Only
+  // all-dot segments are rejected, because a leading dot is legitimate in names like `.github`.
+  if (/^\.+$/.test(match[1]) || /^\.+$/.test(match[2])) return null;
+
   return { provider: "github", owner: match[1], repo: match[2] };
 }
 
