@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { GapReport } from "@/components/gap-report";
+import { signInWithGitHub } from "@/lib/auth-actions";
 import { baseline, tools } from "@/lib/catalogue";
 import { runAnalysis } from "@/lib/gap/run";
+import { getGitHubToken } from "@/lib/session";
 
 export const metadata: Metadata = {
   title: "Gap analysis",
@@ -10,18 +12,35 @@ export const metadata: Metadata = {
     "Point it at a GitHub repository. It reads the manifests and CI config, then reports which recommended checks are missing.",
 };
 
-// The token is read here and handed to `runAnalysis` as an argument. Nothing under src/lib/gap
-// touches the environment, which is what keeps the swap to a per-user OAuth token local to the
-// two callers that read it.
+// The token belongs to whoever is signed in and is handed to `runAnalysis` as an argument.
+// Nothing under src/lib/gap touches the environment or the session.
 async function Result({ repo }: { repo: string }) {
-  const token = process.env.GITHUB_API_TOKEN;
-  if (!token)
-    return <Notice>GITHUB_API_TOKEN is not set on this deployment.</Notice>;
+  const token = await getGitHubToken();
+  if (!token) return <SignInPrompt />;
 
   const result = await runAnalysis(repo, token, { tools, baseline });
   if (!result.ok) return <Notice>{result.error}</Notice>;
 
   return <GapReport analysis={result.analysis} />;
+}
+
+function SignInPrompt() {
+  return (
+    <div className="flex max-w-xl flex-col items-start gap-4 rounded-xl border border-accent bg-accent-wash px-5 py-4">
+      <p className="text-sm text-ink">
+        The analysis reads the repository as you, so it needs your GitHub
+        account. It only ever reads file contents.
+      </p>
+      <form action={signInWithGitHub}>
+        <button
+          type="submit"
+          className="rounded-lg border border-accent px-4 py-2 text-sm font-medium text-accent transition-opacity hover:opacity-80"
+        >
+          Sign in with GitHub
+        </button>
+      </form>
+    </div>
+  );
 }
 
 function Notice({ children }: { children: React.ReactNode }) {

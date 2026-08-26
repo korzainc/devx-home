@@ -1,12 +1,12 @@
 import { baseline, tools } from "@/lib/catalogue";
 import { runAnalysis } from "@/lib/gap/run";
+import { getGitHubToken } from "@/lib/session";
 
-// The token is read here and handed to `runAnalysis` as an argument. Nothing under src/lib/gap
-// touches the environment, which is what keeps the swap to a per-user OAuth token local to the
-// two callers that read it.
+// The token belongs to whoever is signed in and is handed to `runAnalysis` as an argument.
+// Nothing under src/lib/gap touches the environment or the session.
 //
-// GITHUB_API_TOKEN is a shared credential for this milestone, so the deployment serving this
-// route has to stay behind Vercel Authentication until that swap lands.
+// The session is what stops this being an open proxy: `repo` comes from the request body, so
+// without it any caller could aim a shared credential at any repository that credential can see.
 
 function repoFromBody(body: unknown): string {
   if (body && typeof body === "object" && "repo" in body) {
@@ -17,11 +17,11 @@ function repoFromBody(body: unknown): string {
 }
 
 export async function POST(request: Request) {
-  const token = process.env.GITHUB_API_TOKEN;
+  const token = await getGitHubToken();
   if (!token) {
     return Response.json(
-      { error: "GITHUB_API_TOKEN is not set on this deployment." },
-      { status: 503 },
+      { error: "Sign in with GitHub to analyze a repository." },
+      { status: 401 },
     );
   }
 

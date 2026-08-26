@@ -1,6 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
+import { Suspense } from "react";
 import korzaLogo from "@/assets/korza-logo.png";
+import { signInWithGitHub, signOut } from "@/lib/auth-actions";
+import { getSession } from "@/lib/session";
 
 export function SiteHeader() {
   return (
@@ -27,15 +30,53 @@ export function SiteHeader() {
           </span>
         </Link>
 
-        <nav className="ml-auto">
+        <nav className="ml-auto flex items-center gap-5">
           <Link
             href="/updates"
             className="text-sm text-ink-muted transition-colors hover:text-ink"
           >
             Updates
           </Link>
+          {/* Reading the session queries Postgres, so it stays behind its own boundary and the
+              rest of the header paints without waiting on it. */}
+          <Suspense fallback={null}>
+            <AuthControl />
+          </Suspense>
         </nav>
       </div>
     </header>
+  );
+}
+
+async function AuthControl() {
+  const session = await getSession();
+
+  if (!session) {
+    return (
+      <form action={signInWithGitHub}>
+        <button
+          type="submit"
+          className="rounded-lg border border-accent bg-accent-wash px-3 py-1.5 text-sm font-medium whitespace-nowrap text-accent transition-opacity hover:opacity-80"
+        >
+          Sign in with GitHub
+        </button>
+      </form>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-3">
+      <span className="hidden text-sm text-ink-muted sm:inline">
+        {session.user.name}
+      </span>
+      <form action={signOut}>
+        <button
+          type="submit"
+          className="rounded-lg border border-line px-3 py-1.5 text-sm text-ink-muted transition-colors hover:text-ink"
+        >
+          Sign out
+        </button>
+      </form>
+    </div>
   );
 }

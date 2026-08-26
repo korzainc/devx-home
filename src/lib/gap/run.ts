@@ -21,8 +21,9 @@ function resolve(input: string) {
 
 function statusFor(error: RepoReadError) {
   if (error.status === 404) return 404;
-  // A rejected token is a deployment misconfiguration, not a bad request.
-  if (error.status === 401) return 500;
+  // The token is now the caller's own, so a rejected one means their grant has lapsed rather
+  // than the deployment being misconfigured.
+  if (error.status === 401) return 401;
   if (error.status === 403 || error.status === 429) return 429;
   return 502;
 }
