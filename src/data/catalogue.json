@@ -1,0 +1,373 @@
+{
+  "taxonomy": {
+    "categories": {
+      "security": {
+        "label": "Security"
+      },
+      "quality": {
+        "label": "Code Quality"
+      }
+    },
+    "capabilities": {
+      "sca": {
+        "category": "security",
+        "label": "Dependency Scanning (SCA)"
+      },
+      "sast": {
+        "category": "security",
+        "label": "Static Application Security Testing (SAST)"
+      },
+      "iac-config": {
+        "category": "security",
+        "label": "IaC Config Scanning"
+      },
+      "iac-dockerfile-lint": {
+        "category": "security",
+        "label": "Dockerfile Lint"
+      },
+      "secrets": {
+        "category": "security",
+        "label": "Secret Scanning"
+      },
+      "image-scan": {
+        "category": "security",
+        "label": "Container Image Scanning"
+      },
+      "lint-bugs": {
+        "category": "quality",
+        "label": "Bug Pattern Analysis"
+      },
+      "lint-style": {
+        "category": "quality",
+        "label": "Style Linting"
+      },
+      "coverage": {
+        "category": "quality",
+        "label": "Code Coverage"
+      }
+    },
+    "languages": ["java", "javascript", "typescript", "*"],
+    "buildSystems": ["maven", "gradle", "npm", "*"]
+  },
+  "tools": {
+    "eslint": {
+      "id": "eslint",
+      "name": "ESLint",
+      "summary": "Static analysis for JavaScript and TypeScript, driven by a flat config the repo owns.",
+      "capabilities": ["lint-style"],
+      "applicability": {
+        "languages": ["javascript", "typescript"],
+        "buildSystems": ["npm"]
+      },
+      "install": [
+        {
+          "type": "npm",
+          "package": "eslint",
+          "version": "^9"
+        }
+      ],
+      "detection": {
+        "github": {
+          "ciUses": [],
+          "commands": ["eslint", "npm run lint"]
+        },
+        "azureDevops": {},
+        "configFiles": [".eslintrc", ".eslintrc.json", "eslint.config.js"],
+        "manifestDeps": ["eslint"]
+      },
+      "overlaps": [],
+      "links": {
+        "homepage": "https://eslint.org"
+      }
+    },
+    "hadolint": {
+      "id": "hadolint",
+      "name": "hadolint",
+      "summary": "Dockerfile linter checked against a ruleset baked into its own binary.",
+      "capabilities": ["iac-dockerfile-lint"],
+      "applicability": {
+        "languages": ["*"],
+        "buildSystems": ["*"]
+      },
+      "install": [
+        {
+          "type": "script",
+          "url": "https://github.com/hadolint/hadolint/releases/download/v2.15.0/hadolint-linux-x86_64",
+          "version": "2.15.0"
+        },
+        {
+          "type": "brew",
+          "formula": "hadolint"
+        }
+      ],
+      "invocation": {
+        "github": {
+          "iac-dockerfile-lint": {
+            "action": "korzainc/shared-workflows/.github/workflows/security-iac-dockerfile-lint.yml@v3",
+            "runner": "reusable-workflow",
+            "args": {
+              "blocking": true,
+              "azure_client_id": "${{ vars.CI_COMMON_AZURE_CLIENT_ID }}",
+              "azure_tenant_id": "${{ vars.CI_COMMON_AZURE_TENANT_ID }}",
+              "azure_subscription_id": "${{ vars.CI_COMMON_AZURE_SUBSCRIPTION_ID }}"
+            },
+            "scope": "diff"
+          }
+        },
+        "azureDevops": {}
+      },
+      "detection": {
+        "github": {
+          "ciUses": ["hadolint/hadolint-action"],
+          "commands": ["hadolint"]
+        },
+        "azureDevops": {},
+        "configFiles": [".hadolint.yaml", ".hadolint.yml"],
+        "manifestDeps": []
+      },
+      "overlaps": [],
+      "links": {
+        "homepage": "https://github.com/hadolint/hadolint"
+      }
+    },
+    "kingfisher": {
+      "id": "kingfisher",
+      "name": "Kingfisher",
+      "summary": "Secrets scanner for git history and working trees.",
+      "capabilities": ["secrets"],
+      "applicability": {
+        "languages": ["*"],
+        "buildSystems": ["*"]
+      },
+      "install": [
+        {
+          "type": "script",
+          "url": "https://github.com/mongodb/kingfisher/releases/download/v1.108.0/kingfisher-linux-x64.tgz",
+          "version": "1.108.0"
+        }
+      ],
+      "invocation": {
+        "github": {
+          "secrets": {
+            "action": "korzainc/shared-workflows/.github/workflows/security-secrets-scan.yml@v3",
+            "runner": "reusable-workflow",
+            "args": {
+              "secrets_exclude_file": "",
+              "azure_client_id": "${{ vars.CI_COMMON_AZURE_CLIENT_ID }}",
+              "azure_tenant_id": "${{ vars.CI_COMMON_AZURE_TENANT_ID }}",
+              "azure_subscription_id": "${{ vars.CI_COMMON_AZURE_SUBSCRIPTION_ID }}"
+            },
+            "scope": "diff"
+          }
+        },
+        "azureDevops": {}
+      },
+      "detection": {
+        "github": {
+          "ciUses": [],
+          "commands": ["kingfisher scan"]
+        },
+        "azureDevops": {},
+        "configFiles": [],
+        "manifestDeps": []
+      },
+      "overlaps": [],
+      "links": {
+        "homepage": "https://github.com/mongodb/kingfisher"
+      }
+    },
+    "semgrep": {
+      "id": "semgrep",
+      "name": "Semgrep",
+      "summary": "Static analysis scanner for security and correctness rules across languages.",
+      "capabilities": ["sast"],
+      "applicability": {
+        "languages": ["*"],
+        "buildSystems": ["*"]
+      },
+      "install": [
+        {
+          "type": "script",
+          "package": "semgrep",
+          "version": "1.170.0"
+        },
+        {
+          "type": "brew",
+          "formula": "semgrep"
+        }
+      ],
+      "invocation": {
+        "github": {
+          "sast": {
+            "action": "korzainc/shared-workflows/.github/workflows/security-sast.yml@v3",
+            "runner": "reusable-workflow",
+            "args": {
+              "azure_client_id": "${{ vars.CI_COMMON_AZURE_CLIENT_ID }}",
+              "azure_tenant_id": "${{ vars.CI_COMMON_AZURE_TENANT_ID }}",
+              "azure_subscription_id": "${{ vars.CI_COMMON_AZURE_SUBSCRIPTION_ID }}"
+            },
+            "scope": "diff"
+          }
+        },
+        "azureDevops": {}
+      },
+      "detection": {
+        "github": {
+          "ciUses": [],
+          "commands": ["semgrep scan", "semgrep ci"]
+        },
+        "azureDevops": {},
+        "configFiles": [".semgrepignore", ".semgrep.yml"],
+        "manifestDeps": []
+      },
+      "overlaps": [],
+      "links": {
+        "homepage": "https://semgrep.dev"
+      }
+    },
+    "spotbugs": {
+      "id": "spotbugs",
+      "name": "SpotBugs",
+      "summary": "Bytecode-level static analysis for JVM projects, wired into the shared Java CI stack.",
+      "capabilities": ["lint-bugs"],
+      "applicability": {
+        "languages": ["java"],
+        "buildSystems": ["maven"]
+      },
+      "install": [
+        {
+          "type": "jar",
+          "url": "https://github.com/spotbugs/spotbugs/releases/download/4.10.3/spotbugs-4.10.3.tgz",
+          "version": "4.10.3"
+        }
+      ],
+      "invocation": {
+        "github": {
+          "lint-bugs": {
+            "action": "korzainc/shared-workflows/.github/workflows/ci.yml@v3",
+            "runner": "reusable-workflow",
+            "args": {
+              "language": "java"
+            },
+            "scope": "diff"
+          }
+        },
+        "azureDevops": {}
+      },
+      "detection": {
+        "github": {
+          "ciUses": [],
+          "commands": ["spotbugs:check", "spotbugsMain"]
+        },
+        "azureDevops": {},
+        "configFiles": [],
+        "manifestDeps": ["spotbugs-maven-plugin"]
+      },
+      "overlaps": [],
+      "links": {
+        "homepage": "https://spotbugs.github.io"
+      }
+    },
+    "trivy": {
+      "id": "trivy",
+      "name": "Trivy",
+      "summary": "Filesystem, image, and IaC vulnerability scanner.",
+      "capabilities": ["sca", "iac-config", "image-scan"],
+      "applicability": {
+        "languages": ["*"],
+        "buildSystems": ["*"]
+      },
+      "install": [
+        {
+          "type": "docker",
+          "image": "aquasec/trivy",
+          "tag": "0.52.0"
+        },
+        {
+          "type": "brew",
+          "formula": "trivy"
+        }
+      ],
+      "invocation": {
+        "github": {
+          "sca": {
+            "action": "korzainc/shared-workflows/.github/workflows/security-sca.yml@v3",
+            "runner": "reusable-workflow",
+            "args": {
+              "blocking": true,
+              "service_path": ".",
+              "sca_ignore_file": "",
+              "azure_client_id": "${{ vars.CI_COMMON_AZURE_CLIENT_ID }}",
+              "azure_tenant_id": "${{ vars.CI_COMMON_AZURE_TENANT_ID }}",
+              "azure_subscription_id": "${{ vars.CI_COMMON_AZURE_SUBSCRIPTION_ID }}"
+            },
+            "scope": "diff"
+          },
+          "iac-config": {
+            "action": "korzainc/shared-workflows/.github/workflows/security-iac-config.yml@v3",
+            "runner": "reusable-workflow",
+            "args": {
+              "blocking": true,
+              "iac_config_path": ".",
+              "iac_config_ignore_file": "",
+              "azure_client_id": "${{ vars.CI_COMMON_AZURE_CLIENT_ID }}",
+              "azure_tenant_id": "${{ vars.CI_COMMON_AZURE_TENANT_ID }}",
+              "azure_subscription_id": "${{ vars.CI_COMMON_AZURE_SUBSCRIPTION_ID }}"
+            },
+            "scope": "diff"
+          },
+          "image-scan": {
+            "action": "korzainc/shared-workflows/.github/workflows/security-image-scan.yml@v3",
+            "runner": "reusable-workflow",
+            "args": {
+              "blocking": true,
+              "dockerfile_path": "",
+              "dockerfile_context": ".",
+              "image_scan_ignore_file": "",
+              "azure_client_id": "${{ vars.CI_COMMON_AZURE_CLIENT_ID }}",
+              "azure_tenant_id": "${{ vars.CI_COMMON_AZURE_TENANT_ID }}",
+              "azure_subscription_id": "${{ vars.CI_COMMON_AZURE_SUBSCRIPTION_ID }}"
+            },
+            "scope": "full"
+          }
+        },
+        "azureDevops": {}
+      },
+      "detection": {
+        "github": {
+          "ciUses": ["aquasecurity/trivy-action"],
+          "commands": ["trivy fs", "trivy config"]
+        },
+        "azureDevops": {},
+        "configFiles": ["trivy.yaml", ".trivyignore"],
+        "manifestDeps": []
+      },
+      "overlaps": [],
+      "links": {
+        "homepage": "https://trivy.dev"
+      }
+    }
+  },
+  "baselines": {
+    "java": {
+      "ecosystem": "java",
+      "baseline": {
+        "sca": {
+          "recommended": "trivy",
+          "acceptable": [],
+          "required": true
+        },
+        "lint-bugs": {
+          "recommended": "spotbugs",
+          "acceptable": [],
+          "required": true
+        },
+        "iac-config": {
+          "recommended": "trivy",
+          "acceptable": [],
+          "required": true
+        }
+      }
+    }
+  }
+}
