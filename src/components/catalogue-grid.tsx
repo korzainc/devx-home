@@ -116,9 +116,10 @@ export function CatalogueGrid<T extends CatalogueEntry>({
             <legend className="mb-2 text-xs font-medium tracking-wide text-ink-faint uppercase">
               {facet.label}
             </legend>
-            {/* Rows, not wrapped pills: variable-width chips left a ragged right edge, and
-                the 224px column is too narrow to grid them without clipping the long names. */}
-            <div className="flex flex-col gap-1">
+            {/* Two to a line. min-w-fit beats the half basis when a name is too long for it,
+                so that one pushes its neighbour down and grow fills the line. No length
+                threshold to keep in step with the data. */}
+            <div className="flex flex-wrap gap-1">
               {facet.options.map(([value, count]) => {
                 const isOn = selected[facet.key]?.includes(value) ?? false;
                 return (
@@ -127,13 +128,13 @@ export function CatalogueGrid<T extends CatalogueEntry>({
                     type="button"
                     aria-pressed={isOn}
                     onClick={() => toggle(facet.key, value)}
-                    className={`flex w-full items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 text-xs transition-colors ${
+                    className={`flex min-w-fit grow basis-[calc(50%-0.125rem)] items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 text-xs whitespace-nowrap transition-colors ${
                       isOn
                         ? "border-accent bg-accent-wash text-ink"
                         : "border-line bg-surface text-ink-muted hover:border-line-strong hover:text-ink"
                     }`}
                   >
-                    <span className="truncate">{value}</span>
+                    <span>{value}</span>
                     <span className="shrink-0 font-mono text-[0.65rem] text-ink-faint">
                       {count}
                     </span>
