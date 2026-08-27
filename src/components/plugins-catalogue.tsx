@@ -30,13 +30,8 @@ const TONE: Record<VersionStatus["state"], string> = {
 
 function PluginCard({ plugin }: { plugin: PluginRow }) {
   const version = versionStatusFor(plugin.id);
-  // From the index, never plugin.skills, which says 0 for codezen. Planned shown, or codezen
-  // reads 17 on the Skills tab and 11 here with nothing explaining the gap.
-  const pluginSkills = skillsForPlugin(plugin.id);
-  const skillCount = pluginSkills.filter(
-    (skill) => skill.status !== "Planned",
-  ).length;
-  const plannedCount = pluginSkills.length - skillCount;
+  // From the index, never plugin.skills, which says 0 for codezen.
+  const skillCount = skillsForPlugin(plugin.id).length;
   const agents = plugin.agents.map((a) => a.split(" ")[0].toLowerCase());
 
   return (
@@ -50,7 +45,6 @@ function PluginCard({ plugin }: { plugin: PluginRow }) {
         </span>
         <span className="shrink-0 font-mono text-[0.65rem] text-ink-faint">
           {skillCount} {skillCount === 1 ? "skill" : "skills"}
-          {plannedCount > 0 && `, ${plannedCount} planned`}
         </span>
       </div>
 

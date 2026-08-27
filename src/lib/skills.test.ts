@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import skillsData from "@/data/skills.json";
 import { CATEGORIES, plugins, skills, skillsForPlugin } from "./catalogue";
 
 // Quiet failures: an orphan filter nobody can clear, or one card swallowing another.
@@ -136,12 +137,14 @@ describe("skill catalogue", () => {
     }
   });
 
-  it("marks every skill either Live or Planned", () => {
-    for (const skill of skills) {
+  it("keeps Planned rows in the index and out of the catalogue", () => {
+    const indexed = skillsData.skills;
+    for (const skill of indexed) {
       expect(["Live", "Planned"]).toContain(skill.status);
     }
-    expect(skills.filter((skill) => skill.status === "Planned")).toHaveLength(
+    expect(indexed.filter((skill) => skill.status === "Planned")).toHaveLength(
       6,
     );
+    expect(skills.filter((skill) => skill.status === "Planned")).toEqual([]);
   });
 });

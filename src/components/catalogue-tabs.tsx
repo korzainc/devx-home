@@ -28,10 +28,8 @@ export function CatalogueTabs({
     skills: null,
   });
 
-  // Tab counts every row the panel lists; the grid counts the classified ones. 48 + 9 = 57.
+  // Tab counts every row the panel lists; the grid counts the classified ones. 42 + 9 = 51.
   const allSkills = [...skills, ...toolchain];
-  const liveSkills = allSkills.filter((skill) => skill.status !== "Planned");
-  const plannedCount = allSkills.length - liveSkills.length;
 
   const tabs: { id: View; label: string; count: number }[] = [
     { id: "plugins", label: "Plugins", count: plugins.length },
@@ -96,21 +94,11 @@ export function CatalogueTabs({
           hand-extracted file, which is the same moment this page is fit to publish. */}
       {view === "skills" && placeholder && (
         <p className="rounded-lg border border-line bg-surface-raised px-4 py-3 text-sm text-ink-muted">
-          Preview. {allSkills.length} rows: {liveSkills.length} skills that ship
-          in the catalogue today, plus {plannedCount} marked{" "}
-          <span className="font-mono">Planned</span> that do not exist yet (the
-          document formats agreed in{" "}
-          <a
-            href="https://linear.app/korza-ai/issue/DX-22"
-            className="underline hover:text-ink"
-          >
-            DX-22
-          </a>
-          ). The live rows were read from the source repositories on 2026-08-26
-          and will be generated in CI once that lands. {toolchain.length} of the{" "}
-          {allSkills.length} sit under Setup and toolchain at the foot of the
-          page: the filters do not apply to them, though search still finds
-          them. <span className="font-mono">Category</span> is a hand-authored
+          Preview. {allSkills.length} skills, read from the source repositories
+          on 2026-08-26 and generated in CI once that lands. {toolchain.length}{" "}
+          of them sit under Setup and toolchain at the foot of the page: the
+          filters do not apply to them, though search still finds them.{" "}
+          <span className="font-mono">Category</span> is a hand-authored
           classification, pending an agreed metadata standard.
         </p>
       )}

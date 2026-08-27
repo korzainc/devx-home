@@ -76,7 +76,7 @@ describe("catalogue search", () => {
   });
 
   it("does not match through facet values", () => {
-    // A leak returns 57, not 1. The probe must be a word that is only ever a facet value.
+    // A leak returns 51, not 1. The probe must be a word that is only ever a facet value.
 
     const codebase = hits("codebase");
     expect(codebase.length).toBeLessThan(skills.length);
@@ -112,8 +112,14 @@ describe("the reverse direction only matches inflections", () => {
   });
 
   it("searches the jobs, which nothing else in the haystack carries", () => {
-    const onlyInJobs = "put timelines on a piece of work";
-    expect(skills.some((s) => s.summary.includes(onlyInJobs))).toBe(false);
+    // Shares no stem with any summary, description or name, so a hit can only come from jobs.
+    const onlyInJobs = "edit prose before publishing it";
+    expect(
+      skills.some(
+        (s) =>
+          s.summary.includes(onlyInJobs) || s.description.includes(onlyInJobs),
+      ),
+    ).toBe(false);
     expect(hits(onlyInJobs).length).toBeGreaterThan(0);
   });
 });

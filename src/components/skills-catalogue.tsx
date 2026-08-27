@@ -8,7 +8,6 @@ import { skillFacets, type SkillEntry } from "@/lib/catalogue";
 // on every card. What stays is the command, what it does, the plugin you install to get it,
 // and the runtimes that can run it.
 function SkillCard({ skill }: { skill: SkillEntry }) {
-  const planned = skill.status === "Planned";
   // "Claude Code" -> "claude": short enough to sit opposite the plugin on one line.
   const agents = skill.agents.map((a) => a.split(" ")[0].toLowerCase());
 
@@ -17,24 +16,19 @@ function SkillCard({ skill }: { skill: SkillEntry }) {
       href={`/skills/${skill.plugin}`}
       className="group relative flex h-full flex-col gap-2 rounded-xl border border-line bg-surface p-4 pb-5 transition-colors hover:border-line-strong hover:bg-surface-raised"
     >
-      <div className="flex items-start justify-between gap-3">
+      <div>
         <span className="font-mono text-[0.9375rem] leading-snug font-medium text-ink [overflow-wrap:anywhere]">
           <span className="text-accent">/</span>
           {skill.name}
         </span>
-        {planned && (
-          <span className="mt-0.5 shrink-0 rounded border border-line px-1.5 py-0.5 font-mono text-[0.6rem] tracking-wide text-ink-faint uppercase">
-            Planned
-          </span>
-        )}
       </div>
 
       <p className="text-[0.8125rem] leading-relaxed text-ink-muted">
         {skill.summary || skill.description}
       </p>
 
-      {/* Runtimes left, plugin right. Claude Code is on all 48, so it says nothing alone --
-          the signal is whether codex sits beside it, since 20 of these cannot run there. */}
+      {/* Runtimes left, plugin right. Claude Code is on all 42, so it says nothing alone --
+          the signal is whether codex sits beside it, since 21 of these cannot run there. */}
       <div className="mt-auto flex items-baseline justify-between gap-3 pt-1 font-mono text-[0.65rem]">
         <span className="shrink-0 text-ink-faint">{agents.join(" · ")}</span>
         <span className="truncate text-ink-muted">{skill.plugin}</span>
