@@ -1,0 +1,100 @@
+import { describe, expect, it } from "vitest";
+import { skills } from "./catalogue";
+import { entryHaystack, matchesQuery } from "./search";
+
+/** Uses the grid's own haystack. Returns entries, not names: two plugins ship `code-review`. */
+function hits(query: string) {
+  return skills.filter((skill) => matchesQuery(query, entryHaystack(skill)));
+}
+
+describe("catalogue search", () => {
+  it("ignores word order", () => {
+    expect(matchesQuery("review code", "code-review")).toBe(true);
+    expect(matchesQuery("code review", "code-review")).toBe(true);
+  });
+
+  it("matches across hyphens and underscores", () => {
+    expect(matchesQuery("test driven", "test-driven-development")).toBe(true);
+    expect(matchesQuery("agentic e2e", "agentic-e2e")).toBe(true);
+    expect(matchesQuery("git worktrees", "using_git_worktrees")).toBe(true);
+  });
+
+  it("requires every term", () => {
+    expect(matchesQuery("code review python", "code-review")).toBe(false);
+  });
+
+  it("ignores punctuation in the query", () => {
+    expect(matchesQuery("tdd, review", "tdd code-review")).toBe(true);
+    expect(matchesQuery("(testing)", "test-driven development")).toBe(true);
+    expect(hits("tdd, review").length).toBeGreaterThan(0);
+    expect(hits("tdd, review")).toEqual(hits("tdd review"));
+  });
+
+  it("treats an empty or whitespace query as no filter", () => {
+    expect(matchesQuery("", "anything")).toBe(true);
+    expect(matchesQuery("   ", "anything")).toBe(true);
+  });
+
+  it("does not match inside a word", () => {
+    expect(
+      matchesQuery("unit", "Scan a codebase for deepening opportunities"),
+    ).toBe(false);
+    expect(matchesQuery("spec", "refining an underspecified ask")).toBe(false);
+  });
+
+  it("matches a prefix of a word", () => {
+    expect(matchesQuery("review", "requesting-code-reviewer")).toBe(true);
+    expect(matchesQuery("test", "testing the harness")).toBe(true);
+  });
+
+  it("matches an inflected query against a shorter word", () => {
+    expect(matchesQuery("testing", "test-driven development")).toBe(true);
+    expect(matchesQuery("documentation", "writes the document")).toBe(true);
+  });
+
+  // Only a stemmer would join these; not worth a dependency at this corpus size.
+  it("does not join two inflections of the same stem", () => {
+    expect(matchesQuery("testing", "unit tests")).toBe(false);
+    expect(hits("testing").length).toBeGreaterThanOrEqual(7);
+  });
+
+  it("does not let the reverse direction match on a stub", () => {
+    expect(matchesQuery("architecture", "a codebase")).toBe(false);
+    expect(matchesQuery("reviewer", "re-run the tests")).toBe(false);
+  });
+
+  it("finds the skills a user would search for by job", () => {
+    for (const query of [
+      "review code",
+      "test driven",
+      "end to end",
+      "testing",
+    ]) {
+      expect(hits(query).length, `"${query}" matches no skill`).toBeGreaterThan(
+        0,
+      );
+    }
+  });
+
+  it("does not match through facet values", () => {
+    // Every row carries "Claude Code" as an agent value, so a leak returns 57 and not 1.
+    // The probe has to be a word that is ONLY ever a facet value.
+
+    // `codebase` went from all 57 to 12, and every survivor genuinely says "code".
+    const codebase = hits("codebase");
+    expect(codebase.length).toBeLessThan(skills.length);
+    for (const skill of codebase) {
+      expect(entryHaystack(skill).toLowerCase()).toContain("code");
+    }
+
+    // Matches through the word "build" in prose, not through a facet. The rule doing its job.
+    for (const skill of hits("buildings")) {
+      expect(entryHaystack(skill).toLowerCase()).toContain("build");
+    }
+  });
+
+  it("still returns nothing for a term the catalogue has no skill for", () => {
+    expect(hits("unit")).toHaveLength(0);
+    expect(hits("kubernetes")).toHaveLength(0);
+  });
+});

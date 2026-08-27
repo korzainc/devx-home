@@ -1,9 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { baseline, tools } from "./catalogue";
+import skillsData from "@/data/skills.json";
+import {
+  baseline,
+  indexSchemaVersion,
+  installCommands,
+  marketplaceName,
+  marketplaceRepo,
+  plugins,
+  skillsArePlaceholder,
+  tools,
+} from "./catalogue";
 
-// The engine is only as good as the data behind it, and the failures are quiet: a capability with
-// no tool renders as a gap nobody can act on, and a typo in a capability id renders as nothing at
-// all. These assertions are the reason those show up as a red test rather than a bad report.
+// The engine is only as good as its data, and the failures are quiet: a capability with no tool
+// renders as a gap nobody can act on.
 describe("catalogue and baseline agree", () => {
   it("has no duplicate tool ids", () => {
     const ids = tools.map((tool) => tool.id);
@@ -90,8 +99,7 @@ describe("catalogue and baseline agree", () => {
   });
 
   it("offers a stack-agnostic tool for every universal capability", () => {
-    // A repo with no recognised manifest can only be recommended `any` tools, so a universal
-    // capability backed solely by, say, a Java tool would leave that report with a dead end.
+    // A repo with no recognised manifest can only be offered `any` tools.
     for (const capability of baseline.universal) {
       const candidates = tools.filter(
         (tool) =>
@@ -103,5 +111,38 @@ describe("catalogue and baseline agree", () => {
         `universal capability ${capability} has no stack-agnostic tool`,
       ).toBeGreaterThan(0);
     }
+  });
+});
+
+// Neither was imported by any test, so replacing the agent filter with `return all` passed.
+describe("install commands", () => {
+  it("offers a command only for an agent the plugin lists", () => {
+    for (const plugin of plugins) {
+      const commands = installCommands(plugin);
+      expect(commands.map((entry) => entry.agent)).toEqual(
+        ["Claude Code", "Codex CLI"].filter((agent) =>
+          plugin.agents.includes(agent),
+        ),
+      );
+      for (const command of commands) {
+        expect(command.install).toContain(`${plugin.name}@${marketplaceName}`);
+        expect(command.register).toContain(marketplaceRepo);
+      }
+    }
+  });
+
+  it("offers nothing for a plugin no agent lists", () => {
+    expect(installCommands({ ...plugins[0], agents: [] })).toEqual([]);
+  });
+});
+
+describe("provenance", () => {
+  // These drive the preview notice and the footer. Hardcoding them to false and 999 passed.
+  it("declares the skill index as generated, at the schema the file states", () => {
+    // Fails if a hand-extracted file is dropped back in, which is when the page must go back to
+    // labelling itself a preview.
+    expect(skillsArePlaceholder).toBe(false);
+    expect(indexSchemaVersion).toBe(skillsData.schemaVersion);
+    expect(indexSchemaVersion).toBeGreaterThan(0);
   });
 });

@@ -1,7 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getPlugin, installCommands, plugins } from "@/lib/catalogue";
+import {
+  describeVersion,
+  getPlugin,
+  installCommands,
+  plugins,
+  skillsForPlugin,
+  versionStatusFor,
+} from "@/lib/catalogue";
 
 // The catalogue is a static JSON file, so every plugin page is prerendered at build time.
 export function generateStaticParams() {
@@ -21,6 +28,14 @@ export default async function PluginPage({
 }: PageProps<"/skills/[plugin]">) {
   const plugin = getPlugin((await params).plugin);
   if (!plugin) notFound();
+
+  const version = versionStatusFor(plugin.id);
+  const skills = skillsForPlugin(plugin.id);
+  const live = skills.filter((skill) => skill.status !== "Planned");
+  const planned = skills.filter((skill) => skill.status === "Planned");
+  // A plugin that installs and ships nothing is a defect, not a recommendation. Derived from
+  // the index rather than a hand-set flag, so it cannot disagree with the skill list below it.
+  const shipsNothing = live.length === 0;
 
   return (
     <article className="flex max-w-3xl flex-col gap-12">
@@ -52,8 +67,11 @@ export default async function PluginPage({
       </section>
 
       <section className="flex flex-col gap-3">
+        {/* A defect notice is not a benefit. pyright-lsp's first bullet is "Does not currently
+            work", and "What you get: Does not currently work" reads as a joke at the reader's
+            expense. The heading follows the content. */}
         <h2 className="text-xs font-medium tracking-wide text-ink-faint uppercase">
-          What you get
+          {shipsNothing ? "Known defect" : "What you get"}
         </h2>
         <ul className="flex flex-col gap-3">
           {plugin.benefits.map((benefit) => (
@@ -94,18 +112,31 @@ export default async function PluginPage({
         </div>
       </section>
 
-      {plugin.skills.length > 0 && (
+      {/* Read from the skill index rather than the plugin's own hand-typed `skills` array.
+          That array says zero for codezen, which ships eleven. */}
+      {skills.length > 0 && (
         <section className="flex flex-col gap-3">
           <h2 className="text-xs font-medium tracking-wide text-ink-faint uppercase">
-            Skills in this plugin ({plugin.skills.length})
+            Skills in this plugin ({live.length}
+            {planned.length > 0 && `, plus ${planned.length} planned`})
           </h2>
+          {/* Live first. The list was in index order, which put codezen's six Planned document
+              formats in the first six positions, where a dashed border is the only thing saying
+              `prd` and `tech-spec` do not exist yet. */}
           <ul className="flex flex-wrap gap-1.5">
-            {plugin.skills.map((skill) => (
+            {[...live, ...planned].map((skill) => (
               <li
-                key={skill}
-                className="rounded bg-accent-wash px-2 py-1 font-mono text-xs text-ink-muted"
+                key={skill.id}
+                title={`${skill.category} · ${skill.jobs[0]}${
+                  skill.status === "Planned" ? " · planned, not yet built" : ""
+                }`}
+                className={
+                  skill.status === "Planned"
+                    ? "rounded border border-dashed border-line px-2 py-1 font-mono text-xs text-ink-faint"
+                    : "rounded bg-accent-wash px-2 py-1 font-mono text-xs text-ink-muted"
+                }
               >
-                {skill}
+                {skill.name}
               </li>
             ))}
           </ul>
@@ -115,7 +146,7 @@ export default async function PluginPage({
       <section className="flex flex-col gap-2 border-t border-line pt-6 text-sm text-ink-faint">
         <div className="flex flex-wrap gap-x-6 gap-y-2 font-mono text-xs">
           <span>Origin: {plugin.origin}</span>
-          <span>Versioning: {plugin.versioning}</span>
+          {version && <span>Pin: {describeVersion(version)}</span>}
         </div>
         <a
           href={plugin.homepage}

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { PluginsCatalogue } from "@/components/plugins-catalogue";
-import { plugins } from "@/lib/catalogue";
+import { pluginRows } from "@/lib/catalogue";
 
 export const metadata: Metadata = {
   title: "Skills",
@@ -22,7 +22,7 @@ export default function SkillsPage() {
           installer.
         </p>
       </header>
-      <PluginsCatalogue entries={plugins} />
+      <PluginsCatalogue entries={pluginRows} />
     </div>
   );
 }
