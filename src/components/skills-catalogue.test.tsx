@@ -80,6 +80,9 @@ describe("the skills catalogue", () => {
       toolchainSkills.some((skill) => skill.category === "Coordinate"),
     ).toBe(true);
 
+    // The chip text, not just the card count: leaking the toolchain rows into the tally makes
+    // it read "Coordinate11" while eleven of them still filter to four.
+    expect(chip("Coordinate").textContent).toBe(`Coordinate${coordinate}`);
     fireEvent.click(chip("Coordinate"));
     expect(cardCount()).toBe(coordinate + toolchainSkills.length);
   });
@@ -92,6 +95,9 @@ describe("the skills catalogue", () => {
     expect(shown).toBeGreaterThan(0);
     expect(shown).toBeLessThan(skills.length);
     expect(screen.getByText("/setup")).toBeTruthy();
+    // A toolchain row the query does NOT match, or this cannot tell "search reaches them" from
+    // "they are always listed in full".
+    expect(screen.queryByText("/teach")).toBeNull();
   });
 
   it("finds a skill by the job it does, not only by its name", () => {
