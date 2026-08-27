@@ -17,7 +17,7 @@ type CatalogueGridProps<T extends CatalogueEntry> = {
    * they contribute nothing to a facet's options or counts.
    */
   unclassified?: T[];
-  /** Heading for the unclassified section. Required when `unclassified` is non-empty. */
+  /** Heading for the unclassified section. */
   unclassifiedLabel?: string;
   /** One line saying why those rows sit apart, shown under the heading. */
   unclassifiedNote?: string;

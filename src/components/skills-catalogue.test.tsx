@@ -3,9 +3,11 @@
  */
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
+import { CatalogueTabs } from "@/components/catalogue-tabs";
 import { SkillsCatalogue } from "@/components/skills-catalogue";
 import {
   browsableSkills,
+  pluginRows,
   skillFacets,
   skills,
   toolchainSkills,
@@ -81,7 +83,7 @@ describe("the skills catalogue", () => {
     ).toBe(true);
 
     // The chip text, not just the card count: leaking the toolchain rows into the tally makes
-    // it read "Coordinate11" while eleven of them still filter to four.
+    // the chip read "Coordinate11" while clicking it still shows four.
     expect(chip("Coordinate").textContent).toBe(`Coordinate${coordinate}`);
     fireEvent.click(chip("Coordinate"));
     expect(cardCount()).toBe(coordinate + toolchainSkills.length);
@@ -157,5 +159,35 @@ describe("the skills catalogue", () => {
         fireEvent.click(chip(value));
       }
     }
+  });
+});
+
+describe("the page around the grid", () => {
+  it("names the rows in the empty state", () => {
+    // Hardcoding the noun, or passing the wrong one, survived every other assertion -- and
+    // this string has been the subject of three review rounds.
+    renderPage();
+    fireEvent.change(search(), { target: { value: "zzzznotathing" } });
+    expect(screen.getByText("No skill matches those filters.")).toBeTruthy();
+  });
+
+  it("passes the toolchain rows through the tabs", () => {
+    // Dropping `toolchain` from the CatalogueTabs call makes the whole section vanish, and
+    // rendering SkillsCatalogue directly cannot see it.
+    render(
+      <CatalogueTabs
+        plugins={pluginRows}
+        skills={browsableSkills}
+        toolchain={toolchainSkills}
+        placeholder={false}
+      />,
+    );
+    fireEvent.click(screen.getByRole("tab", { name: /^Skills/ }));
+    expect(
+      screen.getByText(`Setup and toolchain`, { exact: false }),
+    ).toBeTruthy();
+    expect(screen.getByRole("tab", { name: /^Skills/ }).textContent).toContain(
+      String(browsableSkills.length + toolchainSkills.length),
+    );
   });
 });
