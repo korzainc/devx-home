@@ -55,11 +55,11 @@ export default async function PluginPage({
         <h2 className="text-xs font-medium tracking-wide text-ink-faint uppercase">
           What you get
         </h2>
-        <ul className="flex flex-col gap-3">
+        <ul className="divide-y divide-line">
           {plugin.benefits.map((benefit) => (
             <li
               key={benefit}
-              className="border-l-2 border-accent pl-4 leading-relaxed text-ink-muted"
+              className="py-2 leading-relaxed text-ink-muted first:pt-0 last:pb-0"
             >
               {benefit}
             </li>
