@@ -7,8 +7,8 @@ import {
   type VersionStatus,
 } from "./catalogue";
 
-// mattpocock-skills was documented as tracking main "until upstream tags 1.2.0". Upstream
-// reached v1.2.3 and nobody noticed.
+// The README said mattpocock-skills tracks main "until upstream tags 1.2.0". It reached
+// v1.2.3 and nobody noticed.
 describe("version drift", () => {
   it("reports a status for every plugin in the catalogue", () => {
     for (const plugin of plugins) {
@@ -29,7 +29,7 @@ describe("version drift", () => {
         ).toBeGreaterThan(0);
         expect(status.latest, `${plugin.id} is behind nothing`).toBeTruthy();
       } else {
-        // No fixed point to be behind of; a count would read as a small gap.
+        // No fixed point to be behind of.
         expect(
           status.behind,
           `${plugin.id} is ${status.state} but carries a behind count`,
@@ -39,9 +39,7 @@ describe("version drift", () => {
   });
 
   it("distinguishes an entry we have not pinned from one we cannot pin", () => {
-    // mattpocock-skills tracks main while upstream publishes tags: we could pin, we haven't.
     expect(versionStatusFor("mattpocock-skills")?.state).toBe("unpinned");
-    // codezen tracks main because it has never cut a release: there is nothing to pin to.
     expect(versionStatusFor("codezen")?.state).toBe("no-releases");
   });
 
@@ -55,8 +53,8 @@ describe("version drift", () => {
   });
 });
 
-// The loop above never compares a sentence to anything, so scrambling a branch left it green.
-// The catalogue also carries only three of the four states.
+// The loop above never compares a sentence, and the catalogue carries only three of the four
+// states.
 describe("version wording", () => {
   const status = (over: Partial<VersionStatus>): VersionStatus => ({
     state: "current",
@@ -91,8 +89,7 @@ describe("version wording", () => {
     ).toBe("1 version behind (v6.3.0)");
   });
 
-  // `versions` is cast from JSON, so an unknown state is reachable. Falling through returned
-  // undefined, which React renders as an empty badge.
+  // Falling through returned undefined, which React renders as an empty badge.
   it("names an unrecognised state instead of rendering nothing", () => {
     const line = describeVersion(
       status({ state: "sideways" as VersionStatus["state"] }),

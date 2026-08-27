@@ -7,6 +7,7 @@ import {
   marketplaceName,
   marketplaceRepo,
   duplicateClaims,
+  getPlugin,
   pluginRows,
   plugins,
   rivalPlugins,
@@ -17,8 +18,7 @@ import {
   tools,
 } from "./catalogue";
 
-// The engine is only as good as its data, and the failures are quiet: a capability with no tool
-// renders as a gap nobody can act on.
+// The failures are quiet: a capability with no tool renders as a gap nobody can act on.
 describe("catalogue and baseline agree", () => {
   it("has no duplicate tool ids", () => {
     const ids = tools.map((tool) => tool.id);
@@ -105,7 +105,6 @@ describe("catalogue and baseline agree", () => {
   });
 
   it("offers a stack-agnostic tool for every universal capability", () => {
-    // A repo with no recognised manifest can only be offered `any` tools.
     for (const capability of baseline.universal) {
       const candidates = tools.filter(
         (tool) =>
@@ -120,7 +119,6 @@ describe("catalogue and baseline agree", () => {
   });
 });
 
-// Neither was imported by any test, so replacing the agent filter with `return all` passed.
 describe("install commands", () => {
   it("offers a command only for an agent the plugin lists", () => {
     for (const plugin of plugins) {
@@ -144,7 +142,7 @@ describe("install commands", () => {
 
 describe("plugin rows", () => {
   it("derives a pin state for every plugin", () => {
-    // pinState powers the Pin facet; hardcoding it to "Unknown" left the suite green.
+    // Powers the Pin facet.
     for (const plugin of pluginRows) {
       expect(plugin.pinState, plugin.id).toBe(
         versionFacetLabel(versionStatusFor(plugin.id)),
@@ -155,10 +153,10 @@ describe("plugin rows", () => {
 });
 
 describe("provenance", () => {
-  // These drive the preview notice and the footer. Hardcoding them to false and 999 passed.
+  // The placeholder half cannot be pinned while the data says false: a literal and the
+  // derivation agree.
   it("declares the skill index as generated, at the schema the file states", () => {
-    // Fails if a hand-extracted file is dropped back in, which is when the page must go back to
-    // labelling itself a preview.
+    // Fails if a hand-extracted file is dropped back in.
     expect(skillsArePlaceholder).toBe(false);
     expect(indexSchemaVersion).toBe(skillsData.schemaVersion);
     expect(indexSchemaVersion).toBeGreaterThan(0);
@@ -167,19 +165,27 @@ describe("provenance", () => {
 
 describe("install commands and duplicate claims", () => {
   it("names the marketplace and the plugin the user actually types", () => {
-    // Replacing marketplaceRepo/marketplaceName with "WRONG", or plugin.name with plugin.id,
-    // all left the suite green -- and this is text a user copies into a terminal.
-    const [claude] = installCommands(plugins.find((p) => p.id === "codezen")!);
-    // Literals, not the constants: interpolating them mutates both sides of the assertion.
+    // Text a user copies into a terminal.
+    const codezen = plugins.find((p) => p.id === "codezen")!;
+    const [claude, codex] = installCommands({ ...codezen, id: "not-the-name" });
+    // Literals: interpolating the constants mutates both sides.
     expect(claude.install).toBe("/plugin install codezen@korza-marketplace");
     expect(claude.register).toBe(
       "/plugin marketplace add korzainc/marketplace",
     );
+    expect(codex.install).toBe("codex plugin add codezen@korza-marketplace");
+    expect(codex.register).toBe(
+      "codex plugin marketplace add korzainc/marketplace --ref main",
+    );
+  });
+
+  it("looks a plugin up by id", () => {
+    expect(getPlugin("superpowers")?.id).toBe("superpowers");
+    expect(getPlugin("not-a-plugin")).toBeUndefined();
   });
 
   it("reports a name only when more than one plugin claims it", () => {
-    // `code-review` and `tdd` each ship from two plugins; grouping by plugin, or relaxing the
-    // size test, both left the suite green.
+    // `code-review` and `tdd` each ship from two plugins.
     expect([...duplicateClaims.keys()].sort()).toEqual(["code-review", "tdd"]);
     for (const [name, claimants] of duplicateClaims) {
       expect(claimants.length, name).toBeGreaterThan(1);

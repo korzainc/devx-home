@@ -50,7 +50,6 @@ describe("grid filtering", () => {
   });
 
   it("applies the query, not only the facets", () => {
-    // Replacing the matchesQuery call with `true` left every other assertion here passing.
     const all = view({ selected: {}, query: "" }).length;
     const queried = view({ selected: {}, query: "pull request" });
     expect(queried.length).toBeGreaterThan(0);
@@ -63,9 +62,8 @@ describe("grid filtering", () => {
     for (const skill of codex) expect(skill.agents).toContain("Codex CLI");
   });
 
-  // Not every value has to narrow: all 48 run on Claude Code, so that chip returns everything
-  // while Codex CLI returns a subset. A facet where EVERY value covers everything is not a
-  // control.
+  // Not every value: all 48 run on Claude Code. A facet where EVERY value covers everything
+  // is not a control.
   it("gives every facet values that each match something and one that narrows", () => {
     for (const facet of skillFacets) {
       const values = new Set(
@@ -99,7 +97,6 @@ describe("grid filtering", () => {
 
 describe("the two populations", () => {
   it("splits the index in two and loses nothing", () => {
-    // The whole index is on the page: the toolchain rows lose the facets, not their place.
     expect(browsableSkills.length + toolchainSkills.length).toBe(skills.length);
     expect(
       [...browsableSkills, ...toolchainSkills].map((s) => s.id).sort(),
@@ -114,8 +111,7 @@ describe("the two populations", () => {
     }
   });
 
-  // A Category count silently including three ways of installing things describes the
-  // catalogue, not the work.
+  // A Category count including three ways of installing things describes the catalogue.
   it("keeps toolchain rows out of every facet count", () => {
     for (const facet of skillFacets) {
       const options = new Set(

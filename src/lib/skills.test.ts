@@ -1,16 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { CATEGORIES, plugins, skills, skillsForPlugin } from "./catalogue";
 
-// The skill list is data and its failures are quiet: an orphan filter nobody can clear, or one
-// card silently swallowing another.
+// Quiet failures: an orphan filter nobody can clear, or one card swallowing another.
 describe("skill catalogue", () => {
   it("has no duplicate skill ids", () => {
     const ids = skills.map((skill) => skill.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  // Names are deliberately not unique: two plugins each claim `tdd`, which is the overlap the
-  // catalogue exists to surface. This pins the id scheme that makes that representable.
+  // Two plugins each claim `tdd`, which the catalogue exists to surface.
   it("keys every id on plugin and path, not plugin and name", () => {
     for (const skill of skills) {
       expect(skill.id, `${skill.id} is not plugin:path`).toBe(
@@ -39,8 +37,7 @@ describe("skill catalogue", () => {
     }
   });
 
-  // humanizer's description is a block scalar: a single-line reader captures the literal "|",
-  // which is truthy and renders as a blank card.
+  // humanizer's description is a block scalar; a single-line reader yields a blank card.
   it("gives every skill a summary a human can read", () => {
     for (const skill of skills) {
       expect(
@@ -82,20 +79,19 @@ describe("skill catalogue", () => {
   });
 
   it("finds the skills a plugin ships", () => {
-    // codezen is the case the hand-maintained plugins.json got wrong: it listed zero.
+    // plugins.json listed zero for codezen.
     expect(skillsForPlugin("codezen").length).toBeGreaterThan(0);
     expect(skillsForPlugin("not-a-plugin")).toHaveLength(0);
   });
 
   it("classifies every skill", () => {
-    // An empty string renders as a blank chip; an unclassifiable skill needs a named value.
+    // An empty string renders as a blank chip.
     for (const skill of skills) {
       expect(skill.category, `${skill.id} has no category`).toBeTruthy();
     }
   });
 
   it("gives every skill jobs a user could search for", () => {
-    // A skill with no jobs is reachable only by someone who already knows its name.
     for (const skill of skills) {
       expect(skill.jobs.length, `${skill.id} has no jobs`).toBeGreaterThan(0);
       for (const job of skill.jobs) {
@@ -115,7 +111,6 @@ describe("skill catalogue", () => {
   });
 
   it("keeps setup and meta skills out of the default browse", () => {
-    // If this reaches zero, `kind` has stopped doing anything and should go.
     const hidden = skills.filter((skill) => skill.kind !== "skill");
     expect(hidden.length).toBeGreaterThan(0);
     for (const skill of hidden) {
@@ -124,14 +119,14 @@ describe("skill catalogue", () => {
   });
 
   it("does not carry a field that restates origin", () => {
-    // `owner` partitioned all 57 rows 40/17, the same split as `origin`. Removed, not rendered.
+    // `owner` split the rows 40/17, the same as `origin`.
     for (const skill of skills) {
       expect(skill).not.toHaveProperty("owner");
     }
     expect(skills.some((skill) => skill.ownerTeam === null)).toBe(true);
   });
 
-  // Discover holds two rows: the catalogue is engineering-only. A finding, not a bug.
+  // Discover holds two rows: the catalogue is engineering-only.
   it("puts at least one skill in every category", () => {
     for (const category of CATEGORIES) {
       expect(
@@ -145,7 +140,6 @@ describe("skill catalogue", () => {
     for (const skill of skills) {
       expect(["Live", "Planned"]).toContain(skill.status);
     }
-    // DX-22 is six document formats, none of them built.
     expect(skills.filter((skill) => skill.status === "Planned")).toHaveLength(
       6,
     );

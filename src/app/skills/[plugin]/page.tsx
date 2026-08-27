@@ -10,7 +10,6 @@ import {
   versionStatusFor,
 } from "@/lib/catalogue";
 
-// The catalogue is a static JSON file, so every plugin page is prerendered at build time.
 export function generateStaticParams() {
   return plugins.map((plugin) => ({ plugin: plugin.id }));
 }
@@ -33,8 +32,7 @@ export default async function PluginPage({
   const skills = skillsForPlugin(plugin.id);
   const live = skills.filter((skill) => skill.status !== "Planned");
   const planned = skills.filter((skill) => skill.status === "Planned");
-  // A plugin that installs and ships nothing is a defect, not a recommendation. Derived from
-  // the index rather than a hand-set flag, so it cannot disagree with the skill list below it.
+  // Derived from the index, so it cannot disagree with the skill list below.
   const shipsNothing = live.length === 0;
 
   return (
@@ -67,9 +65,8 @@ export default async function PluginPage({
       </section>
 
       <section className="flex flex-col gap-3">
-        {/* A defect notice is not a benefit. pyright-lsp's first bullet is "Does not currently
-            work", and "What you get: Does not currently work" reads as a joke at the reader's
-            expense. The heading follows the content. */}
+        {/* pyright-lsp's first bullet is "Does not currently work", so the heading follows
+            the content. */}
         <h2 className="text-xs font-medium tracking-wide text-ink-faint uppercase">
           {shipsNothing ? "Known defect" : "What you get"}
         </h2>
@@ -112,17 +109,14 @@ export default async function PluginPage({
         </div>
       </section>
 
-      {/* Read from the skill index rather than the plugin's own hand-typed `skills` array.
-          That array says zero for codezen, which ships eleven. */}
+      {/* From the index; plugin.skills says zero for codezen. */}
       {skills.length > 0 && (
         <section className="flex flex-col gap-3">
           <h2 className="text-xs font-medium tracking-wide text-ink-faint uppercase">
             Skills in this plugin ({live.length}
             {planned.length > 0 && `, plus ${planned.length} planned`})
           </h2>
-          {/* Live first. The list was in index order, which put codezen's six Planned document
-              formats in the first six positions, where a dashed border is the only thing saying
-              `prd` and `tech-spec` do not exist yet. */}
+          {/* Live first: index order put six Planned rows in the first six positions. */}
           <ul className="flex flex-wrap gap-1.5">
             {[...live, ...planned].map((skill) => (
               <li

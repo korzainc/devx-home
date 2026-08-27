@@ -2,8 +2,7 @@ import { facetValues, type CatalogueEntry, type Facet } from "@/lib/catalogue";
 import { entryHaystack, matchesQuery } from "@/lib/search";
 
 /**
- * Here so the tests and the grid can run one copy of the rule. CatalogueGrid is wired to
- * it in the commit that adds the skill view.
+ * Here so the tests and the grid run one copy of the rule.
  *
  * Sidebar facet counts are deliberately unconditioned: a count that collapses as you filter
  * cannot tell you what is available to filter back to.

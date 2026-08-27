@@ -1,10 +1,10 @@
-/** Query matching for the catalogue grid. Here, not inline, so the tests exercise it. */
+/** Here, not inline in the grid, so the tests exercise the real rule. */
 
 function flatten(value: string): string {
   return value.toLowerCase();
 }
 
-/** Split the same way the haystack is, or punctuation stays glued and `tdd,` matches nothing. */
+/** Split like the haystack, or punctuation stays glued and `tdd,` matches nothing. */
 export function terms(query: string): string[] {
   return flatten(query)
     .split(/[^a-z0-9]+/)
@@ -17,12 +17,12 @@ export function words(haystack: string): string[] {
     .filter(Boolean);
 }
 
-/** Shortest word a query term may be truncated to when matching an inflection. */
 const MIN_STEM = 4;
 
 /**
- * Either may be a prefix of the other: `review` finds `reviewer`, and `testing` finds `test`.
- * Anchored at a word start — substring matching made `unit` hit "opportunities".
+ * The word is a prefix of the term, or starts it with an inflection as the remainder: `review`
+ * finds `reviewer`, `testing` finds `test`. Anchored at a word start, or `unit` hits
+ * "opportunities".
  */
 const SUFFIXES = new Set([
   "s",
@@ -32,6 +32,7 @@ const SUFFIXES = new Set([
   "er",
   "r",
   "ers",
+  "rs",
   "ing",
   "ings",
   "ion",
@@ -47,8 +48,7 @@ const SUFFIXES = new Set([
 export function matchesTerm(term: string, word: string): boolean {
   if (word.startsWith(term)) return true;
   if (word.length < MIN_STEM || !term.startsWith(word)) return false;
-  // The remainder has to be an inflection. Without this, `work` swallowed `worktree`,
-  // `workflow` and `workspace`, and `when` matched 33 of 57 rows through `whenever`.
+  // Without this `when` matched 33 of 57 rows through `whenever`.
   const rest = term.slice(word.length);
   return (
     SUFFIXES.has(rest) ||
@@ -56,7 +56,6 @@ export function matchesTerm(term: string, word: string): boolean {
   );
 }
 
-/** True when every term in the query matches some word in the haystack. */
 export function matchesQuery(query: string, haystack: string): boolean {
   const needles = terms(query);
   if (!needles.length) return true;
@@ -64,14 +63,15 @@ export function matchesQuery(query: string, haystack: string): boolean {
   return needles.every((term) => hay.some((word) => matchesTerm(term, word)));
 }
 
-/**
- * Facet values are excluded: every skill carries "Claude Code", so including them put `code` in
- * every haystack and `codebase` matched all 57 rows.
- */
+/** Facet values excluded: every skill carries "Claude Code", which put `code` in every row. */
 export function entryHaystack(entry: {
   name: string;
   summary: string;
+  description?: string;
   jobs?: string[];
 }): string {
-  return `${entry.name} ${entry.summary} ${entry.jobs?.join(" ") ?? ""}`;
+  // Upstream's wording stays searchable even though the card shows ours.
+  return [entry.name, entry.summary, entry.description, entry.jobs?.join(" ")]
+    .filter(Boolean)
+    .join(" ");
 }

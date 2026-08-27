@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { skills } from "./catalogue";
 import { entryHaystack, matchesQuery, matchesTerm } from "./search";
 
-/** Uses the grid's own haystack. Returns entries, not names: two plugins ship `code-review`. */
+/** The grid's own haystack. Entries, not names: two plugins ship `code-review`. */
 function hits(query: string) {
   return skills.filter((skill) => matchesQuery(query, entryHaystack(skill)));
 }
@@ -52,7 +52,6 @@ describe("catalogue search", () => {
     expect(matchesQuery("documentation", "writes the document")).toBe(true);
   });
 
-  // Only a stemmer would join these; not worth a dependency at this corpus size.
   it("does not join two inflections of the same stem", () => {
     expect(matchesQuery("testing", "unit tests")).toBe(false);
     expect(hits("testing").length).toBeGreaterThanOrEqual(7);
@@ -77,17 +76,15 @@ describe("catalogue search", () => {
   });
 
   it("does not match through facet values", () => {
-    // Every row carries "Claude Code" as an agent value, so a leak returns 57 and not 1.
-    // The probe has to be a word that is ONLY ever a facet value.
+    // A leak returns 57, not 1. The probe must be a word that is only ever a facet value.
 
-    // `codebase` went from all 57 to 12, and every survivor genuinely says "code".
     const codebase = hits("codebase");
     expect(codebase.length).toBeLessThan(skills.length);
     for (const skill of codebase) {
       expect(entryHaystack(skill).toLowerCase()).toContain("code");
     }
 
-    // Matches through the word "build" in prose, not through a facet. The rule doing its job.
+    // Through the word "build" in prose, not a facet.
     for (const skill of hits("buildings")) {
       expect(entryHaystack(skill).toLowerCase()).toContain("build");
     }
@@ -101,7 +98,7 @@ describe("catalogue search", () => {
 
 describe("the reverse direction only matches inflections", () => {
   it("does not let a short word swallow a longer query", () => {
-    // `work` used to match worktree, workflow and workspace; `when` matched 33 of 57 rows.
+    // `when` used to match 33 of 57 rows.
     for (const magnet of ["whenever", "userland", "checklist"]) {
       expect(hits(magnet), magnet).toHaveLength(0);
     }
@@ -115,7 +112,6 @@ describe("the reverse direction only matches inflections", () => {
   });
 
   it("searches the jobs, which nothing else in the haystack carries", () => {
-    // Dropping `jobs` from entryHaystack left every other query in this file passing.
     const onlyInJobs = "put timelines on a piece of work";
     expect(skills.some((s) => s.summary.includes(onlyInJobs))).toBe(false);
     expect(hits(onlyInJobs).length).toBeGreaterThan(0);
@@ -123,8 +119,7 @@ describe("the reverse direction only matches inflections", () => {
 });
 
 describe("the suffix set", () => {
-  // Each of these was deletable from SUFFIXES with a green suite, and the doubled-consonant
-  // branch could be removed outright.
+  // Each was individually deletable from SUFFIXES with a green suite.
   it.each([
     ["planning", "plan"],
     ["debugging", "debug"],
@@ -134,17 +129,18 @@ describe("the suffix set", () => {
     ["reviewed", "review"],
     ["reviewer", "review"],
     ["reviewers", "review"],
+    ["writers", "write"],
     ["testing", "test"],
-    ["decisions", "decision"],
+    ["suggestions", "suggest"],
     ["documentation", "document"],
-    ["statements", "statement"],
+    ["statements", "state"],
     ["directly", "direct"],
   ])("matches %s against %s", (term, word) => {
     expect(matchesTerm(term, word)).toBe(true);
   });
 
   it("still refuses a word that is not a stem of the term", () => {
-    // The guard is on the word length, not the term's: `the` must not reach `they`.
+    // The guard is on the word length, not the term's.
     for (const [term, word] of [
       ["they", "the"],
       ["ally", "all"],

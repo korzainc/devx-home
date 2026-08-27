@@ -12,18 +12,13 @@ import {
 } from "@/lib/catalogue";
 
 // Module scope, not inline: the grid memoises on facet identity.
-//
-// `pinState` is derived from VersionStatus rather than read from a `versioning` field. Two
-// hand-maintained descriptions of the same fact had drifted into a contradiction on one card.
 const facets: Facet<PluginRow>[] = [
   { key: "pinState", label: "Pin" },
   { key: "agents", label: "Agent" },
   { key: "origin", label: "Origin" },
 ];
 
-// Severity, not a boolean. Every entry in the catalogue today is in some non-current state, so
-// a single "drifted" emphasis marked all five identically and carried no signal. These rank the
-// states: an entry with nothing to pin to is worse off than one merely behind a tag.
+// Severity, not a boolean: every entry is non-current, so one emphasis carried no signal.
 const UNKNOWN_TONE = "border-line text-ink-faint";
 
 const TONE: Record<VersionStatus["state"], string> = {
@@ -33,15 +28,10 @@ const TONE: Record<VersionStatus["state"], string> = {
   current: "border-line text-ink-faint",
 };
 
-// The card is a way in, not a summary of everything known about the plugin. The problem it solves,
-// the benefits, the full skill list and the install commands all live on the detail page.
 function PluginCard({ plugin }: { plugin: PluginRow }) {
   const version = versionStatusFor(plugin.id);
-  // Count from the skill index, never plugin.skills — the hand-typed array says 0 for codezen,
-  // which ships eleven.
-  //
-  // Planned is shown rather than dropped. The Skills tab facets on all rows, so codezen reads
-  // 17 there and 11 here, and nothing on the Plugins tab explained the gap.
+  // From the index, never plugin.skills, which says 0 for codezen. Planned shown, or codezen
+  // reads 17 on the Skills tab and 11 here with nothing explaining the gap.
   const pluginSkills = skillsForPlugin(plugin.id);
   const skillCount = pluginSkills.filter(
     (skill) => skill.status !== "Planned",
