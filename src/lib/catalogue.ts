@@ -47,6 +47,9 @@ export type SkillEntry = CatalogueEntry & {
   kind: "skill" | "setup" | "meta";
   /** Searched, not rendered. */
   jobs: string[];
+  /** Upstream's own SKILL.md text. Written for an agent, so it is long and often opens
+   * "Use when". The detail page shows it; the card shows `summary`. */
+  description: string;
   invocation: string;
   licence: { spdx: string; osiApproved: boolean; source: string };
   /** Null when no Korza team owns it. */
@@ -106,9 +109,13 @@ export type VersionStatus = {
 // A JSON import widens every string, so `kind` arrives as `string`.
 export const skills: SkillEntry[] = skillsData.skills as SkillEntry[];
 
-export const browsableSkills: SkillEntry[] = skills.filter(
-  (skill) => skill.kind === "skill",
-);
+export const browsableSkills: SkillEntry[] = skills
+  .filter((skill) => skill.kind === "skill")
+  // Live first: id order put the six Planned document formats in the opening rows, so the
+  // page led with skills nobody can install.
+  .sort(
+    (a, b) => Number(a.status === "Planned") - Number(b.status === "Planned"),
+  );
 
 /** Listed and searchable, but outside every facet. */
 export const toolchainSkills: SkillEntry[] = skills.filter(
