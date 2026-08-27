@@ -91,7 +91,9 @@ export function CatalogueGrid<T extends CatalogueEntry>({
 
   return (
     <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-12">
-      <aside className="flex shrink-0 flex-col gap-6 lg:sticky lg:top-24 lg:w-56">
+      {/* Its own scroll: as rows the column runs ~800px, and a sticky block taller than the
+          viewport puts its last facet out of reach on a short screen. */}
+      <aside className="flex shrink-0 flex-col gap-6 lg:sticky lg:top-24 lg:max-h-[calc(100vh-8rem)] lg:w-56 lg:overflow-y-auto lg:pr-1">
         <div className="flex flex-col gap-2">
           <label
             htmlFor={searchId}
@@ -114,7 +116,9 @@ export function CatalogueGrid<T extends CatalogueEntry>({
             <legend className="mb-2 text-xs font-medium tracking-wide text-ink-faint uppercase">
               {facet.label}
             </legend>
-            <div className="flex flex-wrap gap-1.5">
+            {/* Rows, not wrapped pills: variable-width chips left a ragged right edge, and
+                the 224px column is too narrow to grid them without clipping the long names. */}
+            <div className="flex flex-col gap-1">
               {facet.options.map(([value, count]) => {
                 const isOn = selected[facet.key]?.includes(value) ?? false;
                 return (
@@ -123,14 +127,14 @@ export function CatalogueGrid<T extends CatalogueEntry>({
                     type="button"
                     aria-pressed={isOn}
                     onClick={() => toggle(facet.key, value)}
-                    className={`flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors ${
+                    className={`flex w-full items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 text-xs transition-colors ${
                       isOn
                         ? "border-accent bg-accent-wash text-ink"
                         : "border-line bg-surface text-ink-muted hover:border-line-strong hover:text-ink"
                     }`}
                   >
-                    {value}
-                    <span className="font-mono text-[0.65rem] text-ink-faint">
+                    <span className="truncate">{value}</span>
+                    <span className="shrink-0 font-mono text-[0.65rem] text-ink-faint">
                       {count}
                     </span>
                   </button>
