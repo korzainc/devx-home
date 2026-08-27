@@ -1,0 +1,1985 @@
+{
+  "marketplace": "korza-marketplace",
+  "placeholder": false,
+  "schemaVersion": 4,
+  "skills": [
+    {
+      "agents": ["Claude Code", "Codex CLI"],
+      "category": "Document",
+      "description": "Business Requirement Document. Surfaces the specific business problem.",
+      "id": "codezen:planned/brd",
+      "invocation": "Planned",
+      "jobs": [
+        "write a business requirements document",
+        "state the business problem behind a project",
+        "get agreement on why we are building something"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": false,
+        "source": "no LICENSE file in korzainc/codezen",
+        "spdx": "LicenseRef-Korza-Internal"
+      },
+      "maturity": null,
+      "name": "brd",
+      "origin": "Korza",
+      "ownerTeam": "DevX",
+      "path": "planned/brd",
+      "pinned": false,
+      "plugin": "codezen",
+      "ref": "main",
+      "sourceRepo": "korzainc/codezen",
+      "status": "Planned",
+      "summary": "States the business problem a project exists to solve."
+    },
+    {
+      "agents": ["Claude Code", "Codex CLI"],
+      "category": "Document",
+      "description": "Captures timelines with a high-level breakdown into epics and stories.",
+      "id": "codezen:planned/delivery-plan",
+      "invocation": "Planned",
+      "jobs": [
+        "write a delivery plan",
+        "break a project into epics and stories",
+        "put timelines on a piece of work"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": false,
+        "source": "no LICENSE file in korzainc/codezen",
+        "spdx": "LicenseRef-Korza-Internal"
+      },
+      "maturity": null,
+      "name": "delivery-plan",
+      "origin": "Korza",
+      "ownerTeam": "DevX",
+      "path": "planned/delivery-plan",
+      "pinned": false,
+      "plugin": "codezen",
+      "ref": "main",
+      "sourceRepo": "korzainc/codezen",
+      "status": "Planned",
+      "summary": "Breaks a project into epics and stories, with timelines."
+    },
+    {
+      "agents": ["Claude Code", "Codex CLI"],
+      "category": "Document",
+      "description": "Problem-specific design document, created as needed for a technical challenge.",
+      "id": "codezen:planned/design-doc",
+      "invocation": "Planned",
+      "jobs": [
+        "write a design document",
+        "record how a technical problem will be solved",
+        "get a design reviewed before building"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": false,
+        "source": "no LICENSE file in korzainc/codezen",
+        "spdx": "LicenseRef-Korza-Internal"
+      },
+      "maturity": null,
+      "name": "design-doc",
+      "origin": "Korza",
+      "ownerTeam": "DevX",
+      "path": "planned/design-doc",
+      "pinned": false,
+      "plugin": "codezen",
+      "ref": "main",
+      "sourceRepo": "korzainc/codezen",
+      "status": "Planned",
+      "summary": "Records how one technical problem will be solved."
+    },
+    {
+      "agents": ["Claude Code", "Codex CLI"],
+      "category": "Discover",
+      "description": "High-level domain understanding relevant to the project.",
+      "id": "codezen:planned/domain-deep-dive",
+      "invocation": "Planned",
+      "jobs": [
+        "understand a new business domain",
+        "get up to speed on a problem space",
+        "summarise domain knowledge for a project"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": false,
+        "source": "no LICENSE file in korzainc/codezen",
+        "spdx": "LicenseRef-Korza-Internal"
+      },
+      "maturity": null,
+      "name": "domain-deep-dive",
+      "origin": "Korza",
+      "ownerTeam": "DevX",
+      "path": "planned/domain-deep-dive",
+      "pinned": false,
+      "plugin": "codezen",
+      "ref": "main",
+      "sourceRepo": "korzainc/codezen",
+      "status": "Planned",
+      "summary": "Gets a team up to speed on an unfamiliar problem space."
+    },
+    {
+      "agents": ["Claude Code", "Codex CLI"],
+      "category": "Document",
+      "description": "Product Requirement Document. Outlines the solution from a product and user perspective.",
+      "id": "codezen:planned/prd",
+      "invocation": "Planned",
+      "jobs": [
+        "write a product requirements document",
+        "describe a solution from the user's point of view",
+        "define what a product should do"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": false,
+        "source": "no LICENSE file in korzainc/codezen",
+        "spdx": "LicenseRef-Korza-Internal"
+      },
+      "maturity": null,
+      "name": "prd",
+      "origin": "Korza",
+      "ownerTeam": "DevX",
+      "path": "planned/prd",
+      "pinned": false,
+      "plugin": "codezen",
+      "ref": "main",
+      "sourceRepo": "korzainc/codezen",
+      "status": "Planned",
+      "summary": "Describes a product from the user's point of view."
+    },
+    {
+      "agents": ["Claude Code", "Codex CLI"],
+      "category": "Document",
+      "description": "Technical Specification. Details the high-level design and technical approach.",
+      "id": "codezen:planned/tech-spec",
+      "invocation": "Planned",
+      "jobs": [
+        "write a technical specification",
+        "document a high-level technical approach",
+        "hand a design to the team that will build it"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": false,
+        "source": "no LICENSE file in korzainc/codezen",
+        "spdx": "LicenseRef-Korza-Internal"
+      },
+      "maturity": null,
+      "name": "tech-spec",
+      "origin": "Korza",
+      "ownerTeam": "DevX",
+      "path": "planned/tech-spec",
+      "pinned": false,
+      "plugin": "codezen",
+      "ref": "main",
+      "sourceRepo": "korzainc/codezen",
+      "status": "Planned",
+      "summary": "Sets out the technical approach before anyone builds it."
+    },
+    {
+      "agents": ["Claude Code", "Codex CLI"],
+      "argumentHint": null,
+      "category": "Verify",
+      "description": "Portable agentic end-to-end testing pipeline. Use when asked to E2E-test a change against the live system — a PR, a branch, a commit range, or uncommitted working-tree changes, of any type (bug fix, feature, refactor, perf optimization, docs/comments) — \"test my PR end-to-end\", \"run agentic e2e\", \"verify this change/diff against the running stack\", \"check this PR for regressions\", \"test my uncommitted changes\". Analyzes a diff (plus any linked ticket/PR context), classifies the change to select the right proof obligation, generates a targeted test, has an isolated auditor agent quality-gate it, executes it against a real local environment with a bounded healing loop, and reports mechanically-verified evidence. Fully project-agnostic — every repo-specific fact is derived live from the repo's own files and cached per-machine, never hardcoded in this document or shipped beside it.",
+      "id": "codezen:skills/agentic-e2e",
+      "install": {
+        "claudeCode": "/plugin install codezen@korza-marketplace",
+        "codexCli": "codex plugin add codezen@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": [
+        "run end-to-end tests on a change",
+        "test a pull request against the running system",
+        "find regressions before merging"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": false,
+        "source": "no LICENSE file in korzainc/codezen",
+        "spdx": "LicenseRef-Korza-Internal"
+      },
+      "maturity": null,
+      "name": "agentic-e2e",
+      "origin": "Korza",
+      "ownerTeam": "DevX",
+      "path": "skills/agentic-e2e",
+      "pinned": false,
+      "plugin": "codezen",
+      "ref": "main",
+      "sourceRepo": "korzainc/codezen",
+      "sourceUrl": "https://github.com/korzainc/codezen/tree/main/skills/agentic-e2e",
+      "status": "Live",
+      "summary": "Tests a change end-to-end against a real running system."
+    },
+    {
+      "agents": ["Claude Code", "Codex CLI"],
+      "argumentHint": "<feature-description | github-issue-URL | filepath>",
+      "category": "Decide",
+      "description": "Use when starting a new feature, designing a new system, or refining an underspecified ask — any time a spec is needed before implementation. Symptoms include \"build me X\" without \"for whom\" or \"why now\", missing success criteria, multiple stakeholders with possibly-conflicting intent, or being tempted to write code on implicit assumptions.",
+      "id": "codezen:skills/brainstorm",
+      "install": {
+        "claudeCode": "/plugin install codezen@korza-marketplace",
+        "codexCli": "codex plugin add codezen@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": [
+        "turn a vague request into a spec",
+        "work out requirements before writing code",
+        "pin down what we are actually building"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": false,
+        "source": "no LICENSE file in korzainc/codezen",
+        "spdx": "LicenseRef-Korza-Internal"
+      },
+      "maturity": null,
+      "name": "brainstorm",
+      "origin": "Korza",
+      "ownerTeam": "DevX",
+      "path": "skills/brainstorm",
+      "pinned": false,
+      "plugin": "codezen",
+      "ref": "main",
+      "sourceRepo": "korzainc/codezen",
+      "sourceUrl": "https://github.com/korzainc/codezen/tree/main/skills/brainstorm",
+      "status": "Live",
+      "summary": "Turns a vague request into a spec before anyone writes code."
+    },
+    {
+      "agents": ["Claude Code", "Codex CLI"],
+      "argumentHint": "[spec-file] [PR# | branch | file paths] (all optional)",
+      "category": "Verify",
+      "description": "Multi-agent parallel code review — spec adherence, standards and best practices, code quality, test coverage, performance, and bug detection.",
+      "id": "codezen:skills/code-review",
+      "install": {
+        "claudeCode": "/plugin install codezen@korza-marketplace",
+        "codexCli": "codex plugin add codezen@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": [
+        "review a pull request",
+        "check code against standards and the spec",
+        "find bugs before merging"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": false,
+        "source": "no LICENSE file in korzainc/codezen",
+        "spdx": "LicenseRef-Korza-Internal"
+      },
+      "maturity": null,
+      "name": "code-review",
+      "origin": "Korza",
+      "ownerTeam": "DevX",
+      "path": "skills/code-review",
+      "pinned": false,
+      "plugin": "codezen",
+      "ref": "main",
+      "sourceRepo": "korzainc/codezen",
+      "sourceUrl": "https://github.com/korzainc/codezen/tree/main/skills/code-review",
+      "status": "Live",
+      "summary": "Reviews a pull request for bugs, standards and spec adherence."
+    },
+    {
+      "agents": ["Claude Code", "Codex CLI"],
+      "argumentHint": "(no arguments — reads .codezen-review/latest.yaml)",
+      "category": "Build",
+      "description": "Fix findings from /code-review — classifies issues, runs complex fixes in the TDD container on the reviewed branch, applies simple fixes directly. Run after /code-review.",
+      "id": "codezen:skills/fix",
+      "install": {
+        "claudeCode": "/plugin install codezen@korza-marketplace",
+        "codexCli": "codex plugin add codezen@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": [
+        "apply code review findings",
+        "fix the issues a review raised",
+        "clear a review backlog"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": false,
+        "source": "no LICENSE file in korzainc/codezen",
+        "spdx": "LicenseRef-Korza-Internal"
+      },
+      "maturity": null,
+      "name": "fix",
+      "origin": "Korza",
+      "ownerTeam": "DevX",
+      "path": "skills/fix",
+      "pinned": false,
+      "plugin": "codezen",
+      "ref": "main",
+      "sourceRepo": "korzainc/codezen",
+      "sourceUrl": "https://github.com/korzainc/codezen/tree/main/skills/fix",
+      "status": "Live",
+      "summary": "Applies the findings a code review raised, and clears the list."
+    },
+    {
+      "agents": ["Claude Code", "Codex CLI"],
+      "argumentHint": "(no arguments — reads .codezen-review/latest.yaml)",
+      "category": "Build",
+      "description": "Use after /code-review to apply its findings without launching a container — when the session is already inside a container, or Docker is unavailable or unwanted. Reads the latest review from .codezen-review/latest.yaml.",
+      "id": "codezen:skills/noc-fix",
+      "install": {
+        "claudeCode": "/plugin install codezen@korza-marketplace",
+        "codexCli": "codex plugin add codezen@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": [
+        "apply review findings without Docker",
+        "fix review issues from inside a container"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": false,
+        "source": "no LICENSE file in korzainc/codezen",
+        "spdx": "LicenseRef-Korza-Internal"
+      },
+      "maturity": null,
+      "name": "noc-fix",
+      "origin": "Korza",
+      "ownerTeam": "DevX",
+      "path": "skills/noc-fix",
+      "pinned": false,
+      "plugin": "codezen",
+      "ref": "main",
+      "sourceRepo": "korzainc/codezen",
+      "sourceUrl": "https://github.com/korzainc/codezen/tree/main/skills/noc-fix",
+      "status": "Live",
+      "summary": "Applies review findings without launching a container."
+    },
+    {
+      "agents": ["Claude Code", "Codex CLI"],
+      "argumentHint": "<feature-description | github/linear-issue | filepath> [--keep-worktree]",
+      "category": "Build",
+      "description": "Use when implementing a feature or bugfix in a codezen project and you want it built test-first without launching a container (already inside a container, or Docker is unavailable or unwanted). Accepts a feature description, a GitHub or Linear issue, or a filepath.",
+      "id": "codezen:skills/noc-tdd",
+      "install": {
+        "claudeCode": "/plugin install codezen@korza-marketplace",
+        "codexCli": "codex plugin add codezen@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": [
+        "build a feature test-first without Docker",
+        "implement a bugfix from inside a container"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": false,
+        "source": "no LICENSE file in korzainc/codezen",
+        "spdx": "LicenseRef-Korza-Internal"
+      },
+      "maturity": null,
+      "name": "noc-tdd",
+      "origin": "Korza",
+      "ownerTeam": "DevX",
+      "path": "skills/noc-tdd",
+      "pinned": false,
+      "plugin": "codezen",
+      "ref": "main",
+      "sourceRepo": "korzainc/codezen",
+      "sourceUrl": "https://github.com/korzainc/codezen/tree/main/skills/noc-tdd",
+      "status": "Live",
+      "summary": "Builds a feature test-first, without launching a container."
+    },
+    {
+      "agents": ["Claude Code", "Codex CLI"],
+      "argumentHint": "[PR# | branch | file paths] (all optional)",
+      "category": "Verify",
+      "description": "Use when reviewing changed code for security risk before merging — flags injection, auth/authz issues, secrets in source, weak crypto, vulnerable deps, and STRIDE threats on a diff, PR, or file list.",
+      "id": "codezen:skills/security-review",
+      "install": {
+        "claudeCode": "/plugin install codezen@korza-marketplace",
+        "codexCli": "codex plugin add codezen@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": [
+        "check a change for security risk",
+        "find injection, auth or secrets problems",
+        "threat-model a diff before merging"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": false,
+        "source": "no LICENSE file in korzainc/codezen",
+        "spdx": "LicenseRef-Korza-Internal"
+      },
+      "maturity": null,
+      "name": "security-review",
+      "origin": "Korza",
+      "ownerTeam": "DevX",
+      "path": "skills/security-review",
+      "pinned": false,
+      "plugin": "codezen",
+      "ref": "main",
+      "sourceRepo": "korzainc/codezen",
+      "sourceUrl": "https://github.com/korzainc/codezen/tree/main/skills/security-review",
+      "status": "Live",
+      "summary": "Checks a change for injection, auth, secrets and weak crypto."
+    },
+    {
+      "agents": ["Claude Code", "Codex CLI"],
+      "argumentHint": "[add|update|status] or empty for interactive",
+      "category": "Coordinate",
+      "description": "Credential manager for CodeZen — set up or update Anthropic key, GitHub auth, git identity, and any project-specific secrets (AWS, DB, Azure, custom tokens). Run any time to add new credentials.",
+      "id": "codezen:skills/setup",
+      "install": {
+        "claudeCode": "/plugin install codezen@korza-marketplace",
+        "codexCli": "codex plugin add codezen@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": [
+        "set up credentials for codezen",
+        "add an API key or token",
+        "configure git identity for the toolchain"
+      ],
+      "kind": "setup",
+      "licence": {
+        "osiApproved": false,
+        "source": "no LICENSE file in korzainc/codezen",
+        "spdx": "LicenseRef-Korza-Internal"
+      },
+      "maturity": null,
+      "name": "setup",
+      "origin": "Korza",
+      "ownerTeam": "DevX",
+      "path": "skills/setup",
+      "pinned": false,
+      "plugin": "codezen",
+      "ref": "main",
+      "sourceRepo": "korzainc/codezen",
+      "sourceUrl": "https://github.com/korzainc/codezen/tree/main/skills/setup",
+      "status": "Live",
+      "summary": "Sets up the keys and credentials codezen needs to run."
+    },
+    {
+      "agents": ["Claude Code", "Codex CLI"],
+      "argumentHint": null,
+      "category": "Coordinate",
+      "description": "Portable system-under-test environment bootstrap. Use when a repo's SUT environment needs to be set up, verified, or diagnosed on this machine (toolchain, runtimes, services, and health — not account credentials or API keys) — \"set up this repo so I can run it\", \"bootstrap my local environment\", \"is my machine ready to run this stack?\", \"install the tools this project needs\", \"connect me to the <env> environment\" — or when another skill (e.g. agentic-e2e) needs the SUT ready before driving it. Discovers requirements from the repo's own manifests, closes tool/version gaps (user-space first, suggest-only for privileged), authenticates to remote targets, and verifies the environment is actually usable. Fully project-agnostic — every repo-specific fact is derived live from the repo's own files and cached per-machine, never hardcoded in this document or shipped beside it.",
+      "id": "codezen:skills/sut-bootstrap",
+      "install": {
+        "claudeCode": "/plugin install codezen@korza-marketplace",
+        "codexCli": "codex plugin add codezen@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": [
+        "get a repo running on this machine",
+        "install the tools a project needs",
+        "connect to a running environment"
+      ],
+      "kind": "setup",
+      "licence": {
+        "osiApproved": false,
+        "source": "no LICENSE file in korzainc/codezen",
+        "spdx": "LicenseRef-Korza-Internal"
+      },
+      "maturity": null,
+      "name": "sut-bootstrap",
+      "origin": "Korza",
+      "ownerTeam": "DevX",
+      "path": "skills/sut-bootstrap",
+      "pinned": false,
+      "plugin": "codezen",
+      "ref": "main",
+      "sourceRepo": "korzainc/codezen",
+      "sourceUrl": "https://github.com/korzainc/codezen/tree/main/skills/sut-bootstrap",
+      "status": "Live",
+      "summary": "Gets a repo installed, running and verified on this machine."
+    },
+    {
+      "agents": ["Claude Code", "Codex CLI"],
+      "argumentHint": "<feature-description | github-issue-URL | filepath> [--use_real_infra=true]",
+      "category": "Build",
+      "description": "Use when implementing any feature or bugfix for a codezen project — accepts a feature description, GitHub issue URL, or file path.",
+      "id": "codezen:skills/tdd",
+      "install": {
+        "claudeCode": "/plugin install codezen@korza-marketplace",
+        "codexCli": "codex plugin add codezen@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": [
+        "build a feature test-first",
+        "fix a bug with tests written first",
+        "implement a ticket"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": false,
+        "source": "no LICENSE file in korzainc/codezen",
+        "spdx": "LicenseRef-Korza-Internal"
+      },
+      "maturity": null,
+      "name": "tdd",
+      "origin": "Korza",
+      "ownerTeam": "DevX",
+      "path": "skills/tdd",
+      "pinned": false,
+      "plugin": "codezen",
+      "ref": "main",
+      "sourceRepo": "korzainc/codezen",
+      "sourceUrl": "https://github.com/korzainc/codezen/tree/main/skills/tdd",
+      "status": "Live",
+      "summary": "Builds a feature or bugfix test-first, from an issue or a note."
+    },
+    {
+      "agents": ["Claude Code", "Codex CLI"],
+      "argumentHint": "FILEPATH [--to PARENT_PAGE_URL] [--update PAGE_URL] [--title TITLE] [--dry-run]",
+      "category": "Document",
+      "description": "Use when a local markdown document needs to exist as a Notion page — publishes any markdown file to Notion, converting to Notion-flavored markdown, and reports the page URL. Never modifies the file it publishes. Triggers on \"publish to Notion\", \"mirror this to Notion\", \"put this doc in Notion\". Works standalone, and can be called by any skill that produces a document worth mirroring — designs, specs, ADRs, review reports.",
+      "id": "codezen:skills/to-notion",
+      "install": {
+        "claudeCode": "/plugin install codezen@korza-marketplace",
+        "codexCli": "codex plugin add codezen@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": [
+        "publish a markdown file to Notion",
+        "mirror a local document into Notion",
+        "share a design doc with the team"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": false,
+        "source": "no LICENSE file in korzainc/codezen",
+        "spdx": "LicenseRef-Korza-Internal"
+      },
+      "maturity": null,
+      "name": "to-notion",
+      "origin": "Korza",
+      "ownerTeam": "DevX",
+      "path": "skills/to-notion",
+      "pinned": false,
+      "plugin": "codezen",
+      "ref": "main",
+      "sourceRepo": "korzainc/codezen",
+      "sourceUrl": "https://github.com/korzainc/codezen/tree/main/skills/to-notion",
+      "status": "Live",
+      "summary": "Publishes a local markdown file to Notion, unchanged."
+    },
+    {
+      "agents": ["Claude Code"],
+      "argumentHint": null,
+      "category": "Document",
+      "description": "Remove signs of AI-generated writing from text. Use when editing or reviewing text to make it sound more natural and human-written. Based on Wikipedia's comprehensive \"Signs of AI writing\" guide. Detects and fixes patterns including: inflated symbolism, promotional language, superficial -ing analyses, vague attributions, em dash overuse, rule of three, AI vocabulary words, passive voice, negative parallelisms, and filler phrases.",
+      "id": "humanizer:.",
+      "install": {
+        "claudeCode": "/plugin install humanizer@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": [
+        "make AI-written text sound human",
+        "strip AI tells from a draft",
+        "edit prose before publishing it"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at v2.9.1",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "humanizer",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": ".",
+      "pinned": true,
+      "plugin": "humanizer",
+      "ref": "v2.9.1",
+      "sourceRepo": "blader/humanizer",
+      "sourceUrl": "https://github.com/blader/humanizer/tree/v2.9.1",
+      "status": "Live",
+      "summary": "Strips the tells that make writing read as AI-generated."
+    },
+    {
+      "agents": ["Claude Code"],
+      "argumentHint": null,
+      "category": "Coordinate",
+      "description": "Ask which skill or flow fits your situation. A router over the skills in this repo.",
+      "id": "mattpocock-skills:skills/engineering/ask-matt",
+      "install": {
+        "claudeCode": "/plugin install mattpocock-skills@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "User only",
+      "jobs": [
+        "find which skill fits my situation",
+        "pick the right workflow to start with"
+      ],
+      "kind": "meta",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at main",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "ask-matt",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/engineering/ask-matt",
+      "pinned": false,
+      "plugin": "mattpocock-skills",
+      "ref": "main",
+      "sourceRepo": "mattpocock/skills",
+      "sourceUrl": "https://github.com/mattpocock/skills/tree/main/skills/engineering/ask-matt",
+      "status": "Live",
+      "summary": "Points you at whichever skill fits the job you have."
+    },
+    {
+      "agents": ["Claude Code"],
+      "argumentHint": null,
+      "category": "Verify",
+      "description": "Review the changes since a fixed point (commit, branch, tag, or merge-base) along two axes: Standards (does the code follow this repo's documented coding standards?) and Spec (does the code match what the originating issue/spec asked for?). Runs both reviews in parallel sub-agents and reports them side by side. Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to \"review since X\".",
+      "id": "mattpocock-skills:skills/engineering/code-review",
+      "install": {
+        "claudeCode": "/plugin install mattpocock-skills@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": [
+        "review changes since a commit or branch",
+        "check code against the repo's standards",
+        "check code against the original spec"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at main",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "code-review",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/engineering/code-review",
+      "pinned": false,
+      "plugin": "mattpocock-skills",
+      "ref": "main",
+      "sourceRepo": "mattpocock/skills",
+      "sourceUrl": "https://github.com/mattpocock/skills/tree/main/skills/engineering/code-review",
+      "status": "Live",
+      "summary": "Reviews everything since a commit, branch or tag you name."
+    },
+    {
+      "agents": ["Claude Code"],
+      "argumentHint": null,
+      "category": "Decide",
+      "description": "Shared vocabulary for designing deep modules. Use when the user wants to design or improve a module's interface, find deepening opportunities, decide where a seam goes, make code more testable or AI-navigable, or when another skill needs the deep-module vocabulary.",
+      "id": "mattpocock-skills:skills/engineering/codebase-design",
+      "install": {
+        "claudeCode": "/plugin install mattpocock-skills@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": [
+        "design a module's interface",
+        "decide where a boundary should go",
+        "make code easier to test"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at main",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "codebase-design",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/engineering/codebase-design",
+      "pinned": false,
+      "plugin": "mattpocock-skills",
+      "ref": "main",
+      "sourceRepo": "mattpocock/skills",
+      "sourceUrl": "https://github.com/mattpocock/skills/tree/main/skills/engineering/codebase-design",
+      "status": "Live",
+      "summary": "Shapes a module's interface, and decides where a boundary goes."
+    },
+    {
+      "agents": ["Claude Code"],
+      "argumentHint": null,
+      "category": "Build",
+      "description": "Diagnosis loop for hard bugs and performance regressions. Use when the user says \"diagnose\"/\"debug this\", or reports something broken/throwing/failing/slow.",
+      "id": "mattpocock-skills:skills/engineering/diagnosing-bugs",
+      "install": {
+        "claudeCode": "/plugin install mattpocock-skills@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": [
+        "work out why something is broken",
+        "debug a performance regression",
+        "track down a hard bug"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at main",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "diagnosing-bugs",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/engineering/diagnosing-bugs",
+      "pinned": false,
+      "plugin": "mattpocock-skills",
+      "ref": "main",
+      "sourceRepo": "mattpocock/skills",
+      "sourceUrl": "https://github.com/mattpocock/skills/tree/main/skills/engineering/diagnosing-bugs",
+      "status": "Live",
+      "summary": "Works out why something is broken, or why it got slow."
+    },
+    {
+      "agents": ["Claude Code"],
+      "argumentHint": null,
+      "category": "Decide",
+      "description": "Build and sharpen a project's domain model. Use when discussing codebase terminology, writing or editing a CONTEXT.md, or recording or editing an ADR.",
+      "id": "mattpocock-skills:skills/engineering/domain-modeling",
+      "install": {
+        "claudeCode": "/plugin install mattpocock-skills@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": [
+        "pin down domain terminology",
+        "build a shared vocabulary for a project",
+        "record an architecture decision"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at main",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "domain-modeling",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/engineering/domain-modeling",
+      "pinned": false,
+      "plugin": "mattpocock-skills",
+      "ref": "main",
+      "sourceRepo": "mattpocock/skills",
+      "sourceUrl": "https://github.com/mattpocock/skills/tree/main/skills/engineering/domain-modeling",
+      "status": "Live",
+      "summary": "Pins down the words a project uses, and records the decisions."
+    },
+    {
+      "agents": ["Claude Code"],
+      "argumentHint": null,
+      "category": "Decide",
+      "description": "A relentless interview to sharpen a plan or design, which also creates docs (ADR's and glossary) as we go.",
+      "id": "mattpocock-skills:skills/engineering/grill-with-docs",
+      "install": {
+        "claudeCode": "/plugin install mattpocock-skills@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "User only",
+      "jobs": [
+        "stress-test a plan and record the decisions",
+        "sharpen a design and write ADRs as you go"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at main",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "grill-with-docs",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/engineering/grill-with-docs",
+      "pinned": false,
+      "plugin": "mattpocock-skills",
+      "ref": "main",
+      "sourceRepo": "mattpocock/skills",
+      "sourceUrl": "https://github.com/mattpocock/skills/tree/main/skills/engineering/grill-with-docs",
+      "status": "Live",
+      "summary": "Stress-tests a plan and writes the decisions down as it goes."
+    },
+    {
+      "agents": ["Claude Code"],
+      "argumentHint": null,
+      "category": "Build",
+      "description": "Implement a piece of work based on a spec or set of tickets.",
+      "id": "mattpocock-skills:skills/engineering/implement",
+      "install": {
+        "claudeCode": "/plugin install mattpocock-skills@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "User only",
+      "jobs": ["build from a spec", "work through a set of tickets"],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at main",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "implement",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/engineering/implement",
+      "pinned": false,
+      "plugin": "mattpocock-skills",
+      "ref": "main",
+      "sourceRepo": "mattpocock/skills",
+      "sourceUrl": "https://github.com/mattpocock/skills/tree/main/skills/engineering/implement",
+      "status": "Live",
+      "summary": "Builds a piece of work from a spec or a set of tickets."
+    },
+    {
+      "agents": ["Claude Code"],
+      "argumentHint": null,
+      "category": "Build",
+      "description": "Scan a codebase for deepening opportunities, present them as a visual HTML report, then grill through whichever one you pick.",
+      "id": "mattpocock-skills:skills/engineering/improve-codebase-architecture",
+      "install": {
+        "claudeCode": "/plugin install mattpocock-skills@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "User only",
+      "jobs": [
+        "find refactoring opportunities",
+        "improve a codebase's structure",
+        "get an architecture report"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at main",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "improve-codebase-architecture",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/engineering/improve-codebase-architecture",
+      "pinned": false,
+      "plugin": "mattpocock-skills",
+      "ref": "main",
+      "sourceRepo": "mattpocock/skills",
+      "sourceUrl": "https://github.com/mattpocock/skills/tree/main/skills/engineering/improve-codebase-architecture",
+      "status": "Live",
+      "summary": "Finds refactoring worth doing, and reports it as a diagram."
+    },
+    {
+      "agents": ["Claude Code"],
+      "argumentHint": null,
+      "category": "Decide",
+      "description": "Build a throwaway prototype to answer a design question. Use when the user wants to sanity-check whether a state model or logic feels right, or explore what a UI should look like.",
+      "id": "mattpocock-skills:skills/engineering/prototype",
+      "install": {
+        "claudeCode": "/plugin install mattpocock-skills@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": [
+        "build a throwaway to test an idea",
+        "answer a design question with code",
+        "check whether a state model feels right"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at main",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "prototype",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/engineering/prototype",
+      "pinned": false,
+      "plugin": "mattpocock-skills",
+      "ref": "main",
+      "sourceRepo": "mattpocock/skills",
+      "sourceUrl": "https://github.com/mattpocock/skills/tree/main/skills/engineering/prototype",
+      "status": "Live",
+      "summary": "Builds something throwaway to answer one design question."
+    },
+    {
+      "agents": ["Claude Code"],
+      "argumentHint": null,
+      "category": "Discover",
+      "description": "Investigate a question against high-trust primary sources and capture the findings as a Markdown file in the repo. Use when the user wants a topic researched, docs or API facts gathered, or reading legwork delegated to a background agent.",
+      "id": "mattpocock-skills:skills/engineering/research",
+      "install": {
+        "claudeCode": "/plugin install mattpocock-skills@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": [
+        "research a technical question",
+        "gather facts from primary sources",
+        "delegate reading legwork"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at main",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "research",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/engineering/research",
+      "pinned": false,
+      "plugin": "mattpocock-skills",
+      "ref": "main",
+      "sourceRepo": "mattpocock/skills",
+      "sourceUrl": "https://github.com/mattpocock/skills/tree/main/skills/engineering/research",
+      "status": "Live",
+      "summary": "Answers a question from primary sources, and writes it up."
+    },
+    {
+      "agents": ["Claude Code"],
+      "argumentHint": null,
+      "category": "Build",
+      "description": "Use when you need to resolve an in-progress git merge/rebase conflict.",
+      "id": "mattpocock-skills:skills/engineering/resolving-merge-conflicts",
+      "install": {
+        "claudeCode": "/plugin install mattpocock-skills@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": ["resolve a merge conflict", "finish a stuck rebase"],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at main",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "resolving-merge-conflicts",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/engineering/resolving-merge-conflicts",
+      "pinned": false,
+      "plugin": "mattpocock-skills",
+      "ref": "main",
+      "sourceRepo": "mattpocock/skills",
+      "sourceUrl": "https://github.com/mattpocock/skills/tree/main/skills/engineering/resolving-merge-conflicts",
+      "status": "Live",
+      "summary": "Works through a merge or rebase that has stalled on conflicts."
+    },
+    {
+      "agents": ["Claude Code"],
+      "argumentHint": null,
+      "category": "Coordinate",
+      "description": "Configure this repo for the engineering skills: set up its issue tracker, triage label vocabulary, and domain doc layout. Run once before first use of the other engineering skills.",
+      "id": "mattpocock-skills:skills/engineering/setup-matt-pocock-skills",
+      "install": {
+        "claudeCode": "/plugin install mattpocock-skills@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "User only",
+      "jobs": [
+        "configure a repo for the engineering skills",
+        "set up an issue tracker and label vocabulary"
+      ],
+      "kind": "setup",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at main",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "setup-matt-pocock-skills",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/engineering/setup-matt-pocock-skills",
+      "pinned": false,
+      "plugin": "mattpocock-skills",
+      "ref": "main",
+      "sourceRepo": "mattpocock/skills",
+      "sourceUrl": "https://github.com/mattpocock/skills/tree/main/skills/engineering/setup-matt-pocock-skills",
+      "status": "Live",
+      "summary": "Points these skills at your issue tracker and labels."
+    },
+    {
+      "agents": ["Claude Code"],
+      "argumentHint": null,
+      "category": "Build",
+      "description": "Test-driven development. Use when the user wants to build features or fix bugs test-first, mentions \"red-green-refactor\", or wants integration tests.",
+      "id": "mattpocock-skills:skills/engineering/tdd",
+      "install": {
+        "claudeCode": "/plugin install mattpocock-skills@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": [
+        "build a feature test-first",
+        "write integration tests as you build",
+        "do red-green-refactor"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at main",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "tdd",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/engineering/tdd",
+      "pinned": false,
+      "plugin": "mattpocock-skills",
+      "ref": "main",
+      "sourceRepo": "mattpocock/skills",
+      "sourceUrl": "https://github.com/mattpocock/skills/tree/main/skills/engineering/tdd",
+      "status": "Live",
+      "summary": "Builds a feature or bugfix test-first, red then green."
+    },
+    {
+      "agents": ["Claude Code"],
+      "argumentHint": null,
+      "category": "Document",
+      "description": "Turn the current conversation into a spec and publish it to the project issue tracker: no interview, just synthesis of what you've already discussed.",
+      "id": "mattpocock-skills:skills/engineering/to-spec",
+      "install": {
+        "claudeCode": "/plugin install mattpocock-skills@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "User only",
+      "jobs": [
+        "turn a conversation into a spec",
+        "publish a spec to the issue tracker"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at main",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "to-spec",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/engineering/to-spec",
+      "pinned": false,
+      "plugin": "mattpocock-skills",
+      "ref": "main",
+      "sourceRepo": "mattpocock/skills",
+      "sourceUrl": "https://github.com/mattpocock/skills/tree/main/skills/engineering/to-spec",
+      "status": "Live",
+      "summary": "Turns the conversation you just had into a published spec."
+    },
+    {
+      "agents": ["Claude Code"],
+      "argumentHint": null,
+      "category": "Coordinate",
+      "description": "Break a plan, spec, or the current conversation into a set of tracer-bullet tickets, each declaring its blocking edges, published to the configured tracker (edges as text in one file per ticket locally, or native blocking links on a real tracker).",
+      "id": "mattpocock-skills:skills/engineering/to-tickets",
+      "install": {
+        "claudeCode": "/plugin install mattpocock-skills@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "User only",
+      "jobs": [
+        "break a plan into tickets",
+        "create issues with their dependencies",
+        "fill a backlog from a spec"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at main",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "to-tickets",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/engineering/to-tickets",
+      "pinned": false,
+      "plugin": "mattpocock-skills",
+      "ref": "main",
+      "sourceRepo": "mattpocock/skills",
+      "sourceUrl": "https://github.com/mattpocock/skills/tree/main/skills/engineering/to-tickets",
+      "status": "Live",
+      "summary": "Splits a plan into tickets that declare what blocks what."
+    },
+    {
+      "agents": ["Claude Code"],
+      "argumentHint": null,
+      "category": "Coordinate",
+      "description": "Move issues and external PRs through a state machine of triage roles, categorise, verify, grill if needed, and write agent-ready briefs.",
+      "id": "mattpocock-skills:skills/engineering/triage",
+      "install": {
+        "claudeCode": "/plugin install mattpocock-skills@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "User only",
+      "jobs": [
+        "triage incoming issues and pull requests",
+        "categorise a backlog",
+        "write agent-ready briefs from issues"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at main",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "triage",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/engineering/triage",
+      "pinned": false,
+      "plugin": "mattpocock-skills",
+      "ref": "main",
+      "sourceRepo": "mattpocock/skills",
+      "sourceUrl": "https://github.com/mattpocock/skills/tree/main/skills/engineering/triage",
+      "status": "Live",
+      "summary": "Moves issues and PRs through triage, and writes briefs."
+    },
+    {
+      "agents": ["Claude Code"],
+      "argumentHint": null,
+      "category": "Decide",
+      "description": "Plan a huge chunk of work (more than one agent session can hold) as a shared map of decision tickets on your issue tracker, and resolve them one at a time until the way to the destination is clear.",
+      "id": "mattpocock-skills:skills/engineering/wayfinder",
+      "install": {
+        "claudeCode": "/plugin install mattpocock-skills@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "User only",
+      "jobs": [
+        "plan work too big for one session",
+        "map a large project as a set of decisions",
+        "resolve unknowns before building"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at main",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "wayfinder",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/engineering/wayfinder",
+      "pinned": false,
+      "plugin": "mattpocock-skills",
+      "ref": "main",
+      "sourceRepo": "mattpocock/skills",
+      "sourceUrl": "https://github.com/mattpocock/skills/tree/main/skills/engineering/wayfinder",
+      "status": "Live",
+      "summary": "Maps work too large for one session as decisions to settle."
+    },
+    {
+      "agents": ["Claude Code"],
+      "argumentHint": null,
+      "category": "Build",
+      "description": "Generate an interactive bash wizard that walks a human through steps only they can perform. Use when provisioning infrastructure, setting up credentials or CI secrets, walking an unfamiliar third-party dashboard, or running a one-off migration or cutover. Don't invoke this for steps the agent can perform itself.",
+      "id": "mattpocock-skills:skills/engineering/wizard",
+      "install": {
+        "claudeCode": "/plugin install mattpocock-skills@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": [
+        "generate a setup wizard for a human",
+        "script a manual provisioning walkthrough",
+        "walk someone through steps an agent cannot do"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at main",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "wizard",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/engineering/wizard",
+      "pinned": false,
+      "plugin": "mattpocock-skills",
+      "ref": "main",
+      "sourceRepo": "mattpocock/skills",
+      "sourceUrl": "https://github.com/mattpocock/skills/tree/main/skills/engineering/wizard",
+      "status": "Live",
+      "summary": "Writes a script that walks a person through what only they can do."
+    },
+    {
+      "agents": ["Claude Code"],
+      "argumentHint": null,
+      "category": "Decide",
+      "description": "A relentless interview to sharpen a plan or design.",
+      "id": "mattpocock-skills:skills/productivity/grill-me",
+      "install": {
+        "claudeCode": "/plugin install mattpocock-skills@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "User only",
+      "jobs": [
+        "stress-test a plan",
+        "have my thinking challenged",
+        "find the holes in a design"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at main",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "grill-me",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/productivity/grill-me",
+      "pinned": false,
+      "plugin": "mattpocock-skills",
+      "ref": "main",
+      "sourceRepo": "mattpocock/skills",
+      "sourceUrl": "https://github.com/mattpocock/skills/tree/main/skills/productivity/grill-me",
+      "status": "Live",
+      "summary": "Interviews you hard until a plan stops having holes in it."
+    },
+    {
+      "agents": ["Claude Code"],
+      "argumentHint": null,
+      "category": "Decide",
+      "description": "Grill the user relentlessly about a plan, decision, or idea. Use when the user wants to stress-test their thinking, or uses any 'grill' trigger phrases.",
+      "id": "mattpocock-skills:skills/productivity/grilling",
+      "install": {
+        "claudeCode": "/plugin install mattpocock-skills@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": [
+        "grill a decision before committing to it",
+        "pressure-test an idea"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at main",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "grilling",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/productivity/grilling",
+      "pinned": false,
+      "plugin": "mattpocock-skills",
+      "ref": "main",
+      "sourceRepo": "mattpocock/skills",
+      "sourceUrl": "https://github.com/mattpocock/skills/tree/main/skills/productivity/grilling",
+      "status": "Live",
+      "summary": "Pressure-tests a decision before you commit to it."
+    },
+    {
+      "agents": ["Claude Code"],
+      "argumentHint": "What will the next session be used for?",
+      "category": "Document",
+      "description": "Compact the current conversation into a handoff document for another agent to pick up.",
+      "id": "mattpocock-skills:skills/productivity/handoff",
+      "install": {
+        "claudeCode": "/plugin install mattpocock-skills@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "User only",
+      "jobs": [
+        "write a handoff document",
+        "compact a session for another agent",
+        "pass work to someone else"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at main",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "handoff",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/productivity/handoff",
+      "pinned": false,
+      "plugin": "mattpocock-skills",
+      "ref": "main",
+      "sourceRepo": "mattpocock/skills",
+      "sourceUrl": "https://github.com/mattpocock/skills/tree/main/skills/productivity/handoff",
+      "status": "Live",
+      "summary": "Compacts a session into a handoff another agent can pick up."
+    },
+    {
+      "agents": ["Claude Code"],
+      "argumentHint": "What would you like to learn about?",
+      "category": "Coordinate",
+      "description": "Teach the user a new skill or concept, within this workspace.",
+      "id": "mattpocock-skills:skills/productivity/teach",
+      "install": {
+        "claudeCode": "/plugin install mattpocock-skills@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "User only",
+      "jobs": [
+        "learn a new concept in this workspace",
+        "get taught how something works"
+      ],
+      "kind": "meta",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at main",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "teach",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/productivity/teach",
+      "pinned": false,
+      "plugin": "mattpocock-skills",
+      "ref": "main",
+      "sourceRepo": "mattpocock/skills",
+      "sourceUrl": "https://github.com/mattpocock/skills/tree/main/skills/productivity/teach",
+      "status": "Live",
+      "summary": "Teaches a concept using the code in front of you."
+    },
+    {
+      "agents": ["Claude Code"],
+      "argumentHint": null,
+      "category": "Document",
+      "description": "Turn a decision you can't fully answer into a questionnaire for someone else to fill in.",
+      "id": "mattpocock-skills:skills/productivity/to-questionnaire",
+      "install": {
+        "claudeCode": "/plugin install mattpocock-skills@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "User only",
+      "jobs": [
+        "turn a decision into a questionnaire",
+        "ask someone else to fill in what I cannot answer"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at main",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "to-questionnaire",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/productivity/to-questionnaire",
+      "pinned": false,
+      "plugin": "mattpocock-skills",
+      "ref": "main",
+      "sourceRepo": "mattpocock/skills",
+      "sourceUrl": "https://github.com/mattpocock/skills/tree/main/skills/productivity/to-questionnaire",
+      "status": "Live",
+      "summary": "Turns a decision you cannot make into questions for someone who can."
+    },
+    {
+      "agents": ["Claude Code"],
+      "argumentHint": null,
+      "category": "Coordinate",
+      "description": "Stop. That last message did not land: re-pitch it.",
+      "id": "mattpocock-skills:skills/productivity/wait-what",
+      "install": {
+        "claudeCode": "/plugin install mattpocock-skills@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "User only",
+      "jobs": [
+        "re-pitch a message that did not land",
+        "get an explanation restated"
+      ],
+      "kind": "meta",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at main",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "wait-what",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/productivity/wait-what",
+      "pinned": false,
+      "plugin": "mattpocock-skills",
+      "ref": "main",
+      "sourceRepo": "mattpocock/skills",
+      "sourceUrl": "https://github.com/mattpocock/skills/tree/main/skills/productivity/wait-what",
+      "status": "Live",
+      "summary": "Re-pitches a message that did not land the first time."
+    },
+    {
+      "agents": ["Claude Code"],
+      "argumentHint": null,
+      "category": "Document",
+      "description": "Writing documents for agents. Use when creating or editing skills, or modifying AGENTS.md or CLAUDE.md.",
+      "id": "mattpocock-skills:skills/productivity/writing-for-agents",
+      "install": {
+        "claudeCode": "/plugin install mattpocock-skills@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": [
+        "write documents agents will read",
+        "edit a skill or an AGENTS.md",
+        "improve agent instructions"
+      ],
+      "kind": "meta",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at main",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "writing-for-agents",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/productivity/writing-for-agents",
+      "pinned": false,
+      "plugin": "mattpocock-skills",
+      "ref": "main",
+      "sourceRepo": "mattpocock/skills",
+      "sourceUrl": "https://github.com/mattpocock/skills/tree/main/skills/productivity/writing-for-agents",
+      "status": "Live",
+      "summary": "Writes and edits the documents agents read, like AGENTS.md."
+    },
+    {
+      "agents": ["Claude Code", "Codex CLI"],
+      "argumentHint": null,
+      "category": "Decide",
+      "description": "You MUST use this before any creative work - creating features, building components, adding functionality, or modifying behavior. Explores user intent, requirements and design before implementation.",
+      "id": "superpowers:skills/brainstorming",
+      "install": {
+        "claudeCode": "/plugin install superpowers@korza-marketplace",
+        "codexCli": "codex plugin add superpowers@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": [
+        "explore requirements before building",
+        "turn an idea into a design",
+        "clarify intent before writing code"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at v6.2.0",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "brainstorming",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/brainstorming",
+      "pinned": true,
+      "plugin": "superpowers",
+      "ref": "v6.2.0",
+      "sourceRepo": "obra/superpowers",
+      "sourceUrl": "https://github.com/obra/superpowers/tree/v6.2.0/skills/brainstorming",
+      "status": "Live",
+      "summary": "Explores what you are actually building, before any code."
+    },
+    {
+      "agents": ["Claude Code", "Codex CLI"],
+      "argumentHint": null,
+      "category": "Build",
+      "description": "Use when facing 2+ independent tasks that can be worked on without shared state or sequential dependencies",
+      "id": "superpowers:skills/dispatching-parallel-agents",
+      "install": {
+        "claudeCode": "/plugin install superpowers@korza-marketplace",
+        "codexCli": "codex plugin add superpowers@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": [
+        "run independent tasks in parallel",
+        "split work across several agents"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at v6.2.0",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "dispatching-parallel-agents",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/dispatching-parallel-agents",
+      "pinned": true,
+      "plugin": "superpowers",
+      "ref": "v6.2.0",
+      "sourceRepo": "obra/superpowers",
+      "sourceUrl": "https://github.com/obra/superpowers/tree/v6.2.0/skills/dispatching-parallel-agents",
+      "status": "Live",
+      "summary": "Splits independent work across agents running at once."
+    },
+    {
+      "agents": ["Claude Code", "Codex CLI"],
+      "argumentHint": null,
+      "category": "Build",
+      "description": "Use when you have a written implementation plan to execute in a separate session with review checkpoints",
+      "id": "superpowers:skills/executing-plans",
+      "install": {
+        "claudeCode": "/plugin install superpowers@korza-marketplace",
+        "codexCli": "codex plugin add superpowers@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": [
+        "work through a written plan",
+        "execute an implementation plan with checkpoints"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at v6.2.0",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "executing-plans",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/executing-plans",
+      "pinned": true,
+      "plugin": "superpowers",
+      "ref": "v6.2.0",
+      "sourceRepo": "obra/superpowers",
+      "sourceUrl": "https://github.com/obra/superpowers/tree/v6.2.0/skills/executing-plans",
+      "status": "Live",
+      "summary": "Works through a written plan, with checkpoints along the way."
+    },
+    {
+      "agents": ["Claude Code", "Codex CLI"],
+      "argumentHint": null,
+      "category": "Coordinate",
+      "description": "Use when implementation is complete, all tests pass, and you need to decide how to integrate the work",
+      "id": "superpowers:skills/finishing-a-development-branch",
+      "install": {
+        "claudeCode": "/plugin install superpowers@korza-marketplace",
+        "codexCli": "codex plugin add superpowers@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": ["decide how to merge finished work", "wrap up a feature branch"],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at v6.2.0",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "finishing-a-development-branch",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/finishing-a-development-branch",
+      "pinned": true,
+      "plugin": "superpowers",
+      "ref": "v6.2.0",
+      "sourceRepo": "obra/superpowers",
+      "sourceUrl": "https://github.com/obra/superpowers/tree/v6.2.0/skills/finishing-a-development-branch",
+      "status": "Live",
+      "summary": "Decides how finished work gets back onto the main branch."
+    },
+    {
+      "agents": ["Claude Code", "Codex CLI"],
+      "argumentHint": null,
+      "category": "Verify",
+      "description": "Use when receiving code review feedback, before implementing suggestions, especially if feedback seems unclear or technically questionable - requires technical rigor and verification, not performative agreement or blind implementation",
+      "id": "superpowers:skills/receiving-code-review",
+      "install": {
+        "claudeCode": "/plugin install superpowers@korza-marketplace",
+        "codexCli": "codex plugin add superpowers@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": [
+        "act on code review feedback",
+        "decide whether review feedback is right"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at v6.2.0",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "receiving-code-review",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/receiving-code-review",
+      "pinned": true,
+      "plugin": "superpowers",
+      "ref": "v6.2.0",
+      "sourceRepo": "obra/superpowers",
+      "sourceUrl": "https://github.com/obra/superpowers/tree/v6.2.0/skills/receiving-code-review",
+      "status": "Live",
+      "summary": "Works out which review feedback is right before acting on it."
+    },
+    {
+      "agents": ["Claude Code", "Codex CLI"],
+      "argumentHint": null,
+      "category": "Verify",
+      "description": "Use when completing tasks, implementing major features, or before merging to verify work meets requirements",
+      "id": "superpowers:skills/requesting-code-review",
+      "install": {
+        "claudeCode": "/plugin install superpowers@korza-marketplace",
+        "codexCli": "codex plugin add superpowers@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": [
+        "get work reviewed before merging",
+        "check work meets its requirements"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at v6.2.0",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "requesting-code-review",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/requesting-code-review",
+      "pinned": true,
+      "plugin": "superpowers",
+      "ref": "v6.2.0",
+      "sourceRepo": "obra/superpowers",
+      "sourceUrl": "https://github.com/obra/superpowers/tree/v6.2.0/skills/requesting-code-review",
+      "status": "Live",
+      "summary": "Gets work reviewed against its requirements before merging."
+    },
+    {
+      "agents": ["Claude Code", "Codex CLI"],
+      "argumentHint": null,
+      "category": "Build",
+      "description": "Use when executing implementation plans with independent tasks in the current session",
+      "id": "superpowers:skills/subagent-driven-development",
+      "install": {
+        "claudeCode": "/plugin install superpowers@korza-marketplace",
+        "codexCli": "codex plugin add superpowers@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": [
+        "execute a plan using subagents",
+        "split implementation across agents in one session"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at v6.2.0",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "subagent-driven-development",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/subagent-driven-development",
+      "pinned": true,
+      "plugin": "superpowers",
+      "ref": "v6.2.0",
+      "sourceRepo": "obra/superpowers",
+      "sourceUrl": "https://github.com/obra/superpowers/tree/v6.2.0/skills/subagent-driven-development",
+      "status": "Live",
+      "summary": "Runs a plan's independent tasks across subagents."
+    },
+    {
+      "agents": ["Claude Code", "Codex CLI"],
+      "argumentHint": null,
+      "category": "Build",
+      "description": "Use when encountering any bug, test failure, or unexpected behavior, before proposing fixes",
+      "id": "superpowers:skills/systematic-debugging",
+      "install": {
+        "claudeCode": "/plugin install superpowers@korza-marketplace",
+        "codexCli": "codex plugin add superpowers@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": [
+        "debug a failing test",
+        "work out why behaviour is unexpected",
+        "find a root cause before fixing"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at v6.2.0",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "systematic-debugging",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/systematic-debugging",
+      "pinned": true,
+      "plugin": "superpowers",
+      "ref": "v6.2.0",
+      "sourceRepo": "obra/superpowers",
+      "sourceUrl": "https://github.com/obra/superpowers/tree/v6.2.0/skills/systematic-debugging",
+      "status": "Live",
+      "summary": "Finds the root cause of a failure before proposing a fix."
+    },
+    {
+      "agents": ["Claude Code", "Codex CLI"],
+      "argumentHint": null,
+      "category": "Build",
+      "description": "Use when implementing any feature or bugfix, before writing implementation code",
+      "id": "superpowers:skills/test-driven-development",
+      "install": {
+        "claudeCode": "/plugin install superpowers@korza-marketplace",
+        "codexCli": "codex plugin add superpowers@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": ["build a feature test-first", "write the test before the code"],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at v6.2.0",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "test-driven-development",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/test-driven-development",
+      "pinned": true,
+      "plugin": "superpowers",
+      "ref": "v6.2.0",
+      "sourceRepo": "obra/superpowers",
+      "sourceUrl": "https://github.com/obra/superpowers/tree/v6.2.0/skills/test-driven-development",
+      "status": "Live",
+      "summary": "Writes the failing test first, then the code that passes it."
+    },
+    {
+      "agents": ["Claude Code", "Codex CLI"],
+      "argumentHint": null,
+      "category": "Coordinate",
+      "description": "Use when starting feature work that needs isolation from current workspace or before executing implementation plans - ensures an isolated workspace exists via native tools or git worktree fallback",
+      "id": "superpowers:skills/using-git-worktrees",
+      "install": {
+        "claudeCode": "/plugin install superpowers@korza-marketplace",
+        "codexCli": "codex plugin add superpowers@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": [
+        "work in an isolated workspace",
+        "set up a git worktree for a feature"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at v6.2.0",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "using-git-worktrees",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/using-git-worktrees",
+      "pinned": true,
+      "plugin": "superpowers",
+      "ref": "v6.2.0",
+      "sourceRepo": "obra/superpowers",
+      "sourceUrl": "https://github.com/obra/superpowers/tree/v6.2.0/skills/using-git-worktrees",
+      "status": "Live",
+      "summary": "Sets up an isolated worktree so feature work stays separate."
+    },
+    {
+      "agents": ["Claude Code", "Codex CLI"],
+      "argumentHint": null,
+      "category": "Coordinate",
+      "description": "Use when starting any conversation - establishes how to find and use skills, requiring skill invocation before ANY response including clarifying questions",
+      "id": "superpowers:skills/using-superpowers",
+      "install": {
+        "claudeCode": "/plugin install superpowers@korza-marketplace",
+        "codexCli": "codex plugin add superpowers@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": ["find and use the right skill", "understand how skills work"],
+      "kind": "meta",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at v6.2.0",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "using-superpowers",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/using-superpowers",
+      "pinned": true,
+      "plugin": "superpowers",
+      "ref": "v6.2.0",
+      "sourceRepo": "obra/superpowers",
+      "sourceUrl": "https://github.com/obra/superpowers/tree/v6.2.0/skills/using-superpowers",
+      "status": "Live",
+      "summary": "Finds the right skill for the task, before starting it."
+    },
+    {
+      "agents": ["Claude Code", "Codex CLI"],
+      "argumentHint": null,
+      "category": "Verify",
+      "description": "Use when about to claim work is complete, fixed, or passing, before committing or creating PRs - requires running verification commands and confirming output before making any success claims; evidence before assertions always",
+      "id": "superpowers:skills/verification-before-completion",
+      "install": {
+        "claudeCode": "/plugin install superpowers@korza-marketplace",
+        "codexCli": "codex plugin add superpowers@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": [
+        "prove work is actually done",
+        "check before claiming something passes"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at v6.2.0",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "verification-before-completion",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/verification-before-completion",
+      "pinned": true,
+      "plugin": "superpowers",
+      "ref": "v6.2.0",
+      "sourceRepo": "obra/superpowers",
+      "sourceUrl": "https://github.com/obra/superpowers/tree/v6.2.0/skills/verification-before-completion",
+      "status": "Live",
+      "summary": "Proves work is done by running it, before claiming it passes."
+    },
+    {
+      "agents": ["Claude Code", "Codex CLI"],
+      "argumentHint": null,
+      "category": "Document",
+      "description": "Use when you have a spec or requirements for a multi-step task, before touching code",
+      "id": "superpowers:skills/writing-plans",
+      "install": {
+        "claudeCode": "/plugin install superpowers@korza-marketplace",
+        "codexCli": "codex plugin add superpowers@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": [
+        "write an implementation plan",
+        "turn a spec into steps before touching code"
+      ],
+      "kind": "skill",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at v6.2.0",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "writing-plans",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/writing-plans",
+      "pinned": true,
+      "plugin": "superpowers",
+      "ref": "v6.2.0",
+      "sourceRepo": "obra/superpowers",
+      "sourceUrl": "https://github.com/obra/superpowers/tree/v6.2.0/skills/writing-plans",
+      "status": "Live",
+      "summary": "Turns a spec into ordered steps before touching any code."
+    },
+    {
+      "agents": ["Claude Code", "Codex CLI"],
+      "argumentHint": null,
+      "category": "Document",
+      "description": "Use when creating new skills, editing existing skills, or verifying skills work before deployment",
+      "id": "superpowers:skills/writing-skills",
+      "install": {
+        "claudeCode": "/plugin install superpowers@korza-marketplace",
+        "codexCli": "codex plugin add superpowers@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "Agent + user",
+      "jobs": [
+        "create a new skill",
+        "edit an existing skill",
+        "check a skill actually works"
+      ],
+      "kind": "meta",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at v6.2.0",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "writing-skills",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/writing-skills",
+      "pinned": true,
+      "plugin": "superpowers",
+      "ref": "v6.2.0",
+      "sourceRepo": "obra/superpowers",
+      "sourceUrl": "https://github.com/obra/superpowers/tree/v6.2.0/skills/writing-skills",
+      "status": "Live",
+      "summary": "Creates or edits a skill, and checks that it actually works."
+    }
+  ],
+  "versions": {
+    "codezen": {
+      "behind": null,
+      "latest": null,
+      "pinned": "main",
+      "state": "no-releases"
+    },
+    "humanizer": {
+      "behind": 2,
+      "latest": "v2.11.1",
+      "pinned": "v2.9.1",
+      "state": "behind"
+    },
+    "mattpocock-skills": {
+      "behind": null,
+      "latest": "v1.2.3",
+      "pinned": "main",
+      "state": "unpinned"
+    },
+    "pyright-lsp": {
+      "behind": null,
+      "latest": null,
+      "pinned": "main",
+      "state": "no-releases"
+    },
+    "superpowers": {
+      "behind": 1,
+      "latest": "v6.3.0",
+      "pinned": "v6.2.0",
+      "state": "behind"
+    }
+  }
+}
