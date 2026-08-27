@@ -6,8 +6,11 @@ import {
   installCommands,
   marketplaceName,
   marketplaceRepo,
+  pluginRows,
   plugins,
   skillsArePlaceholder,
+  versionFacetLabel,
+  versionStatusFor,
   tools,
 } from "./catalogue";
 
@@ -133,6 +136,18 @@ describe("install commands", () => {
 
   it("offers nothing for a plugin no agent lists", () => {
     expect(installCommands({ ...plugins[0], agents: [] })).toEqual([]);
+  });
+});
+
+describe("plugin rows", () => {
+  it("derives a pin state for every plugin", () => {
+    // pinState powers the Pin facet; hardcoding it to "Unknown" left the suite green.
+    for (const plugin of pluginRows) {
+      expect(plugin.pinState, plugin.id).toBe(
+        versionFacetLabel(versionStatusFor(plugin.id)),
+      );
+      expect(plugin.pinState).not.toBe("Unknown");
+    }
   });
 });
 

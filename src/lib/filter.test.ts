@@ -49,6 +49,14 @@ describe("grid filtering", () => {
     expect(andOrigin).toBeLessThan(either);
   });
 
+  it("applies the query, not only the facets", () => {
+    // Replacing the matchesQuery call with `true` left every other assertion here passing.
+    const all = view({ selected: {}, query: "" }).length;
+    const queried = view({ selected: {}, query: "pull request" });
+    expect(queried.length).toBeGreaterThan(0);
+    expect(queried.length).toBeLessThan(all);
+  });
+
   it("matches a list-valued facet against any of its values", () => {
     const codex = view({ selected: { agents: ["Codex CLI"] }, query: "" });
     expect(codex.length).toBeGreaterThan(0);

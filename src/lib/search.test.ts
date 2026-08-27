@@ -98,3 +98,26 @@ describe("catalogue search", () => {
     expect(hits("kubernetes")).toHaveLength(0);
   });
 });
+
+describe("the reverse direction only matches inflections", () => {
+  it("does not let a short word swallow a longer query", () => {
+    // `work` used to match worktree, workflow and workspace; `when` matched 33 of 57 rows.
+    for (const magnet of ["whenever", "userland", "checklist"]) {
+      expect(hits(magnet), magnet).toHaveLength(0);
+    }
+    expect(hits("worktree").length).toBeLessThan(3);
+  });
+
+  it("still reaches every skill by its own name", () => {
+    for (const skill of skills) {
+      expect(hits(skill.name).length, skill.id).toBeGreaterThan(0);
+    }
+  });
+
+  it("searches the jobs, which nothing else in the haystack carries", () => {
+    // Dropping `jobs` from entryHaystack left every other query in this file passing.
+    const onlyInJobs = "put timelines on a piece of work";
+    expect(skills.some((s) => s.summary.includes(onlyInJobs))).toBe(false);
+    expect(hits(onlyInJobs).length).toBeGreaterThan(0);
+  });
+});

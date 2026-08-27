@@ -1,8 +1,7 @@
 /** Query matching for the catalogue grid. Here, not inline, so the tests exercise it. */
 
-/** Collapse separators so `test-driven-development` reads as three words. */
 function flatten(value: string): string {
-  return value.toLowerCase().replace(/[-_/:]+/g, " ");
+  return value.toLowerCase();
 }
 
 /** Split the same way the haystack is, or punctuation stays glued and `tdd,` matches nothing. */
@@ -25,9 +24,36 @@ const MIN_STEM = 4;
  * Either may be a prefix of the other: `review` finds `reviewer`, and `testing` finds `test`.
  * Anchored at a word start — substring matching made `unit` hit "opportunities".
  */
+const SUFFIXES = new Set([
+  "s",
+  "es",
+  "ed",
+  "d",
+  "er",
+  "r",
+  "ers",
+  "ing",
+  "ings",
+  "ion",
+  "ions",
+  "ation",
+  "ations",
+  "ment",
+  "ments",
+  "ly",
+  "y",
+]);
+
 export function matchesTerm(term: string, word: string): boolean {
   if (word.startsWith(term)) return true;
-  return word.length >= MIN_STEM && term.startsWith(word);
+  if (word.length < MIN_STEM || !term.startsWith(word)) return false;
+  // The remainder has to be an inflection. Without this, `work` swallowed `worktree`,
+  // `workflow` and `workspace`, and `when` matched 33 of 57 rows through `whenever`.
+  const rest = term.slice(word.length);
+  return (
+    SUFFIXES.has(rest) ||
+    (rest[0] === word.at(-1) && SUFFIXES.has(rest.slice(1)))
+  );
 }
 
 /** True when every term in the query matches some word in the haystack. */
