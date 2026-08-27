@@ -2,7 +2,7 @@
   {
     "id": "codezen",
     "name": "codezen",
-    "summary": "CodeZen is an AI-powered code plugin to build software with skills.",
+    "summary": "Skills for building software, from Korza.",
     "problem": "Agent-assisted work tends to jump straight to code. Requirements stay half-specified, and tests become an afterthought.",
     "benefits": [
       "Covers requirements, build and test, so the work either side of writing code is part of the process.",
@@ -18,7 +18,7 @@
   {
     "id": "pyright-lsp",
     "name": "pyright-lsp",
-    "summary": "Pyright LSP plugin listed in the catalogue. Currently ships nothing.",
+    "summary": "Listed in the catalogue; ships nothing today.",
     "problem": "Without a language server the agent reads Python as plain text. It infers signatures instead of looking them up, and type errors an IDE would flag immediately go unnoticed.",
     "benefits": [
       "Does not currently work. The installed plugin directory contains no skill, agent, hook or LSP-server definitions, because the entry keeps its lspServers configuration outside that directory and the catalogue copies only the directory.",
@@ -35,7 +35,7 @@
   {
     "id": "superpowers",
     "name": "superpowers",
-    "summary": "Core skills library: TDD, debugging, collaboration patterns. Referred by codezen.",
+    "summary": "Core skills library: TDD, debugging, collaboration.",
     "problem": "Left to itself, an agent writes code first and reasons about it afterwards. The result reads well and fails under test.",
     "benefits": [
       "A vetted library of TDD, debugging and collaboration patterns, so the approach is not improvised on every task.",
@@ -52,7 +52,7 @@
   {
     "id": "mattpocock-skills",
     "name": "mattpocock-skills",
-    "summary": "Matt Pocock's engineering and productivity skills: TDD, code review, domain modeling, bug diagnosis, grilling and more.",
+    "summary": "Matt Pocock's engineering and productivity skills.",
     "problem": "The jobs around writing code get re-improvised every time: reviewing a PR, diagnosing a bug, turning a spec into tickets, handing work over. How well they go depends on who asked and how.",
     "benefits": [
       "Twenty-five task-specific skills covering review, TDD, domain modelling, triage and architecture.",
@@ -95,7 +95,7 @@
   {
     "id": "humanizer",
     "name": "humanizer",
-    "summary": "Removes signs of AI-generated writing from text, based on Wikipedia's \"Signs of AI writing\" guide.",
+    "summary": "Removes the signs of AI-generated writing from text.",
     "problem": "AI prose has tells: inflated symbolism, promotional language, em dash overuse, the rule of three, filler phrases. Readers notice them even when they cannot name them.",
     "benefits": [
       "Edits against Wikipedia's documented \"Signs of AI writing\" list rather than a vague sense of tone.",

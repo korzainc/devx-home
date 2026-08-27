@@ -30,10 +30,8 @@ export default async function PluginPage({
 
   const version = versionStatusFor(plugin.id);
   const skills = skillsForPlugin(plugin.id);
-  const live = skills.filter((skill) => skill.status !== "Planned");
-  const planned = skills.filter((skill) => skill.status === "Planned");
   // Derived from the index, so it cannot disagree with the skill list below.
-  const shipsNothing = live.length === 0;
+  const shipsNothing = skills.length === 0;
 
   return (
     <article className="flex max-w-3xl flex-col gap-12">
@@ -113,22 +111,14 @@ export default async function PluginPage({
       {skills.length > 0 && (
         <section className="flex flex-col gap-3">
           <h2 className="text-xs font-medium tracking-wide text-ink-faint uppercase">
-            Skills in this plugin ({live.length}
-            {planned.length > 0 && `, plus ${planned.length} planned`})
+            Skills in this plugin ({skills.length})
           </h2>
-          {/* Live first: index order put six Planned rows in the first six positions. */}
           <ul className="flex flex-wrap gap-1.5">
-            {[...live, ...planned].map((skill) => (
+            {skills.map((skill) => (
               <li
                 key={skill.id}
-                title={`${skill.category} · ${skill.jobs[0]}${
-                  skill.status === "Planned" ? " · planned, not yet built" : ""
-                }`}
-                className={
-                  skill.status === "Planned"
-                    ? "rounded border border-dashed border-line px-2 py-1 font-mono text-xs text-ink-faint"
-                    : "rounded bg-accent-wash px-2 py-1 font-mono text-xs text-ink-muted"
-                }
+                title={`${skill.category} · ${skill.jobs[0]}`}
+                className="rounded bg-accent-wash px-2 py-1 font-mono text-xs text-ink-muted"
               >
                 {skill.name}
               </li>

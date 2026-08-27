@@ -107,15 +107,14 @@ export type VersionStatus = {
 };
 
 // A JSON import widens every string, so `kind` arrives as `string`.
-export const skills: SkillEntry[] = skillsData.skills as SkillEntry[];
+// Planned rows stay in the index but are hidden for now: nobody can install one.
+export const skills: SkillEntry[] = (skillsData.skills as SkillEntry[]).filter(
+  (skill) => skill.status !== "Planned",
+);
 
-export const browsableSkills: SkillEntry[] = skills
-  .filter((skill) => skill.kind === "skill")
-  // Live first: id order put the six Planned document formats in the opening rows, so the
-  // page led with skills nobody can install.
-  .sort(
-    (a, b) => Number(a.status === "Planned") - Number(b.status === "Planned"),
-  );
+export const browsableSkills: SkillEntry[] = skills.filter(
+  (skill) => skill.kind === "skill",
+);
 
 /** Listed and searchable, but outside every facet. */
 export const toolchainSkills: SkillEntry[] = skills.filter(
@@ -177,8 +176,6 @@ export function skillsForPlugin(pluginId: string): SkillEntry[] {
 export function claimsByName(entries: SkillEntry[]): Map<string, string[]> {
   const byName = new Map<string, Set<string>>();
   for (const skill of entries) {
-    // Nobody can install a Planned skill, so it cannot compete for a name.
-    if (skill.status === "Planned") continue;
     const seen = byName.get(skill.name) ?? new Set<string>();
     seen.add(skill.plugin);
     byName.set(skill.name, seen);
