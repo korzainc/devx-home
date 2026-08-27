@@ -33,6 +33,11 @@ function cardCount() {
     .filter((node) => node.getAttribute("href")?.startsWith("/skills/")).length;
 }
 
+/** The card for one skill. The name is split across elements, so match the link's own name. */
+function card(name: string) {
+  return screen.queryByRole("link", { name: new RegExp(`^/${name}\\b`) });
+}
+
 function search() {
   return screen.getByLabelText("Search");
 }
@@ -96,13 +101,13 @@ describe("the skills catalogue", () => {
     const shown = cardCount();
     expect(shown).toBeGreaterThan(0);
     expect(shown).toBeLessThan(skills.length);
-    expect(screen.getByText("/setup")).toBeTruthy();
+    expect(card("setup")).toBeTruthy();
     // A toolchain row the query does NOT match, or this cannot tell "search reaches them" from
     // "they are always listed in full".
     // Guard first: without it, renaming `teach` upstream makes this pass for the trivial
     // reason and the test silently stops distinguishing anything.
     expect(toolchainSkills.some((skill) => skill.name === "teach")).toBe(true);
-    expect(screen.queryByText("/teach")).toBeNull();
+    expect(card("teach")).toBeNull();
   });
 
   it("finds a skill by the job it does, not only by its name", () => {
@@ -126,7 +131,7 @@ describe("the skills catalogue", () => {
     const withJob = browsableSkills.find((skill) =>
       skill.jobs.some((job) => job.includes("pull request")),
     )!;
-    expect(screen.getByText(`/${withJob.name}`)).toBeTruthy();
+    expect(card(withJob.name)).toBeTruthy();
     for (const job of withJob.jobs) {
       expect(screen.queryByText(job), `"${job}" is on the card`).toBeNull();
     }
