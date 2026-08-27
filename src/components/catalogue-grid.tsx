@@ -1,13 +1,25 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useId, useMemo, useState, type ReactNode } from "react";
 import { facetValues, type CatalogueEntry, type Facet } from "@/lib/catalogue";
+import { filterEntries } from "@/lib/filter";
 
 type CatalogueGridProps<T extends CatalogueEntry> = {
   entries: T[];
   facets: Facet<T>[];
   renderCard: (entry: T) => ReactNode;
   searchLabel: string;
+  /** Singular noun for the rows, used in the empty state. */
+  noun?: string;
+  /**
+   * Rows the page lists but does not classify. Search reaches them; facet chips do not, and
+   * they contribute nothing to a facet's options or counts.
+   */
+  unclassified?: T[];
+  /** Heading for the unclassified section. Required when `unclassified` is non-empty. */
+  unclassifiedLabel?: string;
+  /** One line saying why those rows sit apart, shown under the heading. */
+  unclassifiedNote?: string;
 };
 
 export function CatalogueGrid<T extends CatalogueEntry>({
@@ -15,8 +27,14 @@ export function CatalogueGrid<T extends CatalogueEntry>({
   facets,
   renderCard,
   searchLabel,
+  noun = "entry",
+  unclassified = [],
+  unclassifiedLabel,
+  unclassifiedNote,
 }: CatalogueGridProps<T>) {
   const [query, setQuery] = useState("");
+  // Both panels stay mounted, so a fixed id would give the document two search inputs.
+  const searchId = useId();
   const [selected, setSelected] = useState<Record<string, string[]>>({});
 
   const facetOptions = useMemo(
@@ -36,27 +54,22 @@ export function CatalogueGrid<T extends CatalogueEntry>({
     [entries, facets],
   );
 
-  const visible = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    return entries.filter((entry) => {
-      const matchesFacets = facets.every((facet) => {
-        const picked = selected[facet.key];
-        if (!picked?.length) return true;
-        const values = facetValues(entry, facet.key);
-        return picked.some((value) => values.includes(value));
-      });
-      if (!matchesFacets) return false;
-      if (!needle) return true;
-      const haystack = [
-        entry.name,
-        entry.summary,
-        ...facets.flatMap((facet) => facetValues(entry, facet.key)),
-      ]
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(needle);
-    });
-  }, [entries, facets, query, selected]);
+  const visible = useMemo(
+    () => filterEntries({ entries, facets, selected, query }),
+    [entries, facets, query, selected],
+  );
+
+  // Query only. An empty facet list is what makes that literal rather than a promise.
+  const visibleUnclassified = useMemo(
+    () =>
+      filterEntries({
+        entries: unclassified,
+        facets: [],
+        selected: {},
+        query,
+      }),
+    [unclassified, query],
+  );
 
   const activeCount = Object.values(selected).reduce(
     (total, picked) => total + picked.length,
@@ -80,13 +93,13 @@ export function CatalogueGrid<T extends CatalogueEntry>({
       <aside className="flex shrink-0 flex-col gap-6 lg:sticky lg:top-24 lg:w-56">
         <div className="flex flex-col gap-2">
           <label
-            htmlFor="catalogue-search"
+            htmlFor={searchId}
             className="text-xs font-medium tracking-wide text-ink-faint uppercase"
           >
             Search
           </label>
           <input
-            id="catalogue-search"
+            id={searchId}
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -129,6 +142,7 @@ export function CatalogueGrid<T extends CatalogueEntry>({
 
       <div className="flex min-w-0 flex-1 flex-col gap-4">
         <div className="flex items-center gap-3 text-sm text-ink-muted">
+          {/* Classified rows only; the section below carries its own count. */}
           <span>
             <span className="font-mono text-ink">{visible.length}</span> of{" "}
             <span className="font-mono">{entries.length}</span>
@@ -147,20 +161,51 @@ export function CatalogueGrid<T extends CatalogueEntry>({
           )}
         </div>
 
-        {visible.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-line px-6 py-16 text-center text-sm text-ink-muted">
-            Nothing matches those filters.
-          </p>
-        ) : (
+        {visible.length > 0 && (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {visible.map((entry) => (
-              // The id makes each card an anchor target, which is what a gap in the analysis
-              // report links to. It resolves in the unfiltered default state.
+              // Anchor target for gap-analysis links. Resolves in the unfiltered state.
               <div key={entry.id} id={entry.id} className="scroll-mt-24">
                 {renderCard(entry)}
               </div>
             ))}
           </div>
+        )}
+
+        {/* Only when nothing at all matched: "no skill matches" above a section listing one
+            that did is a small lie. A "gap in the catalogue" message used to live here, and
+            became unreachable once the matrix went — chips are built from values the entries
+            carry, so none can match nothing. Surfacing that again means drawing the empty
+            values, not restoring the message. */}
+        {visible.length === 0 && visibleUnclassified.length === 0 && (
+          <p className="rounded-xl border border-dashed border-line px-6 py-16 text-center text-sm text-ink-muted">
+            No {noun} matches those filters.
+          </p>
+        )}
+
+        {visibleUnclassified.length > 0 && (
+          <section className="flex flex-col gap-3 border-t border-line pt-6">
+            <div className="flex flex-col gap-1">
+              <h3 className="text-xs font-medium tracking-wide text-ink-faint uppercase">
+                {unclassifiedLabel}{" "}
+                <span className="font-mono normal-case">
+                  ({visibleUnclassified.length})
+                </span>
+              </h3>
+              {unclassifiedNote && (
+                <p className="max-w-2xl text-xs text-ink-faint">
+                  {unclassifiedNote}
+                </p>
+              )}
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {visibleUnclassified.map((entry) => (
+                <div key={entry.id} id={entry.id} className="scroll-mt-24">
+                  {renderCard(entry)}
+                </div>
+              ))}
+            </div>
+          </section>
         )}
       </div>
     </div>
