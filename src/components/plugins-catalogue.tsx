@@ -37,6 +37,7 @@ function PluginCard({ plugin }: { plugin: PluginRow }) {
     (skill) => skill.status !== "Planned",
   ).length;
   const plannedCount = pluginSkills.length - skillCount;
+  const agents = plugin.agents.map((a) => a.split(" ")[0].toLowerCase());
 
   return (
     <Link
@@ -48,7 +49,8 @@ function PluginCard({ plugin }: { plugin: PluginRow }) {
           {plugin.name}
         </span>
         <span className="shrink-0 font-mono text-[0.65rem] text-ink-faint">
-          {plugin.ref}
+          {skillCount} {skillCount === 1 ? "skill" : "skills"}
+          {plannedCount > 0 && `, ${plannedCount} planned`}
         </span>
       </div>
 
@@ -60,18 +62,16 @@ function PluginCard({ plugin }: { plugin: PluginRow }) {
         </span>
       )}
 
-      <p className="line-clamp-2 flex-1 text-sm leading-relaxed text-ink-muted">
+      {/* No flex-1: it stretched the box past the clamp, so a third line leaked under the
+          ellipsis. mt-auto on the footer does the filling instead. */}
+      <p className="line-clamp-2 text-sm leading-relaxed text-ink-muted">
         {plugin.summary}
       </p>
 
-      <div className="flex items-center gap-1.5 pt-1 font-mono text-[0.65rem] text-ink-faint">
-        <span>
-          {skillCount} {skillCount === 1 ? "skill" : "skills"}
-          {plannedCount > 0 && ` + ${plannedCount} planned`}
-        </span>
-        <span aria-hidden>·</span>
-        <span>{plugin.agents.join(", ")}</span>
-        <span className="ml-auto group-hover:text-accent">why use it →</span>
+      {/* Runtimes left, matching the skill card. */}
+      <div className="mt-auto flex items-baseline justify-between gap-3 pt-1 font-mono text-[0.65rem] text-ink-faint">
+        <span className="truncate">{agents.join(" · ")}</span>
+        <span className="shrink-0 group-hover:text-accent">why use it →</span>
       </div>
     </Link>
   );

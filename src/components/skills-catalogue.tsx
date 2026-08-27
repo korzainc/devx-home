@@ -33,11 +33,11 @@ function SkillCard({ skill }: { skill: SkillEntry }) {
         {skill.summary || skill.description}
       </p>
 
-      {/* Plugin left, runtimes right. Claude Code is on all 48, so it says nothing alone --
-          the signal is whether codex sits beside it, since 21 of these cannot run there. */}
+      {/* Runtimes left, plugin right. Claude Code is on all 48, so it says nothing alone --
+          the signal is whether codex sits beside it, since 20 of these cannot run there. */}
       <div className="mt-auto flex items-baseline justify-between gap-3 pt-1 font-mono text-[0.65rem]">
-        <span className="truncate text-ink-muted">{skill.plugin}</span>
         <span className="shrink-0 text-ink-faint">{agents.join(" · ")}</span>
+        <span className="truncate text-ink-muted">{skill.plugin}</span>
       </div>
     </Link>
   );
