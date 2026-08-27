@@ -48,6 +48,7 @@ function ToolCard({ tool }: { tool: ToolEntry }) {
 export function ToolsCatalogue({ entries }: { entries: ToolEntry[] }) {
   return (
     <CatalogueGrid
+      noun="tool"
       entries={entries}
       facets={facets}
       searchLabel="Filter tools"

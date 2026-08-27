@@ -97,6 +97,9 @@ describe("the skills catalogue", () => {
     expect(screen.getByText("/setup")).toBeTruthy();
     // A toolchain row the query does NOT match, or this cannot tell "search reaches them" from
     // "they are always listed in full".
+    // Guard first: without it, renaming `teach` upstream makes this pass for the trivial
+    // reason and the test silently stops distinguishing anything.
+    expect(toolchainSkills.some((skill) => skill.name === "teach")).toBe(true);
     expect(screen.queryByText("/teach")).toBeNull();
   });
 

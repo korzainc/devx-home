@@ -80,6 +80,7 @@ function PluginCard({ plugin }: { plugin: PluginRow }) {
 export function PluginsCatalogue({ entries }: { entries: PluginRow[] }) {
   return (
     <CatalogueGrid
+      noun="plugin"
       entries={entries}
       facets={facets}
       searchLabel="Filter plugins"

@@ -9,8 +9,9 @@ type CatalogueGridProps<T extends CatalogueEntry> = {
   facets: Facet<T>[];
   renderCard: (entry: T) => ReactNode;
   searchLabel: string;
-  /** Singular noun for the rows, used in the empty state. */
-  noun?: string;
+  /** Singular noun for the rows, used in the empty state. Required, so a caller cannot
+   * silently inherit a wrong one. */
+  noun: string;
   /**
    * Rows the page lists but does not classify. Search reaches them; facet chips do not, and
    * they contribute nothing to a facet's options or counts.
@@ -27,7 +28,7 @@ export function CatalogueGrid<T extends CatalogueEntry>({
   facets,
   renderCard,
   searchLabel,
-  noun = "entry",
+  noun,
   unclassified = [],
   unclassifiedLabel,
   unclassifiedNote,
