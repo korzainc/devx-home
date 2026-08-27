@@ -8,6 +8,9 @@ const baseline: Baseline = {
     lint: { label: "Linting", category: "Linting" },
     "unit-tests": { label: "Unit tests", category: "Testing" },
     coverage: { label: "Coverage reporting", category: "Testing" },
+    // No tool in the fixture satisfies this. It exists so that Testing mixes a gap with two
+    // satisfied capabilities, which is the only way the gaps-first sort is observable.
+    "e2e-tests": { label: "End to end tests", category: "Testing" },
     "secret-scanning": { label: "Secret scanning", category: "Security" },
     orphan: { label: "Orphan", category: "Nowhere" },
   },
@@ -17,7 +20,7 @@ const baseline: Baseline = {
       id: "javascript",
       label: "JavaScript",
       markers: ["package.json"],
-      expects: ["lint", "unit-tests", "coverage", "orphan"],
+      expects: ["lint", "unit-tests", "coverage", "e2e-tests", "orphan"],
     },
     {
       id: "java",
@@ -144,12 +147,21 @@ describe("analyze", () => {
       baseline,
     });
 
+    // Testing now mixes one gap with two satisfied capabilities, so the order is a real claim:
+    // the gap first, then the satisfied ones alphabetically. Asserted by label as well as by
+    // flag, because [false, true, true] alone would pass on a sort that only got lucky.
     const testing = report.categories.find(
       (entry) => entry.category === "Testing",
     );
     expect(testing?.capabilities.map((entry) => entry.satisfied)).toEqual([
+      false,
       true,
       true,
+    ]);
+    expect(testing?.capabilities.map((entry) => entry.label)).toEqual([
+      "End to end tests",
+      "Coverage reporting",
+      "Unit tests",
     ]);
 
     const lint = report.categories.find(
@@ -164,8 +176,8 @@ describe("analyze", () => {
       baseline,
     });
 
-    // lint, unit-tests, coverage, orphan, secret-scanning.
-    expect(report.satisfiedCount + report.gapCount).toBe(5);
+    // lint, unit-tests, coverage, e2e-tests, orphan, secret-scanning.
+    expect(report.satisfiedCount + report.gapCount).toBe(6);
     expect(report.satisfiedCount).toBe(1);
   });
 
