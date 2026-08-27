@@ -6,8 +6,11 @@ import {
   installCommands,
   marketplaceName,
   marketplaceRepo,
+  duplicateClaims,
   pluginRows,
   plugins,
+  rivalPlugins,
+  skills,
   skillsArePlaceholder,
   versionFacetLabel,
   versionStatusFor,
@@ -159,5 +162,35 @@ describe("provenance", () => {
     expect(skillsArePlaceholder).toBe(false);
     expect(indexSchemaVersion).toBe(skillsData.schemaVersion);
     expect(indexSchemaVersion).toBeGreaterThan(0);
+  });
+});
+
+describe("install commands and duplicate claims", () => {
+  it("names the marketplace and the plugin the user actually types", () => {
+    // Replacing marketplaceRepo/marketplaceName with "WRONG", or plugin.name with plugin.id,
+    // all left the suite green -- and this is text a user copies into a terminal.
+    const [claude] = installCommands(plugins.find((p) => p.id === "codezen")!);
+    // Literals, not the constants: interpolating them mutates both sides of the assertion.
+    expect(claude.install).toBe("/plugin install codezen@korza-marketplace");
+    expect(claude.register).toBe(
+      "/plugin marketplace add korzainc/marketplace",
+    );
+  });
+
+  it("reports a name only when more than one plugin claims it", () => {
+    // `code-review` and `tdd` each ship from two plugins; grouping by plugin, or relaxing the
+    // size test, both left the suite green.
+    expect([...duplicateClaims.keys()].sort()).toEqual(["code-review", "tdd"]);
+    for (const [name, claimants] of duplicateClaims) {
+      expect(claimants.length, name).toBeGreaterThan(1);
+      expect([...claimants]).toEqual([...claimants].sort());
+    }
+  });
+
+  it("lists the other plugins claiming a name, never the skill's own", () => {
+    const codeReview = skills.find(
+      (s) => s.name === "code-review" && s.plugin === "codezen",
+    )!;
+    expect(rivalPlugins(codeReview)).toEqual(["mattpocock-skills"]);
   });
 });

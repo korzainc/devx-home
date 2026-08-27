@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { skills } from "./catalogue";
-import { entryHaystack, matchesQuery } from "./search";
+import { entryHaystack, matchesQuery, matchesTerm } from "./search";
 
 /** Uses the grid's own haystack. Returns entries, not names: two plugins ship `code-review`. */
 function hits(query: string) {
@@ -119,5 +119,39 @@ describe("the reverse direction only matches inflections", () => {
     const onlyInJobs = "put timelines on a piece of work";
     expect(skills.some((s) => s.summary.includes(onlyInJobs))).toBe(false);
     expect(hits(onlyInJobs).length).toBeGreaterThan(0);
+  });
+});
+
+describe("the suffix set", () => {
+  // Each of these was deletable from SUFFIXES with a green suite, and the doubled-consonant
+  // branch could be removed outright.
+  it.each([
+    ["planning", "plan"],
+    ["debugging", "debug"],
+    ["committed", "commit"],
+    ["reviews", "review"],
+    ["branches", "branch"],
+    ["reviewed", "review"],
+    ["reviewer", "review"],
+    ["reviewers", "review"],
+    ["testing", "test"],
+    ["decisions", "decision"],
+    ["documentation", "document"],
+    ["statements", "statement"],
+    ["directly", "direct"],
+  ])("matches %s against %s", (term, word) => {
+    expect(matchesTerm(term, word)).toBe(true);
+  });
+
+  it("still refuses a word that is not a stem of the term", () => {
+    // The guard is on the word length, not the term's: `the` must not reach `they`.
+    for (const [term, word] of [
+      ["they", "the"],
+      ["ally", "all"],
+      ["ands", "and"],
+    ]) {
+      expect(matchesTerm(term, word), `${term}/${word}`).toBe(false);
+    }
+    expect(matchesTerm("worktree", "work")).toBe(false);
   });
 });
