@@ -2,19 +2,20 @@
 
 import Link from "next/link";
 import { CatalogueGrid } from "@/components/catalogue-grid";
-import { rivalPlugins, skillFacets, type SkillEntry } from "@/lib/catalogue";
+import { skillFacets, type SkillEntry } from "@/lib/catalogue";
 
 // Category, origin and pin state are facets, not card text: after filtering they read the same
-// on every card. What stays is the command, what it does, and a marker only where a skill is
-// unusual — planned, or claimed by two plugins.
+// on every card. What stays is the command, what it does, the plugin you install to get it,
+// and the runtimes that can run it.
 function SkillCard({ skill }: { skill: SkillEntry }) {
   const planned = skill.status === "Planned";
-  const rivals = rivalPlugins(skill);
+  // "Claude Code" -> "claude": short enough to sit opposite the plugin on one line.
+  const agents = skill.agents.map((a) => a.split(" ")[0].toLowerCase());
 
   return (
     <Link
       href={`/skills/${skill.plugin}`}
-      className="group relative flex h-full flex-col gap-2 rounded-xl border border-line bg-surface p-4 pb-7 transition-colors hover:border-line-strong hover:bg-surface-raised"
+      className="group relative flex h-full flex-col gap-2 rounded-xl border border-line bg-surface p-4 pb-5 transition-colors hover:border-line-strong hover:bg-surface-raised"
     >
       <div className="flex items-start justify-between gap-3">
         <span className="font-mono text-[0.9375rem] leading-snug font-medium text-ink [overflow-wrap:anywhere]">
@@ -28,27 +29,16 @@ function SkillCard({ skill }: { skill: SkillEntry }) {
         )}
       </div>
 
-      {/* Two lines reserved: 75 characters is three at this width, but the written ones run to
-          68, so two is the common case and the rare third line grows its row. */}
-      <p className="min-h-[2.6rem] text-[0.8125rem] leading-relaxed text-ink-muted">
+      <p className="text-[0.8125rem] leading-relaxed text-ink-muted">
         {skill.summary || skill.description}
       </p>
 
-      {rivals.length > 0 && (
-        <span
-          title={`Also claimed by ${rivals.join(", ")}`}
-          className="absolute bottom-2.5 left-4 max-w-[calc(100%-3rem)] truncate font-mono text-[0.65rem] text-ink-faint"
-        >
-          also in {rivals.join(", ")}
-        </span>
-      )}
-
-      <span
-        aria-hidden
-        className="absolute right-4 bottom-2.5 text-ink-faint opacity-0 transition-opacity group-hover:opacity-100"
-      >
-        →
-      </span>
+      {/* Plugin left, runtimes right. Claude Code is on all 48, so it says nothing alone --
+          the signal is whether codex sits beside it, since 21 of these cannot run there. */}
+      <div className="mt-auto flex items-baseline justify-between gap-3 pt-1 font-mono text-[0.65rem]">
+        <span className="truncate text-ink-muted">{skill.plugin}</span>
+        <span className="shrink-0 text-ink-faint">{agents.join(" · ")}</span>
+      </div>
     </Link>
   );
 }
