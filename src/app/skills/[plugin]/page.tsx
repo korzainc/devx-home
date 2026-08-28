@@ -61,9 +61,7 @@ export default async function PluginPage({
               <span aria-hidden className="shrink-0 font-mono text-ink-faint">
                 ›
               </span>
-              <span className="leading-relaxed text-ink-muted">
-                {benefit}
-              </span>
+              <span className="leading-relaxed text-ink-muted">{benefit}</span>
             </li>
           ))}
         </ul>
