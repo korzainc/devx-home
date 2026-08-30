@@ -1,4 +1,8 @@
-import { baseline, tools } from "@/lib/catalogue";
+import {
+  analysisBaseline,
+  analysisTools,
+  catalogueSource,
+} from "@/lib/catalogue";
 import { runAnalysis } from "@/lib/gap/run";
 import { getGitHubToken } from "@/lib/session";
 
@@ -26,7 +30,11 @@ export async function POST(request: Request) {
   }
 
   const repo = repoFromBody(await request.json().catch(() => null));
-  const result = await runAnalysis(repo, token, { tools, baseline });
+  const result = await runAnalysis(repo, token, {
+    tools: analysisTools,
+    baseline: analysisBaseline,
+    source: catalogueSource,
+  });
 
   return result.ok
     ? Response.json(result.analysis)

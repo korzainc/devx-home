@@ -1,7 +1,11 @@
+import type { Catalogue } from "@/lib/catalogue/schema";
 import { detectStacks, detectTools } from "./detect";
+import { planFixes } from "./fix";
+import { buildPatch, chooseTargetFile, existingJobIds } from "./patch";
 import { refLabel } from "./types";
 import type {
   Analysis,
+  FixSummary,
   AnalysisTool,
   Baseline,
   BaselineStack,
@@ -41,6 +45,9 @@ function recommendedToolIds(stacks: BaselineStack[], id: string) {
 export function analyze(
   snapshot: RepoSnapshot,
   catalogue: { tools: AnalysisTool[]; baseline: Baseline },
+  // Optional: the analysis is complete without it, and the report simply carries no fixes when
+  // it is absent. That keeps every existing caller and test working unchanged.
+  source?: Catalogue,
 ): Analysis {
   const { tools, baseline } = catalogue;
   const stacks = detectStacks(snapshot.paths, baseline);
@@ -140,6 +147,16 @@ export function analyze(
       );
     });
 
+  const gaps = reports.filter((report) => !report.satisfied).map((r) => r.id);
+  const fixes = source
+    ? summariseFixes(
+        gaps,
+        stacks.map((stack) => stack.id),
+        snapshot,
+        source,
+      )
+    : { blocks: [], patch: null, unwired: [] };
+
   return {
     repo: refLabel(snapshot.ref),
     defaultBranch: snapshot.defaultBranch,
@@ -148,5 +165,20 @@ export function analyze(
     categories,
     satisfiedCount: reports.filter((report) => report.satisfied).length,
     gapCount: reports.filter((report) => !report.satisfied).length,
+    fixes,
   };
+}
+
+/** Job ids come from the file we are about to patch, so a generated block cannot shadow one. */
+function summariseFixes(
+  gaps: string[],
+  ecosystems: string[],
+  snapshot: RepoSnapshot,
+  source: Catalogue,
+): FixSummary {
+  const target = chooseTargetFile(snapshot);
+  const taken = target ? existingJobIds(snapshot.files[target]) : [];
+  const plan = planFixes(gaps, ecosystems, snapshot, source, taken);
+
+  return { ...plan, patch: buildPatch(plan.blocks, snapshot) };
 }

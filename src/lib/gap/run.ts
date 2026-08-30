@@ -1,6 +1,7 @@
 import { analyze } from "./analyze";
 import { githubReader } from "./github";
 import { RepoReadError } from "./types";
+import type { Catalogue } from "@/lib/catalogue/schema";
 import type { Analysis, AnalysisTool, Baseline, RepoReader } from "./types";
 
 // Adding a provider means adding a reader here. The first one whose `parseRef` recognises the
@@ -35,7 +36,7 @@ function statusFor(error: RepoReadError) {
 export async function runAnalysis(
   repo: string,
   token: string,
-  catalogue: { tools: AnalysisTool[]; baseline: Baseline },
+  catalogue: { tools: AnalysisTool[]; baseline: Baseline; source?: Catalogue },
 ): Promise<RunResult> {
   const resolved = resolve(repo);
   if (!resolved) {
@@ -52,7 +53,10 @@ export async function runAnalysis(
       token,
       catalogue.baseline,
     );
-    return { ok: true, analysis: analyze(snapshot, catalogue) };
+    return {
+      ok: true,
+      analysis: analyze(snapshot, catalogue, catalogue.source),
+    };
   } catch (error) {
     if (error instanceof RepoReadError) {
       return { ok: false, status: statusFor(error), error: error.message };

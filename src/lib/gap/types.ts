@@ -133,4 +133,12 @@ export type Analysis = {
   categories: CategoryReport[];
   satisfiedCount: number;
   gapCount: number;
+  /** The remedy half of the report. Empty when the catalogue can wire none of the gaps. */
+  fixes: FixSummary;
+};
+
+export type FixSummary = {
+  blocks: import("./fix").FixBlock[];
+  patch: import("./patch").FixPatch | null;
+  unwired: import("./fix").UnwiredGap[];
 };
