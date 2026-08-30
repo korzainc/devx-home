@@ -29,7 +29,7 @@ function javaRepo(
   paths: string[],
 ): RepoSnapshot {
   return {
-    ref: { owner: "korzainc", repo: "billing" },
+    ref: { provider: "github" as const, owner: "korzainc", repo: "billing" },
     defaultBranch: "main",
     paths,
     files,

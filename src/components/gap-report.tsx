@@ -2,6 +2,7 @@ import Link from "next/link";
 import { FixPromptButton } from "@/components/fix-prompt";
 import { alternatives, buildFixPrompt } from "@/lib/gap/prompt";
 import type { Analysis, CapabilityReport } from "@/lib/gap/types";
+import { FixSuggestions } from "./fix-suggestions";
 
 // The report itself renders on the server and the disclosure at the bottom is a native `details`,
 // so a report URL still reads with no client JavaScript. The one exception is the fix prompt
@@ -87,13 +88,13 @@ function Capability({ capability }: { capability: CapabilityReport }) {
 
 export function GapReport({ analysis }: { analysis: Analysis }) {
   const expected = analysis.satisfiedCount + analysis.gapCount;
-  // The real baseline has no "universal" capability - every one belongs to some ecosystem's own
-  // baseline, so `expected` is zero only when no recognized stack matched.
+  // A repo the catalogue has no baseline for has not failed anything - it has not been
+  // assessed. Reporting "0 of 0" against a full red bar would read as the opposite.
   //
   // Checked as `expected === 0` rather than `analysis.stacks.length === 0`: the two currently
   // always agree, but this is the version that stays correct if a future baseline ever adds a
   // stack with no expected capabilities.
-  const noStackDetected = expected === 0;
+  const assessed = expected > 0;
 
   return (
     <div className="flex flex-col gap-8">
@@ -105,49 +106,45 @@ export function GapReport({ analysis }: { analysis: Analysis }) {
           </span>
         </div>
 
-        {noStackDetected ? (
-          <h2 className="font-display text-2xl font-semibold tracking-tight">
-            No recognized stack was detected.
-          </h2>
-        ) : (
-          <>
-            <h2 className="font-display text-2xl font-semibold tracking-tight">
-              {analysis.satisfiedCount} of {expected} recommended checks are
-              running.
-            </h2>
+        <h2 className="font-display text-2xl font-semibold tracking-tight text-balance">
+          {assessed
+            ? `${analysis.satisfiedCount} of ${expected} recommended checks are running.`
+            : "No baseline applies to this repository yet."}
+        </h2>
 
-            {/* The proportion lands before the numbers do. Green is what runs, red is what does
-                not, which is the same pairing the chips below use. */}
-            <div className="flex h-1.5 overflow-hidden rounded-full bg-line">
-              <div
-                className="bg-positive"
-                style={{
-                  width: `${(analysis.satisfiedCount / expected) * 100}%`,
-                }}
-              />
-              <div className="flex-1 bg-accent" />
-            </div>
-          </>
-        )}
+        {/* The proportion lands before the numbers do. Green is what runs, red is what does
+            not, which is the same pairing the chips below use. Nothing to prove means no bar:
+            an empty track says "not measured" where a red one would say "all failing". */}
+        {assessed ? (
+          <div className="flex h-1.5 overflow-hidden rounded-full bg-line">
+            <div
+              className="bg-positive"
+              style={{
+                width: `${(analysis.satisfiedCount / expected) * 100}%`,
+              }}
+            />
+            <div className="flex-1 bg-accent" />
+          </div>
+        ) : null}
 
         {/* The control sits on the summary row rather than above the gaps, so it reads as part of
             the report rather than an advert bolted onto it. Nothing to fix means nothing to
             generate, so a clean repo does not get offered one. */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-ink-muted">
-            {noStackDetected ? (
-              <>
-                No manifest for a stack the catalogue covers (Java, JavaScript,
-                TypeScript, Go, Python, Docker) was found at the repo root, so
-                nothing could be compared.
-              </>
-            ) : (
+            {analysis.stacks.length > 0 ? (
               <>
                 Compared against the baseline for{" "}
                 <span className="text-ink">
                   {analysis.stacks.map((stack) => stack.label).join(", ")}
                 </span>
                 . {analysis.filesRead.length} files read.
+              </>
+            ) : (
+              <>
+                The catalogue publishes a baseline for Java only, so there is
+                nothing yet to compare this repository against.{" "}
+                {analysis.filesRead.length} files read.
               </>
             )}
           </p>
@@ -156,6 +153,12 @@ export function GapReport({ analysis }: { analysis: Analysis }) {
           ) : null}
         </div>
       </div>
+
+      <FixSuggestions
+        blocks={analysis.fixes.blocks}
+        patch={analysis.fixes.patch}
+        unwired={analysis.fixes.unwired}
+      />
 
       {analysis.categories.map((category) => (
         <section key={category.category} className="flex flex-col gap-1">

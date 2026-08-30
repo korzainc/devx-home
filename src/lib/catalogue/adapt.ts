@@ -91,7 +91,10 @@ export function toBaseline(catalogue: Catalogue): Baseline {
           .filter(([, rule]) => rule.required)
           .map(([capability, rule]) => [
             capability,
-            { recommended: rule.recommended, acceptable: rule.acceptable ?? [] },
+            {
+              recommended: rule.recommended,
+              acceptable: rule.acceptable ?? [],
+            },
           ]),
       ),
     }),

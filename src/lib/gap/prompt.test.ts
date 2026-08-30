@@ -10,6 +10,7 @@ const empty: Analysis = {
   categories: [],
   satisfiedCount: 0,
   gapCount: 0,
+  fixes: { blocks: [], patch: null, unwired: [] },
 };
 
 function withGap(overrides: Partial<Analysis> = {}): Analysis {
