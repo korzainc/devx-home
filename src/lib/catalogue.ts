@@ -1,6 +1,8 @@
 import pluginsData from "@/data/plugins.json";
 import skillsData from "@/data/skills.json";
-import realCatalogueData from "@/data/catalogue.json";
+import catalogueArtifact from "@/data/catalogue.json";
+import { toAnalysisTools, toBaseline } from "@/lib/catalogue/adapt";
+import type { Catalogue } from "@/lib/catalogue/schema";
 import type { Baseline, DetectSignals } from "@/lib/gap/types";
 
 // Every tool, bundle, and baseline entry devx-home renders comes from the real CI catalogue:
@@ -81,7 +83,7 @@ type RealCatalogue = {
   baselines: Record<string, RealEcosystemBaseline>;
 };
 
-const realCatalogue = realCatalogueData as RealCatalogue;
+const realCatalogue = catalogueArtifact as RealCatalogue;
 
 function realStacks(languages: string[]): string[] {
   const filtered = languages.filter((lang) => lang !== "*");
@@ -380,6 +382,20 @@ export function rivalPlugins(skill: SkillEntry): string[] {
 // Which capabilities a stack is expected to have. Separate from the tools because a baseline is a
 // statement about stacks, not about any one tool, and the two will be published separately.
 export const baseline: Baseline = flattenBaseline(realCatalogue);
+
+// The published catalogue artifact, as built by korzainc/shared-workflows, typed as the
+// engine's own schema. The same import backs `realCatalogue` above, which the tool pages
+// read through their own view of it; this view is what gap analysis reads for fix suggestions.
+export const catalogueSource: Catalogue =
+  catalogueArtifact as unknown as Catalogue;
+
+// Gap analysis runs on the published catalogue, translated into the engine's own types. Fix
+// suggestions look tools up in `catalogueSource` by capability id, so the analysis has to be
+// speaking the same vocabulary - running the placeholder baseline here would mean every gap
+// carried an id the catalogue has never heard of, and nothing would ever resolve to a fix.
+export const analysisTools = toAnalysisTools(catalogueSource);
+
+export const analysisBaseline = toBaseline(catalogueSource);
 
 export const marketplaceName = "korza-marketplace";
 
