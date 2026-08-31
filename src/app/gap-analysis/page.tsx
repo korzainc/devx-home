@@ -33,7 +33,7 @@ function SignInPrompt({ repo }: { repo: string }) {
       <Octocat className="h-7 w-7 text-ink-faint" />
       <div className="flex flex-col gap-2">
         <h2 className="font-display text-lg font-semibold text-ink">
-          Sign in to analyze <span className="font-mono text-base">{repo}</span>
+          Log in to analyze <span className="font-mono text-base">{repo}</span>
         </h2>
         <p className="text-sm leading-relaxed text-ink-muted">
           Korza DevX reads the repository with your own GitHub access, so the
@@ -52,7 +52,7 @@ function SignInPrompt({ repo }: { repo: string }) {
           className="mt-1 inline-flex items-center gap-2 rounded-lg bg-ink px-4 py-2.5 text-sm font-medium text-canvas transition-opacity hover:opacity-85"
         >
           <Octocat />
-          Sign in with GitHub
+          Log in with GitHub
         </button>
       </form>
       <p className="text-xs text-ink-faint">Read only. File contents only.</p>
