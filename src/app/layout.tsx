@@ -1,3 +1,4 @@
+import { Analytics } from "@vercel/analytics/next";
 import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Inter, Work_Sans } from "next/font/google";
 import { SiteHeader } from "@/components/site-header";
@@ -53,6 +54,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             catalogue is still placeholder data.
           </div>
         </footer>
+        {/* Renders no markup. It is a client component that appends the script from an effect,
+            so the served HTML is unchanged and nothing blocks the prerender. On Vercel the
+            script is same-origin at /_vercel/insights/script.js, which the platform serves and
+            nothing else does: `next start` outside Vercel logs a load failure rather than
+            reporting anywhere. In dev it fetches a debug build from va.vercel-scripts.com. */}
+        <Analytics />
       </body>
     </html>
   );
