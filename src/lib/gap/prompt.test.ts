@@ -21,7 +21,7 @@ function withGap(overrides: Partial<Analysis> = {}): Analysis {
         id: "javascript",
         label: "JavaScript",
         markers: ["package.json"],
-        expects: [],
+        expects: {},
       },
     ],
     categories: [

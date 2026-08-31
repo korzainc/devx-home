@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { ToolsCatalogue } from "@/components/tools-catalogue";
-import { tools } from "@/lib/catalogue";
+import { visibleTools } from "@/lib/catalogue";
 
 export const metadata: Metadata = {
   title: "CI Tools",
@@ -19,7 +19,7 @@ export default function ToolsPage() {
           the stack it applies to.
         </p>
       </header>
-      <ToolsCatalogue entries={tools} />
+      <ToolsCatalogue entries={visibleTools} />
     </div>
   );
 }

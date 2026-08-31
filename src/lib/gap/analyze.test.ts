@@ -8,7 +8,9 @@ const baseline: Baseline = {
     lint: { label: "Linting", category: "Linting" },
     "unit-tests": { label: "Unit tests", category: "Testing" },
     coverage: { label: "Coverage reporting", category: "Testing" },
+    "e2e-tests": { label: "End-to-end tests", category: "Testing" },
     "secret-scanning": { label: "Secret scanning", category: "Security" },
+    sast: { label: "SAST", category: "Security" },
     orphan: { label: "Orphan", category: "Nowhere" },
   },
   universal: ["secret-scanning"],
@@ -17,13 +19,26 @@ const baseline: Baseline = {
       id: "javascript",
       label: "JavaScript",
       markers: ["package.json"],
-      expects: ["lint", "unit-tests", "coverage", "orphan"],
+      expects: {
+        lint: { recommended: "eslint", acceptable: [] },
+        "unit-tests": { recommended: "vitest", acceptable: [] },
+        coverage: { recommended: "vitest", acceptable: [] },
+        // No tool in the fixture provides this, so Testing always mixes a gap with satisfied
+        // capabilities - otherwise the gaps-first sort below would pass by luck.
+        "e2e-tests": { recommended: "playwright", acceptable: [] },
+        sast: { recommended: "semgrep", acceptable: ["codeql"] },
+        // Nothing in `tools` provides this: exercises the "baseline names a tool that isn't a
+        // real catalogue entry" path, filtered out rather than thrown.
+        orphan: { recommended: "no-such-tool", acceptable: [] },
+      },
     },
     {
       id: "java",
       label: "Java",
       markers: ["pom.xml"],
-      expects: ["lint"],
+      expects: {
+        lint: { recommended: "spotbugs", acceptable: [] },
+      },
     },
   ],
 };
@@ -51,11 +66,33 @@ const tools: AnalysisTool[] = [
     detect: { configFiles: [".gitleaks.toml"] },
   },
   {
+    id: "ci-base-checks",
+    name: "Korza CI Base Checks",
+    capabilities: ["secret-scanning"],
+    stacks: ["any"],
+    detect: { ciUses: ["korzainc/shared-workflows/.github/workflows/ci.yml"] },
+    wraps: [{ tool: "gitleaks", capabilities: ["secret-scanning"] }],
+  },
+  {
     id: "vitest",
     name: "Vitest",
     capabilities: ["unit-tests", "coverage"],
     stacks: ["javascript"],
     detect: { configFiles: ["vitest.config.ts"] },
+  },
+  {
+    id: "semgrep",
+    name: "Semgrep",
+    capabilities: ["sast"],
+    stacks: ["any"],
+    detect: { configFiles: [".semgrep.yml"] },
+  },
+  {
+    id: "codeql",
+    name: "CodeQL",
+    capabilities: ["sast"],
+    stacks: ["any"],
+    detect: { ciUses: ["github/codeql-action/analyze"] },
   },
 ];
 
@@ -115,9 +152,10 @@ describe("analyze", () => {
 
     // SpotBugs also provides `lint`, but this repo is not a Java repo.
     expect(capability(report, "lint").recommended).toEqual(["eslint"]);
-    // An `any` tool fits whatever was detected.
+    // An `any` tool fits whatever was detected. gitleaks is wrapped by ci-base-checks, so
+    // only ci-base-checks is recommended, never gitleaks itself.
     expect(capability(report, "secret-scanning").recommended).toEqual([
-      "gitleaks",
+      "ci-base-checks",
     ]);
   });
 
@@ -125,6 +163,28 @@ describe("analyze", () => {
     const report = analyze(snapshot(["package.json"]), { tools, baseline });
 
     expect(capability(report, "orphan").recommended).toEqual([]);
+  });
+
+  it("names only the stack's recommended tool, never its acceptable alternatives", () => {
+    const report = analyze(snapshot(["package.json"]), { tools, baseline });
+
+    // codeql is listed as acceptable for sast alongside semgrep's recommendation, but the
+    // report only ever names the recommendation.
+    expect(capability(report, "sast").recommended).toEqual(["semgrep"]);
+  });
+
+  it("unions every matched stack's own recommendation, not just the first stack's", () => {
+    const report = analyze(snapshot(["package.json", "pom.xml"]), {
+      tools,
+      baseline,
+    });
+
+    // javascript recommends eslint for lint, java recommends spotbugs: both are real for
+    // their half of a polyglot repo, neither dropped for matching second.
+    expect(capability(report, "lint").recommended).toEqual([
+      "eslint",
+      "spotbugs",
+    ]);
   });
 
   it("orders categories by the baseline and puts unknown ones last", () => {
@@ -148,8 +208,14 @@ describe("analyze", () => {
       (entry) => entry.category === "Testing",
     );
     expect(testing?.capabilities.map((entry) => entry.satisfied)).toEqual([
+      false,
       true,
       true,
+    ]);
+    expect(testing?.capabilities.map((entry) => entry.label)).toEqual([
+      "End-to-end tests",
+      "Coverage reporting",
+      "Unit tests",
     ]);
 
     const lint = report.categories.find(
@@ -164,8 +230,8 @@ describe("analyze", () => {
       baseline,
     });
 
-    // lint, unit-tests, coverage, orphan, secret-scanning.
-    expect(report.satisfiedCount + report.gapCount).toBe(5);
+    // lint, unit-tests, coverage, e2e-tests, sast, orphan, secret-scanning.
+    expect(report.satisfiedCount + report.gapCount).toBe(7);
     expect(report.satisfiedCount).toBe(1);
   });
 
