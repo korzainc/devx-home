@@ -6,8 +6,11 @@ import { signOut } from "@/lib/auth-actions";
 import { getSession } from "@/lib/session";
 
 export function SiteHeader() {
+  // z-20 because page content goes up to z-10: the roadmap vote controls sit at z-10 to clear
+  // their card's stretched link, and being later in the DOM they would tie-break over a z-10
+  // header and scroll across it.
   return (
-    <header className="sticky top-0 z-10 border-b border-line bg-canvas/80 backdrop-blur">
+    <header className="sticky top-0 z-20 border-b border-line bg-canvas/80 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center px-6">
         <Link href="/" className="flex items-center gap-3">
           {/* The wordmark ships as white-on-transparent artwork, so light mode inverts it.
