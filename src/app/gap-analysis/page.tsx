@@ -60,17 +60,64 @@ function Pending({ repo }: { repo: string }) {
   );
 }
 
-export default async function GapAnalysisPage({
+function RepoForm({ target }: { target: string }) {
+  return (
+    <form className="flex flex-col gap-2">
+      <label htmlFor="repo" className="text-xs font-medium text-ink-faint">
+        Repository
+      </label>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <input
+          id="repo"
+          name="repo"
+          defaultValue={target}
+          placeholder="korzainc/devx-home"
+          autoComplete="off"
+          spellCheck={false}
+          className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 py-2 font-mono text-sm text-ink placeholder:text-ink-faint"
+        />
+        <button
+          type="submit"
+          className="rounded-lg border border-accent bg-accent-wash px-4 py-2 text-sm font-medium whitespace-nowrap text-accent transition-opacity hover:opacity-80"
+        >
+          Analyze
+        </button>
+      </div>
+    </form>
+  );
+}
+
+// The home page posts its field here as a plain GET, so arriving with `?repo=` runs the analysis
+// on the server before anything reaches the browser. A report URL is linkable and needs no
+// client JavaScript.
+//
+// The promise is awaited here rather than in the page so that everything above it prerenders.
+// Reading a request-time value in the page body would make the whole route render on demand.
+async function Requested({
   searchParams,
 }: {
   searchParams: Promise<{ repo?: string | string[] }>;
 }) {
-  // The home page posts its field here as a plain GET, so arriving with `?repo=` runs the analysis
-  // on the server before anything reaches the browser. A report URL is linkable and needs no
-  // client JavaScript.
   const { repo } = await searchParams;
   const target = (Array.isArray(repo) ? repo[0] : repo)?.trim() ?? "";
 
+  return (
+    <>
+      <RepoForm target={target} />
+      {target ? (
+        <Suspense key={target} fallback={<Pending repo={target} />}>
+          <Result repo={target} />
+        </Suspense>
+      ) : null}
+    </>
+  );
+}
+
+export default function GapAnalysisPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ repo?: string | string[] }>;
+}) {
   return (
     <div className="flex flex-col gap-10">
       <header className="flex max-w-2xl flex-col gap-3">
@@ -87,34 +134,11 @@ export default async function GapAnalysisPage({
         </p>
       </header>
 
-      <form className="flex flex-col gap-2">
-        <label htmlFor="repo" className="text-xs font-medium text-ink-faint">
-          Repository
-        </label>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <input
-            id="repo"
-            name="repo"
-            defaultValue={target}
-            placeholder="korzainc/devx-home"
-            autoComplete="off"
-            spellCheck={false}
-            className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 py-2 font-mono text-sm text-ink placeholder:text-ink-faint"
-          />
-          <button
-            type="submit"
-            className="rounded-lg border border-accent bg-accent-wash px-4 py-2 text-sm font-medium whitespace-nowrap text-accent transition-opacity hover:opacity-80"
-          >
-            Analyze
-          </button>
-        </div>
-      </form>
-
-      {target ? (
-        <Suspense key={target} fallback={<Pending repo={target} />}>
-          <Result repo={target} />
-        </Suspense>
-      ) : null}
+      {/* The fallback is the same form with an empty field, so the prerendered shell already
+          shows a usable control and only the value filled from the URL streams in. */}
+      <Suspense fallback={<RepoForm target="" />}>
+        <Requested searchParams={searchParams} />
+      </Suspense>
     </div>
   );
 }
