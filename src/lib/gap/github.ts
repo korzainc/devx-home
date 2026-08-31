@@ -61,7 +61,7 @@ async function request(url: string, token: string, accept?: string) {
     response.status === 404
       ? "Repository not found, or the Korza DevX app is not installed on it. Ask a korzainc owner to add it to the installation."
       : response.status === 401
-        ? "GitHub rejected the token. Sign in again."
+        ? "GitHub rejected the token. Log in again."
         : response.status === 403 || response.status === 429
           ? "GitHub rate limit or access restriction hit. Try again shortly."
           : `GitHub returned ${response.status}.`;

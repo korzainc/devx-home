@@ -1,5 +1,5 @@
 ---
-title: Sign in, so analysis reads repos as you
+title: Log in, so analysis reads repos as you
 stage: shipped
 category: access
 landed: 2026-08
@@ -8,8 +8,8 @@ summary:
   you can open is one it can analyse.
 ---
 
-Live for GitHub. Sign in from the [login page](/login), or paste a repository
-into [gap analysis](/gap-analysis) and sign in when it asks. The
+Live for GitHub. Log in from the [login page](/login), or paste a repository
+into [gap analysis](/gap-analysis) and log in when it asks. The
 [updates entry](/updates) says what the report can reach.
 
 GitLab and Azure DevOps are next.

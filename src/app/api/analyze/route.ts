@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   const token = await getGitHubToken();
   if (!token) {
     return Response.json(
-      { error: "Sign in with GitHub to analyze a repository." },
+      { error: "Log in with GitHub to analyze a repository." },
       { status: 401 },
     );
   }
