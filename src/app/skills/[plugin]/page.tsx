@@ -57,11 +57,11 @@ export default async function PluginPage({
         </h2>
         <ul className="flex flex-col gap-3">
           {plugin.benefits.map((benefit) => (
-            <li
-              key={benefit}
-              className="border-l-2 border-accent pl-4 leading-relaxed text-ink-muted"
-            >
-              {benefit}
+            <li key={benefit} className="flex gap-3">
+              <span aria-hidden className="shrink-0 font-mono text-ink-faint">
+                ›
+              </span>
+              <span className="leading-relaxed text-ink-muted">{benefit}</span>
             </li>
           ))}
         </ul>
