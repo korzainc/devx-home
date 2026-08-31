@@ -21,13 +21,13 @@ function SkillCard({ skill }: { skill: SkillEntry }) {
         {skill.name}
       </span>
 
-      <p className="mt-2.5 text-[0.8125rem] leading-relaxed text-ink-muted">
+      <p className="mt-2.5 mb-4 text-[0.8125rem] leading-relaxed text-ink-muted">
         {skill.summary || skill.description}
       </p>
 
       {/* Runtimes left, plugin right. Claude Code is on all 42, so it says nothing alone -- the
           signal is whether codex sits beside it, since 21 of these cannot run there. */}
-      <div className="mt-auto flex items-baseline justify-between gap-3 border-t border-line pt-3 font-mono text-[0.65rem] text-ink-faint">
+      <div className="mt-auto flex items-baseline justify-between gap-3 border-t border-line pt-3.5 font-mono text-[0.65rem] text-ink-faint">
         <span className="shrink-0">{agents.join(" · ")}</span>
         <span className="truncate transition-colors group-hover:text-accent">
           {skill.plugin}

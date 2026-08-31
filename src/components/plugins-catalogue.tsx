@@ -29,11 +29,11 @@ function PluginCard({ plugin }: { plugin: PluginRow }) {
         </span>
       </div>
 
-      <p className="mt-2.5 line-clamp-2 text-[0.8125rem] leading-relaxed text-ink-muted">
+      <p className="mt-2.5 mb-4 line-clamp-2 text-[0.8125rem] leading-relaxed text-ink-muted">
         {plugin.summary}
       </p>
 
-      <div className="mt-auto flex items-baseline justify-between gap-3 border-t border-line pt-3 font-mono text-[0.65rem] text-ink-faint">
+      <div className="mt-auto flex items-baseline justify-between gap-3 border-t border-line pt-3.5 font-mono text-[0.65rem] text-ink-faint">
         <span className="shrink-0">{agents.join(" · ")}</span>
         <span className="shrink-0 transition-colors group-hover:text-accent">
           why use it →
