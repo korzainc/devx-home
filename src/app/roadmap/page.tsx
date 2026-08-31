@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { RoadmapBand } from "@/components/roadmap-band";
 import { getRoadmap, roadmapStages, type RoadmapStage } from "@/lib/roadmap";
+import { getBoardState } from "@/lib/roadmap-discussion";
 
 export const metadata: Metadata = {
   title: "Roadmap",
@@ -28,6 +29,11 @@ const stageEmpty: Record<RoadmapStage, string> = {
 export default function RoadmapPage() {
   const entries = getRoadmap();
 
+  // Started here and awaited nowhere on this page, so the header and every card but its footer
+  // still prerender. The one promise is shared by all four bands: votes are two queries for the
+  // whole board, not two per card.
+  const board = getBoardState();
+
   return (
     <div className="flex flex-col gap-10">
       {/* Same accent bloom the home page sections and the updates header open with. */}
@@ -54,6 +60,7 @@ export default function RoadmapPage() {
             blurb={stageBlurb[stage]}
             empty={stageEmpty[stage]}
             entries={entries.filter((entry) => entry.stage === stage)}
+            board={board}
           />
         ))}
       </div>

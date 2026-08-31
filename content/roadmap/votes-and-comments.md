@@ -1,21 +1,20 @@
 ---
 title: Vote and comment on anything here
-stage: planned
+stage: shipped
 category: portal
+landed: 2026-08
 outcome: Say what you want built next
 summary:
-  This page says what we are thinking. It should be where you answer, instead of
-  a thread that scrolls away.
-question: Would you rather a vote showed your name, or only ever a count?
+  Every entry carries a vote and a comment thread, so the argument about it sits
+  next to the thing it is about.
 ---
 
-Every entry here ends in a question and has nowhere to put the answer except
-#devx, where it is gone in a week.
+Answers used to go to #devx, where they were gone in a week. Now an entry keeps
+its own.
 
-The plan is a vote on each entry and a comment thread on its page, so the
-argument sits next to the thing it is about. Votes will not decide what gets
-built on their own, but an entry nobody wants is worth knowing about before we
-start it.
+Voting and commenting both need [a login](/roadmap/sign-in), because a vote only
+means something if it is one per person and a comment needs a name against it.
+Reading needs nothing: the tally and the thread are open to anyone.
 
-A vote only means something if it is one per person, and a comment needs a name
-against it. [Sign in](/roadmap/sign-in) has landed, so that part is settled.
+A vote is only ever shown as a count. Yours is remembered so you can change it or
+take it back, and it is not published against your name.

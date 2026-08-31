@@ -77,10 +77,16 @@
 
 /* Tailwind's preflight resets focus rings to the browser default, which is invisible against
    the dark canvas. Setting it once here keeps every interactive element keyboard-visible
-   without repeating focus classes on each one. */
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+   without repeating focus classes on each one.
+
+   Inside `@layer base` so a `focus-visible:outline-*` utility can still override it on one
+   element. Unlayered, this rule would beat every layered utility no matter how specific, and a
+   large field would be stuck with a red ring that reads as a validation error. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
 }
 
 /* Markdown from content/ renders to bare HTML with no utility classes on it, and preflight has

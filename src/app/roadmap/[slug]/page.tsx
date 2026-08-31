@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
+import { RoadmapComments } from "@/components/roadmap-comments";
 import { CategoryTag, StageChip } from "@/components/roadmap-card";
-import { getRoadmap, getRoadmapEntry } from "@/lib/roadmap";
+import { VoteButtons } from "@/components/roadmap-vote";
+import { getRoadmap, getRoadmapEntry, type RoadmapStage } from "@/lib/roadmap";
+import { getDiscussion } from "@/lib/roadmap-discussion";
 
 export function generateStaticParams() {
   return getRoadmap().map((entry) => ({ slug: entry.slug }));
@@ -56,19 +60,77 @@ export default async function RoadmapEntryPage(
         dangerouslySetInnerHTML={{ __html: entry.bodyHtml }}
       />
 
-      {/* The question is the whole point of an entry that is still open, so it sits at the end
-          where a comment box would go once there is somewhere to put a comment. */}
+      {/* The entry's own open question belongs to the entry, not to the comment box. Asked here
+          it reads as the team thinking aloud. Asked above the composer it framed every reply
+          before anyone had typed. */}
       {entry.question ? (
-        <section className="flex flex-col gap-2 border-t border-line pt-8">
-          <h2 className="font-display text-lg font-medium tracking-tight">
-            {entry.question}
-          </h2>
-          <p className="text-sm leading-relaxed text-ink-muted">
-            Answers go to #devx in Slack for now. Replying on the page itself is
-            waiting on sign-in.
-          </p>
-        </section>
+        <p className="leading-relaxed text-ink">
+          <span className="text-ink-faint">Open question. </span>
+          {entry.question}
+        </p>
       ) : null}
+
+      {/* Votes and comments are read per request, so they sit behind a boundary and the rest of
+          the page keeps its prerendered shell. */}
+      <Suspense fallback={<DiscussionFallback />}>
+        <Discussion slug={entry.slug} stage={entry.stage} />
+      </Suspense>
     </div>
   );
+}
+
+/* What a vote means depends on how settled the entry is, which is the difference between asking
+   for an opinion and asking about priority. Shipped entries get no bar at all: there is nothing
+   left to decide, and the thread underneath is the only part still worth having. */
+const voteBlurb: Record<Exclude<RoadmapStage, "shipped">, string> = {
+  exploring: "Nothing is committed yet. Votes decide what we pick up next.",
+  planned: "Already agreed. Votes move it up or down the queue.",
+  building: "Already agreed. Votes move it up or down the queue.",
+};
+
+async function Discussion({
+  slug,
+  stage,
+}: {
+  slug: string;
+  stage: RoadmapStage;
+}) {
+  const { viewerId, tally, yours, comments } = await getDiscussion(slug);
+  const here = `/roadmap/${slug}`;
+
+  return (
+    <>
+      {stage === "shipped" ? null : (
+        <div className="flex flex-wrap items-center gap-4 rounded-xl border border-line bg-surface px-4 py-4">
+          <VoteButtons
+            slug={slug}
+            up={tally.up}
+            down={tally.down}
+            yours={yours}
+            signedIn={!!viewerId}
+            here={here}
+            size="lg"
+          />
+          <p className="text-sm text-ink-muted">
+            {viewerId
+              ? voteBlurb[stage]
+              : "Anyone can read the tally. Log in to add to it."}
+          </p>
+        </div>
+      )}
+
+      <RoadmapComments
+        slug={slug}
+        here={here}
+        viewerId={viewerId}
+        comments={comments}
+      />
+    </>
+  );
+}
+
+/* Holds the vote bar's height so the page does not shift when the counts arrive. The comments
+   below it have no height to reserve, since their number is what is being loaded. */
+function DiscussionFallback() {
+  return <div className="h-[74px] rounded-xl border border-line bg-surface" />;
 }

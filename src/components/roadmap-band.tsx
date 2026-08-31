@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { RoadmapCard } from "@/components/roadmap-card";
 import type { RoadmapEntry, RoadmapStage } from "@/lib/roadmap";
+import type { BoardState } from "@/lib/roadmap-discussion";
 
 /* One stage, with its own category filter. Client-side because the filter is per section: putting
    four of them in the URL would mean four query params on one page. The entries themselves are
@@ -12,6 +13,7 @@ export function RoadmapBand({
   blurb,
   empty,
   entries,
+  board,
 }: {
   stage: RoadmapStage;
   blurb: string;
@@ -19,6 +21,9 @@ export function RoadmapBand({
       thing to whoever is reading. */
   empty: string;
   entries: RoadmapEntry[];
+  /** Unresolved on purpose. Each card unwraps it inside its own Suspense boundary, so the page
+      still prerenders around votes that can only be read at request time. */
+  board: Promise<BoardState>;
 }) {
   const [picked, setPicked] = useState<string | null>(null);
 
@@ -81,7 +86,7 @@ export function RoadmapBand({
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {visible.map((entry) => (
-            <RoadmapCard key={entry.slug} entry={entry} />
+            <RoadmapCard key={entry.slug} entry={entry} board={board} />
           ))}
         </div>
       )}
