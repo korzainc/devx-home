@@ -39,18 +39,42 @@ function card(name: string) {
 }
 
 function search() {
-  return screen.getByLabelText("Search");
+  return screen.getByLabelText("What are you trying to do?");
 }
 
-/** The count has no space before it, so the accessible name is "Verify7" and `\b` never matches. */
-function chip(label: string) {
-  const escaped = label.replace(/[.*+?^${}()|[\]\\-]/g, "\\$&");
-  return screen.getByRole("button", { name: new RegExp(`^${escaped}\\d`) });
+function escape(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\-]/g, "\\$&");
+}
+
+/** Values live inside a closed menu now, so reaching one means opening its facet first. */
+function option(facet: string, value: string) {
+  // aria-haspopup separates the menu trigger from the active chip, which also opens
+  // "Category: Build".
+  const trigger = screen
+    .getAllByRole("button", { name: new RegExp(`^${escape(facet)}`) })
+    .find((node) => node.getAttribute("aria-haspopup") === "true")!;
+  if (trigger.getAttribute("aria-expanded") !== "true")
+    fireEvent.click(trigger);
+  // The count has no space before it, so the accessible name is "Verify7".
+  return screen.getByRole("checkbox", {
+    name: new RegExp(`^${escape(value)}\\d`),
+  });
+}
+
+function pick(facet: string, value: string) {
+  fireEvent.click(option(facet, value));
+}
+
+/** Collapsed by default, so counting its cards means opening it. */
+function expandToolchain() {
+  const toggle = screen.getByRole("button", { name: /^Setup and toolchain/ });
+  if (toggle.getAttribute("aria-expanded") !== "true") fireEvent.click(toggle);
 }
 
 describe("the skills catalogue", () => {
   it("lists every skill in the index, classified or not", () => {
     renderPage();
+    expandToolchain();
     expect(cardCount()).toBe(skills.length);
   });
 
@@ -68,7 +92,8 @@ describe("the skills catalogue", () => {
 
   it("narrows to a category and keeps the toolchain rows listed", () => {
     renderPage();
-    fireEvent.click(chip("Verify"));
+    pick("Category", "Verify");
+    expandToolchain();
 
     const inCategory = browsableSkills.filter(
       (skill) => skill.category === "Verify",
@@ -89,14 +114,18 @@ describe("the skills catalogue", () => {
 
     // The chip text, not just the card count: leaking the toolchain rows into the tally makes
     // the chip read "Coordinate11" while clicking it still shows four.
-    expect(chip("Coordinate").textContent).toBe(`Coordinate${coordinate}`);
-    fireEvent.click(chip("Coordinate"));
+    expect(option("Category", "Coordinate").closest("label")?.textContent).toBe(
+      `Coordinate${coordinate}`,
+    );
+    pick("Category", "Coordinate");
+    expandToolchain();
     expect(cardCount()).toBe(coordinate + toolchainSkills.length);
   });
 
   it("searches the toolchain rows even though it cannot filter them", () => {
     renderPage();
     fireEvent.change(search(), { target: { value: "credentials" } });
+    expandToolchain();
 
     const shown = cardCount();
     expect(shown).toBeGreaterThan(0);
@@ -139,10 +168,11 @@ describe("the skills catalogue", () => {
 
   it("clears back to the full list", () => {
     renderPage();
-    fireEvent.click(chip("Verify"));
+    pick("Category", "Verify");
     expect(cardCount()).toBeLessThan(skills.length);
 
-    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear all" }));
+    expandToolchain();
     expect(cardCount()).toBe(skills.length);
   });
 
@@ -157,11 +187,9 @@ describe("the skills catalogue", () => {
         }),
       );
       for (const value of values) {
-        fireEvent.click(chip(value));
-        expect(cardCount(), `${facet.key}=${value}`).toBeGreaterThan(
-          toolchainSkills.length,
-        );
-        fireEvent.click(chip(value));
+        pick(facet.label, value);
+        expect(cardCount(), `${facet.key}=${value}`).toBeGreaterThan(0);
+        pick(facet.label, value);
       }
     }
   });
