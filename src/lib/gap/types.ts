@@ -21,6 +21,9 @@ export type AnalysisTool = {
   capabilities: string[];
   stacks: string[];
   detect: DetectSignals;
+  /** Tools this one wraps. A wrapped tool is never itself recommended once this one covers
+   * the same capability (see analyze.ts). */
+  wraps?: { tool: string; capabilities: string[] }[];
 };
 
 export type Baseline = {
@@ -32,12 +35,19 @@ export type Baseline = {
   stacks: BaselineStack[];
 };
 
+/** What the baseline says about one capability for one stack: the recommended tool, and
+ * which others are acceptable alternatives. */
+export type BaselineExpectation = {
+  recommended: string;
+  acceptable: string[];
+};
+
 export type BaselineStack = {
   id: string;
   label: string;
   /** Root-level filenames, or directories matched as a path prefix. */
   markers: string[];
-  expects: string[];
+  expects: Record<string, BaselineExpectation>;
 };
 
 export type RepoRef = { provider: "github"; owner: string; repo: string };
@@ -92,6 +102,13 @@ export type DetectedTool = Match & {
   name: string;
 };
 
+/** A tool the baseline recommends to close a gap. More than one can appear at once: a repo
+ * matching two stacks, e.g. a JS+Go monorepo, gets a recommendation from each. */
+export type RecommendedTool = {
+  id: string;
+  name: string;
+};
+
 export type CapabilityReport = {
   id: string;
   label: string;
@@ -99,7 +116,7 @@ export type CapabilityReport = {
   /** Tools found in the repo that cover this capability. */
   present: DetectedTool[];
   /** Catalogue tools that would cover it, limited to the stacks detected. Empty when satisfied. */
-  recommended: { id: string; name: string }[];
+  recommended: RecommendedTool[];
 };
 
 export type CategoryReport = {

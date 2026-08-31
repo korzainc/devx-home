@@ -4,10 +4,34 @@ import type {
   Analysis,
   AnalysisTool,
   Baseline,
+  BaselineStack,
   CapabilityReport,
   CategoryReport,
+  RecommendedTool,
   RepoSnapshot,
 } from "./types";
+
+/** Every matched stack's own recommended tool id for one capability, deduped, first-seen order.
+ * `acceptable` alternatives exist in the baseline but aren't surfaced here: the report only
+ * names the recommendation. More than one stack can contribute one; a repo matching both
+ * `javascript` and `go` wants jest for its JS half and go-test for its Go half, neither taking
+ * priority over the other. */
+function recommendedToolIds(stacks: BaselineStack[], id: string) {
+  const recommendedIds: string[] = [];
+  let ownedByAStack = false;
+
+  for (const stack of stacks) {
+    const entry = stack.expects[id];
+    if (!entry) continue;
+    ownedByAStack = true;
+
+    if (!recommendedIds.includes(entry.recommended)) {
+      recommendedIds.push(entry.recommended);
+    }
+  }
+
+  return { ownedByAStack, recommendedIds };
+}
 
 /**
  * The whole diff. Deterministic: same snapshot and same catalogue give the same report, with no
@@ -23,9 +47,10 @@ export function analyze(
   const detected = detectTools(snapshot, tools);
 
   const stackIds = new Set(stacks.map((stack) => stack.id));
+  const toolById = new Map(tools.map((tool) => [tool.id, tool]));
   const expected = new Set([
     ...baseline.universal,
-    ...stacks.flatMap((stack) => stack.expects),
+    ...stacks.flatMap((stack) => Object.keys(stack.expects)),
   ]);
 
   const reports: CapabilityReport[] = [...expected].map((id) => {
@@ -34,6 +59,46 @@ export function analyze(
       tools.find((tool) => tool.id === entry.id)?.capabilities.includes(id),
     );
 
+    let recommended: RecommendedTool[] = [];
+    if (present.length === 0) {
+      const { ownedByAStack, recommendedIds } = recommendedToolIds(stacks, id);
+
+      if (ownedByAStack) {
+        // The matched stack's baseline already names which tool applies here, so there's no
+        // need to re-derive stack fit generically like the fallback below.
+        recommended = recommendedIds.flatMap((toolId) => {
+          const tool = toolById.get(toolId);
+          return tool ? [{ id: tool.id, name: tool.name }] : [];
+        });
+      } else {
+        // No matched stack's baseline mentions this capability (only ever a `universal` one,
+        // which the real catalogue never populates), so fall back to searching every tool
+        // generically. A wrapped tool is never itself recommended, and a bundle covering the
+        // capability sorts first.
+        const wrappedIds = new Set(
+          tools.flatMap(
+            (tool) =>
+              tool.wraps
+                ?.filter((entry) => entry.capabilities.includes(id))
+                .map((entry) => entry.tool) ?? [],
+          ),
+        );
+        recommended = tools
+          .filter(
+            (tool) =>
+              tool.capabilities.includes(id) &&
+              (tool.stacks.includes("any") ||
+                tool.stacks.some((stack) => stackIds.has(stack))) &&
+              !wrappedIds.has(tool.id),
+          )
+          .sort(
+            (a, b) =>
+              Number(b.wraps !== undefined) - Number(a.wraps !== undefined),
+          )
+          .map((tool) => ({ id: tool.id, name: tool.name }));
+      }
+    }
+
     return {
       id,
       label: meta?.label ?? id,
@@ -41,17 +106,7 @@ export function analyze(
       present,
       // A gap names the tools the catalogue would put there, and nothing else. No generated
       // workflow snippet: a snippet that has not been run against the repo is a guess.
-      recommended:
-        present.length > 0
-          ? []
-          : tools
-              .filter(
-                (tool) =>
-                  tool.capabilities.includes(id) &&
-                  (tool.stacks.includes("any") ||
-                    tool.stacks.some((stack) => stackIds.has(stack))),
-              )
-              .map((tool) => ({ id: tool.id, name: tool.name })),
+      recommended,
     };
   });
 

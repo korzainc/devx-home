@@ -154,11 +154,7 @@ export function CatalogueGrid<T extends CatalogueEntry>({
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {visible.map((entry) => (
-              // The id makes each card an anchor target, which is what a gap in the analysis
-              // report links to. It resolves in the unfiltered default state.
-              <div key={entry.id} id={entry.id} className="scroll-mt-24">
-                {renderCard(entry)}
-              </div>
+              <div key={entry.id}>{renderCard(entry)}</div>
             ))}
           </div>
         )}
