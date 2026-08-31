@@ -25,8 +25,10 @@ export default function LoginPage() {
         className="h-7 w-auto invert dark:invert-0"
       />
 
+      {/* Static, unlike the header's X, which breathes. The glow is sized in em, so at this
+          heading's 24px it would throw roughly twice the radius it does at the header's 18px. */}
       <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">
-        Log in to Korza DevX
+        Log in to Korza Dev<span className="text-accent">X</span>
       </h1>
 
       <div className="flex w-full flex-col gap-3">
