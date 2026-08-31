@@ -52,7 +52,7 @@ function snapshot(
   paths: string[] = [],
 ): RepoSnapshot {
   return {
-    ref: { provider: "github" as const, owner: "korzainc", repo: "example" },
+    ref: { provider: "github", owner: "korzainc", repo: "example" },
     defaultBranch: "main",
     paths: [...paths, ...Object.keys(files)],
     files,

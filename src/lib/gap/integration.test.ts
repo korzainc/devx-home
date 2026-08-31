@@ -29,7 +29,7 @@ function javaRepo(
   paths: string[],
 ): RepoSnapshot {
   return {
-    ref: { provider: "github" as const, owner: "korzainc", repo: "billing" },
+    ref: { provider: "github", owner: "korzainc", repo: "billing" },
     defaultBranch: "main",
     paths,
     files,
@@ -49,7 +49,12 @@ const analysis = analyze(
 
 describe("gap analysis with fixes, end to end", () => {
   it("detects the java baseline", () => {
-    expect(analysis.stacks.map((stack) => stack.id)).toEqual(["java"]);
+    // The fixture also carries a Dockerfile, and the catalogue ships a docker baseline, so both
+    // ecosystems apply. Sorted, because detection order is not part of the contract.
+    expect(analysis.stacks.map((stack) => stack.id).sort()).toEqual([
+      "docker",
+      "java",
+    ]);
   });
 
   it("speaks the catalogue's capability vocabulary, not the placeholder's", () => {
@@ -76,8 +81,13 @@ describe("gap analysis with fixes, end to end", () => {
     const block = analysis.fixes.blocks[0];
     expect(block.entryId).toBe("ci-base-checks");
     // sca and iac-config are already covered by the detected Trivy config, so the bundle is
-    // here for the two that are genuinely missing - and still renders as one block, not two.
-    expect(block.capabilities.sort()).toEqual(["sast", "secrets"]);
+    // here for the ones that are genuinely missing - and still renders as one block, not three.
+    // iac-dockerfile-lint comes from the docker baseline the Dockerfile brings in.
+    expect(block.capabilities.sort()).toEqual([
+      "iac-dockerfile-lint",
+      "sast",
+      "secrets",
+    ]);
   });
 
   it("reports a gap it cannot wire rather than inventing a step for it", () => {

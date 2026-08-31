@@ -12,7 +12,7 @@ function snapshot(
   files: Record<string, string> = {},
 ): RepoSnapshot {
   return {
-    ref: { provider: "github" as const, owner: "korzainc", repo: "example" },
+    ref: { provider: "github", owner: "korzainc", repo: "example" },
     defaultBranch: "main",
     paths,
     files,
@@ -125,15 +125,29 @@ describe("planFixes", () => {
   });
 
   it("emits nothing at all for an ecosystem with no baseline", () => {
+    // Deliberately an ecosystem the catalogue does not ship a baseline for. Naming a real one
+    // here would test the opposite thing: every shipped ecosystem does resolve candidates.
+    const plan = planFixes(
+      ["lint-style"],
+      ["cobol"],
+      snapshot(["main.cbl"]),
+      catalogue,
+    );
+    expect(plan.blocks).toEqual([]);
+    expect(plan.unwired).toEqual([
+      { capability: "lint-style", candidates: [] },
+    ]);
+  });
+
+  it("resolves candidates for an ecosystem the catalogue does cover", () => {
     const plan = planFixes(
       ["lint-style"],
       ["javascript"],
       snapshot(["package.json"]),
       catalogue,
     );
-    expect(plan.blocks).toEqual([]);
     expect(plan.unwired).toEqual([
-      { capability: "lint-style", candidates: [] },
+      { capability: "lint-style", candidates: ["eslint", "biome"] },
     ]);
   });
 });
