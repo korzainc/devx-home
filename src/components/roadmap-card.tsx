@@ -85,7 +85,11 @@ export function RoadmapCard({
         ) : null}
       </div>
 
-      <h3 className="line-clamp-2 font-medium text-ink">
+      {/* Two lines are reserved, not just allowed. line-clamp caps a long title at two but lets a
+          short one take one, which starts the summary at a different height on every card and
+          makes a row of them look misaligned rather than varied. leading-6 states the line height
+          the min-h is two of, so the pair cannot drift apart. */}
+      <h3 className="line-clamp-2 min-h-12 leading-6 font-medium text-ink">
         <Link
           href={isShipped ? "/updates" : `/roadmap/${entry.slug}`}
           className="after:absolute after:inset-0"
