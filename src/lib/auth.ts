@@ -9,12 +9,22 @@ import { Pool } from "pg";
 // token valid 6 months. Storing those needs a database rather than a cookie, which is why the
 // account table exists at all.
 
+// Neon hands out connection strings ending in `sslmode=require`. Today `pg` reads that as
+// `verify-full`, but pg 9 switches it to libpq semantics, where `require` encrypts without
+// verifying the certificate at all. Pinning the mode here rather than in the env var means a
+// `vercel env pull` overwriting the string with Neon's default cannot quietly undo it.
+function verifyingTls(connectionString: string) {
+  const url = new URL(connectionString);
+  url.searchParams.set("sslmode", "verify-full");
+  return url.toString();
+}
+
 function create() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) throw new Error("DATABASE_URL is not set.");
 
   return betterAuth({
-    database: new Pool({ connectionString }),
+    database: new Pool({ connectionString: verifyingTls(connectionString) }),
     socialProviders: {
       github: {
         clientId: process.env.GITHUB_APP_CLIENT_ID ?? "",
