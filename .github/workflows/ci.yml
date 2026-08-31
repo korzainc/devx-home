@@ -180,11 +180,15 @@ jobs:
       - name: Scan for secrets
         run: |
           set -uo pipefail
+          # `|| code=$?` rather than a bare call then `$?`. GitHub runs this with `bash -e`, and
+          # `set -uo pipefail` does not cancel that, so a bare call aborts the step on any non-zero
+          # exit and the whole case below never runs. Putting it in a compound is what stops `-e`
+          # firing and lets the exit code be read as a result instead of a failure.
+          code=0
           kingfisher scan . \
             --exclude '**/node_modules/**' \
             --exclude '**/.next/**' \
-            --format json --output kingfisher.json
-          code=$?
+            --format json --output kingfisher.json || code=$?
           case "$code" in
             0)
               echo "No secrets found." >> "$GITHUB_STEP_SUMMARY"
