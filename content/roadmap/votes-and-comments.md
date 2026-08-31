@@ -17,5 +17,5 @@ argument sits next to the thing it is about. Votes will not decide what gets
 built on their own, but an entry nobody wants is worth knowing about before we
 start it.
 
-Sign in has to land first. A vote only means something if it is one per person,
-and a comment needs a name against it.
+A vote only means something if it is one per person, and a comment needs a name
+against it. [Sign in](/roadmap/sign-in) has landed, so that part is settled.
