@@ -55,6 +55,13 @@ function landedLabel(landed: string) {
    grows with its text makes a wordy entry look more important than a terse one, which is not the
    ranking we mean.
 
+   The height has to be big enough for both clamps at their full two lines plus the footer, or flex
+   shrinks the text blocks instead and clips them mid-line, which reads as a rendering fault rather
+   than as a summary. The tag row, two lines of title, two of summary and the vote controls come to
+   about 149px; h-56 leaves 168px of it after the padding and gaps, so a font that lands taller than
+   its metrics say still fits. h-48 did not, once the footer stopped being a single line of text.
+   Changing the footer or either clamp means redoing that sum.
+
    Shipped is the same card pointing somewhere else: the write-up is already on /updates, and two
    copies of it would be two things to keep right. There is also nothing left to vote on, so the
    footer is a link rather than the vote controls. */
@@ -68,7 +75,7 @@ export function RoadmapCard({
   const isShipped = entry.stage === "shipped";
 
   return (
-    <article className="relative flex h-48 flex-col gap-2 overflow-hidden rounded-xl border border-line bg-surface p-4 transition-colors hover:border-line-strong">
+    <article className="relative flex h-56 flex-col gap-2 overflow-hidden rounded-xl border border-line bg-surface p-4 transition-colors hover:border-line-strong">
       <div className="flex items-baseline justify-between gap-3">
         <CategoryTag category={entry.category} />
         {isShipped && entry.landed ? (
