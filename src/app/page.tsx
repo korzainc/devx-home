@@ -166,10 +166,17 @@ export default function Home() {
               action="/gap-analysis"
               className="flex w-full flex-col gap-2 sm:flex-row"
             >
+              {/* `required` rather than a disabled button, which would need this to be a client
+                  component and would leave the empty submit working until the JS arrived. The
+                  pattern is only "contains something that is not a space": anything stricter
+                  would reject the full URLs that parseRepoRef accepts. */}
               <input
                 name="repo"
                 placeholder="owner/repo"
                 aria-label="Repository to analyze"
+                required
+                pattern=".*\S.*"
+                title="A GitHub repository, as owner/repo or a full github.com URL."
                 autoComplete="off"
                 spellCheck={false}
                 className="min-w-0 flex-1 rounded-lg border border-line bg-canvas px-3 py-2 font-mono text-sm text-ink placeholder:text-ink-faint"
