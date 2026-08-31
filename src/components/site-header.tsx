@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
 import korzaLogo from "@/assets/korza-logo.png";
-import { signInWithGitHub, signOut } from "@/lib/auth-actions";
+import { signOut } from "@/lib/auth-actions";
 import { getSession } from "@/lib/session";
 
 export function SiteHeader() {
@@ -53,14 +53,12 @@ async function AuthControl() {
 
   if (!session) {
     return (
-      <form action={signInWithGitHub}>
-        <button
-          type="submit"
-          className="rounded-lg border border-accent bg-accent-wash px-3 py-1.5 text-sm font-medium whitespace-nowrap text-accent transition-opacity hover:opacity-80"
-        >
-          Sign in with GitHub
-        </button>
-      </form>
+      <Link
+        href="/login"
+        className="text-sm text-ink-muted transition-colors hover:text-ink"
+      >
+        Login
+      </Link>
     );
   }
 
