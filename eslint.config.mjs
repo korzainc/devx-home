@@ -13,6 +13,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local agent state. Scratch worktrees under here carry a whole .next of their own, which the
+    // root-anchored pattern above does not reach.
+    ".claude/**",
   ]),
   // Last: turns off rules that would fight prettier. Formatting is prettier's job alone.
   prettier,
