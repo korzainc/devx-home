@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
 import korzaLogo from "@/assets/korza-logo.png";
+import { NavMenu } from "@/components/nav-menu";
 import { signOut } from "@/lib/auth-actions";
 import { getSession } from "@/lib/session";
 
@@ -11,8 +12,10 @@ export function SiteHeader() {
   // header and scroll across it.
   return (
     <header className="sticky top-0 z-20 border-b border-line bg-canvas/80 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-6xl items-center px-6">
-        <Link href="/" className="flex items-center gap-3">
+      <div className="mx-auto flex h-16 max-w-6xl items-center px-4 sm:px-6">
+        {/* shrink-0, or a narrow viewport squeezes this box below the width of its own contents
+            and the wordmark spills out over the nav rather than the row simply overflowing. */}
+        <Link href="/" className="flex shrink-0 items-center gap-3">
           {/* The wordmark ships as white-on-transparent artwork, so light mode inverts it.
               It is a single flat colour, which is the only reason inverting is safe here. */}
           {/* The static import's intrinsic size is 1014x317, which would have the optimizer
@@ -33,27 +36,41 @@ export function SiteHeader() {
           </span>
         </Link>
 
-        <nav className="ml-auto flex items-center gap-5">
-          <Link
-            href="/roadmap"
-            className="text-sm text-ink-muted transition-colors hover:text-ink"
-          >
-            Roadmap
-          </Link>
-          <Link
-            href="/updates"
-            className="text-sm text-ink-muted transition-colors hover:text-ink"
-          >
-            Updates
-          </Link>
+        {/* The same three items twice, once along the row and once inside the menu. Only one is
+            ever visible, and getSession is memoised per request, so the pair costs one query. */}
+        <nav className="ml-auto hidden items-center gap-5 sm:flex">
+          <NavLinks />
           {/* Reading the session queries Postgres, so it stays behind its own boundary and the
               rest of the header paints without waiting on it. */}
           <Suspense fallback={null}>
             <AuthControl />
           </Suspense>
         </nav>
+
+        <NavMenu>
+          <NavLinks />
+          <Suspense fallback={null}>
+            <AuthControl />
+          </Suspense>
+        </NavMenu>
       </div>
     </header>
+  );
+}
+
+const navLink =
+  "text-sm whitespace-nowrap text-ink-muted transition-colors hover:text-ink";
+
+function NavLinks() {
+  return (
+    <>
+      <Link href="/roadmap" className={navLink}>
+        Roadmap
+      </Link>
+      <Link href="/updates" className={navLink}>
+        Updates
+      </Link>
+    </>
   );
 }
 
@@ -62,10 +79,7 @@ async function AuthControl() {
 
   if (!session) {
     return (
-      <Link
-        href="/login"
-        className="text-sm text-ink-muted transition-colors hover:text-ink"
-      >
+      <Link href="/login" className={navLink}>
         Log in
       </Link>
     );
@@ -79,7 +93,7 @@ async function AuthControl() {
       <form action={signOut}>
         <button
           type="submit"
-          className="rounded-lg border border-line px-3 py-1.5 text-sm text-ink-muted transition-colors hover:text-ink"
+          className="rounded-lg border border-line px-3 py-1.5 text-sm whitespace-nowrap text-ink-muted transition-colors hover:text-ink"
         >
           Log out
         </button>
