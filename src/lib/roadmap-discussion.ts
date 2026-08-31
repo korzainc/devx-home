@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { getPool } from "./db";
 import { getSession } from "./session";
 
@@ -77,15 +78,16 @@ export type BoardState = {
 
 /** Everything the card grid needs, in one request-time read shared by all four stage bands. */
 export async function getBoardState(): Promise<BoardState> {
-  const session = await getSession();
+  // Awaited on its own rather than left to getSession, so the session lookup can start alongside
+  // the tally instead of ahead of it. See getDiscussion for why it has to come first at all.
+  await headers();
+
+  const [session, tallies] = await Promise.all([getSession(), getTallies()]);
   const userId = session?.user.id ?? null;
 
-  const [tallies, yours] = await Promise.all([
-    getTallies(),
-    getMyVotes(userId),
-  ]);
-
-  return { signedIn: !!userId, tallies, yours };
+  // The only read that needs the session resolved first, and it is skipped entirely when nobody is
+  // signed in, which is most of the traffic to a public roadmap.
+  return { signedIn: !!userId, tallies, yours: await getMyVotes(userId) };
 }
 
 export type Discussion = {
@@ -100,11 +102,16 @@ export async function getDiscussion(slug: string): Promise<Discussion> {
   // Before getPool, and the order matters for the same reason it does inside getSession: reading
   // headers is what tells Next this render is request-time, so a prerender bails out here rather
   // than in the pool, which would make `next build` demand a database connection string.
-  const session = await getSession();
-  const viewerId = session?.user.id ?? null;
+  //
+  // Read here rather than by awaiting getSession first, because neither query below depends on who
+  // is asking: both fetch the whole entry and the viewer is picked out of the rows afterwards.
+  // Awaiting the session ahead of them put a second Neon round trip on the critical path, roughly
+  // 240ms of it, for nothing.
+  await headers();
   const pool = getPool();
 
-  const [votes, comments] = await Promise.all([
+  const [session, votes, comments] = await Promise.all([
+    getSession(),
     pool.query<{ direction: VoteDirection; userId: string }>(
       `select "direction", "userId" from "roadmap_vote" where "slug" = $1`,
       [slug],
@@ -124,6 +131,8 @@ export async function getDiscussion(slug: string): Promise<Discussion> {
       [slug],
     ),
   ]);
+
+  const viewerId = session?.user.id ?? null;
 
   // Counted here rather than in SQL because the viewer's own vote comes out of the same rows, and
   // an entry's vote count is small enough that fetching it whole costs nothing.

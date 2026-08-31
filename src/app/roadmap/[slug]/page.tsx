@@ -72,7 +72,7 @@ export default async function RoadmapEntryPage(
 
       {/* Votes and comments are read per request, so they sit behind a boundary and the rest of
           the page keeps its prerendered shell. */}
-      <Suspense fallback={<DiscussionFallback />}>
+      <Suspense fallback={<DiscussionFallback stage={entry.stage} />}>
         <Discussion slug={entry.slug} stage={entry.stage} />
       </Suspense>
     </div>
@@ -129,8 +129,28 @@ async function Discussion({
   );
 }
 
-/* Holds the vote bar's height so the page does not shift when the counts arrive. The comments
-   below it have no height to reserve, since their number is what is being loaded. */
-function DiscussionFallback() {
-  return <div className="h-[74px] rounded-xl border border-line bg-surface" />;
+/* Holds the shape of what is coming, so the wait reads as loading rather than as an empty box that
+   never filled. Every round trip to the database is on this path, and the first one after the
+   compute has been idle pays a cold start on top, so it is on screen long enough to matter.
+
+   `stage` is known without touching the database, so a shipped entry reserves no vote bar and does
+   not shift when the thread arrives. The comments themselves reserve nothing: their number is the
+   thing being loaded. */
+function DiscussionFallback({ stage }: { stage: RoadmapStage }) {
+  return (
+    <>
+      {stage === "shipped" ? null : (
+        <div className="h-[74px] rounded-xl border border-line bg-surface" />
+      )}
+      <section className="flex flex-col gap-4 border-t border-line pt-8">
+        <h2 className="text-sm font-medium text-ink">Comments</h2>
+        {/* The composer and the signed-out panel that replaces it are within about ten pixels of
+            each other, so one shape reserves the right room without knowing which is coming. */}
+        <div className="flex flex-col items-start gap-3">
+          <div className="h-[74px] w-full rounded-lg border border-line bg-canvas" />
+          <div className="h-[38px] w-24 rounded-lg border border-line bg-surface" />
+        </div>
+      </section>
+    </>
+  );
 }
