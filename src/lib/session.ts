@@ -1,13 +1,18 @@
 import { headers } from "next/headers";
+import { cache } from "react";
 import { getAuth } from "./auth";
 
 // `headers()` is read before `getAuth()` in both functions here, and the order matters. It is what
 // tells Next this render is request-time, so during a prerender it bails out before anything has
 // asked for a database connection.
-export async function getSession() {
+//
+// Memoised per request, because the header renders the signed-in state twice: once in the wide
+// nav and once inside the narrow-width menu, only one of which is ever visible. Without this that
+// is two session round trips to Neon to draw one name.
+export const getSession = cache(async () => {
   const requestHeaders = await headers();
   return getAuth().api.getSession({ headers: requestHeaders });
-}
+});
 
 /**
  * The signed-in user's GitHub token, refreshed first if the 8 hour access token has run out.
