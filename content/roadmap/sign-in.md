@@ -1,22 +1,15 @@
 ---
 title: Sign in, so analysis reads repos as you
-stage: planned
+stage: shipped
 category: access
-outcome: Analyse any repo you can already read
+landed: 2026-08
 summary:
-  Gap analysis reads repos with one shared server token, so it sees what that
-  token sees rather than what you can see.
-question: Anything about your organisation's setup that would break this?
+  Gap analysis reads repositories with your own GitHub access, so a private repo
+  you can open is one it can analyse.
 ---
 
-A shared token is either more access than the person using it has, or less, and
-never exactly theirs. It also means adding a new organisation is a request
-somebody has to approve rather than something you can just do.
+Live for GitHub. Sign in from the [login page](/login), or paste a repository
+into [gap analysis](/gap-analysis) and sign in when it asks. The
+[updates entry](/updates) says what the report can reach.
 
-Signing in with your Git host fixes both. The analysis reads as you, and your
-own access decides what it can open. GitHub comes first because that is where
-most Korza work lives, with GitLab and Azure DevOps behind it.
-
-This is queued rather than in flight. It is also what everything on this page
-that involves writing something depends on, because a vote or a comment needs to
-know who left it.
+GitLab and Azure DevOps are next.
