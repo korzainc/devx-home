@@ -1,9 +1,15 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import {
+  RoadmapCardFooter,
+  RoadmapCardFooterFallback,
+} from "@/components/roadmap-card-footer";
 import type {
   RoadmapCategory,
   RoadmapEntry,
   RoadmapStage,
 } from "@/lib/roadmap";
+import type { BoardState } from "@/lib/roadmap-discussion";
 
 /* Colour says how committed we are: quiet while it is still a question, ink once it is agreed,
    accent while it is being built, green once it has landed. Same chip shape as the gap report's
@@ -50,9 +56,15 @@ function landedLabel(landed: string) {
    ranking we mean.
 
    Shipped is the same card pointing somewhere else: the write-up is already on /updates, and two
-   copies of it would be two things to keep right. The footer slot is where the vote controls go
-   once there is somewhere to store a vote. */
-export function RoadmapCard({ entry }: { entry: RoadmapEntry }) {
+   copies of it would be two things to keep right. There is also nothing left to vote on, so the
+   footer is a link rather than the vote controls. */
+export function RoadmapCard({
+  entry,
+  board,
+}: {
+  entry: RoadmapEntry;
+  board: Promise<BoardState>;
+}) {
   const isShipped = entry.stage === "shipped";
 
   return (
@@ -79,8 +91,16 @@ export function RoadmapCard({ entry }: { entry: RoadmapEntry }) {
         {entry.summary}
       </p>
 
-      <div className="mt-auto text-sm font-medium text-accent">
-        {isShipped ? "Read the update →" : "Read more →"}
+      <div className="mt-auto flex items-center justify-between gap-3">
+        {isShipped ? (
+          <span className="text-sm font-medium text-accent">
+            Read the update →
+          </span>
+        ) : (
+          <Suspense fallback={<RoadmapCardFooterFallback />}>
+            <RoadmapCardFooter slug={entry.slug} board={board} />
+          </Suspense>
+        )}
       </div>
     </article>
   );
