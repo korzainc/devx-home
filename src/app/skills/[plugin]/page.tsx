@@ -80,7 +80,9 @@ export default async function PluginPage({
             <h2 className="text-xs font-medium tracking-wide text-ink-faint uppercase">
               What it solves
             </h2>
-            <p className="leading-relaxed text-ink-muted">{plugin.problem}</p>
+            <p className="text-sm leading-relaxed text-ink-muted">
+              {plugin.problem}
+            </p>
           </div>
           <div className="grid gap-2 p-5 sm:grid-cols-[9rem_1fr] sm:gap-6">
             {/* pyright-lsp's first bullet is "Does not currently work", so the heading follows
@@ -92,7 +94,7 @@ export default async function PluginPage({
               {plugin.benefits.map((benefit) => (
                 <li
                   key={benefit}
-                  className="flex gap-3 leading-relaxed text-ink-muted"
+                  className="flex gap-3 text-sm leading-relaxed text-ink-muted"
                 >
                   <span aria-hidden className="shrink-0 text-accent">
                     •
