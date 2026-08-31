@@ -1,6 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
+import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { getPool } from "./db";
 import { getRoadmapEntry } from "./roadmap";
@@ -9,6 +10,11 @@ import { getSession } from "./session";
 // Writes for the votes and comments on a roadmap entry. Every one of these starts from a form post
 // by someone who may not be signed in, may have edited the form, and may be pointing at a slug
 // that no longer exists, so each argument is checked here rather than trusted from the caller.
+
+// Every write below ends in `refresh()`, or the reader watches their own click do nothing until
+// they reload. It is `refresh` rather than `revalidatePath` because there is no cache entry to
+// invalidate: none of these reads is cached. What goes stale is the client router's copy of the
+// page it is already showing.
 
 const maxCommentLength = 2000;
 
@@ -56,7 +62,10 @@ export async function castVote(formData: FormData) {
       where "slug" = $1 and "userId" = $2 and "direction" = $3`,
     [slug, userId, direction],
   );
-  if (undone.rowCount) return;
+  if (undone.rowCount) {
+    refresh();
+    return;
+  }
 
   await pool.query(
     `insert into "roadmap_vote" ("id", "slug", "userId", "direction")
@@ -65,6 +74,7 @@ export async function castVote(formData: FormData) {
      do update set "direction" = excluded."direction", "updatedAt" = now()`,
     [randomUUID(), slug, userId, direction],
   );
+  refresh();
 }
 
 export async function postComment(formData: FormData) {
@@ -79,6 +89,7 @@ export async function postComment(formData: FormData) {
      values ($1, $2, $3, $4)`,
     [randomUUID(), slug, userId, body.slice(0, maxCommentLength)],
   );
+  refresh();
 }
 
 /**
@@ -95,4 +106,5 @@ export async function deleteComment(formData: FormData) {
     `delete from "roadmap_comment" where "id" = $1 and "userId" = $2`,
     [id, userId],
   );
+  refresh();
 }
