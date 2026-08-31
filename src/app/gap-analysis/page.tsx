@@ -84,11 +84,16 @@ function RepoForm({ target }: { target: string }) {
         Repository
       </label>
       <div className="flex flex-col gap-2 sm:flex-row">
+        {/* Same guard as the home page field: submitting this empty used to reload the page
+            onto itself with nothing to show for it. */}
         <input
           id="repo"
           name="repo"
           defaultValue={target}
           placeholder="korzainc/devx-home"
+          required
+          pattern=".*\S.*"
+          title="A GitHub repository, as owner/repo or a full github.com URL."
           autoComplete="off"
           spellCheck={false}
           className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 py-2 font-mono text-sm text-ink placeholder:text-ink-faint"
