@@ -38,7 +38,7 @@ function Alternatives({ tools }: { tools: CapabilityReport["recommended"] }) {
           return (
             <Link
               key={index}
-              href={`/tools#${tool.id}`}
+              href={`/tools/${tool.id}`}
               className="text-accent hover:underline"
             >
               {tool.name}
@@ -87,6 +87,13 @@ function Capability({ capability }: { capability: CapabilityReport }) {
 
 export function GapReport({ analysis }: { analysis: Analysis }) {
   const expected = analysis.satisfiedCount + analysis.gapCount;
+  // The real baseline has no "universal" capability - every one belongs to some ecosystem's own
+  // baseline, so `expected` is zero only when no recognized stack matched.
+  //
+  // Checked as `expected === 0` rather than `analysis.stacks.length === 0`: the two currently
+  // always agree, but this is the version that stays correct if a future baseline ever adds a
+  // stack with no expected capabilities.
+  const noStackDetected = expected === 0;
 
   return (
     <div className="flex flex-col gap-8">
@@ -98,27 +105,43 @@ export function GapReport({ analysis }: { analysis: Analysis }) {
           </span>
         </div>
 
-        <h2 className="font-display text-2xl font-semibold tracking-tight">
-          {analysis.satisfiedCount} of {expected} recommended checks are
-          running.
-        </h2>
+        {noStackDetected ? (
+          <h2 className="font-display text-2xl font-semibold tracking-tight">
+            No recognized stack was detected.
+          </h2>
+        ) : (
+          <>
+            <h2 className="font-display text-2xl font-semibold tracking-tight">
+              {analysis.satisfiedCount} of {expected} recommended checks are
+              running.
+            </h2>
 
-        {/* The proportion lands before the numbers do. Green is what runs, red is what does
-            not, which is the same pairing the chips below use. */}
-        <div className="flex h-1.5 overflow-hidden rounded-full bg-line">
-          <div
-            className="bg-positive"
-            style={{ width: `${(analysis.satisfiedCount / expected) * 100}%` }}
-          />
-          <div className="flex-1 bg-accent" />
-        </div>
+            {/* The proportion lands before the numbers do. Green is what runs, red is what does
+                not, which is the same pairing the chips below use. */}
+            <div className="flex h-1.5 overflow-hidden rounded-full bg-line">
+              <div
+                className="bg-positive"
+                style={{
+                  width: `${(analysis.satisfiedCount / expected) * 100}%`,
+                }}
+              />
+              <div className="flex-1 bg-accent" />
+            </div>
+          </>
+        )}
 
         {/* The control sits on the summary row rather than above the gaps, so it reads as part of
             the report rather than an advert bolted onto it. Nothing to fix means nothing to
             generate, so a clean repo does not get offered one. */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-ink-muted">
-            {analysis.stacks.length > 0 ? (
+            {noStackDetected ? (
+              <>
+                No manifest for a stack the catalogue covers (Java, JavaScript,
+                TypeScript, Go, Python, Docker) was found at the repo root, so
+                nothing could be compared.
+              </>
+            ) : (
               <>
                 Compared against the baseline for{" "}
                 <span className="text-ink">
@@ -126,8 +149,6 @@ export function GapReport({ analysis }: { analysis: Analysis }) {
                 </span>
                 . {analysis.filesRead.length} files read.
               </>
-            ) : (
-              "No manifest was recognised at the repo root, so only the checks that apply to any repo were compared."
             )}
           </p>
           {analysis.gapCount > 0 ? (
