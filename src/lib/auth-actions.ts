@@ -2,7 +2,7 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { auth } from "./auth";
+import { getAuth } from "./auth";
 
 /**
  * Where to land after GitHub sends the user back. Anything but a same-origin path is discarded:
@@ -18,7 +18,7 @@ function callbackFrom(formData: FormData): string {
 }
 
 export async function signInWithGitHub(formData: FormData) {
-  const { url } = await auth.api.signInSocial({
+  const { url } = await getAuth().api.signInSocial({
     body: { provider: "github", callbackURL: callbackFrom(formData) },
     headers: await headers(),
   });
@@ -27,6 +27,6 @@ export async function signInWithGitHub(formData: FormData) {
 }
 
 export async function signOut() {
-  await auth.api.signOut({ headers: await headers() });
+  await getAuth().api.signOut({ headers: await headers() });
   redirect("/");
 }
