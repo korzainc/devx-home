@@ -53,6 +53,53 @@ jobs:
       # Runs `next typegen` first - see the script. Plain tsc fails on a clean checkout.
       - run: pnpm typecheck
 
+  # Proves the migrations apply to an empty database and that a second run is a no-op. Production
+  # is migrated by the Vercel build command, not from here - see the vercel-build script - because
+  # only that ordering guarantees the schema moves before the code that needs it. This job is the
+  # gate in front of that: broken SQL fails a pull request instead of a deploy.
+  #
+  # Runs against a throwaway container, so it needs no secret and never reaches Neon. Nothing here
+  # can be checked against the real schema, which is the known limit of a fresh-apply test.
+  migrations:
+    name: migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17-alpine@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: migrations_check
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # sslmode is stated rather than left out. The service container serves no TLS, and the
+      # script only forces verify-full on the modes Neon produces - see verifyingTls.
+      DATABASE_URL_UNPOOLED: postgres://postgres:postgres@localhost:5432/migrations_check?sslmode=disable
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+
+      - name: Apply to an empty database
+        run: pnpm migrate
+
+      # The ledger is the thing being tested here, not the SQL. A migration that reapplies itself
+      # on every deploy is the failure this catches, and it is silent until production.
+      - name: Re-run must change nothing
+        run: |
+          set -euo pipefail
+          output=$(pnpm migrate)
+          echo "$output"
+          if ! grep -q "nothing to apply" <<<"$output"; then
+            echo "::error::A second run was not a no-op. Migrations must be recorded, not repeated."
+            exit 1
+          fi
+
   build:
     name: build
     runs-on: ubuntu-latest

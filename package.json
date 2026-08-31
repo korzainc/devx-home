@@ -10,6 +10,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "migrate": "node --env-file-if-exists=.env.local scripts/migrate.mjs",
+    "vercel-build": "pnpm migrate --if-production && next build",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
