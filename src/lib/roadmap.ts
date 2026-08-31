@@ -10,9 +10,10 @@ import { parse as parseYaml } from "yaml";
 /** How real the work is. Deliberately not a date: nothing here carries a delivery commitment. */
 export type RoadmapStage = "exploring" | "planned" | "building" | "shipped";
 
-/** The part of the portal an entry touches. Doubles as the filter above each section. */
+/* The part of Korza DevX an entry touches, which is wider than the portal: `agents` covers work
+   that ships no page here at all. Doubles as the filter above each section. */
 export type RoadmapCategory =
-  "gap analysis" | "skills" | "catalogue" | "access" | "portal";
+  "gap analysis" | "skills" | "catalogue" | "access" | "portal" | "agents";
 
 export type RoadmapEntry = {
   /** Filename without the extension, and the join key for anything attached to an entry later. */
@@ -46,6 +47,7 @@ const roadmapCategories: RoadmapCategory[] = [
   "catalogue",
   "access",
   "portal",
+  "agents",
 ];
 
 const contentDir = join(process.cwd(), "content", "roadmap");
