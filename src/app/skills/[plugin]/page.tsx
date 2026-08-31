@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { InstallPanel } from "@/components/install-panel";
+import { PluginSkills } from "@/components/plugin-skills";
 import {
-  describeVersion,
   getPlugin,
   installCommands,
   plugins,
   skillsForPlugin,
-  versionStatusFor,
 } from "@/lib/catalogue";
 
 export function generateStaticParams() {
@@ -22,125 +22,113 @@ export async function generateMetadata({
   return { title: plugin.name, description: plugin.summary };
 }
 
+function MetaRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 border-b border-line px-4 py-3 last:border-b-0">
+      <span className="text-[0.65rem] tracking-wide text-ink-faint uppercase">
+        {label}
+      </span>
+      <span className="text-right text-sm text-ink">{children}</span>
+    </div>
+  );
+}
+
 export default async function PluginPage({
   params,
 }: PageProps<"/skills/[plugin]">) {
   const plugin = getPlugin((await params).plugin);
   if (!plugin) notFound();
 
-  const version = versionStatusFor(plugin.id);
   const skills = skillsForPlugin(plugin.id);
   // Derived from the index, so it cannot disagree with the skill list below.
   const shipsNothing = skills.length === 0;
+  const agents = plugin.agents.map((agent) =>
+    agent.split(" ")[0].toLowerCase(),
+  );
 
   return (
-    <article className="flex max-w-3xl flex-col gap-12">
+    <article className="flex flex-col gap-8">
       <header className="flex flex-col gap-4">
         <Link
           href="/skills"
-          className="font-mono text-xs text-ink-faint hover:text-accent"
+          className="w-fit font-mono text-xs text-ink-faint hover:text-accent"
         >
           ← Skills
         </Link>
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="font-mono text-2xl font-semibold tracking-tight">
+          <h1 className="font-mono text-3xl font-semibold tracking-tight">
             {plugin.name}
           </h1>
-          <span className="rounded-md border border-line px-1.5 py-0.5 font-mono text-[0.65rem] text-ink-faint">
+          <span className="rounded-md border border-line px-2 py-0.5 font-mono text-[0.7rem] text-ink-faint">
             {plugin.ref}
           </span>
         </div>
-        <p className="text-lg leading-relaxed text-ink-muted">
+        <p className="max-w-2xl leading-relaxed text-ink-muted">
           {plugin.summary}
         </p>
       </header>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-xs font-medium tracking-wide text-ink-faint uppercase">
-          What it solves
-        </h2>
-        <p className="leading-relaxed text-ink-muted">{plugin.problem}</p>
-      </section>
-
-      <section className="flex flex-col gap-3">
-        {/* pyright-lsp's first bullet is "Does not currently work", so the heading follows
-            the content. */}
-        <h2 className="text-xs font-medium tracking-wide text-ink-faint uppercase">
-          {shipsNothing ? "Known defect" : "What you get"}
-        </h2>
-        <ul className="flex flex-col gap-3">
-          {plugin.benefits.map((benefit) => (
-            <li key={benefit} className="flex gap-3">
-              <span aria-hidden className="shrink-0 font-mono text-ink-faint">
-                ›
-              </span>
-              <span className="leading-relaxed text-ink-muted">{benefit}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <h2 className="text-xs font-medium tracking-wide text-ink-faint uppercase">
-          Install
-        </h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {installCommands(plugin).map((entry) => (
-            <div
-              key={entry.agent}
-              className="flex flex-col gap-2 rounded-xl border border-line bg-surface p-4"
-            >
-              <span className="font-display text-sm font-medium">
-                {entry.agent}
-              </span>
-              <code className="font-mono text-xs break-all text-ink select-all">
-                {entry.install}
-              </code>
-              <span className="text-xs text-ink-faint">
-                First time on this machine, register the marketplace:
-              </span>
-              <code className="font-mono text-xs break-all text-ink-muted select-all">
-                {entry.register}
-              </code>
-            </div>
-          ))}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
+        <div className="overflow-hidden rounded-xl border border-line bg-surface">
+          <div className="grid gap-2 border-b border-line p-5 sm:grid-cols-[9rem_1fr] sm:gap-6">
+            <h2 className="text-xs font-medium tracking-wide text-ink-faint uppercase">
+              What it solves
+            </h2>
+            <p className="leading-relaxed text-ink-muted">{plugin.problem}</p>
+          </div>
+          <div className="grid gap-2 p-5 sm:grid-cols-[9rem_1fr] sm:gap-6">
+            {/* pyright-lsp's first bullet is "Does not currently work", so the heading follows
+                the content. */}
+            <h2 className="text-xs font-medium tracking-wide text-ink-faint uppercase">
+              {shipsNothing ? "Known defect" : "What you get"}
+            </h2>
+            <ul className="flex flex-col gap-2.5">
+              {plugin.benefits.map((benefit) => (
+                <li
+                  key={benefit}
+                  className="flex gap-3 leading-relaxed text-ink-muted"
+                >
+                  <span aria-hidden className="shrink-0 text-accent">
+                    •
+                  </span>
+                  {benefit}
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
-      </section>
+
+        <div className="rounded-xl border border-line bg-surface">
+          <MetaRow label="Origin">{plugin.origin}</MetaRow>
+          <MetaRow label="Skills">
+            <span className="font-mono">{skills.length}</span>
+          </MetaRow>
+          <MetaRow label="Agents">
+            <span className="font-mono">{agents.join(" · ")}</span>
+          </MetaRow>
+          <MetaRow label="Source">
+            <a
+              href={plugin.homepage}
+              target="_blank"
+              rel="noreferrer"
+              className="font-mono text-accent hover:underline"
+            >
+              {plugin.sourceRepo} →
+            </a>
+          </MetaRow>
+        </div>
+      </div>
+
+      <InstallPanel commands={installCommands(plugin)} />
 
       {/* From the index; plugin.skills says zero for codezen. */}
-      {skills.length > 0 && (
-        <section className="flex flex-col gap-3">
-          <h2 className="text-xs font-medium tracking-wide text-ink-faint uppercase">
-            Skills in this plugin ({skills.length})
-          </h2>
-          <ul className="flex flex-wrap gap-1.5">
-            {skills.map((skill) => (
-              <li
-                key={skill.id}
-                title={`${skill.category} · ${skill.jobs[0]}`}
-                className="rounded bg-accent-wash px-2 py-1 font-mono text-xs text-ink-muted"
-              >
-                {skill.name}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      <section className="flex flex-col gap-2 border-t border-line pt-6 text-sm text-ink-faint">
-        <div className="flex flex-wrap gap-x-6 gap-y-2 font-mono text-xs">
-          <span>Origin: {plugin.origin}</span>
-          {version && <span>Pin: {describeVersion(version)}</span>}
-        </div>
-        <a
-          href={plugin.homepage}
-          target="_blank"
-          rel="noreferrer"
-          className="font-mono text-xs text-ink-muted hover:text-accent"
-        >
-          {plugin.sourceRepo} →
-        </a>
-      </section>
+      {skills.length > 0 && <PluginSkills skills={skills} />}
     </article>
   );
 }

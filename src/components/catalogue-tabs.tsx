@@ -52,41 +52,56 @@ export function CatalogueTabs({
 
   return (
     <div className="flex flex-col gap-6">
-      <div
-        role="tablist"
-        aria-label="Browse by"
-        onKeyDown={onKeyDown}
-        className="flex w-fit gap-1 rounded-lg border border-line bg-surface p-1"
-      >
-        {tabs.map((tab) => {
-          const isOn = view === tab.id;
-          return (
-            <button
-              key={tab.id}
-              id={`catalogue-tab-${tab.id}`}
-              ref={(node) => {
-                tabRefs.current[tab.id] = node;
-              }}
-              role="tab"
-              type="button"
-              aria-selected={isOn}
-              aria-controls={`catalogue-panel-${tab.id}`}
-              // Roving tabIndex: one stop for the whole tablist, arrows move within it.
-              tabIndex={isOn ? 0 : -1}
-              onClick={() => setView(tab.id)}
-              className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors ${
-                isOn
-                  ? "bg-accent-wash text-ink"
-                  : "text-ink-muted hover:text-ink"
-              }`}
-            >
-              {tab.label}
-              <span className="font-mono text-[0.65rem] text-ink-faint">
-                {tab.count}
-              </span>
-            </button>
-          );
-        })}
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-4">
+          <h1 className="font-display text-3xl font-semibold tracking-tight">
+            Skills
+          </h1>
+          <div
+            role="tablist"
+            aria-label="Browse by"
+            onKeyDown={onKeyDown}
+            className="flex w-fit gap-1 rounded-lg border border-line bg-surface p-1"
+          >
+            {tabs.map((tab) => {
+              const isOn = view === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  id={`catalogue-tab-${tab.id}`}
+                  ref={(node) => {
+                    tabRefs.current[tab.id] = node;
+                  }}
+                  role="tab"
+                  type="button"
+                  aria-selected={isOn}
+                  aria-controls={`catalogue-panel-${tab.id}`}
+                  // Roving tabIndex: one stop for the whole tablist, arrows move within it.
+                  tabIndex={isOn ? 0 : -1}
+                  onClick={() => setView(tab.id)}
+                  className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors ${
+                    isOn
+                      ? "border border-accent bg-accent-wash text-ink"
+                      : "border border-transparent text-ink-muted hover:text-ink"
+                  }`}
+                >
+                  {tab.label}
+                  <span
+                    className={`font-mono text-[0.65rem] ${isOn ? "text-accent" : "text-ink-faint"}`}
+                  >
+                    {tab.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <p className="max-w-2xl leading-relaxed text-ink-muted">
+          {view === "plugins"
+            ? "Skills ship as plugins, so a plugin is what you install. Open one to see what it solves and how to install it in Claude Code or Codex. Sources live in their own repos; this is a catalogue, not an installer."
+            : "Find a skill by the job it does. Each one ships inside a plugin — open the plugin to install it in Claude Code or Codex."}
+        </p>
       </div>
 
       {/* Gated on `placeholder`, which is what makes the internal Linear link below safe: the
