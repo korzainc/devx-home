@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { CollapsibleGrid } from "@/components/collapsible-grid";
+import { MetaRow } from "@/components/meta-row";
 import { isBundle, tools } from "@/lib/catalogue";
+import { docsLabel } from "@/lib/docs-label";
 
 // The catalogue is a static JSON file, so every tool/bundle page is prerendered at build time.
 export function generateStaticParams() {
@@ -25,58 +28,101 @@ export default async function ToolPage({ params }: PageProps<"/tools/[id]">) {
   if (!entry) notFound();
 
   return (
-    <article className="flex max-w-3xl flex-col gap-12">
+    <article className="flex flex-col gap-8">
       <header className="flex flex-col gap-4">
         <Link
           href="/tools"
-          className="font-mono text-xs text-ink-faint hover:text-accent"
+          className="w-fit font-mono text-xs text-ink-faint hover:text-accent"
         >
           ← CI Tools
         </Link>
-        <h1 className="font-mono text-2xl font-semibold tracking-tight">
+        <h1 className="font-mono text-3xl font-semibold tracking-tight">
           {entry.name}
         </h1>
-        <p className="text-lg leading-relaxed text-ink-muted">
+        <p className="max-w-2xl leading-relaxed text-ink-muted">
           {entry.summary}
         </p>
       </header>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-xs font-medium tracking-wide text-ink-faint uppercase">
-          What it solves
-        </h2>
-        <p className="leading-relaxed text-ink-muted">{entry.problem}</p>
-      </section>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
+        <div className="overflow-hidden rounded-xl border border-line bg-surface">
+          <div className="grid gap-2 border-b border-line p-5 sm:grid-cols-[9rem_1fr] sm:gap-6">
+            <h2 className="text-xs font-medium tracking-wide text-ink-faint uppercase">
+              What it solves
+            </h2>
+            <p className="text-sm leading-relaxed text-ink-muted">
+              {entry.problem}
+            </p>
+          </div>
+          <div className="grid gap-2 p-5 sm:grid-cols-[9rem_1fr] sm:gap-6">
+            <h2 className="text-xs font-medium tracking-wide text-ink-faint uppercase">
+              What you get
+            </h2>
+            <ul className="flex flex-col gap-2.5">
+              {entry.benefits.map((benefit) => (
+                <li
+                  key={benefit}
+                  className="flex gap-3 text-sm leading-relaxed text-ink-muted"
+                >
+                  <span aria-hidden className="shrink-0 text-accent">
+                    •
+                  </span>
+                  {benefit}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-xs font-medium tracking-wide text-ink-faint uppercase">
-          What you get
-        </h2>
-        <ul className="flex flex-col gap-3">
-          {entry.benefits.map((benefit) => (
-            <li key={benefit} className="flex gap-3">
-              <span aria-hidden className="shrink-0 font-mono text-ink-faint">
-                ›
-              </span>
-              <span className="leading-relaxed text-ink-muted">{benefit}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
+        <div className="rounded-xl border border-line bg-surface">
+          <MetaRow label="Category">{entry.category}</MetaRow>
+          <MetaRow label="Capabilities">
+            <span className="flex flex-wrap justify-end gap-1.5">
+              {entry.capabilities.map((capability) => (
+                <span
+                  key={capability}
+                  className="rounded bg-accent-wash px-1.5 py-0.5 font-mono text-[0.65rem] text-ink-muted"
+                >
+                  {capability}
+                </span>
+              ))}
+            </span>
+          </MetaRow>
+          <MetaRow label="Stacks">
+            <span className="flex flex-wrap justify-end gap-1.5">
+              {entry.stacks.map((stack) => (
+                <span
+                  key={stack}
+                  className="rounded bg-accent-wash px-1.5 py-0.5 font-mono text-[0.65rem] text-ink-muted"
+                >
+                  {stack}
+                </span>
+              ))}
+            </span>
+          </MetaRow>
+          <MetaRow label="Docs">
+            <a
+              href={entry.docsUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="font-mono text-accent hover:underline"
+            >
+              {docsLabel(entry.docsUrl)} →
+            </a>
+          </MetaRow>
+        </div>
+      </div>
 
       {isBundle(entry) && (
-        <section className="flex flex-col gap-3">
-          <h2 className="text-xs font-medium tracking-wide text-ink-faint uppercase">
-            Tools used in this bundle
-          </h2>
-          <ul className="flex flex-col gap-3">
-            {entry.wraps.map((wrap) => {
-              const wrappedTool = tools.find((tool) => tool.id === wrap.tool);
-              return (
-                <li
-                  key={wrap.tool}
-                  className="flex flex-col gap-2 rounded-xl border border-line bg-surface p-4"
-                >
+        <CollapsibleGrid
+          heading="Tools in this bundle"
+          noun="tools"
+          items={entry.wraps.map((wrap) => {
+            const wrappedTool = tools.find((tool) => tool.id === wrap.tool);
+            return {
+              key: wrap.tool,
+              node: (
+                <div className="flex flex-col gap-2 rounded-xl border border-line bg-surface p-4">
                   <div className="flex items-center justify-between gap-3">
                     {wrappedTool ? (
                       <Link
@@ -106,23 +152,12 @@ export default async function ToolPage({ params }: PageProps<"/tools/[id]">) {
                       {wrappedTool.summary}
                     </p>
                   )}
-                </li>
-              );
-            })}
-          </ul>
-        </section>
+                </div>
+              ),
+            };
+          })}
+        />
       )}
-
-      <section className="flex flex-col gap-2 border-t border-line pt-6 text-sm text-ink-faint">
-        <a
-          href={entry.docsUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="font-mono text-xs text-ink-muted hover:text-accent"
-        >
-          {entry.docsUrl} →
-        </a>
-      </section>
     </article>
   );
 }

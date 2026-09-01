@@ -123,10 +123,11 @@ describe("catalogue and baseline agree", () => {
   // always [] (see flattenBaseline in catalogue.ts), so that assertion would loop over
   // nothing and pass without testing anything.
 
-  it("gives every tool and bundle a non-empty problem and 1-3 benefits", () => {
-    // Every tool/bundle gets a detail page rendering `problem` and `benefits` unconditionally.
-    // catalogue.ts falls back to ""/[] rather than crashing, so a missing one would only render
-    // a blank section; this test turns that into a build failure.
+  it("gives every tool and bundle a non-empty problem, 1-3 benefits, and a parseable docsUrl", () => {
+    // The detail page renders `problem`/`benefits` unconditionally and parses `docsUrl` with
+    // an unguarded `new URL()`. catalogue.ts falls back to ""/[] rather than crashing on the
+    // first two, so a missing value would only render a blank section; a bad docsUrl fails
+    // `next build` outright. This test turns all three into a build failure instead.
     for (const tool of [...tools, ...bundles]) {
       expect(tool.problem, `${tool.id} has no problem statement`).not.toBe("");
       expect(
@@ -137,6 +138,10 @@ describe("catalogue and baseline agree", () => {
         tool.benefits.length,
         `${tool.id} has ${tool.benefits.length} benefits`,
       ).toBeLessThanOrEqual(3);
+      expect(
+        () => new URL(tool.docsUrl),
+        `${tool.id} has an unparseable docsUrl`,
+      ).not.toThrow();
     }
   });
 
