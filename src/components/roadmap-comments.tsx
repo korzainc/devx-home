@@ -1,3 +1,4 @@
+import { CommentField } from "@/components/comment-field";
 import { Octocat } from "@/components/octocat";
 import { signInWithGitHub } from "@/lib/auth-actions";
 import { deleteComment, postComment } from "@/lib/roadmap-actions";
@@ -22,17 +23,7 @@ function Composer({ slug }: { slug: string }) {
   return (
     <form action={postComment} className="flex flex-col items-start gap-3">
       <input type="hidden" name="slug" value={slug} />
-      {/* The global :focus-visible ring is accent red, which on a box this size reads as an error
-          rather than focus. Overridden here only, so the rest of the site keeps its ring. */}
-      <textarea
-        name="body"
-        rows={3}
-        required
-        maxLength={2000}
-        placeholder="Add a comment"
-        aria-label="Add a comment"
-        className="w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus-visible:outline-line-strong"
-      />
+      <CommentField />
       <button
         type="submit"
         className="rounded-lg border border-line-strong bg-surface-raised px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-ink-faint"
