@@ -1,9 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { baseline, tools } from "./catalogue";
+import skillsData from "@/data/skills.json";
+import {
+  baseline,
+  indexSchemaVersion,
+  installCommands,
+  marketplaceName,
+  marketplaceRepo,
+  duplicateClaims,
+  getPlugin,
+  pluginRows,
+  plugins,
+  rivalPlugins,
+  skills,
+  skillsArePlaceholder,
+  versionFacetLabel,
+  versionStatusFor,
+  tools,
+} from "./catalogue";
 
-// The engine is only as good as the data behind it, and the failures are quiet: a capability with
-// no tool renders as a gap nobody can act on, and a typo in a capability id renders as nothing at
-// all. These assertions are the reason those show up as a red test rather than a bad report.
+// The failures are quiet: a capability with no tool renders as a gap nobody can act on.
 describe("catalogue and baseline agree", () => {
   it("has no duplicate tool ids", () => {
     const ids = tools.map((tool) => tool.id);
@@ -90,8 +105,6 @@ describe("catalogue and baseline agree", () => {
   });
 
   it("offers a stack-agnostic tool for every universal capability", () => {
-    // A repo with no recognised manifest can only be recommended `any` tools, so a universal
-    // capability backed solely by, say, a Java tool would leave that report with a dead end.
     for (const capability of baseline.universal) {
       const candidates = tools.filter(
         (tool) =>
@@ -103,5 +116,87 @@ describe("catalogue and baseline agree", () => {
         `universal capability ${capability} has no stack-agnostic tool`,
       ).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("install commands", () => {
+  it("offers a command only for an agent the plugin lists", () => {
+    for (const plugin of plugins) {
+      const commands = installCommands(plugin);
+      expect(commands.map((entry) => entry.agent)).toEqual(
+        ["Claude Code", "Codex CLI"].filter((agent) =>
+          plugin.agents.includes(agent),
+        ),
+      );
+      for (const command of commands) {
+        expect(command.install).toContain(`${plugin.name}@${marketplaceName}`);
+        expect(command.register).toContain(marketplaceRepo);
+      }
+    }
+  });
+
+  it("offers nothing for a plugin no agent lists", () => {
+    expect(installCommands({ ...plugins[0], agents: [] })).toEqual([]);
+  });
+});
+
+describe("plugin rows", () => {
+  it("derives a pin state for every plugin", () => {
+    // Powers the Pin facet.
+    for (const plugin of pluginRows) {
+      expect(plugin.pinState, plugin.id).toBe(
+        versionFacetLabel(versionStatusFor(plugin.id)),
+      );
+      expect(plugin.pinState).not.toBe("Unknown");
+    }
+  });
+});
+
+describe("provenance", () => {
+  // The placeholder half cannot be pinned while the data says false: a literal and the
+  // derivation agree.
+  it("declares the skill index as generated, at the schema the file states", () => {
+    // Fails if a hand-extracted file is dropped back in.
+    expect(skillsArePlaceholder).toBe(false);
+    expect(indexSchemaVersion).toBe(skillsData.schemaVersion);
+    expect(indexSchemaVersion).toBeGreaterThan(0);
+  });
+});
+
+describe("install commands and duplicate claims", () => {
+  it("names the marketplace and the plugin the user actually types", () => {
+    // Text a user copies into a terminal.
+    const codezen = plugins.find((p) => p.id === "codezen")!;
+    const [claude, codex] = installCommands({ ...codezen, id: "not-the-name" });
+    // Literals: interpolating the constants mutates both sides.
+    expect(claude.install).toBe("/plugin install codezen@korza-marketplace");
+    expect(claude.register).toBe(
+      "/plugin marketplace add korzainc/marketplace",
+    );
+    expect(codex.install).toBe("codex plugin add codezen@korza-marketplace");
+    expect(codex.register).toBe(
+      "codex plugin marketplace add korzainc/marketplace --ref main",
+    );
+  });
+
+  it("looks a plugin up by id", () => {
+    expect(getPlugin("superpowers")?.id).toBe("superpowers");
+    expect(getPlugin("not-a-plugin")).toBeUndefined();
+  });
+
+  it("reports a name only when more than one plugin claims it", () => {
+    // `code-review` and `tdd` each ship from two plugins.
+    expect([...duplicateClaims.keys()].sort()).toEqual(["code-review", "tdd"]);
+    for (const [name, claimants] of duplicateClaims) {
+      expect(claimants.length, name).toBeGreaterThan(1);
+      expect([...claimants]).toEqual([...claimants].sort());
+    }
+  });
+
+  it("lists the other plugins claiming a name, never the skill's own", () => {
+    const codeReview = skills.find(
+      (s) => s.name === "code-review" && s.plugin === "codezen",
+    )!;
+    expect(rivalPlugins(codeReview)).toEqual(["mattpocock-skills"]);
   });
 });

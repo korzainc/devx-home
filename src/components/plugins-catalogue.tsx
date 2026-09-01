@@ -2,18 +2,42 @@
 
 import Link from "next/link";
 import { CatalogueGrid } from "@/components/catalogue-grid";
-import type { Facet, PluginEntry } from "@/lib/catalogue";
+import {
+  describeVersion,
+  skillsForPlugin,
+  versionStatusFor,
+  type Facet,
+  type PluginRow,
+  type VersionStatus,
+} from "@/lib/catalogue";
 
 // Module scope, not inline: the grid memoises on facet identity.
-const facets: Facet<PluginEntry>[] = [
+const facets: Facet<PluginRow>[] = [
+  { key: "pinState", label: "Pin" },
   { key: "agents", label: "Agent" },
   { key: "origin", label: "Origin" },
-  { key: "versioning", label: "Version" },
 ];
 
-// The card is a way in, not a summary of everything known about the plugin. The problem it solves,
-// the benefits, the full skill list and the install commands all live on the detail page.
-function PluginCard({ plugin }: { plugin: PluginEntry }) {
+// Severity, not a boolean: every entry is non-current, so one emphasis carried no signal.
+const UNKNOWN_TONE = "border-line text-ink-faint";
+
+const TONE: Record<VersionStatus["state"], string> = {
+  "no-releases": "border-line-strong bg-accent-wash text-ink",
+  unpinned: "border-line-strong text-ink",
+  behind: "border-line text-ink-muted",
+  current: "border-line text-ink-faint",
+};
+
+function PluginCard({ plugin }: { plugin: PluginRow }) {
+  const version = versionStatusFor(plugin.id);
+  // From the index, never plugin.skills, which says 0 for codezen. Planned shown, or codezen
+  // reads 17 on the Skills tab and 11 here with nothing explaining the gap.
+  const pluginSkills = skillsForPlugin(plugin.id);
+  const skillCount = pluginSkills.filter(
+    (skill) => skill.status !== "Planned",
+  ).length;
+  const plannedCount = pluginSkills.length - skillCount;
+
   return (
     <Link
       href={`/skills/${plugin.id}`}
@@ -28,20 +52,24 @@ function PluginCard({ plugin }: { plugin: PluginEntry }) {
         </span>
       </div>
 
+      {version && (
+        <span
+          className={`w-fit rounded border px-1.5 py-0.5 font-mono text-[0.6rem] ${TONE[version.state] ?? UNKNOWN_TONE}`}
+        >
+          {describeVersion(version)}
+        </span>
+      )}
+
       <p className="line-clamp-2 flex-1 text-sm leading-relaxed text-ink-muted">
         {plugin.summary}
       </p>
 
       <div className="flex items-center gap-1.5 pt-1 font-mono text-[0.65rem] text-ink-faint">
-        {plugin.skills.length > 0 && (
-          <>
-            <span>
-              {plugin.skills.length}{" "}
-              {plugin.skills.length === 1 ? "skill" : "skills"}
-            </span>
-            <span aria-hidden>·</span>
-          </>
-        )}
+        <span>
+          {skillCount} {skillCount === 1 ? "skill" : "skills"}
+          {plannedCount > 0 && ` + ${plannedCount} planned`}
+        </span>
+        <span aria-hidden>·</span>
         <span>{plugin.agents.join(", ")}</span>
         <span className="ml-auto group-hover:text-accent">why use it →</span>
       </div>
@@ -49,7 +77,7 @@ function PluginCard({ plugin }: { plugin: PluginEntry }) {
   );
 }
 
-export function PluginsCatalogue({ entries }: { entries: PluginEntry[] }) {
+export function PluginsCatalogue({ entries }: { entries: PluginRow[] }) {
   return (
     <CatalogueGrid
       entries={entries}

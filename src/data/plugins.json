@@ -3,15 +3,13 @@
     "id": "codezen",
     "name": "codezen",
     "summary": "CodeZen is an AI-powered code plugin to build software with skills.",
-    "problem": "Agent-assisted work tends to jump straight to code. Requirements stay half-specified, and tests and deployment become an afterthought.",
+    "problem": "Agent-assisted work tends to jump straight to code. Requirements stay half-specified, and tests become an afterthought.",
     "benefits": [
-      "Covers requirements, build, test and deploy, so the work either side of writing code is part of the process.",
-      "Korza's own plugin, so the conventions it applies are the ones your reviewers already expect.",
-      "Depends on superpowers and pyright-lsp, so installing codezen brings both along."
+      "Covers requirements, build and test, so the work either side of writing code is part of the process.",
+      "Korza's own plugin, so the conventions it applies are the ones your reviewers already expect."
     ],
     "agents": ["Claude Code", "Codex CLI"],
     "origin": "Korza",
-    "versioning": "Tracks main",
     "ref": "main",
     "sourceRepo": "korzainc/codezen",
     "homepage": "https://github.com/korzainc/codezen",
@@ -20,16 +18,15 @@
   {
     "id": "pyright-lsp",
     "name": "pyright-lsp",
-    "summary": "Pyright LSP plugin used in codezen.",
+    "summary": "Pyright LSP plugin listed in the catalogue. Currently ships nothing.",
     "problem": "Without a language server the agent reads Python as plain text. It infers signatures instead of looking them up, and type errors an IDE would flag immediately go unnoticed.",
     "benefits": [
-      "Gives the agent real diagnostics and type information on Python code.",
-      "Maintained in Anthropic's official plugin repo rather than by us.",
-      "codezen already depends on it, so install this directly only if you skip codezen."
+      "Does not currently work. The installed plugin directory contains no skill, agent, hook or LSP-server definitions, because the entry keeps its lspServers configuration outside that directory and the catalogue copies only the directory.",
+      "Intended to give the agent real diagnostics and type information on Python code, which is what it will do once the entry is repaired or replaced.",
+      "Tracked as a known defect rather than a recommendation: install it only to reproduce the problem."
     ],
     "agents": ["Claude Code"],
     "origin": "Third party",
-    "versioning": "Tracks main",
     "ref": "main",
     "sourceRepo": "anthropics/claude-plugins-official",
     "homepage": "https://github.com/anthropics/claude-plugins-official",
@@ -42,12 +39,11 @@
     "problem": "Left to itself, an agent writes code first and reasons about it afterwards. The result reads well and fails under test.",
     "benefits": [
       "A vetted library of TDD, debugging and collaboration patterns, so the approach is not improvised on every task.",
-      "Pinned to v6.2.0, so upstream commits cannot land on your machine unreviewed.",
+      "Pinned to a tag rather than a branch, so upstream commits cannot land on your machine unreviewed. The trade is that the pin has to be moved deliberately, and it is currently one release behind.",
       "codezen builds on it, so the two are designed to run together."
     ],
     "agents": ["Claude Code", "Codex CLI"],
     "origin": "Third party",
-    "versioning": "Pinned",
     "ref": "v6.2.0",
     "sourceRepo": "obra/superpowers",
     "homepage": "https://github.com/obra/superpowers",
@@ -61,11 +57,10 @@
     "benefits": [
       "Twenty-five task-specific skills covering review, TDD, domain modelling, triage and architecture.",
       "Includes the communication side of the work: teaching, handoffs, questionnaires, writing for agents.",
-      "Tracks main on purpose, because the newest tag ships four fewer skills."
+      "Currently tracks main rather than a tag, so upstream commits reach your machine unreviewed. v1.2.3 declares the same twenty-five skills, so there is nothing blocking a pin."
     ],
     "agents": ["Claude Code"],
     "origin": "Third party",
-    "versioning": "Tracks main",
     "ref": "main",
     "sourceRepo": "mattpocock/skills",
     "homepage": "https://github.com/mattpocock/skills",
@@ -105,11 +100,10 @@
     "benefits": [
       "Edits against Wikipedia's documented \"Signs of AI writing\" list rather than a vague sense of tone.",
       "Worth running on anything customer-facing: docs, release notes, incident writeups.",
-      "Pinned to v2.9.1."
+      "Small enough to read end to end before you trust it: one skill, and the whole prompt is in the repository."
     ],
     "agents": ["Claude Code"],
     "origin": "Third party",
-    "versioning": "Pinned",
     "ref": "v2.9.1",
     "sourceRepo": "blader/humanizer",
     "homepage": "https://github.com/blader/humanizer",
