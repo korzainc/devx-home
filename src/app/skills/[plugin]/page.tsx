@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { InstallPanel } from "@/components/install-panel";
+import { MetaRow } from "@/components/meta-row";
 import { PluginSkills } from "@/components/plugin-skills";
 import {
   getPlugin,
@@ -20,23 +21,6 @@ export async function generateMetadata({
   const plugin = getPlugin((await params).plugin);
   if (!plugin) return {};
   return { title: plugin.name, description: plugin.summary };
-}
-
-function MetaRow({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-baseline justify-between gap-4 border-b border-line px-4 py-3 last:border-b-0">
-      <span className="text-[0.65rem] tracking-wide text-ink-faint uppercase">
-        {label}
-      </span>
-      <span className="text-right text-sm text-ink">{children}</span>
-    </div>
-  );
 }
 
 export default async function PluginPage({
