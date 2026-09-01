@@ -17,7 +17,12 @@ function withGap(overrides: Partial<Analysis> = {}): Analysis {
     ...empty,
     filesRead: ["package.json"],
     stacks: [
-      { id: "javascript", label: "JavaScript", markers: ["package.json"], expects: [] },
+      {
+        id: "javascript",
+        label: "JavaScript",
+        markers: ["package.json"],
+        expects: [],
+      },
     ],
     categories: [
       {
@@ -54,13 +59,19 @@ describe("buildFixPrompt", () => {
     const prompt = buildFixPrompt(empty);
 
     expect(hasEmptyTable(prompt)).toBe(false);
-    expect(prompt).toContain("Every check the baseline expects is already running");
+    expect(prompt).toContain(
+      "Every check the baseline expects is already running",
+    );
     expect(prompt).toContain("nothing here to avoid duplicating");
   });
 
   it("says so rather than listing nothing when no file was worth reading", () => {
-    expect(buildFixPrompt(empty)).toContain("It found no manifest and no CI config");
-    expect(buildFixPrompt(empty)).toContain("no manifest was recognised at the repo root");
+    expect(buildFixPrompt(empty)).toContain(
+      "It found no manifest and no CI config",
+    );
+    expect(buildFixPrompt(empty)).toContain(
+      "no manifest was recognised at the repo root",
+    );
   });
 
   it("numbers the gaps and names the tools the catalogue suggests", () => {
@@ -92,7 +103,9 @@ describe("buildFixPrompt", () => {
     const analysis = withGap();
     analysis.categories[0].capabilities[0].recommended = [];
 
-    expect(buildFixPrompt(analysis)).toContain("no tool in the catalogue for this stack");
+    expect(buildFixPrompt(analysis)).toContain(
+      "no tool in the catalogue for this stack",
+    );
   });
 
   it("keeps a repo path from breaking out of the cell it sits in", () => {
@@ -125,6 +138,8 @@ describe("buildFixPrompt", () => {
       .split("\n")
       .find((line) => line.includes("Vitest"));
 
-    expect(row).toBe("| Unit tests | Vitest | `runs vitest in a\\|b/'c'.json` |");
+    expect(row).toBe(
+      "| Unit tests | Vitest | `runs vitest in a\\|b/'c'.json` |",
+    );
   });
 });

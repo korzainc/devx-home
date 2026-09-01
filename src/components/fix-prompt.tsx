@@ -10,7 +10,12 @@ const lapMs = 700;
 
 function Sparkle({ className = "h-3.5 w-3.5" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className={className}>
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden
+      className={className}
+    >
       <path d="M11 2.2l1.75 5.05L17.8 9l-5.05 1.75L11 15.8l-1.75-5.05L4.2 9l5.05-1.75L11 2.2z" />
       <path
         d="M18.4 14.2l.85 2.45 2.45.85-2.45.85-.85 2.45-.85-2.45-2.45-.85 2.45-.85.85-2.45z"
@@ -38,7 +43,9 @@ function CopyButton({ prompt }: { prompt: string }) {
         );
       }}
       className={`inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
-        copied ? "text-positive" : "text-ink-faint hover:bg-line/40 hover:text-ink"
+        copied
+          ? "text-positive"
+          : "text-ink-faint hover:bg-line/40 hover:text-ink"
       }`}
     >
       {copied ? (
