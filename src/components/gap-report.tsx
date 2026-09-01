@@ -1,8 +1,11 @@
 import Link from "next/link";
+import { FixPromptButton } from "@/components/fix-prompt";
+import { alternatives, buildFixPrompt } from "@/lib/gap/prompt";
 import type { Analysis, CapabilityReport } from "@/lib/gap/types";
 
-// Nothing here is interactive: the disclosure at the bottom is a native `details`. So the whole
-// report renders on the server, and a report URL works with no client JavaScript at all.
+// The report itself renders on the server and the disclosure at the bottom is a native `details`,
+// so a report URL still reads with no client JavaScript. The one exception is the fix prompt
+// control, which needs an overlay and the clipboard.
 
 function StatusChip({ satisfied }: { satisfied: boolean }) {
   return (
@@ -15,6 +18,34 @@ function StatusChip({ satisfied }: { satisfied: boolean }) {
     >
       {satisfied ? "present" : "missing"}
     </span>
+  );
+}
+
+// The same disjunction the prompt uses, rendered as links instead of text. `formatToParts` keeps
+// the separators in one place: hand-rolling `or` here is how the two drift apart. Elements come
+// back in input order, so a cursor pairs each one with the tool it was formatted from.
+function Alternatives({ tools }: { tools: CapabilityReport["recommended"] }) {
+  let cursor = 0;
+
+  return (
+    <>
+      {alternatives
+        .formatToParts(tools.map((tool) => tool.name))
+        .map((part, index) => {
+          if (part.type === "literal") return part.value;
+
+          const tool = tools[cursor++];
+          return (
+            <Link
+              key={index}
+              href={`/tools#${tool.id}`}
+              className="text-accent hover:underline"
+            >
+              {tool.name}
+            </Link>
+          );
+        })}
+    </>
   );
 }
 
@@ -38,20 +69,12 @@ function Capability({ capability }: { capability: CapabilityReport }) {
           ))}
         </ul>
       ) : capability.recommended.length > 0 ? (
+        // The tools listed are alternatives, not a shopping list, so a multi-tool line says
+        // outright that one of them is enough.
         <p className="text-sm text-ink-muted">
           Nothing found. The catalogue recommends{" "}
-          {capability.recommended.map((tool, index) => (
-            <span key={tool.id}>
-              {index > 0 && ", "}
-              <Link
-                href={`/tools#${tool.id}`}
-                className="text-accent hover:underline"
-              >
-                {tool.name}
-              </Link>
-            </span>
-          ))}
-          .
+          <Alternatives tools={capability.recommended} />
+          {capability.recommended.length > 1 ? ", and one is enough." : "."}
         </p>
       ) : (
         <p className="text-sm text-ink-muted">
@@ -90,19 +113,27 @@ export function GapReport({ analysis }: { analysis: Analysis }) {
           <div className="flex-1 bg-accent" />
         </div>
 
-        <p className="text-sm text-ink-muted">
-          {analysis.stacks.length > 0 ? (
-            <>
-              Compared against the baseline for{" "}
-              <span className="text-ink">
-                {analysis.stacks.map((stack) => stack.label).join(", ")}
-              </span>
-              . {analysis.filesRead.length} files read.
-            </>
-          ) : (
-            "No manifest was recognised at the repo root, so only the checks that apply to any repo were compared."
-          )}
-        </p>
+        {/* The control sits on the summary row rather than above the gaps, so it reads as part of
+            the report rather than an advert bolted onto it. Nothing to fix means nothing to
+            generate, so a clean repo does not get offered one. */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-ink-muted">
+            {analysis.stacks.length > 0 ? (
+              <>
+                Compared against the baseline for{" "}
+                <span className="text-ink">
+                  {analysis.stacks.map((stack) => stack.label).join(", ")}
+                </span>
+                . {analysis.filesRead.length} files read.
+              </>
+            ) : (
+              "No manifest was recognised at the repo root, so only the checks that apply to any repo were compared."
+            )}
+          </p>
+          {analysis.gapCount > 0 ? (
+            <FixPromptButton prompt={buildFixPrompt(analysis)} />
+          ) : null}
+        </div>
       </div>
 
       {analysis.categories.map((category) => (
