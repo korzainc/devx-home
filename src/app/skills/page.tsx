@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { CatalogueTabs } from "@/components/catalogue-tabs";
 import {
   browsableSkills,
@@ -17,6 +18,13 @@ export const metadata: Metadata = {
 export default function SkillsPage() {
   return (
     <div className="flex flex-col gap-10">
+      {/* Up one level, the same rule the plugin page follows with "← Skills". */}
+      <Link
+        href="/"
+        className="w-fit font-mono text-xs text-ink-faint hover:text-accent"
+      >
+        ← Home
+      </Link>
       <CatalogueTabs
         plugins={pluginRows}
         skills={browsableSkills}
