@@ -81,7 +81,7 @@ export function CatalogueTabs({
                   onClick={() => setView(tab.id)}
                   className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors ${
                     isOn
-                      ? "border border-accent bg-accent-wash text-ink"
+                      ? "border border-line-strong bg-accent-wash text-ink"
                       : "border border-transparent text-ink-muted hover:text-ink"
                   }`}
                 >

@@ -46,7 +46,7 @@ export function FacetMenu({
         onClick={() => setOpen((was) => !was)}
         className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition-colors ${
           on
-            ? "border-accent bg-accent-wash text-ink"
+            ? "border-line-strong bg-accent-wash text-ink"
             : "border-line bg-surface text-ink-muted hover:border-line-strong hover:text-ink"
         }`}
       >

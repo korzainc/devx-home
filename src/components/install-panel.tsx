@@ -84,7 +84,7 @@ export function InstallPanel({ commands }: { commands: InstallCommand[] }) {
               onClick={() => setAgent(entry.agent)}
               className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
                 entry.agent === active.agent
-                  ? "border border-accent bg-accent-wash text-ink"
+                  ? "border border-line-strong bg-accent-wash text-ink"
                   : "border border-transparent text-ink-muted hover:text-ink"
               }`}
             >

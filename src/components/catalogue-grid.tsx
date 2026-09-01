@@ -200,7 +200,7 @@ export function CatalogueGrid<T extends CatalogueEntry>({
                     key={value}
                     type="button"
                     onClick={() => toggle(facet.key, value)}
-                    className="flex items-center gap-1.5 rounded-full border border-accent bg-accent-wash px-3 py-1 text-xs text-ink transition-colors hover:border-line-strong"
+                    className="flex items-center gap-1.5 rounded-full border border-line-strong bg-accent-wash px-3 py-1 text-xs text-ink transition-colors hover:border-line"
                   >
                     {grouped ? value : `${facet.label}: ${value}`}
                     <span aria-hidden className="text-ink-faint">
