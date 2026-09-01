@@ -11,6 +11,11 @@ import { getAuth } from "./auth";
 // is two session round trips to Neon to draw one name.
 export const getSession = cache(async () => {
   const requestHeaders = await headers();
+  // Local development without the Vercel environment. The header renders on every page, so a
+  // missing database took down the catalogue and the roadmap alike -- none of which need a
+  // session to render. Vercel always injects DATABASE_URL, so this cannot hide a
+  // misconfigured deployment: there, the absence of a session is a real answer.
+  if (!process.env.DATABASE_URL) return null;
   return getAuth().api.getSession({ headers: requestHeaders });
 });
 
