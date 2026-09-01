@@ -89,6 +89,55 @@
   }
 }
 
+/* The fix-prompt control on the gap report. One bright segment runs a lap of the border while the
+   prompt opens, which is drawn as a masked pseudo-element rather than a border so the segment can
+   be a gradient and the button still needs no opaque fill behind it. `--sweep` has to be a
+   registered property, because a bare custom property in a conic-gradient cannot be animated. */
+@property --sweep {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.fx-sweep {
+  position: relative;
+}
+.fx-sweep::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  pointer-events: none;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+.fx-sweep.is-charging::after {
+  background: conic-gradient(
+    from var(--sweep),
+    transparent 0deg,
+    var(--positive) 46deg,
+    var(--positive) 62deg,
+    transparent 108deg
+  );
+  animation: fx-lap var(--fx-lap, 700ms) linear;
+}
+.fx-sweep.is-charging {
+  box-shadow: 0 0 22px -6px var(--positive);
+}
+
+@keyframes fx-lap {
+  to {
+    --sweep: 360deg;
+  }
+}
+
 /* Markdown from content/ renders to bare HTML with no utility classes on it, and preflight has
    already stripped list markers and heading sizes. These rules put back only what a changelog
    body uses, which is why there is no typography plugin here. */
