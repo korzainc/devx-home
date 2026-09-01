@@ -18,19 +18,22 @@ export const metadata: Metadata = {
 export default function SkillsPage() {
   return (
     <div className="flex flex-col gap-10">
-      {/* Up one level, the same rule the plugin page follows with "← Skills". */}
-      <Link
-        href="/"
-        className="w-fit font-mono text-xs text-ink-faint hover:text-accent"
-      >
-        ← Home
-      </Link>
-      <CatalogueTabs
-        plugins={pluginRows}
-        skills={browsableSkills}
-        toolchain={toolchainSkills}
-        placeholder={skillsArePlaceholder}
-      />
+      {/* Grouped with the title, so the link sits the same distance above it as "← Skills"
+          does on the plugin page. As a direct child it inherited the section gap instead. */}
+      <div className="flex flex-col gap-4">
+        <Link
+          href="/"
+          className="w-fit font-mono text-xs text-ink-faint hover:text-accent"
+        >
+          ← Home
+        </Link>
+        <CatalogueTabs
+          plugins={pluginRows}
+          skills={browsableSkills}
+          toolchain={toolchainSkills}
+          placeholder={skillsArePlaceholder}
+        />
+      </div>
 
       {/* Where the numbers came from. Pre-empts "is this real?" and makes the generated-index
           promise concrete: once CI produces the file, the commit replaces the date.
