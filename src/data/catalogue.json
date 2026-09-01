@@ -1,0 +1,1454 @@
+{
+  "taxonomy": {
+    "categories": {
+      "security": {
+        "label": "Security"
+      },
+      "quality": {
+        "label": "Code Quality"
+      },
+      "testing": {
+        "label": "Testing"
+      },
+      "dependencies": {
+        "label": "Dependencies"
+      }
+    },
+    "capabilities": {
+      "sca": {
+        "category": "security",
+        "label": "Dependency Scanning (SCA)"
+      },
+      "sast": {
+        "category": "security",
+        "label": "Static Application Security Testing (SAST)"
+      },
+      "iac-config": {
+        "category": "security",
+        "label": "IaC Config Scanning"
+      },
+      "iac-dockerfile-lint": {
+        "category": "quality",
+        "label": "Dockerfile Lint"
+      },
+      "secrets": {
+        "category": "security",
+        "label": "Secret Scanning"
+      },
+      "image-scan": {
+        "category": "security",
+        "label": "Container Image Scanning"
+      },
+      "lint-bugs": {
+        "category": "quality",
+        "label": "Bug Pattern Analysis"
+      },
+      "lint-style": {
+        "category": "quality",
+        "label": "Style Linting"
+      },
+      "coverage": {
+        "category": "testing",
+        "label": "Code Coverage"
+      },
+      "format": {
+        "category": "quality",
+        "label": "Formatting"
+      },
+      "typecheck": {
+        "category": "quality",
+        "label": "Type Checking"
+      },
+      "unit-tests": {
+        "category": "testing",
+        "label": "Unit Tests"
+      },
+      "e2e-tests": {
+        "category": "testing",
+        "label": "End-to-End Tests"
+      },
+      "dependency-updates": {
+        "category": "dependencies",
+        "label": "Automated Dependency Updates"
+      }
+    },
+    "languages": ["java", "javascript", "typescript", "go", "python", "*"],
+    "buildSystems": ["maven", "gradle", "npm", "*"]
+  },
+  "tools": {
+    "biome": {
+      "id": "biome",
+      "name": "Biome",
+      "summary": "Combined linter and formatter for JavaScript and TypeScript in a single fast Rust binary.",
+      "problem": "Running a linter and a formatter as two separate tools means two configs to keep in sync and two passes over every file, until something merges them into one.",
+      "benefits": [
+        "Lints and formats JS/TS in one tool instead of maintaining ESLint and Prettier configs side by side",
+        "Runs as a single native binary, so checks and formatting stay fast even on large repos"
+      ],
+      "capabilities": ["lint-style", "format"],
+      "applicability": {
+        "languages": ["javascript", "typescript"],
+        "buildSystems": ["npm"]
+      },
+      "install": [
+        {
+          "type": "npm",
+          "package": "@biomejs/biome",
+          "version": "^2"
+        }
+      ],
+      "detection": {
+        "github": {
+          "ciUses": [],
+          "commands": ["biome"]
+        },
+        "azureDevops": {},
+        "configFiles": ["biome.json", "biome.jsonc"],
+        "manifestDeps": ["@biomejs/biome"]
+      },
+      "overlaps": ["eslint", "prettier"],
+      "docsUrl": "https://biomejs.dev"
+    },
+    "codeql": {
+      "id": "codeql",
+      "name": "CodeQL",
+      "summary": "GitHub's own semantic code analysis engine, built into code scanning to find security vulnerabilities.",
+      "problem": "A vulnerability that only shows up through the way tainted data flows across functions and files ships unnoticed because nothing traces execution paths through the code, only individual lines or patterns.",
+      "benefits": [
+        "Models source code as a queryable database, so it traces tainted data across functions and files rather than matching single lines",
+        "Runs as part of GitHub code scanning, surfacing results as pull request checks and Security tab alerts with no separate dashboard to run",
+        "Maintained and updated by GitHub, with standard query packs covering major languages out of the box"
+      ],
+      "capabilities": ["sast"],
+      "applicability": {
+        "languages": ["*"],
+        "buildSystems": ["*"]
+      },
+      "install": [
+        {
+          "type": "github-action",
+          "action": "github/codeql-action/analyze",
+          "version": "v4"
+        }
+      ],
+      "detection": {
+        "github": {
+          "ciUses": ["github/codeql-action"],
+          "commands": []
+        },
+        "azureDevops": {},
+        "configFiles": [".github/codeql/codeql-config.yml"],
+        "manifestDeps": []
+      },
+      "overlaps": ["semgrep"],
+      "docsUrl": "https://docs.github.com/en/code-security/code-scanning/introduction-to-code-scanning/about-code-scanning-with-codeql"
+    },
+    "dependabot": {
+      "id": "dependabot",
+      "name": "Dependabot",
+      "summary": "GitHub's native dependency update bot, enabled by committing a config file instead of running a service.",
+      "problem": "Dependencies quietly drift out of date and known-vulnerable versions sit unpatched, unless something opens the update PRs on its own.",
+      "benefits": [
+        "Opens version and security update PRs on a schedule, with no service to host or run",
+        "Ships as a native GitHub feature, so one config file is the entire setup"
+      ],
+      "capabilities": ["dependency-updates"],
+      "applicability": {
+        "languages": ["*"],
+        "buildSystems": ["*"]
+      },
+      "install": [
+        {
+          "type": "script",
+          "url": "https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/configure-version-updates"
+        }
+      ],
+      "detection": {
+        "github": {
+          "ciUses": [],
+          "commands": []
+        },
+        "azureDevops": {},
+        "configFiles": [".github/dependabot.yml", ".github/dependabot.yaml"],
+        "manifestDeps": []
+      },
+      "overlaps": ["renovate"],
+      "docsUrl": "https://docs.github.com/en/code-security/dependabot"
+    },
+    "eslint": {
+      "id": "eslint",
+      "name": "ESLint",
+      "summary": "Static analysis for JavaScript and TypeScript, driven by a flat config the repo owns.",
+      "problem": "Inconsistent JS/TS style and easy mistakes like unused variables pile up across a repo without an enforced linter.",
+      "benefits": [
+        "Enforces one JS/TS style across a repo instead of relying on review comments",
+        "Catches common bugs (unused variables, unreachable code) before they reach review"
+      ],
+      "capabilities": ["lint-style"],
+      "applicability": {
+        "languages": ["javascript", "typescript"],
+        "buildSystems": ["npm"]
+      },
+      "install": [
+        {
+          "type": "npm",
+          "package": "eslint",
+          "version": "^9"
+        }
+      ],
+      "detection": {
+        "github": {
+          "ciUses": [],
+          "commands": ["eslint", "npm run lint"]
+        },
+        "azureDevops": {},
+        "configFiles": [".eslintrc", ".eslintrc.json", "eslint.config.js"],
+        "manifestDeps": ["eslint"]
+      },
+      "overlaps": [],
+      "docsUrl": "https://eslint.org"
+    },
+    "gitleaks": {
+      "id": "gitleaks",
+      "name": "Gitleaks",
+      "summary": "Open source secret scanner that matches git history, diffs, and working-tree files against a regex-based detection ruleset.",
+      "problem": "A credential typed into a commit sits in the repository the moment it's pushed, with nothing in CI to catch it before it merges.",
+      "benefits": [
+        "Scans full git history and diffs for hardcoded secrets, not just the current working tree",
+        "Runs as a CLI, pre-commit hook, or GitHub Action to catch a leak before it merges",
+        "Supports custom and extended TOML rule configs for org-specific secret patterns"
+      ],
+      "capabilities": ["secrets"],
+      "applicability": {
+        "languages": ["*"],
+        "buildSystems": ["*"]
+      },
+      "install": [
+        {
+          "type": "docker",
+          "image": "ghcr.io/gitleaks/gitleaks",
+          "tag": "v8.30.1"
+        }
+      ],
+      "detection": {
+        "github": {
+          "ciUses": ["gitleaks/gitleaks-action@v3"],
+          "commands": ["gitleaks", "gitleaks detect"]
+        },
+        "azureDevops": {},
+        "configFiles": [".gitleaks.toml"],
+        "manifestDeps": []
+      },
+      "overlaps": ["kingfisher"],
+      "docsUrl": "https://github.com/gitleaks/gitleaks"
+    },
+    "go-test": {
+      "id": "go-test",
+      "name": "go test",
+      "summary": "The Go toolchain's built-in test runner, with coverage instrumentation included at no extra install.",
+      "problem": "Regressions in Go code ship unnoticed because nothing runs the package's tests, even though the runner is already sitting in the toolchain.",
+      "benefits": [
+        "Runs unit tests and reports line coverage from the same command, no extra dependency",
+        "Ships with every Go install, so there is no version to pin or tool to vendor"
+      ],
+      "capabilities": ["unit-tests", "coverage"],
+      "applicability": {
+        "languages": ["go"],
+        "buildSystems": ["*"]
+      },
+      "install": [
+        {
+          "type": "script",
+          "url": "https://go.dev/doc/install"
+        }
+      ],
+      "detection": {
+        "github": {
+          "ciUses": [],
+          "commands": ["go test", "gotestsum"]
+        },
+        "azureDevops": {},
+        "configFiles": [],
+        "manifestDeps": []
+      },
+      "overlaps": [],
+      "docsUrl": "https://pkg.go.dev/testing"
+    },
+    "golangci-lint": {
+      "id": "golangci-lint",
+      "name": "golangci-lint",
+      "summary": "Fast Go linters runner that bundles staticcheck, go vet, and dozens of other linters behind one config.",
+      "problem": "Style drift and bug patterns like ignored errors or vet failures pile up across a Go repo without an enforced linter running them all in one pass.",
+      "benefits": [
+        "Runs staticcheck, go vet, and dozens of other Go linters together, so a separate static-analysis tool isn't needed",
+        "Enforces one Go style and lint ruleset across a repo instead of relying on review comments",
+        "Runs the same linters locally and in CI through one config file"
+      ],
+      "capabilities": ["lint-style"],
+      "applicability": {
+        "languages": ["go"],
+        "buildSystems": ["*"]
+      },
+      "install": [
+        {
+          "type": "script",
+          "url": "https://golangci-lint.run/install.sh",
+          "version": "2.13.2"
+        },
+        {
+          "type": "brew",
+          "formula": "golangci-lint"
+        }
+      ],
+      "detection": {
+        "github": {
+          "ciUses": ["golangci/golangci-lint-action"],
+          "commands": ["golangci-lint"]
+        },
+        "azureDevops": {},
+        "configFiles": [
+          ".golangci.yml",
+          ".golangci.yaml",
+          ".golangci.toml",
+          ".golangci.json"
+        ],
+        "manifestDeps": []
+      },
+      "overlaps": [],
+      "docsUrl": "https://golangci-lint.run"
+    },
+    "hadolint": {
+      "id": "hadolint",
+      "name": "hadolint",
+      "summary": "Dockerfile linter checked against a ruleset baked into its own binary.",
+      "problem": "A Dockerfile with an unpinned base image or a risky instruction ships unnoticed without a linter checking it.",
+      "benefits": [
+        "Catches Dockerfile anti-patterns (unpinned base images, misplaced ADD/COPY) before build",
+        "Enforces one consistent Dockerfile style across every repo that runs it"
+      ],
+      "capabilities": ["iac-dockerfile-lint"],
+      "applicability": {
+        "languages": ["*"],
+        "buildSystems": ["*"]
+      },
+      "install": [
+        {
+          "type": "script",
+          "url": "https://github.com/hadolint/hadolint/releases/download/v2.15.0/hadolint-linux-x86_64",
+          "version": "2.15.0"
+        },
+        {
+          "type": "brew",
+          "formula": "hadolint"
+        },
+        {
+          "type": "docker",
+          "image": "korzacitools.azurecr.io/ci-common",
+          "tag": "0.1.0"
+        }
+      ],
+      "invocation": {
+        "github": {
+          "iac-dockerfile-lint": {
+            "action": "korzainc/shared-workflows/.github/workflows/security-iac-dockerfile-lint.yml@v3",
+            "runner": "reusable-workflow",
+            "args": {
+              "blocking": {
+                "value": true,
+                "note": "Dockerfile lint findings can fail the aggregate gate and merge."
+              },
+              "azure_client_id": {
+                "value": "${{ vars.CI_COMMON_AZURE_CLIENT_ID }}",
+                "note": "Your Azure AD app that's allowed to pull the scanner image - set up once per repo."
+              },
+              "azure_tenant_id": {
+                "value": "${{ vars.CI_COMMON_AZURE_TENANT_ID }}",
+                "note": "Which Azure AD tenant that app lives in."
+              },
+              "azure_subscription_id": {
+                "value": "${{ vars.CI_COMMON_AZURE_SUBSCRIPTION_ID }}",
+                "note": "Which Azure subscription owns the image registry."
+              }
+            },
+            "scope": "diff"
+          }
+        },
+        "azureDevops": {}
+      },
+      "detection": {
+        "github": {
+          "ciUses": ["hadolint/hadolint-action"],
+          "commands": ["hadolint"]
+        },
+        "azureDevops": {},
+        "configFiles": [".hadolint.yaml", ".hadolint.yml"],
+        "manifestDeps": []
+      },
+      "overlaps": [],
+      "docsUrl": "https://github.com/hadolint/hadolint"
+    },
+    "jacoco": {
+      "id": "jacoco",
+      "name": "JaCoCo",
+      "summary": "Code coverage instrumentation and reporting for JVM projects.",
+      "problem": "A test suite exists and passes, but without coverage instrumentation nobody actually knows how much of the codebase it exercises.",
+      "benefits": [
+        "Shows which lines and branches tests actually exercise, not just whether the suite passes",
+        "Lets a build fail on a coverage drop instead of relying on someone noticing later"
+      ],
+      "capabilities": ["coverage"],
+      "applicability": {
+        "languages": ["java"],
+        "buildSystems": ["maven", "gradle"]
+      },
+      "install": [
+        {
+          "type": "build-plugin",
+          "coordinate": "org.jacoco:jacoco-maven-plugin",
+          "version": "0.8.13"
+        }
+      ],
+      "detection": {
+        "github": {
+          "ciUses": [],
+          "commands": ["jacoco"]
+        },
+        "azureDevops": {},
+        "configFiles": [],
+        "manifestDeps": ["jacoco-maven-plugin"]
+      },
+      "overlaps": [],
+      "docsUrl": "https://www.jacoco.org/jacoco/"
+    },
+    "jest": {
+      "id": "jest",
+      "name": "Jest",
+      "summary": "The incumbent batteries-included JS/TS test runner, bundling assertions, mocking, and coverage in one tool - a solid alternative to Vitest, not a new default over it.",
+      "problem": "Regressions in JS/TS logic ship silently and coverage goes unmeasured, unless a test runner actually executes the unit tests and reports on them.",
+      "benefits": [
+        "Runs unit tests, mocking, and coverage from one dependency, with no separate assertion library needed",
+        "Long-established with broad framework support and a large ecosystem of transforms and matchers"
+      ],
+      "capabilities": ["unit-tests", "coverage"],
+      "applicability": {
+        "languages": ["javascript", "typescript"],
+        "buildSystems": ["npm"]
+      },
+      "install": [
+        {
+          "type": "npm",
+          "package": "jest",
+          "version": "^30"
+        }
+      ],
+      "detection": {
+        "github": {
+          "ciUses": [],
+          "commands": ["jest"]
+        },
+        "azureDevops": {},
+        "configFiles": [
+          "jest.config.js",
+          "jest.config.ts",
+          "jest.config.mjs",
+          "jest.config.cjs",
+          "jest.config.json"
+        ],
+        "manifestDeps": ["jest"]
+      },
+      "overlaps": ["vitest"],
+      "docsUrl": "https://jestjs.io"
+    },
+    "junit": {
+      "id": "junit",
+      "name": "JUnit",
+      "summary": "The standard unit testing framework for the JVM, built on the Jupiter programming model.",
+      "problem": "Broken logic in JVM code compiles cleanly and passes review, then only surfaces once it runs in production, unless something exercises it first.",
+      "benefits": [
+        "Catches logic regressions locally, before they reach code review or production",
+        "Gives every build a repeatable pass/fail signal instead of manual verification"
+      ],
+      "capabilities": ["unit-tests"],
+      "applicability": {
+        "languages": ["java"],
+        "buildSystems": ["maven", "gradle"]
+      },
+      "install": [
+        {
+          "type": "jar",
+          "url": "https://repo1.maven.org/maven2/org/junit/jupiter/junit-jupiter/6.1.3/junit-jupiter-6.1.3.jar",
+          "version": "6.1"
+        }
+      ],
+      "detection": {
+        "github": {
+          "ciUses": [],
+          "commands": ["mvn test", "gradle test"]
+        },
+        "azureDevops": {},
+        "configFiles": [],
+        "manifestDeps": [
+          "junit-jupiter",
+          "junit-jupiter-api",
+          "junit-jupiter-engine",
+          "junit-jupiter-params"
+        ]
+      },
+      "overlaps": [],
+      "docsUrl": "https://junit.org/junit5/"
+    },
+    "kingfisher": {
+      "id": "kingfisher",
+      "name": "Kingfisher",
+      "summary": "Secrets scanner for git history and working trees.",
+      "problem": "A secret committed to git stays recoverable from history forever, even after the file that held it is deleted.",
+      "benefits": [
+        "Finds secrets already committed to git history, not just the working tree",
+        "Blocks a new commit from introducing a live credential or API key"
+      ],
+      "capabilities": ["secrets"],
+      "applicability": {
+        "languages": ["*"],
+        "buildSystems": ["*"]
+      },
+      "install": [
+        {
+          "type": "script",
+          "url": "https://github.com/mongodb/kingfisher/releases/download/v1.108.0/kingfisher-linux-x64.tgz",
+          "version": "1.108.0"
+        },
+        {
+          "type": "docker",
+          "image": "korzacitools.azurecr.io/ci-common",
+          "tag": "0.1.0"
+        }
+      ],
+      "invocation": {
+        "github": {
+          "secrets": {
+            "action": "korzainc/shared-workflows/.github/workflows/security-secrets-scan.yml@v3",
+            "runner": "reusable-workflow",
+            "args": {
+              "secrets_exclude_file": {
+                "value": "",
+                "note": "Path to a file listing secret-scan patterns you want to exclude (e.g. known test fixtures), if any."
+              },
+              "azure_client_id": {
+                "value": "${{ vars.CI_COMMON_AZURE_CLIENT_ID }}",
+                "note": "Your Azure AD app that's allowed to pull the scanner image - set up once per repo."
+              },
+              "azure_tenant_id": {
+                "value": "${{ vars.CI_COMMON_AZURE_TENANT_ID }}",
+                "note": "Which Azure AD tenant that app lives in."
+              },
+              "azure_subscription_id": {
+                "value": "${{ vars.CI_COMMON_AZURE_SUBSCRIPTION_ID }}",
+                "note": "Which Azure subscription owns the image registry."
+              }
+            },
+            "scope": "diff"
+          }
+        },
+        "azureDevops": {}
+      },
+      "detection": {
+        "github": {
+          "ciUses": [],
+          "commands": ["kingfisher scan"]
+        },
+        "azureDevops": {},
+        "configFiles": [],
+        "manifestDeps": []
+      },
+      "overlaps": ["gitleaks"],
+      "docsUrl": "https://github.com/mongodb/kingfisher"
+    },
+    "playwright": {
+      "id": "playwright",
+      "name": "Playwright",
+      "summary": "End-to-end browser testing framework that drives real Chromium, Firefox, and WebKit engines from a single config.",
+      "problem": "A broken user flow across pages or browsers reaches production because unit tests exercise functions, not the browser a real user clicks through.",
+      "benefits": [
+        "Runs real user flows in actual browser engines, not just unit-level assertions",
+        "Catches cross-browser and multi-page regressions before they reach users",
+        "Auto-waits for elements and network calls, cutting the flaky failures common in browser automation"
+      ],
+      "capabilities": ["e2e-tests"],
+      "applicability": {
+        "languages": ["javascript", "typescript"],
+        "buildSystems": ["npm"]
+      },
+      "install": [
+        {
+          "type": "npm",
+          "package": "@playwright/test",
+          "version": "^1"
+        }
+      ],
+      "detection": {
+        "github": {
+          "ciUses": [],
+          "commands": ["playwright"]
+        },
+        "azureDevops": {},
+        "configFiles": ["playwright.config.ts", "playwright.config.js"],
+        "manifestDeps": ["@playwright/test"]
+      },
+      "overlaps": [],
+      "docsUrl": "https://playwright.dev"
+    },
+    "prettier": {
+      "id": "prettier",
+      "name": "Prettier",
+      "summary": "Opinionated code formatter for JavaScript, TypeScript, and related web formats.",
+      "problem": "Formatting drifts across a codebase and reviewers spend time on spacing and line-break comments instead of substance, unless a formatter enforces one style automatically.",
+      "benefits": [
+        "Enforces one formatting style across a repo without manual review comments",
+        "Formats on save or in CI, so style never becomes a discussion topic"
+      ],
+      "capabilities": ["format"],
+      "applicability": {
+        "languages": ["javascript", "typescript"],
+        "buildSystems": ["npm"]
+      },
+      "install": [
+        {
+          "type": "npm",
+          "package": "prettier",
+          "version": "^3"
+        }
+      ],
+      "detection": {
+        "github": {
+          "ciUses": [],
+          "commands": ["prettier", "prettier --check", "npm run format"]
+        },
+        "azureDevops": {},
+        "configFiles": [
+          ".prettierrc",
+          ".prettierrc.json",
+          ".prettierrc.yaml",
+          ".prettierrc.js",
+          "prettier.config.js"
+        ],
+        "manifestDeps": ["prettier"]
+      },
+      "overlaps": [],
+      "docsUrl": "https://prettier.io"
+    },
+    "pytest": {
+      "id": "pytest",
+      "name": "pytest",
+      "summary": "Test framework for writing and running Python unit tests, with coverage via the pytest-cov plugin.",
+      "problem": "Regressions in Python code slip past review and ship because nothing runs the test suite or reports which lines it never touched.",
+      "benefits": [
+        "Runs Python unit tests with plain assert statements and fixtures, no boilerplate test classes required",
+        "Measures test coverage via the pytest-cov plugin, showing exactly which lines and branches ran"
+      ],
+      "capabilities": ["unit-tests", "coverage"],
+      "applicability": {
+        "languages": ["python"],
+        "buildSystems": ["*"]
+      },
+      "install": [
+        {
+          "type": "script",
+          "package": "pytest",
+          "version": "9.1.1"
+        }
+      ],
+      "detection": {
+        "github": {
+          "ciUses": [],
+          "commands": ["pytest", "python -m pytest"]
+        },
+        "azureDevops": {},
+        "configFiles": [
+          "pytest.ini",
+          "conftest.py",
+          "pyproject.toml",
+          "setup.cfg"
+        ],
+        "manifestDeps": ["pytest"]
+      },
+      "overlaps": [],
+      "docsUrl": "https://docs.pytest.org/"
+    },
+    "renovate": {
+      "id": "renovate",
+      "name": "Renovate",
+      "summary": "Automated dependency update bot that opens PRs to keep versions current across languages and package managers.",
+      "problem": "Dependency versions quietly fall behind upstream, and a fix for a known vulnerability sits unmerged for weeks, unless something opens the update itself.",
+      "benefits": [
+        "Opens dependency update PRs automatically across dozens of package managers and languages",
+        "Runs as a hosted GitHub App with no config, or self-hosted via the open source CLI for full control",
+        "Groups and schedules updates so a repo isn't flooded with one PR per dependency bump"
+      ],
+      "capabilities": ["dependency-updates"],
+      "applicability": {
+        "languages": ["*"],
+        "buildSystems": ["*"]
+      },
+      "install": [
+        {
+          "type": "npm",
+          "package": "renovate",
+          "version": "^44"
+        }
+      ],
+      "detection": {
+        "github": {
+          "ciUses": ["renovatebot/github-action"],
+          "commands": []
+        },
+        "azureDevops": {},
+        "configFiles": [
+          "renovate.json",
+          "renovate.jsonc",
+          "renovate.json5",
+          ".github/renovate.json",
+          ".github/renovate.jsonc",
+          ".github/renovate.json5",
+          ".gitlab/renovate.json",
+          ".gitlab/renovate.jsonc",
+          ".gitlab/renovate.json5",
+          ".renovaterc",
+          ".renovaterc.json",
+          ".renovaterc.jsonc",
+          ".renovaterc.json5"
+        ],
+        "manifestDeps": []
+      },
+      "overlaps": ["dependabot"],
+      "docsUrl": "https://docs.renovatebot.com"
+    },
+    "ruff": {
+      "id": "ruff",
+      "name": "Ruff",
+      "summary": "Fast Python linter and formatter, covering both style/bug checks and code formatting in one tool.",
+      "problem": "Inconsistent Python style and unused imports pile up across a repo, and formatting drifts between contributors, without a single enforced linter and formatter.",
+      "benefits": [
+        "Lints and formats Python in one pass, at a speed that keeps it usable on every commit",
+        "Its format subcommand is Black-compatible, which is why there's no separate Black entry in this catalogue",
+        "Replaces a stack of older tools (Flake8, isort, pyupgrade) with one config surface"
+      ],
+      "capabilities": ["lint-style", "format"],
+      "applicability": {
+        "languages": ["python"],
+        "buildSystems": ["*"]
+      },
+      "install": [
+        {
+          "type": "script",
+          "package": "ruff",
+          "version": "0.16.5"
+        }
+      ],
+      "detection": {
+        "github": {
+          "ciUses": ["astral-sh/ruff-action"],
+          "commands": ["ruff", "ruff check", "ruff format"]
+        },
+        "azureDevops": {},
+        "configFiles": ["pyproject.toml", "ruff.toml", ".ruff.toml"],
+        "manifestDeps": ["ruff"]
+      },
+      "overlaps": [],
+      "docsUrl": "https://docs.astral.sh/ruff/"
+    },
+    "semgrep": {
+      "id": "semgrep",
+      "name": "Semgrep",
+      "summary": "Static analysis scanner for security and correctness rules across languages.",
+      "problem": "A security or correctness bug that matches a known-bad pattern reaches production because nothing checks for the pattern, only the types.",
+      "benefits": [
+        "Finds security and correctness bugs from pattern rules, across languages, without a full type-checked build",
+        "Runs the same ruleset locally and in CI, so a finding never surprises a reviewer"
+      ],
+      "capabilities": ["sast"],
+      "applicability": {
+        "languages": ["*"],
+        "buildSystems": ["*"]
+      },
+      "install": [
+        {
+          "type": "script",
+          "package": "semgrep",
+          "version": "1.170.0"
+        },
+        {
+          "type": "brew",
+          "formula": "semgrep"
+        },
+        {
+          "type": "docker",
+          "image": "korzacitools.azurecr.io/ci-common",
+          "tag": "0.1.0"
+        }
+      ],
+      "invocation": {
+        "github": {
+          "sast": {
+            "action": "korzainc/shared-workflows/.github/workflows/security-sast.yml@v3",
+            "runner": "reusable-workflow",
+            "args": {
+              "azure_client_id": {
+                "value": "${{ vars.CI_COMMON_AZURE_CLIENT_ID }}",
+                "note": "Your Azure AD app that's allowed to pull the scanner image - set up once per repo."
+              },
+              "azure_tenant_id": {
+                "value": "${{ vars.CI_COMMON_AZURE_TENANT_ID }}",
+                "note": "Which Azure AD tenant that app lives in."
+              },
+              "azure_subscription_id": {
+                "value": "${{ vars.CI_COMMON_AZURE_SUBSCRIPTION_ID }}",
+                "note": "Which Azure subscription owns the image registry."
+              }
+            },
+            "scope": "diff"
+          }
+        },
+        "azureDevops": {}
+      },
+      "detection": {
+        "github": {
+          "ciUses": [],
+          "commands": ["semgrep scan", "semgrep ci"]
+        },
+        "azureDevops": {},
+        "configFiles": [".semgrepignore", ".semgrep.yml"],
+        "manifestDeps": []
+      },
+      "overlaps": ["codeql"],
+      "docsUrl": "https://semgrep.dev"
+    },
+    "spotbugs": {
+      "id": "spotbugs",
+      "name": "SpotBugs",
+      "summary": "Bytecode-level static analysis for JVM projects.",
+      "problem": "Bug patterns like null dereferences and resource leaks compile cleanly and only surface at runtime, unless something inspects the bytecode first.",
+      "benefits": [
+        "Finds real bug patterns (null dereferences, resource leaks) that compile cleanly but fail at runtime",
+        "Runs against compiled bytecode, so it catches issues style linters that only read source miss"
+      ],
+      "capabilities": ["lint-bugs"],
+      "applicability": {
+        "languages": ["java"],
+        "buildSystems": ["maven"]
+      },
+      "install": [
+        {
+          "type": "jar",
+          "url": "https://github.com/spotbugs/spotbugs/releases/download/4.10.3/spotbugs-4.10.3.tgz",
+          "version": "4.10.3"
+        }
+      ],
+      "detection": {
+        "github": {
+          "ciUses": [],
+          "commands": ["spotbugs:check", "spotbugsMain"]
+        },
+        "azureDevops": {},
+        "configFiles": [],
+        "manifestDeps": ["spotbugs-maven-plugin"]
+      },
+      "overlaps": [],
+      "docsUrl": "https://spotbugs.github.io"
+    },
+    "trivy": {
+      "id": "trivy",
+      "name": "Trivy",
+      "summary": "Filesystem, image, and IaC vulnerability scanner.",
+      "problem": "Vulnerable dependencies and misconfigured infrastructure reach production when nothing scans for them before merge.",
+      "benefits": [
+        "Flags known-vulnerable dependencies before they reach a release",
+        "Catches misconfigured cloud resources in Terraform/CloudFormation before merge",
+        "Blocks a vulnerable base image from shipping in a container build"
+      ],
+      "capabilities": ["sca", "iac-config", "image-scan"],
+      "applicability": {
+        "languages": ["*"],
+        "buildSystems": ["*"]
+      },
+      "install": [
+        {
+          "type": "docker",
+          "image": "aquasec/trivy",
+          "tag": "0.52.0"
+        },
+        {
+          "type": "brew",
+          "formula": "trivy"
+        },
+        {
+          "type": "docker",
+          "image": "korzacitools.azurecr.io/ci-common",
+          "tag": "0.1.0"
+        }
+      ],
+      "invocation": {
+        "github": {
+          "sca": {
+            "action": "korzainc/shared-workflows/.github/workflows/security-sca.yml@v3",
+            "runner": "reusable-workflow",
+            "args": {
+              "blocking": {
+                "value": true,
+                "note": "Dependency-vulnerability findings can fail the aggregate gate and merge."
+              },
+              "service_path": {
+                "value": ".",
+                "note": "Where your dependency manifest lives (pom.xml, package.json, etc.) - change if it's not at repo root."
+              },
+              "sca_ignore_file": {
+                "value": "",
+                "note": "Path to a file listing dependency CVEs you want to suppress, if any."
+              },
+              "azure_client_id": {
+                "value": "${{ vars.CI_COMMON_AZURE_CLIENT_ID }}",
+                "note": "Your Azure AD app that's allowed to pull the scanner image - set up once per repo."
+              },
+              "azure_tenant_id": {
+                "value": "${{ vars.CI_COMMON_AZURE_TENANT_ID }}",
+                "note": "Which Azure AD tenant that app lives in."
+              },
+              "azure_subscription_id": {
+                "value": "${{ vars.CI_COMMON_AZURE_SUBSCRIPTION_ID }}",
+                "note": "Which Azure subscription owns the image registry."
+              }
+            },
+            "scope": "diff"
+          },
+          "iac-config": {
+            "action": "korzainc/shared-workflows/.github/workflows/security-iac-config.yml@v3",
+            "runner": "reusable-workflow",
+            "args": {
+              "blocking": {
+                "value": true,
+                "note": "Infra-as-code misconfig findings (k8s/Terraform/Helm) can fail the aggregate gate and merge."
+              },
+              "iac_config_path": {
+                "value": ".",
+                "note": "Where your infra manifests live - independent from service_path, set separately if they're not in the same place."
+              },
+              "iac_config_ignore_file": {
+                "value": "",
+                "note": "Path to a file listing infra-misconfig findings you want to suppress, if any."
+              },
+              "azure_client_id": {
+                "value": "${{ vars.CI_COMMON_AZURE_CLIENT_ID }}",
+                "note": "Your Azure AD app that's allowed to pull the scanner image - set up once per repo."
+              },
+              "azure_tenant_id": {
+                "value": "${{ vars.CI_COMMON_AZURE_TENANT_ID }}",
+                "note": "Which Azure AD tenant that app lives in."
+              },
+              "azure_subscription_id": {
+                "value": "${{ vars.CI_COMMON_AZURE_SUBSCRIPTION_ID }}",
+                "note": "Which Azure subscription owns the image registry."
+              }
+            },
+            "scope": "diff"
+          },
+          "image-scan": {
+            "action": "korzainc/shared-workflows/.github/workflows/security-image-scan.yml@v3",
+            "runner": "reusable-workflow",
+            "args": {
+              "blocking": {
+                "value": true,
+                "note": "Findings in your built container image can fail the aggregate gate and merge."
+              },
+              "dockerfile_path": {
+                "value": "",
+                "note": "Your Dockerfile, if you build a container image - leave empty to skip the image build+scan entirely."
+              },
+              "dockerfile_context": {
+                "value": ".",
+                "note": "The docker build context for that Dockerfile."
+              },
+              "image_scan_ignore_file": {
+                "value": "",
+                "note": "Path to a file listing image-scan CVEs you want to suppress, if any."
+              },
+              "azure_client_id": {
+                "value": "${{ vars.CI_COMMON_AZURE_CLIENT_ID }}",
+                "note": "Your Azure AD app that's allowed to pull the scanner image - set up once per repo."
+              },
+              "azure_tenant_id": {
+                "value": "${{ vars.CI_COMMON_AZURE_TENANT_ID }}",
+                "note": "Which Azure AD tenant that app lives in."
+              },
+              "azure_subscription_id": {
+                "value": "${{ vars.CI_COMMON_AZURE_SUBSCRIPTION_ID }}",
+                "note": "Which Azure subscription owns the image registry."
+              }
+            },
+            "scope": "full"
+          }
+        },
+        "azureDevops": {}
+      },
+      "detection": {
+        "github": {
+          "ciUses": ["aquasecurity/trivy-action"],
+          "commands": ["trivy fs", "trivy config"]
+        },
+        "azureDevops": {},
+        "configFiles": ["trivy.yaml", ".trivyignore"],
+        "manifestDeps": []
+      },
+      "overlaps": [],
+      "docsUrl": "https://trivy.dev"
+    },
+    "typescript": {
+      "id": "typescript",
+      "name": "TypeScript",
+      "summary": "Compile-time type checking for JavaScript and TypeScript codebases.",
+      "problem": "A type mismatch between what a function expects and what it's actually passed compiles cleanly and ships, because tests only exercise the paths they cover, not every call site's types.",
+      "benefits": [
+        "Catches type mismatches at compile time, before they reach tests or production",
+        "Checks every call site's types, not just the paths tests happen to exercise"
+      ],
+      "capabilities": ["typecheck"],
+      "applicability": {
+        "languages": ["javascript", "typescript"],
+        "buildSystems": ["npm"]
+      },
+      "install": [
+        {
+          "type": "npm",
+          "package": "typescript",
+          "version": "^7"
+        }
+      ],
+      "detection": {
+        "github": {
+          "ciUses": [],
+          "commands": ["tsc"]
+        },
+        "azureDevops": {},
+        "configFiles": ["tsconfig.json"],
+        "manifestDeps": ["typescript"]
+      },
+      "overlaps": [],
+      "docsUrl": "https://www.typescriptlang.org"
+    },
+    "vitest": {
+      "id": "vitest",
+      "name": "Vitest",
+      "summary": "Vite-native unit test runner for JavaScript and TypeScript projects.",
+      "problem": "Regressions ship silently between releases when a repo has no enforced automated test suite to catch them first.",
+      "benefits": [
+        "Runs unit tests against Vite's own transform pipeline, so no separate build step is needed",
+        "Produces coverage reports that show untested code paths before they reach production"
+      ],
+      "capabilities": ["unit-tests", "coverage"],
+      "applicability": {
+        "languages": ["javascript", "typescript"],
+        "buildSystems": ["npm"]
+      },
+      "install": [
+        {
+          "type": "npm",
+          "package": "vitest",
+          "version": "^4"
+        }
+      ],
+      "detection": {
+        "github": {
+          "ciUses": [],
+          "commands": ["vitest"]
+        },
+        "azureDevops": {},
+        "configFiles": ["vitest.config.ts", "vitest.config.js"],
+        "manifestDeps": ["vitest"]
+      },
+      "overlaps": ["jest"],
+      "docsUrl": "https://vitest.dev"
+    }
+  },
+  "baselines": {
+    "docker": {
+      "ecosystem": "docker",
+      "markers": ["Dockerfile"],
+      "baseline": {
+        "secrets": {
+          "recommended": "ci-base-checks",
+          "acceptable": ["gitleaks"],
+          "required": true
+        },
+        "sast": {
+          "recommended": "ci-base-checks",
+          "acceptable": ["codeql"],
+          "required": true
+        },
+        "sca": {
+          "recommended": "ci-base-checks",
+          "acceptable": [],
+          "required": true
+        },
+        "iac-config": {
+          "recommended": "ci-base-checks",
+          "acceptable": [],
+          "required": true
+        },
+        "iac-dockerfile-lint": {
+          "recommended": "ci-base-checks",
+          "acceptable": [],
+          "required": true
+        },
+        "image-scan": {
+          "recommended": "ci-base-checks",
+          "acceptable": [],
+          "required": true
+        },
+        "dependency-updates": {
+          "recommended": "dependabot",
+          "acceptable": ["renovate"],
+          "required": false
+        }
+      }
+    },
+    "go": {
+      "ecosystem": "go",
+      "markers": ["go.mod"],
+      "baseline": {
+        "secrets": {
+          "recommended": "ci-base-checks",
+          "acceptable": ["gitleaks"],
+          "required": true
+        },
+        "sast": {
+          "recommended": "ci-base-checks",
+          "acceptable": ["codeql"],
+          "required": true
+        },
+        "sca": {
+          "recommended": "ci-base-checks",
+          "acceptable": [],
+          "required": true
+        },
+        "iac-config": {
+          "recommended": "ci-base-checks",
+          "acceptable": [],
+          "required": true
+        },
+        "lint-style": {
+          "recommended": "golangci-lint",
+          "acceptable": [],
+          "required": true
+        },
+        "unit-tests": {
+          "recommended": "go-test",
+          "acceptable": [],
+          "required": true
+        },
+        "coverage": {
+          "recommended": "go-test",
+          "acceptable": [],
+          "required": false
+        },
+        "dependency-updates": {
+          "recommended": "dependabot",
+          "acceptable": ["renovate"],
+          "required": false
+        }
+      }
+    },
+    "java": {
+      "ecosystem": "java",
+      "markers": ["pom.xml", "build.gradle", "build.gradle.kts"],
+      "baseline": {
+        "secrets": {
+          "recommended": "ci-base-checks",
+          "acceptable": ["gitleaks"],
+          "required": true
+        },
+        "sast": {
+          "recommended": "ci-base-checks",
+          "acceptable": ["codeql"],
+          "required": true
+        },
+        "sca": {
+          "recommended": "ci-base-checks",
+          "acceptable": [],
+          "required": true
+        },
+        "iac-config": {
+          "recommended": "ci-base-checks",
+          "acceptable": [],
+          "required": true
+        },
+        "lint-bugs": {
+          "recommended": "spotbugs",
+          "acceptable": [],
+          "required": true
+        },
+        "unit-tests": {
+          "recommended": "junit",
+          "acceptable": [],
+          "required": true
+        },
+        "coverage": {
+          "recommended": "jacoco",
+          "acceptable": [],
+          "required": false
+        },
+        "dependency-updates": {
+          "recommended": "dependabot",
+          "acceptable": ["renovate"],
+          "required": false
+        }
+      }
+    },
+    "javascript": {
+      "ecosystem": "javascript",
+      "markers": ["package.json"],
+      "baseline": {
+        "secrets": {
+          "recommended": "ci-base-checks",
+          "acceptable": ["gitleaks"],
+          "required": true
+        },
+        "sast": {
+          "recommended": "ci-base-checks",
+          "acceptable": ["codeql"],
+          "required": true
+        },
+        "sca": {
+          "recommended": "ci-base-checks",
+          "acceptable": [],
+          "required": true
+        },
+        "iac-config": {
+          "recommended": "ci-base-checks",
+          "acceptable": [],
+          "required": true
+        },
+        "lint-style": {
+          "recommended": "eslint",
+          "acceptable": ["biome"],
+          "required": true
+        },
+        "format": {
+          "recommended": "prettier",
+          "acceptable": ["biome"],
+          "required": false
+        },
+        "unit-tests": {
+          "recommended": "jest",
+          "acceptable": ["vitest"],
+          "required": true
+        },
+        "coverage": {
+          "recommended": "jest",
+          "acceptable": ["vitest"],
+          "required": false
+        },
+        "e2e-tests": {
+          "recommended": "playwright",
+          "acceptable": [],
+          "required": false
+        },
+        "dependency-updates": {
+          "recommended": "dependabot",
+          "acceptable": ["renovate"],
+          "required": false
+        }
+      }
+    },
+    "python": {
+      "ecosystem": "python",
+      "markers": ["pyproject.toml", "setup.py", "requirements.txt", "Pipfile"],
+      "baseline": {
+        "secrets": {
+          "recommended": "ci-base-checks",
+          "acceptable": ["gitleaks"],
+          "required": true
+        },
+        "sast": {
+          "recommended": "ci-base-checks",
+          "acceptable": ["codeql"],
+          "required": true
+        },
+        "sca": {
+          "recommended": "ci-base-checks",
+          "acceptable": [],
+          "required": true
+        },
+        "iac-config": {
+          "recommended": "ci-base-checks",
+          "acceptable": [],
+          "required": true
+        },
+        "lint-style": {
+          "recommended": "ruff",
+          "acceptable": [],
+          "required": true
+        },
+        "format": {
+          "recommended": "ruff",
+          "acceptable": [],
+          "required": true
+        },
+        "unit-tests": {
+          "recommended": "pytest",
+          "acceptable": [],
+          "required": true
+        },
+        "coverage": {
+          "recommended": "pytest",
+          "acceptable": [],
+          "required": false
+        },
+        "dependency-updates": {
+          "recommended": "dependabot",
+          "acceptable": ["renovate"],
+          "required": false
+        }
+      }
+    },
+    "typescript": {
+      "ecosystem": "typescript",
+      "markers": ["tsconfig.json"],
+      "baseline": {
+        "typecheck": {
+          "recommended": "typescript",
+          "acceptable": [],
+          "required": true
+        }
+      }
+    }
+  },
+  "bundles": {
+    "ci-base-checks": {
+      "id": "ci-base-checks",
+      "name": "Korza CI Base Checks",
+      "summary": "One container image wrapping the mandatory secrets, SAST, SCA, IaC, and Dockerfile checks for every Korza pipeline.",
+      "problem": "Without a shared checks image, every repo re-implements its own secrets, SAST, SCA, IaC, and Dockerfile scanning - inconsistently, and often not at all.",
+      "benefits": [
+        "One image covers secrets, SAST, SCA, IaC, and Dockerfile checks with no separate tool setup",
+        "Upgrades to the underlying tools roll out without any consumer changing their workflow",
+        "One consistent set of blocking rules across every Korza pipeline"
+      ],
+      "capabilities": [
+        "secrets",
+        "sast",
+        "sca",
+        "iac-config",
+        "image-scan",
+        "iac-dockerfile-lint"
+      ],
+      "applicability": {
+        "languages": ["*"],
+        "buildSystems": ["*"]
+      },
+      "wraps": [
+        {
+          "tool": "kingfisher",
+          "capabilities": ["secrets"]
+        },
+        {
+          "tool": "semgrep",
+          "capabilities": ["sast"]
+        },
+        {
+          "tool": "trivy",
+          "capabilities": ["sca", "iac-config", "image-scan"]
+        },
+        {
+          "tool": "hadolint",
+          "capabilities": ["iac-dockerfile-lint"]
+        }
+      ],
+      "install": [
+        {
+          "type": "docker",
+          "image": "korzacitools.azurecr.io/ci-common",
+          "tag": "0.1.0"
+        }
+      ],
+      "invocation": {
+        "github": {
+          "action": "korzainc/shared-workflows/.github/workflows/ci.yml@v3",
+          "runner": "reusable-workflow",
+          "args": {
+            "azure_client_id": {
+              "value": "${{ vars.CI_COMMON_AZURE_CLIENT_ID }}",
+              "note": "Your Azure AD app that's allowed to pull the scanner image - set up once per repo."
+            },
+            "azure_tenant_id": {
+              "value": "${{ vars.CI_COMMON_AZURE_TENANT_ID }}",
+              "note": "Which Azure AD tenant that app lives in."
+            },
+            "azure_subscription_id": {
+              "value": "${{ vars.CI_COMMON_AZURE_SUBSCRIPTION_ID }}",
+              "note": "Which Azure subscription owns the image registry."
+            },
+            "sca_blocking": {
+              "value": true,
+              "note": "Dependency-vulnerability findings can fail the aggregate gate and merge."
+            },
+            "iac_dockerfile_blocking": {
+              "value": true,
+              "note": "Dockerfile lint findings can fail the aggregate gate and merge."
+            },
+            "iac_config_blocking": {
+              "value": true,
+              "note": "Infra-as-code misconfig findings (k8s/Terraform/Helm) can fail the aggregate gate and merge."
+            },
+            "image_scan_blocking": {
+              "value": true,
+              "note": "Findings in your built container image can fail the aggregate gate and merge."
+            },
+            "service_path": {
+              "value": ".",
+              "note": "Where your dependency manifest lives (pom.xml, package.json, etc.) - change if it's not at repo root."
+            },
+            "sca_ignore_file": {
+              "value": "",
+              "note": "Path to a file listing dependency CVEs you want to suppress, if any."
+            },
+            "iac_config_path": {
+              "value": ".",
+              "note": "Where your infra manifests live - independent from service_path, set separately if they're not in the same place."
+            },
+            "iac_config_ignore_file": {
+              "value": "",
+              "note": "Path to a file listing infra-misconfig findings you want to suppress, if any."
+            },
+            "dockerfile_path": {
+              "value": "",
+              "note": "Your Dockerfile, if you build a container image - leave empty to skip the image build+scan entirely."
+            },
+            "dockerfile_context": {
+              "value": ".",
+              "note": "The docker build context for that Dockerfile."
+            },
+            "image_scan_ignore_file": {
+              "value": "",
+              "note": "Path to a file listing image-scan CVEs you want to suppress, if any."
+            },
+            "secrets_exclude_file": {
+              "value": "",
+              "note": "Path to a file listing secret-scan patterns you want to exclude (e.g. known test fixtures), if any."
+            }
+          },
+          "scope": "diff"
+        },
+        "azureDevops": {}
+      },
+      "detection": {
+        "github": {
+          "ciUses": ["korzainc/shared-workflows/.github/workflows/ci.yml"],
+          "commands": []
+        },
+        "azureDevops": {},
+        "configFiles": [],
+        "manifestDeps": []
+      },
+      "overlaps": [],
+      "docsUrl": "https://github.com/korzainc/shared-workflows"
+    }
+  }
+}
