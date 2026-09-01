@@ -24,9 +24,9 @@ export const getSession = cache(async () => {
 export async function getGitHubToken(): Promise<string | null> {
   const requestHeaders = await headers();
   const auth = getAuth();
-  // Checked before listing accounts, which throws rather than returning nothing when the
-  // request carries no session.
-  const session = await auth.api.getSession({ headers: requestHeaders });
+  // Reuses the cached lookup above instead of calling auth.api.getSession again. Checked
+  // before listUserAccounts, which throws rather than returning nothing when there's no session.
+  const session = await getSession();
   if (!session) return null;
 
   const accounts = await auth.api.listUserAccounts({ headers: requestHeaders });
