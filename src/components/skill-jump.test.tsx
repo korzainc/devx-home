@@ -43,6 +43,13 @@ function Page() {
   );
 }
 
+/** A same-route navigation re-renders the page without unmounting anything. */
+let rerenderPage = () => {};
+function renderPage() {
+  const { rerender } = render(<Page />);
+  rerenderPage = () => rerender(<Page />);
+}
+
 // Scoped to the list: the strip names the target skill too, so an unscoped count reads one
 // card more than the grid is actually showing.
 const list = () => within(document.getElementById(SKILL_LIST_ID)!);
@@ -55,7 +62,7 @@ describe("arriving from a skill card", () => {
     // to reorder or unfold itself to deliver it.
     const target = skills[17];
     openedFor(target.name);
-    render(<Page />);
+    renderPage();
 
     expect(shownCount()).toBe(5);
     expect(
@@ -75,14 +82,14 @@ describe("arriving from a skill card", () => {
     // Auto-scrolling puts the install commands behind the reader, which is the cost treatment
     // B pays and A does not.
     openedFor(skills[17].name);
-    render(<Page />);
+    renderPage();
     expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
   });
 
   it("reveals the skill and moves focus onto its card when Show in list is used", () => {
     const target = skills[17];
     openedFor(target.name);
-    render(<Page />);
+    renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: /show in list/i }));
 
@@ -98,7 +105,7 @@ describe("arriving from a skill card", () => {
   it("moves focus without expanding when the skill is already in the preview", () => {
     const target = skills[1];
     openedFor(target.name);
-    render(<Page />);
+    renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: /show in list/i }));
 
@@ -110,7 +117,7 @@ describe("arriving from a skill card", () => {
     // The jump forces the grid open from outside its own toggle, so the toggle has to be able
     // to undo it, or the grid is stuck open for the rest of the visit.
     openedFor(skills[17].name);
-    render(<Page />);
+    renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: /show in list/i }));
     expect(shownCount()).toBe(skills.length);
@@ -124,7 +131,7 @@ describe("arriving from a skill card", () => {
     // Keyed only on the skill name, the second press is a no-op because the name never changed.
     const target = skills[17];
     openedFor(target.name);
-    render(<Page />);
+    renderPage();
     const control = screen.getByRole("button", { name: /show in list/i });
 
     fireEvent.click(control);
@@ -143,7 +150,7 @@ describe("arriving from a skill card", () => {
     // fails if that comes back.
     const target = skills[17];
     openedFor(target.name);
-    render(<Page />);
+    renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: /show in list/i }));
     fireEvent.click(screen.getByRole("button", { name: /^Show fewer/ }));
@@ -154,9 +161,43 @@ describe("arriving from a skill card", () => {
     ).toBeTruthy();
   });
 
+  it("marks the card the page was opened for", () => {
+    // The strip names it above the fold; the mark is what identifies it once you are looking
+    // at the list. Derived from the URL rather than held as state, so it cannot outlive it.
+    const target = skills[1];
+    openedFor(target.name);
+    renderPage();
+
+    expect(
+      document.getElementById(target.name)?.getAttribute("aria-current"),
+    ).toBe("true");
+  });
+
+  it("moves the mark and drops the jump when another skill in the plugin is opened", () => {
+    // Going back to /skills and opening a second skill in the same plugin is a same-route
+    // navigation, so nothing here unmounts and Next fires no popstate. State from the previous
+    // visit survives unless it is derived: the list stayed expanded on the old card, still
+    // marked and still focused, while the strip already named the new one.
+    const first = skills[17];
+    openedFor(first.name);
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: /show in list/i }));
+    expect(shownCount()).toBe(skills.length);
+
+    const second = skills[1];
+    history.pushState(null, "", `?skill=${second.name}`);
+    rerenderPage();
+
+    expect(shownCount()).toBe(5);
+    expect(
+      document.getElementById(second.name)?.getAttribute("aria-current"),
+    ).toBe("true");
+    expect(document.getElementById(first.name)).toBeNull();
+  });
+
   it("points the strip's control at the list it expands", () => {
     openedFor(skills[17].name);
-    render(<Page />);
+    renderPage();
 
     const control = screen.getByRole("button", { name: /show in list/i });
     const listId = control.getAttribute("aria-controls");
