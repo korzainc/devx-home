@@ -29,8 +29,11 @@ export function subscribeToLocation(onChange: () => void) {
 /** A server component sits between the strip and the list, so an event is what can cross. */
 const SKILL_FOCUS_EVENT = "korza:skill-focus";
 
-/** Ties the strip's control to the list, for `aria-controls`. */
-export const SKILL_LIST_ID = "skills-in-this-plugin";
+// Qualified by plugin: Activity keeps the page you came from in the same document, so an
+// unqualified id resolves into a `display:none` tree and the jump silently does nothing.
+export const skillListId = (plugin: string) => `skills-in-${plugin}`;
+export const skillCardId = (plugin: string, name: string) =>
+  `${plugin}--${name}`;
 
 export function focusSkill(name: string) {
   window.dispatchEvent(new CustomEvent(SKILL_FOCUS_EVENT, { detail: name }));

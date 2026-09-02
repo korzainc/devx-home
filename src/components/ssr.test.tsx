@@ -16,11 +16,17 @@ const skills = skillsForPlugin("mattpocock-skills");
 
 describe("prerendering", () => {
   it("renders the strip to nothing on the server", () => {
-    expect(renderToString(<SkillContextStrip skills={skills} />)).toBe("");
+    expect(
+      renderToString(
+        <SkillContextStrip plugin="mattpocock-skills" skills={skills} />,
+      ),
+    ).toBe("");
   });
 
   it("renders the list's preview on the server, and marks nothing", () => {
-    const html = renderToString(<PluginSkills skills={skills} />);
+    const html = renderToString(
+      <PluginSkills plugin="mattpocock-skills" skills={skills} />,
+    );
     expect(html).toContain(skills[0].name);
     expect(html).not.toContain("aria-current");
   });

@@ -109,7 +109,7 @@ describe("the skills in a plugin", () => {
     // The heading states the full count, so a broken control leaves the page contradicting
     // itself rather than looking empty.
     expect(skills.length).toBeGreaterThan(5);
-    render(<PluginSkills skills={skills} />);
+    render(<PluginSkills plugin="codezen" skills={skills} />);
 
     const shown = () =>
       skills.filter((skill) => screen.queryByText(skill.name)).length;
@@ -124,7 +124,7 @@ describe("the skills in a plugin", () => {
   });
 
   it("does not offer to expand when everything is already shown", () => {
-    render(<PluginSkills skills={skills.slice(0, 3)} />);
+    render(<PluginSkills plugin="codezen" skills={skills.slice(0, 3)} />);
     expect(screen.queryByRole("button", { name: /^Show all/ })).toBeNull();
   });
 
@@ -132,7 +132,9 @@ describe("the skills in a plugin", () => {
     // The generator emits a null summary for a skill with no overlay entry, so the card has
     // to read from somewhere; an unhandled null renders a card with a name and no text.
     const [first] = skills;
-    render(<PluginSkills skills={[{ ...first, summary: null }]} />);
+    render(
+      <PluginSkills plugin="codezen" skills={[{ ...first, summary: null }]} />,
+    );
     expect(screen.getByText(first.description)).toBeTruthy();
   });
 
@@ -144,7 +146,7 @@ describe("the skills in a plugin", () => {
     Element.prototype.scrollIntoView = vi.fn();
     const target = skills[skills.length - 1];
     history.replaceState(null, "", `?skill=${target.name}`);
-    render(<PluginSkills skills={skills} />);
+    render(<PluginSkills plugin="codezen" skills={skills} />);
 
     expect(screen.queryByText(target.name)).toBeNull();
     expect(

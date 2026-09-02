@@ -24,7 +24,7 @@ export function CollapsibleGrid({
   items: { key: string; node: React.ReactNode }[];
   /** Expand regardless of the internal toggle, e.g. a caller-side deep link into the grid. */
   forceExpanded?: boolean;
-  /** Called right before collapsing, whether triggered by `expanded` or `forceExpanded`. */
+  /** Must release `forceExpanded`, or "Show fewer" cannot collapse a caller-forced grid. */
   onCollapse?: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);

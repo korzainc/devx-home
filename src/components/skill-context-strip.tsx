@@ -5,12 +5,18 @@ import type { SkillEntry } from "@/lib/catalogue";
 import {
   focusSkill,
   readOpenedSkill,
-  SKILL_LIST_ID,
+  skillListId,
   subscribeToLocation,
 } from "@/lib/skill-link";
 
 /** Names the skill you clicked to get here; the matching card carries the mark. */
-export function SkillContextStrip({ skills }: { skills: SkillEntry[] }) {
+export function SkillContextStrip({
+  plugin,
+  skills,
+}: {
+  plugin: string;
+  skills: SkillEntry[];
+}) {
   // Empty server snapshot, so the strip appears on hydration. Reading `searchParams` on the
   // server instead costs the static route.
   const openedFor = useSyncExternalStore(
@@ -59,7 +65,7 @@ export function SkillContextStrip({ skills }: { skills: SkillEntry[] }) {
           </span>
           <button
             type="button"
-            aria-controls={SKILL_LIST_ID}
+            aria-controls={skillListId(plugin)}
             onClick={() => focusSkill(skill.name)}
             className="font-mono text-xs whitespace-nowrap text-accent hover:underline"
           >

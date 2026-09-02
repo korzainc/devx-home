@@ -10,12 +10,19 @@ import { CollapsibleGrid, PREVIEW } from "@/components/collapsible-grid";
 import type { SkillEntry } from "@/lib/catalogue";
 import {
   readOpenedSkill,
-  SKILL_LIST_ID,
+  skillCardId,
+  skillListId,
   subscribeToLocation,
   subscribeToSkillFocus,
 } from "@/lib/skill-link";
 
-export function PluginSkills({ skills }: { skills: SkillEntry[] }) {
+export function PluginSkills({
+  plugin,
+  skills,
+}: {
+  plugin: string;
+  skills: SkillEntry[];
+}) {
   // Nothing happens on arrival: the strip above already names the skill. Unfolding here would
   // make what you see depend on how you got here.
   const openedFor = useSyncExternalStore(
@@ -28,11 +35,10 @@ export function PluginSkills({ skills }: { skills: SkillEntry[] }) {
   useEffect(() => subscribeToSkillFocus((name) => setRequest({ name })), []);
 
   // Activity hides this page rather than unmounting it, so without this the jump outlives the
-  // visit and re-fires on return, focusing the previous skill's card. The reset that
-  // `preserving-ui-state.md` prescribes for a transient interaction.
+  // visit and re-fires on return. Layout effect: must run before the page is hidden.
   useLayoutEffect(() => () => setRequest(null), []);
 
-  // The cleanup covers leaving and returning; this covers the URL moving while still mounted.
+  // Render phase, so the mark and the list never disagree in a committed paint.
   const [seenOpened, setSeenOpened] = useState(openedFor);
   if (seenOpened !== openedFor) {
     setSeenOpened(openedFor);
@@ -47,14 +53,14 @@ export function PluginSkills({ skills }: { skills: SkillEntry[] }) {
   useEffect(() => {
     if (request === null) return;
     // Focus as well as scroll: moving the viewport alone leaves a keyboard user behind.
-    const card = document.getElementById(request.name);
+    const card = document.getElementById(skillCardId(plugin, request.name));
     card?.focus({ preventScroll: true });
     card?.scrollIntoView({ block: "center" });
-  }, [request]);
+  }, [plugin, request]);
 
   return (
     <CollapsibleGrid
-      id={SKILL_LIST_ID}
+      id={skillListId(plugin)}
       heading="Skills in this plugin"
       noun="skills"
       forceExpanded={focusedIndex >= PREVIEW}
@@ -68,7 +74,7 @@ export function PluginSkills({ skills }: { skills: SkillEntry[] }) {
           key: skill.id,
           node: (
             <div
-              id={skill.name}
+              id={skillCardId(plugin, skill.name)}
               tabIndex={-1}
               aria-current={opened ? "true" : undefined}
               className={`scroll-mt-24 rounded-xl border bg-surface p-4 ${

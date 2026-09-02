@@ -9,12 +9,13 @@ import {
   screen,
   within,
 } from "@testing-library/react";
+import { Activity } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PREVIEW } from "@/components/collapsible-grid";
 import { PluginSkills } from "@/components/plugin-skills";
 import { SkillContextStrip } from "@/components/skill-context-strip";
 import { skillsForPlugin } from "@/lib/catalogue";
-import { SKILL_LIST_ID } from "@/lib/skill-link";
+import { skillCardId, skillListId } from "@/lib/skill-link";
 
 /**
  * The contract between the strip and the list, which cannot share state.
@@ -36,7 +37,10 @@ afterEach(() => {
 const openedFor = (name: string) =>
   history.replaceState(null, "", name ? `?skill=${name}` : "/");
 
-const skills = skillsForPlugin("mattpocock-skills");
+const PLUGIN = "mattpocock-skills";
+const skills = skillsForPlugin(PLUGIN);
+const cardOf = (name: string) =>
+  document.getElementById(skillCardId(PLUGIN, name));
 
 // Relative to PREVIEW, never hardcoded: fixed indices straddled the boundary without landing
 // on it, which hid a jump that does nothing for exactly one skill.
@@ -49,8 +53,8 @@ const position = (skill: (typeof skills)[number]) =>
 function Page() {
   return (
     <>
-      <SkillContextStrip skills={skills} />
-      <PluginSkills skills={skills} />
+      <SkillContextStrip plugin={PLUGIN} skills={skills} />
+      <PluginSkills plugin={PLUGIN} skills={skills} />
     </>
   );
 }
@@ -62,7 +66,7 @@ function renderPage() {
 }
 
 // Scoped: the strip names the skill too, so an unscoped count reads one card too many.
-const list = () => within(document.getElementById(SKILL_LIST_ID)!);
+const list = () => within(document.getElementById(skillListId(PLUGIN))!);
 const shownCount = () =>
   skills.filter((skill) => list().queryByText(skill.name)).length;
 const jump = () =>
@@ -101,7 +105,7 @@ describe("arriving from a skill card", () => {
     jump();
 
     expect(shownCount()).toBe(skills.length);
-    const card = document.getElementById(past.name);
+    const card = cardOf(past.name);
     // Focus too, or a keyboard user is left behind while the view moves.
     expect(document.activeElement).toBe(card);
     expect(card?.getAttribute("tabindex")).toBe("-1");
@@ -119,7 +123,7 @@ describe("arriving from a skill card", () => {
 
     jump();
 
-    expect(document.activeElement).toBe(document.getElementById(boundary.name));
+    expect(document.activeElement).toBe(cardOf(boundary.name));
   });
 
   it("moves focus without expanding when the skill is already in the preview", () => {
@@ -128,7 +132,7 @@ describe("arriving from a skill card", () => {
     jump();
 
     expect(shownCount()).toBe(PREVIEW);
-    expect(document.activeElement).toBe(document.getElementById(inside.name));
+    expect(document.activeElement).toBe(cardOf(inside.name));
   });
 
   it("collapses again after a jump", () => {
@@ -147,12 +151,12 @@ describe("arriving from a skill card", () => {
     openedFor(past.name);
     renderPage();
     jump();
-    expect(document.activeElement).toBe(document.getElementById(past.name));
+    expect(document.activeElement).toBe(cardOf(past.name));
 
     (document.activeElement as HTMLElement).blur();
     jump();
 
-    expect(document.activeElement).toBe(document.getElementById(past.name));
+    expect(document.activeElement).toBe(cardOf(past.name));
   });
 
   it("still names the skill after the list collapses again", () => {
@@ -175,12 +179,12 @@ describe("the mark on the opened card", () => {
 
     expect(
       [...document.querySelectorAll("[aria-current]")].map((node) => node.id),
-    ).toEqual([inside.name]);
+    ).toEqual([skillCardId(PLUGIN, inside.name)]);
     expect(
-      [...document.querySelectorAll(`#${SKILL_LIST_ID} .border-accent`)].map(
-        (node) => node.id,
-      ),
-    ).toEqual([inside.name]);
+      [
+        ...document.querySelectorAll(`#${skillListId(PLUGIN)} .border-accent`),
+      ].map((node) => node.id),
+    ).toEqual([skillCardId(PLUGIN, inside.name)]);
   });
 
   it("moves the mark and drops the jump when another skill in the plugin is opened", () => {
@@ -193,10 +197,8 @@ describe("the mark on the opened card", () => {
     rerenderPage();
 
     expect(shownCount()).toBe(PREVIEW);
-    expect(
-      document.getElementById(inside.name)?.getAttribute("aria-current"),
-    ).toBe("true");
-    expect(document.getElementById(past.name)).toBeNull();
+    expect(cardOf(inside.name)?.getAttribute("aria-current")).toBe("true");
+    expect(cardOf(past.name)).toBeNull();
   });
 
   it("updates on back and forward, with no re-render to lean on", () => {
@@ -231,7 +233,7 @@ describe("focus when the list collapses", () => {
     openedFor(past.name);
     renderPage();
     jump();
-    const surviving = document.getElementById(skills[0].name)!;
+    const surviving = cardOf(skills[0].name)!;
     surviving.focus();
 
     fireEvent.click(screen.getByRole("button", { name: /^Show fewer/ }));
@@ -252,6 +254,85 @@ describe("focus when the list collapses", () => {
   });
 });
 
+describe("state that must not survive the visit", () => {
+  const inActivity = (mode: "visible" | "hidden") => (
+    <Activity mode={mode}>
+      <Page />
+    </Activity>
+  );
+
+  it("drops the jump when the page is hidden, and keeps a manual expansion", () => {
+    // The real thing rather than an unmount: an unmount resets state either way, so it cannot
+    // tell a cleanup from a no-op. The manual expansion is the control — it must survive.
+    openedFor(past.name);
+    const { rerender } = render(inActivity("visible"));
+    jump();
+    expect(shownCount()).toBe(skills.length);
+
+    rerender(inActivity("hidden"));
+    rerender(inActivity("visible"));
+    expect(shownCount()).toBe(PREVIEW);
+
+    fireEvent.click(screen.getByRole("button", { name: /^Show all/ }));
+    rerender(inActivity("hidden"));
+    rerender(inActivity("visible"));
+    expect(shownCount()).toBe(skills.length);
+  });
+});
+
+describe("edges of the list", () => {
+  it("restores focus from the first row the collapse removes", () => {
+    openedFor(past.name);
+    renderPage();
+    jump();
+    cardOf(boundary.name)!.focus();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Show fewer/ }));
+
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: /^Show all/ }),
+    );
+  });
+
+  it("focuses the card without letting the browser scroll it", () => {
+    // Without preventScroll the browser scrolls on focus, and the deliberate centring below
+    // fights a scroll that already happened.
+    openedFor(past.name);
+    renderPage();
+    const focused: unknown[] = [];
+    vi.spyOn(HTMLElement.prototype, "focus").mockImplementation(function (
+      this: HTMLElement,
+      options,
+    ) {
+      focused.push(options);
+    });
+
+    jump();
+
+    expect(focused).toContainEqual({ preventScroll: true });
+    vi.restoreAllMocks();
+  });
+
+  it("survives a skill name that is not a tidy identifier", () => {
+    // The name is upstream's to choose and becomes part of a DOM id.
+    const awkward = { ...skills[0], id: "x", name: "1.foo:bar[baz]" };
+    openedFor(awkward.name);
+    render(
+      <>
+        <SkillContextStrip plugin={PLUGIN} skills={[awkward]} />
+        <PluginSkills plugin={PLUGIN} skills={[awkward]} />
+      </>,
+    );
+
+    expect(() =>
+      fireEvent.click(screen.getByRole("button", { name: /show in list/i })),
+    ).not.toThrow();
+    expect(document.activeElement).toBe(
+      document.getElementById(skillCardId(PLUGIN, awkward.name)),
+    );
+  });
+});
+
 describe("the wiring between the two", () => {
   it("points the strip's control at the grid that holds the cards", () => {
     // Not merely at *something* with that id: on an ancestor it would contain the control.
@@ -263,7 +344,7 @@ describe("the wiring between the two", () => {
       control.getAttribute("aria-controls")!,
     );
     expect(target).toBeTruthy();
-    expect(target!.querySelector(`#${skills[0].name}`)).toBeTruthy();
+    expect(target!.contains(cardOf(skills[0].name)!)).toBe(true);
     expect(target!.contains(control)).toBe(false);
   });
 
