@@ -136,6 +136,30 @@ describe("the skills in a plugin", () => {
     expect(screen.getByText(first.description)).toBeTruthy();
   });
 
+  it("expands to a skill past the preview via hash, then actually collapses on Show fewer", () => {
+    // CollapsibleGrid's own toggle state never moves in this flow (it was already false,
+    // forced open by the hash instead), so a stale snapshot here would leave the grid stuck
+    // open even after the hash clears from the URL.
+    // jsdom has no layout engine, so it doesn't implement scrollIntoView at all.
+    Element.prototype.scrollIntoView = vi.fn();
+    const target = skills[skills.length - 1];
+    window.location.hash = `#${target.name}`;
+    render(<PluginSkills skills={skills} />);
+    expect(screen.getByText(target.name)).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Show fewer/ })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Show fewer/ }));
+    expect(window.location.hash).toBe("");
+    expect(
+      screen.getByRole("button", {
+        name: new RegExp(`^Show all ${skills.length} skills`),
+      }),
+    ).toBeTruthy();
+    const shown = () =>
+      skills.filter((skill) => screen.queryByText(skill.name)).length;
+    expect(shown()).toBe(5);
+  });
+
   it("survives a hash that is not valid encoding", () => {
     // "#%" throws inside decodeURIComponent. Thrown during render it takes down the list,
     // not just the anchor.

@@ -36,9 +36,13 @@ export function PluginSkills({ skills }: { skills: SkillEntry[] }) {
       heading="Skills in this plugin"
       noun="skills"
       forceExpanded={target >= PREVIEW}
-      onCollapse={() =>
-        history.replaceState(null, "", location.pathname + location.search)
-      }
+      onCollapse={() => {
+        history.replaceState(null, "", location.pathname + location.search);
+        // history.replaceState doesn't fire hashchange, so without this the
+        // useSyncExternalStore snapshot above stays stale and the grid never
+        // learns the hash is gone, leaving it stuck open.
+        window.dispatchEvent(new HashChangeEvent("hashchange"));
+      }}
       items={skills.map((skill) => ({
         key: skill.id,
         node: (
