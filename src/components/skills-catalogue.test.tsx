@@ -233,7 +233,7 @@ describe("what a card links to", () => {
       (skill) => skill.name !== skill.plugin,
     )!;
     expect(card(withDistinctName.name)?.getAttribute("href")).toBe(
-      `/skills/${withDistinctName.plugin}`,
+      `/skills/${withDistinctName.plugin}#${withDistinctName.name}`,
     );
   });
 });

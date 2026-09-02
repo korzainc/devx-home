@@ -85,7 +85,7 @@ export function CatalogueTabs({
                 >
                   {tab.label}
                   <span
-                    className={`font-mono text-[0.65rem] ${isOn ? "text-accent" : "text-ink-faint"}`}
+                    className={`font-mono text-[0.65rem] ${isOn ? "text-ink" : "text-ink-faint"}`}
                   >
                     {tab.count}
                   </span>

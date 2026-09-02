@@ -10,7 +10,7 @@ function SkillCard({ skill }: { skill: SkillEntry }) {
 
   return (
     <Link
-      href={`/skills/${skill.plugin}`}
+      href={`/skills/${skill.plugin}#${skill.name}`}
       className="group flex h-full flex-col rounded-xl border border-line bg-surface p-5 transition-colors hover:border-line-strong hover:bg-surface-raised"
     >
       <span className="font-mono text-[0.9375rem] leading-snug font-medium text-ink [overflow-wrap:anywhere]">

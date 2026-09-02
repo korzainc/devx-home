@@ -1,13 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import type { SkillEntry } from "@/lib/catalogue";
 
 const PREVIEW = 5;
 
+const readHash = () => decodeURIComponent(window.location.hash.slice(1));
+
+function subscribeToHash(onChange: () => void) {
+  window.addEventListener("hashchange", onChange);
+  return () => window.removeEventListener("hashchange", onChange);
+}
+
 export function PluginSkills({ skills }: { skills: SkillEntry[] }) {
   const [expanded, setExpanded] = useState(false);
-  const shown = expanded ? skills : skills.slice(0, PREVIEW);
+  // A card links to its own skill, which is usually past the preview. Derived rather than
+  // synced into state, so collapsing stays live -- it drops the hash on the way.
+  const hash = useSyncExternalStore(subscribeToHash, readHash, () => "");
+  const target = skills.findIndex((skill) => skill.name === hash);
+  const showAll = expanded || target >= PREVIEW;
+
+  useEffect(() => {
+    if (hash)
+      document.getElementById(hash)?.scrollIntoView({ block: "center" });
+  }, [hash]);
+  const shown = showAll ? skills : skills.slice(0, PREVIEW);
 
   return (
     <section className="flex flex-col gap-4">
@@ -19,7 +36,8 @@ export function PluginSkills({ skills }: { skills: SkillEntry[] }) {
         {shown.map((skill) => (
           <div
             key={skill.id}
-            className="rounded-xl border border-line bg-surface p-4"
+            id={skill.name}
+            className="scroll-mt-24 rounded-xl border border-line bg-surface p-4 target:border-line-strong"
           >
             <span className="font-mono text-sm font-medium text-ink [overflow-wrap:anywhere]">
               <span className="text-accent">/</span>
@@ -36,13 +54,16 @@ export function PluginSkills({ skills }: { skills: SkillEntry[] }) {
           // focus to the body.
           <button
             type="button"
-            aria-expanded={expanded}
-            onClick={() => setExpanded((was) => !was)}
+            aria-expanded={showAll}
+            onClick={() => {
+              if (showAll) history.replaceState(null, "", location.pathname);
+              setExpanded(!showAll);
+            }}
             className="rounded-xl border border-dashed border-line p-4 text-sm text-ink-muted transition-colors hover:border-line-strong hover:text-ink"
           >
-            {expanded ? "Show fewer" : `Show all ${skills.length} skills`}
+            {showAll ? "Show fewer" : `Show all ${skills.length} skills`}
             <span aria-hidden className="ml-1.5 text-[0.65rem]">
-              {expanded ? "▴" : "▾"}
+              {showAll ? "▴" : "▾"}
             </span>
           </button>
         )}

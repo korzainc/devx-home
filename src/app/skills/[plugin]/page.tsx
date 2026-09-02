@@ -125,7 +125,13 @@ export default async function PluginPage({
         </div>
       </div>
 
-      <InstallPanel commands={installCommands(plugin)} />
+      {shipsNothing ? (
+        <p className="rounded-xl border border-dashed border-line px-5 py-4 text-sm text-ink-muted">
+          Nothing to install: this entry resolves to no skills today.
+        </p>
+      ) : (
+        <InstallPanel commands={installCommands(plugin)} />
+      )}
 
       {skills.length > 0 && <PluginSkills skills={skills} />}
     </article>

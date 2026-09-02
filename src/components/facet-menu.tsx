@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-/** w-56, and the gap kept clear of the viewport edge. */
-const MENU_WIDTH = 224;
+/** Gap kept clear of the viewport edge. */
 const EDGE = 8;
 
 /** One facet as a dropdown. The count sits on the button so a closed menu still says it is on. */
@@ -19,10 +18,11 @@ export function FacetMenu({
   onToggle: (value: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  // Right-aligned keeps the menu under its trigger, but assumes room to the left of it. The
-  // leftmost trigger has none once the filter row stacks below lg, so it flips.
-  const [alignLeft, setAlignLeft] = useState(false);
+  // Offset from the trigger, clamped into the viewport. A left/right flip cannot express the
+  // narrow case where neither anchor fits.
+  const [offset, setOffset] = useState<number | null>(null);
   const root = useRef<HTMLDivElement>(null);
+  const popup = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
 
   // A menu that only closes by re-clicking its own button strands the pointer once a second
@@ -52,7 +52,10 @@ export function FacetMenu({
     if (!open) return;
     function place() {
       const box = root.current?.getBoundingClientRect();
-      if (box) setAlignLeft(box.right - MENU_WIDTH < EDGE);
+      const width = popup.current?.offsetWidth;
+      if (!box || !width) return;
+      const room = window.innerWidth - EDGE - width;
+      setOffset(Math.max(EDGE, Math.min(box.right - width, room)) - box.left);
     }
     place();
     window.addEventListener("resize", place);
@@ -76,9 +79,7 @@ export function FacetMenu({
       >
         {label}
         {on && (
-          <span className="font-mono text-xs text-accent">
-            {selected.length}
-          </span>
+          <span className="font-mono text-xs text-ink">{selected.length}</span>
         )}
         <span aria-hidden className="text-[0.6rem] text-ink-faint">
           {open ? "▲" : "▼"}
@@ -87,9 +88,11 @@ export function FacetMenu({
 
       {open && (
         <div
+          ref={popup}
+          style={offset === null ? undefined : { left: offset }}
           role="group"
           aria-label={label}
-          className={`absolute top-full z-20 mt-1.5 max-h-80 w-56 overflow-y-auto rounded-lg border border-line-strong bg-surface-raised p-1 shadow-lg ${alignLeft ? "left-0" : "right-0"}`}
+          className={`absolute top-full z-20 mt-1.5 max-h-80 w-56 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-lg border border-line-strong bg-surface-raised p-1 shadow-lg ${offset === null ? "right-0" : ""}`}
         >
           {options.map(([value, count]) => {
             const checked = selected.includes(value);
