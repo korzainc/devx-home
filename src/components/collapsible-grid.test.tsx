@@ -59,6 +59,20 @@ describe("CollapsibleGrid", () => {
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
   });
 
+  it("offers no control when the count is exactly the preview", () => {
+    // The boundary: `>` and `>=` are indistinguishable at 4 or 11 items, so a plugin with
+    // exactly five skills would grow a "Show all 5 skills" button that expands to the same five.
+    render(
+      <CollapsibleGrid
+        heading="Skills in this plugin"
+        noun="skills"
+        items={items(5)}
+      />,
+    );
+    expect(screen.getAllByText(/^Item \d$/)).toHaveLength(5);
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
   it("names the grid it expands, so aria-expanded says what is expanding", () => {
     // aria-expanded on its own announces a state with no object. The grid it refers to is the
     // one an outside control also has to be able to name.

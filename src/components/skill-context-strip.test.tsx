@@ -38,9 +38,13 @@ describe("the skill context strip", () => {
   });
 
   it("renders nothing when the page was opened without a skill", () => {
-    render(<SkillContextStrip skills={skills} />);
-    expect(screen.queryByText(/in this plugin$/)).toBeNull();
-    expect(screen.queryByRole("button")).toBeNull();
+    // Asserted on the container, not on the text. The previous version looked for
+    // /in this plugin$/, which the stale-link sentence does not end with, so it passed while
+    // the strip rendered "Opened for /" and a stale-link message on every direct visit — and
+    // it would have passed with this component deleted.
+    const { container } = render(<SkillContextStrip skills={skills} />);
+    expect(container.innerHTML).toBe("");
+    expect(screen.queryByRole("complementary")).toBeNull();
   });
 
   it("says a link has gone stale rather than rendering nothing", () => {

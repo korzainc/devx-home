@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { CollapsibleGrid, PREVIEW } from "@/components/collapsible-grid";
 import type { SkillEntry } from "@/lib/catalogue";
 import {
@@ -37,11 +37,35 @@ export function PluginSkills({ skills }: { skills: SkillEntry[] }) {
     [],
   );
 
-  // Opening a second skill in the same plugin is a same-route navigation, so nothing here
-  // unmounts and this state would otherwise outlive the URL that produced it: the list stayed
-  // expanded on the previous skill's card while the strip already named the new one. Derived
-  // rather than cleared in an effect, so there is no render where the two disagree.
+  // Next hides the page with `<Activity>` instead of unmounting it, so leaving and coming back
+  // to another skill of this plugin keeps everything below alive: the jump would otherwise
+  // outlive the URL that produced it, leaving the list expanded on the previous skill's card
+  // while the strip already named the new one.
+  //
+  // Cleared, not just masked. Masking alone revives the jump on returning to the skill it
+  // belonged to, because the object identity never changed and the effect re-fires. The mask
+  // stays as well: it covers the render in which the reset is still settling.
+  const [seenOpened, setSeenOpened] = useState(openedFor);
+  if (seenOpened !== openedFor) {
+    setSeenOpened(openedFor);
+    setRequest(null);
+  }
   const request = madeRequest?.name === openedFor ? madeRequest : null;
+
+  // A hidden `<Activity>` tree keeps its scroll offset, so returning here restores wherever a
+  // previous jump left the page. Opening a different skill has to land at the top, which is the
+  // whole promise of naming it in the strip instead of scrolling to it.
+  //
+  // Skips its first run rather than firing on mount: arriving here with the page already
+  // scrolled is a back navigation, and Next restoring that position is wanted.
+  const settled = useRef(false);
+  useEffect(() => {
+    if (!settled.current) {
+      settled.current = true;
+      return;
+    }
+    window.scrollTo(0, 0);
+  }, [openedFor]);
 
   const focusedIndex =
     request === null
@@ -77,7 +101,10 @@ export function PluginSkills({ skills }: { skills: SkillEntry[] }) {
               id={skill.name}
               tabIndex={-1}
               aria-current={opened ? "true" : undefined}
-              className={`scroll-mt-24 rounded-xl border bg-surface p-4 focus-visible:border-accent ${
+              // No focus-visible variant: the jump only ever targets the opened skill, which
+              // already carries border-accent, so it resolved to the same colour. The visible
+              // focus indicator is the global :focus-visible outline in globals.css.
+              className={`scroll-mt-24 rounded-xl border bg-surface p-4 ${
                 opened ? "border-accent" : "border-line"
               }`}
             >

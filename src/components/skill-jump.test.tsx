@@ -2,6 +2,7 @@
  * @vitest-environment jsdom
  */
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -174,10 +175,13 @@ describe("arriving from a skill card", () => {
   });
 
   it("moves the mark and drops the jump when another skill in the plugin is opened", () => {
-    // Going back to /skills and opening a second skill in the same plugin is a same-route
-    // navigation, so nothing here unmounts and Next fires no popstate. State from the previous
-    // visit survives unless it is derived: the list stayed expanded on the old card, still
-    // marked and still focused, while the strip already named the new one.
+    // Models leaving to /skills and opening a second skill of the same plugin: Next hides the
+    // page with `<Activity>` rather than unmounting it, so this state survives while the URL
+    // moves on. Without the reset the list stayed expanded on the old card, still marked and
+    // still focused, while the strip already named the new one.
+    //
+    // Not a model of a query-only navigation within this route. That one does not re-render at
+    // all in 16.3.1, so no test can reproduce it here; see subscribeToLocation's comment.
     const first = skills[17];
     openedFor(first.name);
     renderPage();
@@ -203,5 +207,86 @@ describe("arriving from a skill card", () => {
     const listId = control.getAttribute("aria-controls");
     expect(listId).toBeTruthy();
     expect(document.getElementById(listId!)).toBeTruthy();
+  });
+});
+
+describe("state that must not outlive the URL", () => {
+  it("marks only the skill the page was opened for", () => {
+    // A mark on every card identifies nothing, which is the failure the strip exists to
+    // prevent. The positive assertions above pass either way.
+    openedFor(skills[1].name);
+    renderPage();
+
+    expect(
+      [...document.querySelectorAll("[aria-current]")].map((node) => node.id),
+    ).toEqual([skills[1].name]);
+  });
+
+  it("returns to the top when a different skill is opened", () => {
+    // A hidden `<Activity>` tree keeps the scroll offset a jump left behind, so the second
+    // visit landed mid-page — the same complaint the URL fragment caused.
+    const scrollTo = vi.fn();
+    vi.stubGlobal("scrollTo", scrollTo);
+
+    openedFor(skills[17].name);
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: /show in list/i }));
+    scrollTo.mockClear();
+
+    history.pushState(null, "", `?skill=${skills[1].name}`);
+    rerenderPage();
+
+    expect(scrollTo).toHaveBeenCalledWith(0, 0);
+  });
+
+  it("does not revive a jump when the same skill is opened again", () => {
+    // The jump was cleared rather than masked. Masking left the object identity intact, so
+    // coming back to the skill it belonged to re-fired the expand, the scroll and the focus.
+    const first = skills[17];
+    openedFor(first.name);
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: /show in list/i }));
+
+    history.pushState(null, "", `?skill=${skills[1].name}`);
+    rerenderPage();
+    history.pushState(null, "", `?skill=${first.name}`);
+    rerenderPage();
+
+    expect(shownCount()).toBe(5);
+    expect(document.activeElement).not.toBe(
+      document.getElementById(first.name),
+    );
+  });
+
+  it("updates on back and forward, with no re-render to lean on", () => {
+    // The subscription's only job. Everything else in this file re-renders for other reasons,
+    // so swapping popstate for another event went unnoticed.
+    openedFor(skills[17].name);
+    renderPage();
+    expect(
+      screen.getByText(`18 of ${skills.length} in this plugin`),
+    ).toBeTruthy();
+
+    history.pushState(null, "", `?skill=${skills[1].name}`);
+    // Raw dispatch, not fireEvent: the point is that the store notifies with nothing else
+    // prompting a render. act() only flushes what React schedules in response.
+    act(() => void window.dispatchEvent(new PopStateEvent("popstate")));
+
+    expect(
+      screen.getByText(`2 of ${skills.length} in this plugin`),
+    ).toBeTruthy();
+  });
+
+  it("keeps focus reachable when collapsing removes the focused card", () => {
+    // Clicking a button does not focus it on Safari or Firefox, so the focused row was
+    // unmounted underneath focus and the next Tab restarted at the top of the document.
+    openedFor(skills[17].name);
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: /show in list/i }));
+
+    const toggle = screen.getByRole("button", { name: /^Show fewer/ });
+    fireEvent.click(toggle);
+
+    expect(document.activeElement).toBe(toggle);
   });
 });

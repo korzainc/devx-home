@@ -23,10 +23,21 @@ export const readOpenedSkill = () =>
   new URLSearchParams(window.location.search).get(SKILL_PARAM) ?? "";
 
 /**
- * Back and forward change the query without re-rendering anything, so they need an event.
- * A same-route navigation — opening another skill in the same plugin — fires no popstate, but
- * it does re-render, and `useSyncExternalStore` re-reads the snapshot on every render. Both
- * paths are covered; neither is covered by the other.
+ * Covers back and forward, which change the query with no re-render.
+ *
+ * It does NOT cover a query-only navigation within this same route, and nothing here can: this
+ * route is prerendered, and `segment-cache/vary-path.js` in the bundled runtime reuses a static
+ * tree "across all possible search param values", so React re-renders nothing and the snapshot
+ * is never re-read. Measured in a minimal 16.3.1 app: render count unchanged, this reader stale,
+ * `useSearchParams` correct.
+ *
+ * Reachable only once some link on the plugin page points at its own pathname — a "next skill"
+ * control, say. Nothing does today. The fix at that point is `useSearchParams` inside a
+ * `<Suspense>` boundary, which keeps the route static; see the PR for the measurement.
+ *
+ * Leaving and coming back is fine and is the path users actually take: Next hides the old page
+ * with `<Activity>` rather than unmounting it, and showing it again remounts effects, so the
+ * store is re-read.
  */
 export function subscribeToLocation(onChange: () => void) {
   window.addEventListener("popstate", onChange);

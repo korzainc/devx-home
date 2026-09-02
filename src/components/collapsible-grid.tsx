@@ -49,8 +49,21 @@ export function CollapsibleGrid({
             type="button"
             aria-controls={id}
             aria-expanded={showAll}
-            onClick={() => {
-              if (showAll) onCollapse?.();
+            onClick={(event) => {
+              if (showAll) {
+                // Collapsing unmounts the rows past the preview, and focus may be sitting on
+                // one of them. Clicking a button does not focus it on Safari or Firefox, so
+                // without this the focused row is removed and focus falls to the body, sending
+                // the next Tab back to the top of the document.
+                const toggle = event.currentTarget;
+                if (
+                  document.activeElement !== toggle &&
+                  toggle.parentElement?.contains(document.activeElement)
+                ) {
+                  toggle.focus();
+                }
+                onCollapse?.();
+              }
               setExpanded(!showAll);
             }}
             className="rounded-xl border border-dashed border-line p-4 text-sm text-ink-muted transition-colors hover:border-line-strong hover:text-ink"
