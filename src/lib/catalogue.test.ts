@@ -100,8 +100,14 @@ describe("catalogue and baseline agree", () => {
     }
   });
 
-  it("gives every stack's recommended/acceptable tool ids a real, capability-matching tool", () => {
+  it("gives every stack's recommended/acceptable tool ids a real, capability-matching tool, never a wrapped one", () => {
     const toolIds = new Set(tools.map((tool) => tool.id));
+    // A wrapped tool's own page has no link back into /tools' grid (it isn't one of its
+    // cards), so a baseline that recommended it directly would point gap-analysis at a page
+    // orphaned from the catalogue a reader browses.
+    const wrappedIds = new Set(
+      bundles.flatMap((bundle) => bundle.wraps.map((wrap) => wrap.tool)),
+    );
     for (const stack of baseline.stacks) {
       for (const [capability, entry] of Object.entries(stack.expects)) {
         for (const toolId of [entry.recommended, ...entry.acceptable]) {
@@ -109,6 +115,10 @@ describe("catalogue and baseline agree", () => {
             toolIds.has(toolId),
             `${stack.id}'s ${capability} names ${toolId}, not a real tool id`,
           ).toBe(true);
+          expect(
+            wrappedIds.has(toolId),
+            `${stack.id}'s ${capability} names ${toolId}, which is wrapped by a bundle`,
+          ).toBe(false);
           const tool = tools.find((candidate) => candidate.id === toolId);
           expect(
             tool?.capabilities.includes(capability),

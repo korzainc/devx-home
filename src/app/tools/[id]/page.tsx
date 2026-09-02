@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CollapsibleGrid } from "@/components/collapsible-grid";
 import { MetaRow } from "@/components/meta-row";
-import { isBundle, tools } from "@/lib/catalogue";
+import { bundles, isBundle, tools } from "@/lib/catalogue";
 import { docsLabel } from "@/lib/docs-label";
 
 // The catalogue is a static JSON file, so every tool/bundle page is prerendered at build time.
@@ -26,6 +26,12 @@ export async function generateMetadata({
 export default async function ToolPage({ params }: PageProps<"/tools/[id]">) {
   const entry = getEntry((await params).id);
   if (!entry) notFound();
+
+  // A wrapped tool keeps its own page (gap analysis needs its detect signals), but it isn't
+  // one of the /tools grid's own cards, so nothing else points a reader back to its bundle.
+  const wrappingBundle = bundles.find((bundle) =>
+    bundle.wraps.some((wrap) => wrap.tool === entry.id),
+  );
 
   return (
     <article className="flex flex-col gap-8">
@@ -75,6 +81,16 @@ export default async function ToolPage({ params }: PageProps<"/tools/[id]">) {
         </div>
 
         <div className="rounded-xl border border-line bg-surface">
+          {wrappingBundle && (
+            <MetaRow label="Part of">
+              <Link
+                href={`/tools/${wrappingBundle.id}`}
+                className="font-mono text-accent hover:underline"
+              >
+                {wrappingBundle.name} →
+              </Link>
+            </MetaRow>
+          )}
           <MetaRow label="Category">{entry.category}</MetaRow>
           <MetaRow label="Capabilities">
             <span className="flex flex-wrap justify-end gap-1.5">
