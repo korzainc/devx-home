@@ -33,7 +33,9 @@ function withGap(overrides: Partial<Analysis> = {}): Analysis {
             label: "Secret scanning",
             satisfied: false,
             present: [],
-            recommended: [{ id: "gitleaks", name: "Gitleaks" }],
+            recommended: [
+              { id: "gitleaks", name: "Gitleaks", stackLabels: [] },
+            ],
           },
         ],
       },
@@ -85,18 +87,37 @@ describe("buildFixPrompt", () => {
   it("joins alternative tools with or, so none of them reads as also required", () => {
     const two = withGap();
     two.categories[0].capabilities[0].recommended = [
-      { id: "kingfisher", name: "Kingfisher" },
-      { id: "gitleaks", name: "Gitleaks" },
+      { id: "kingfisher", name: "Kingfisher", stackLabels: [] },
+      { id: "gitleaks", name: "Gitleaks", stackLabels: [] },
     ];
     expect(buildFixPrompt(two)).toContain("| Kingfisher or Gitleaks |");
 
     const three = withGap();
     three.categories[0].capabilities[0].recommended = [
-      { id: "semgrep", name: "Semgrep" },
-      { id: "codeql", name: "CodeQL" },
-      { id: "trivy", name: "Trivy" },
+      { id: "semgrep", name: "Semgrep", stackLabels: [] },
+      { id: "codeql", name: "CodeQL", stackLabels: [] },
+      { id: "trivy", name: "Trivy", stackLabels: [] },
     ];
     expect(buildFixPrompt(three)).toContain("| Semgrep, CodeQL or Trivy |");
+  });
+
+  it("phrases a stack-attributed recommendation as required, not alternatives", () => {
+    const analysis = withGap();
+    analysis.categories[0].capabilities[0].recommended = [
+      { id: "eslint", name: "ESLint", stackLabels: ["JavaScript"] },
+      { id: "golangci-lint", name: "golangci-lint", stackLabels: ["Go"] },
+    ];
+
+    const prompt = buildFixPrompt(analysis);
+    expect(prompt).toContain(
+      "| ESLint for JavaScript and golangci-lint for Go |",
+    );
+  });
+
+  it("no longer claims every multi-tool row is alternatives", () => {
+    const prompt = buildFixPrompt(withGap());
+    expect(prompt).not.toContain("they are alternatives, so pick one");
+    expect(prompt).not.toContain("(any one)");
   });
 
   it("says a gap has no tool rather than leaving the cell blank", () => {

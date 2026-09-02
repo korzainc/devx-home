@@ -1,4 +1,4 @@
-import type { Analysis, CapabilityReport } from "./types";
+import type { Analysis, CapabilityReport, RecommendedTool } from "./types";
 
 // The brief a coding agent gets handed, built from the report and nothing else. It is a brief
 // rather than a recipe on purpose: `analyze` refuses to emit a workflow snippet it has not run,
@@ -26,10 +26,39 @@ export const alternatives = new Intl.ListFormat("en-GB", {
   type: "disjunction",
 });
 
+// `and` for a row where every tool is required, not a choice - the counterpart to
+// `alternatives` above. Exported for the same reason: the report renders the same list and
+// must not drift on the wording.
+export const requirements = new Intl.ListFormat("en-GB", {
+  style: "long",
+  type: "conjunction",
+});
+
+/** True when every entry is a genuine alternative (not tied to a stack) - shared with
+ * gap-report.tsx so the two can't independently drift on what counts as one. */
+export function isDisjunction(tools: RecommendedTool[]): boolean {
+  return tools.every((tool) => tool.stackLabels.length === 0);
+}
+
 function suggestion(gap: Gap): string {
-  return gap.recommended.length > 0
-    ? alternatives.format(gap.recommended.map((tool) => cell(tool.name)))
-    : "no tool in the catalogue for this stack";
+  if (gap.recommended.length === 0)
+    return "no tool in the catalogue for this stack";
+
+  const disjunction = isDisjunction(gap.recommended);
+  const showAttribution =
+    !disjunction &&
+    (gap.present.length > 0 ||
+      gap.recommended.length > 1 ||
+      gap.recommended.some((tool) => tool.stackLabels.length > 1));
+
+  const formatter = disjunction ? alternatives : requirements;
+  return formatter.format(
+    gap.recommended.map((tool) =>
+      showAttribution && tool.stackLabels.length > 0
+        ? `${cell(tool.name)} for ${requirements.format(tool.stackLabels)}`
+        : cell(tool.name),
+    ),
+  );
 }
 
 export function buildFixPrompt(analysis: Analysis): string {
@@ -79,7 +108,7 @@ export function buildFixPrompt(analysis: Analysis): string {
 
   const gapTable =
     gapRows.length > 0
-      ? `| # | Check | Category | Tools that would cover it (any one) |\n| --- | --- | --- | --- |\n${gapRows.join("\n")}`
+      ? `| # | Check | Category | Tools that would cover it |\n| --- | --- | --- | --- |\n${gapRows.join("\n")}`
       : "Nothing. Every check the baseline expects is already running.";
 
   return `# Fix the CI pipeline in ${analysis.repo}
@@ -113,8 +142,8 @@ ${runningTable}
 
 ${gapTable}
 
-Where a row names more than one tool they are alternatives, so pick one and move on. Two tools
-covering the same check is maintenance for no extra coverage.
+Where a row names more than one tool, its own wording says whether they are alternatives (pick
+one) or each required for a different part of the repo (install every one named).
 
 The tool column is a suggestion from a catalogue, not a decision. If the repo already has a house
 tool for the same job, use that one and say so.
