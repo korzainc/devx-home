@@ -169,7 +169,9 @@ export function CatalogueGrid<T extends CatalogueEntry>({
               if (event.key === "Escape") event.currentTarget.blur();
             }}
             placeholder={searchLabel}
-            className="w-full rounded-lg border border-line bg-surface py-2.5 pr-11 pl-10 text-sm text-ink placeholder:text-ink-faint focus:border-line-strong"
+            // A text input matches :focus-visible on every click, not just keyboard nav, so
+            // the global accent outline paints here on every click. Border brighten instead.
+            className="w-full rounded-lg border border-line bg-surface py-2.5 pr-11 pl-10 text-sm text-ink placeholder:text-ink-faint focus:border-line-strong focus-visible:outline-none"
           />
           <kbd
             aria-hidden
