@@ -12,7 +12,7 @@ import {
 /**
  * Names the skill you clicked to get here. The plugin page is otherwise identical however you
  * arrived, so without this the list below is 25 cards and no indication which one you asked for.
- * The card highlight comes from focus, not `:target`, because nothing sets a fragment now.
+ * The matching card carries the mark; this carries the name, the position and the way in.
  */
 export function SkillContextStrip({ skills }: { skills: SkillEntry[] }) {
   // The server snapshot is empty so the prerendered markup and the first client render agree,
@@ -47,10 +47,13 @@ export function SkillContextStrip({ skills }: { skills: SkillEntry[] }) {
             {skill.summary ?? skill.description}
           </p>
         ) : (
-          // Skill names come from the generated index, so an upstream rename changes the
-          // fragment. Saying so beats rendering nothing, which reads as arriving with no link.
+          // Skill names come from the generated index, so an upstream rename changes the link.
+          // Saying so beats rendering nothing, which reads as arriving with no link at all.
+          // A whole sentence, not a predicate: the name above it is a separate element, so a
+          // fragment here reads as "is no longer in this plugin" on its own to a screen reader.
           <p className="text-[0.8125rem] leading-relaxed text-ink-muted">
-            is no longer in this plugin — it may have been renamed upstream.
+            This skill is no longer in this plugin — it may have been renamed
+            upstream.
           </p>
         )}
       </div>

@@ -11,15 +11,23 @@
 /** Shared so the link builder and the reader below cannot drift apart. */
 const SKILL_PARAM = "skill";
 
+// Encoded, even though all 57 names in the index are slug-safe today: the index is generated
+// from third-party repositories, so a name is upstream's to choose. An unencoded `&` would
+// truncate the value and an unencoded space would break the link outright.
 export function skillLink(plugin: string, name: string) {
-  return `/skills/${plugin}?${SKILL_PARAM}=${name}`;
+  return `/skills/${plugin}?${SKILL_PARAM}=${encodeURIComponent(name)}`;
 }
 
 /** The skill the page was opened for, or "" when it was opened directly. */
 export const readOpenedSkill = () =>
   new URLSearchParams(window.location.search).get(SKILL_PARAM) ?? "";
 
-/** Back and forward are the only things that change the query without a remount. */
+/**
+ * Back and forward change the query without re-rendering anything, so they need an event.
+ * A same-route navigation — opening another skill in the same plugin — fires no popstate, but
+ * it does re-render, and `useSyncExternalStore` re-reads the snapshot on every render. Both
+ * paths are covered; neither is covered by the other.
+ */
 export function subscribeToLocation(onChange: () => void) {
   window.addEventListener("popstate", onChange);
   return () => window.removeEventListener("popstate", onChange);
