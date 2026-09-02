@@ -1,7 +1,13 @@
 /**
  * @vitest-environment jsdom
  */
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { InstallPanel } from "@/components/install-panel";
 import { PluginSkills } from "@/components/plugin-skills";
@@ -42,6 +48,19 @@ describe("the install panel", () => {
     fireEvent.click(screen.getByRole("button", { name: codex.agent }));
     expect(screen.getByText(codex.register)).toBeTruthy();
     expect(screen.queryByText(claude.register)).toBeNull();
+  });
+
+  it("copies the command it displays", async () => {
+    // The panel's primary action; writing the label instead of the value was invisible.
+    const written: string[] = [];
+    Object.assign(navigator, {
+      clipboard: { writeText: async (v: string) => void written.push(v) },
+    });
+    render(<InstallPanel commands={installCommands(codezen)} />);
+    const [claude] = installCommands(codezen);
+
+    fireEvent.click(screen.getByRole("button", { name: /^Copy install/ }));
+    await waitFor(() => expect(written).toEqual([claude.install]));
   });
 
   it("offers no control for an agent the plugin does not ship for", () => {

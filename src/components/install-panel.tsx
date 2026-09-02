@@ -96,14 +96,14 @@ export function InstallPanel({ commands }: { commands: InstallCommand[] }) {
       </div>
 
       <CommandField
-        key={active.install}
-        label="Install"
-        value={active.install}
-      />
-      <CommandField
         key={active.register}
         label="Register once per machine"
         value={active.register}
+      />
+      <CommandField
+        key={active.install}
+        label="Install"
+        value={active.install}
       />
     </section>
   );

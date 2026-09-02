@@ -16,7 +16,6 @@ const facets: Facet<PluginEntry>[] = [
 ];
 
 function PluginCard({ plugin }: { plugin: PluginEntry }) {
-  // From the index, never plugin.skills, which says 0 for codezen.
   const skillCount = skillsForPlugin(plugin.id).length;
   const agents = shortAgents(plugin.agents);
 

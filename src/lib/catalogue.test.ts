@@ -8,6 +8,7 @@ import {
   marketplaceRepo,
   getPlugin,
   plugins,
+  shortAgents,
   tools,
 } from "./catalogue";
 
@@ -164,9 +165,26 @@ describe("install commands", () => {
     expect(getPlugin("superpowers")?.id).toBe("superpowers");
     expect(getPlugin("not-a-plugin")).toBeUndefined();
   });
+});
 
-  it("looks a plugin up by id", () => {
-    expect(getPlugin("superpowers")?.id).toBe("superpowers");
-    expect(getPlugin("not-a-plugin")).toBeUndefined();
+describe("agent abbreviation", () => {
+  it("keeps the first word, lowercased, one per agent", () => {
+    expect(shortAgents(["Claude Code", "Codex CLI"])).toEqual([
+      "claude",
+      "codex",
+    ]);
+    expect(shortAgents([])).toEqual([]);
+  });
+
+  it("abbreviates every agent the catalogue actually carries", () => {
+    // The card footer exists to show that some skills cannot run on Codex, so an empty or
+    // unabbreviated result erases the only signal that says so.
+    const all = [...new Set(plugins.flatMap((plugin) => plugin.agents))];
+    expect(all.length).toBeGreaterThan(1);
+    for (const agent of all) {
+      const [short] = shortAgents([agent]);
+      expect(short, agent).toBe(agent.split(" ")[0].toLowerCase());
+      expect(short).not.toContain(" ");
+    }
   });
 });

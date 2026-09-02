@@ -48,11 +48,10 @@ function escape(value: string) {
 
 /** Values live inside a closed menu now, so reaching one means opening its facet first. */
 function option(facet: string, value: string) {
-  // aria-haspopup separates the menu trigger from the active chip, which also opens
-  // "Category: Build".
-  const trigger = screen
-    .getAllByRole("button", { name: new RegExp(`^${escape(facet)}`) })
-    .find((node) => node.getAttribute("aria-haspopup") === "true")!;
+  // A chip for the same facet is named "Remove Category filter: …", so it cannot collide.
+  const trigger = screen.getByRole("button", {
+    name: new RegExp(`^${escape(facet)}`),
+  });
   if (trigger.getAttribute("aria-expanded") !== "true")
     fireEvent.click(trigger);
   // The count has no space before it, so the accessible name is "Verify7".
@@ -221,5 +220,41 @@ describe("the page around the grid", () => {
     expect(screen.getByRole("tab", { name: /^Skills/ }).textContent).toContain(
       String(browsableSkills.length + toolchainSkills.length),
     );
+  });
+});
+
+describe("what a card links to", () => {
+  it("points at the plugin that ships the skill, not the skill", () => {
+    // generateStaticParams only emits plugin ids, so a name here 404s on every card while
+    // the suite stays green: cardCount matches on the /skills/ prefix alone.
+    renderPage();
+    const withDistinctName = browsableSkills.find(
+      (skill) => skill.name !== skill.plugin,
+    )!;
+    expect(card(withDistinctName.name)?.getAttribute("href")).toBe(
+      `/skills/${withDistinctName.plugin}`,
+    );
+  });
+});
+
+describe("the tabs switch panels", () => {
+  it("shows one panel at a time, and switching changes which", () => {
+    // getByRole respects `hidden`; getByText does not, which is why clicking a tab used to be
+    // provable without the click doing anything.
+    render(
+      <CatalogueTabs
+        plugins={plugins}
+        skills={browsableSkills}
+        toolchain={toolchainSkills}
+      />,
+    );
+    const panel = () =>
+      screen.getByRole("tabpanel").getAttribute("aria-labelledby");
+
+    expect(panel()).toBe("catalogue-tab-plugins");
+    fireEvent.click(screen.getByRole("tab", { name: /^Skills/ }));
+    expect(panel()).toBe("catalogue-tab-skills");
+    fireEvent.click(screen.getByRole("tab", { name: /^Plugins/ }));
+    expect(panel()).toBe("catalogue-tab-plugins");
   });
 });

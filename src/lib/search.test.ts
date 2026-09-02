@@ -76,18 +76,22 @@ describe("catalogue search", () => {
   });
 
   it("does not match through facet values", () => {
-    // A leak returns 51, not 1. The probe must be a word that is only ever a facet value.
-
-    const codebase = hits("codebase");
-    expect(codebase.length).toBeLessThan(skills.length);
-    for (const skill of codebase) {
-      expect(entryHaystack(skill).toLowerCase()).toContain("code");
+    // Asserting against entryHaystack proves nothing: a leak puts the facet value into the
+    // haystack, so the haystack then contains it. Probe the result counts instead, with terms
+    // that appear only as facet values.
+    for (const [term, value] of [
+      ["claude", "every skill carries the agent Claude Code"],
+      ["korza", "Origin"],
+      ["coordinate", "Category"],
+    ] as const) {
+      expect(
+        hits(term).length,
+        `"${term}" leaks through ${value}`,
+      ).toBeLessThan(skills.length / 2);
     }
-
-    // Through the word "build" in prose, not a facet.
-    for (const skill of hits("buildings")) {
-      expect(entryHaystack(skill).toLowerCase()).toContain("build");
-    }
+    // Prose still reaches the same rows: "code" is in summaries, "claude" only in a facet.
+    expect(hits("code").length).toBeGreaterThan(0);
+    expect(hits("code").length).toBeLessThan(skills.length);
   });
 
   it("still returns nothing for a term the catalogue has no skill for", () => {
@@ -98,7 +102,6 @@ describe("catalogue search", () => {
 
 describe("the reverse direction only matches inflections", () => {
   it("does not let a short word swallow a longer query", () => {
-    // `when` used to match 33 of 57 rows.
     for (const magnet of ["whenever", "userland", "checklist"]) {
       expect(hits(magnet), magnet).toHaveLength(0);
     }

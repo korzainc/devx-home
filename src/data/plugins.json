@@ -12,8 +12,7 @@
     "origin": "Korza",
     "ref": "main",
     "sourceRepo": "korzainc/codezen",
-    "homepage": "https://github.com/korzainc/codezen",
-    "skills": []
+    "homepage": "https://github.com/korzainc/codezen"
   },
   {
     "id": "pyright-lsp",
@@ -29,8 +28,7 @@
     "origin": "Third party",
     "ref": "main",
     "sourceRepo": "anthropics/claude-plugins-official",
-    "homepage": "https://github.com/anthropics/claude-plugins-official",
-    "skills": []
+    "homepage": "https://github.com/anthropics/claude-plugins-official"
   },
   {
     "id": "superpowers",
@@ -46,8 +44,7 @@
     "origin": "Third party",
     "ref": "v6.2.0",
     "sourceRepo": "obra/superpowers",
-    "homepage": "https://github.com/obra/superpowers",
-    "skills": []
+    "homepage": "https://github.com/obra/superpowers"
   },
   {
     "id": "mattpocock-skills",
@@ -63,34 +60,7 @@
     "origin": "Third party",
     "ref": "main",
     "sourceRepo": "mattpocock/skills",
-    "homepage": "https://github.com/mattpocock/skills",
-    "skills": [
-      "tdd",
-      "code-review",
-      "diagnosing-bugs",
-      "domain-modeling",
-      "codebase-design",
-      "implement",
-      "to-spec",
-      "to-tickets",
-      "triage",
-      "prototype",
-      "research",
-      "resolving-merge-conflicts",
-      "improve-codebase-architecture",
-      "wayfinder",
-      "wizard",
-      "grill-with-docs",
-      "ask-matt",
-      "setup-matt-pocock-skills",
-      "grilling",
-      "grill-me",
-      "handoff",
-      "teach",
-      "to-questionnaire",
-      "wait-what",
-      "writing-for-agents"
-    ]
+    "homepage": "https://github.com/mattpocock/skills"
   },
   {
     "id": "humanizer",
@@ -106,7 +76,6 @@
     "origin": "Third party",
     "ref": "v2.9.1",
     "sourceRepo": "blader/humanizer",
-    "homepage": "https://github.com/blader/humanizer",
-    "skills": ["humanizer"]
+    "homepage": "https://github.com/blader/humanizer"
   }
 ]

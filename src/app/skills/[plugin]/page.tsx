@@ -47,7 +47,6 @@ export default async function PluginPage({
   if (!plugin) notFound();
 
   const skills = skillsForPlugin(plugin.id);
-  // Derived from the index, so it cannot disagree with the skill list below.
   const shipsNothing = skills.length === 0;
   const agents = shortAgents(plugin.agents);
 
@@ -128,7 +127,6 @@ export default async function PluginPage({
 
       <InstallPanel commands={installCommands(plugin)} />
 
-      {/* From the index; plugin.skills says zero for codezen. */}
       {skills.length > 0 && <PluginSkills skills={skills} />}
     </article>
   );

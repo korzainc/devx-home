@@ -4,9 +4,7 @@ import Link from "next/link";
 import { CatalogueGrid } from "@/components/catalogue-grid";
 import { shortAgents, skillFacets, type SkillEntry } from "@/lib/catalogue";
 
-// Category, origin and pin state are facets, not card text: after filtering they read the same
-// on every card. What stays is the command, what it does, the plugin you install to get it,
-// and the runtimes that can run it.
+// Category and origin are facets, not card text: after filtering they read the same on every card.
 function SkillCard({ skill }: { skill: SkillEntry }) {
   const agents = shortAgents(skill.agents);
 
@@ -21,11 +19,11 @@ function SkillCard({ skill }: { skill: SkillEntry }) {
       </span>
 
       <p className="mt-2.5 mb-4 text-[0.8125rem] leading-relaxed text-ink-muted">
-        {skill.summary || skill.description}
+        {skill.summary}
       </p>
 
-      {/* Runtimes left, plugin right. Claude Code is on all 42, so it says nothing alone -- the
-          signal is whether codex sits beside it, since 21 of these cannot run there. */}
+      {/* Claude Code is on every skill, so it says nothing alone: the signal is whether codex
+          sits beside it. */}
       <div className="mt-auto flex items-baseline justify-between gap-3 border-t border-line pt-3.5 font-mono text-[0.65rem] text-ink-faint">
         <span className="shrink-0">{agents.join(" · ")}</span>
         <span className="truncate transition-colors group-hover:text-accent">

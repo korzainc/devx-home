@@ -39,19 +39,30 @@ export function FacetMenu({
       // restarts at the top of the page.
       trigger.current?.focus();
     }
+    // Tabbing past the last checkbox left the menu open over the results.
+    function onOut(event: FocusEvent) {
+      if (!root.current?.contains(event.relatedTarget as Node)) setOpen(false);
+    }
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
+    root.current?.addEventListener("focusout", onOut);
+    const node = root.current;
     return () => {
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
+      node?.removeEventListener("focusout", onOut);
     };
   }, [open]);
 
   useEffect(() => {
-    if (!open || !root.current) return;
-    setAlignLeft(
-      root.current.getBoundingClientRect().right - MENU_WIDTH < EDGE,
-    );
+    if (!open) return;
+    function place() {
+      const box = root.current?.getBoundingClientRect();
+      if (box) setAlignLeft(box.right - MENU_WIDTH < EDGE);
+    }
+    place();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
   }, [open]);
 
   const on = selected.length > 0;
@@ -62,7 +73,6 @@ export function FacetMenu({
         ref={trigger}
         type="button"
         aria-expanded={open}
-        aria-haspopup="true"
         onClick={() => setOpen((was) => !was)}
         className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition-colors ${
           on

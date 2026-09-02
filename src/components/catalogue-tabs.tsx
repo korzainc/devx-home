@@ -26,7 +26,7 @@ export function CatalogueTabs({
     skills: null,
   });
 
-  // Tab counts every row the panel lists; the grid counts the classified ones. 42 + 9 = 51.
+  // Tab counts every row the panel lists; the grid counts the classified ones.
   const allSkills = [...skills, ...toolchain];
 
   const tabs: { id: View; label: string; count: number }[] = [

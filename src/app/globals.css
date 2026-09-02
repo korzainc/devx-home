@@ -11,7 +11,7 @@
   --line-strong: #d3d7dd;
   --ink: #101418;
   --ink-muted: #5b6673;
-  --ink-faint: #8b95a1;
+  --ink-faint: #697280;
   /* Korza's brand red is #ff0000, which only reaches 4:1 on white and fails AA for text.
      Light mode therefore uses the darker red the marketing site already pairs with it. */
   --accent: #dc2626;
@@ -31,7 +31,7 @@
     --line-strong: #2b3239;
     --ink: #e8eaed;
     --ink-muted: #9aa4b2;
-    --ink-faint: #6b7480;
+    --ink-faint: #7b8592;
     /* Lifted off #ff0000: pure red on a near-black canvas reads as vibrating rather than sharp. */
     --accent: #ff5f5f;
     --accent-wash: #2a1517;

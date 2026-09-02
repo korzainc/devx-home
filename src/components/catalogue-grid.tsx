@@ -45,7 +45,7 @@ export function CatalogueGrid<T extends CatalogueEntry>({
   // Both panels stay mounted, so a fixed id would give the document two search inputs.
   const searchId = useId();
   const [selected, setSelected] = useState<Record<string, string[]>>({});
-  const [toolchainOpen, setToolchainOpen] = useState(false);
+  const [unclassifiedOpen, setUnclassifiedOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
   // "/" focuses search, which is what the hint in the field promises. Ignored while typing, or
@@ -98,6 +98,10 @@ export function CatalogueGrid<T extends CatalogueEntry>({
     [unclassified, query],
   );
 
+  // Forced open when nothing else matched, or a query that only hits these rows renders an
+  // empty grid with no empty state: the section is what "something matched" points at.
+  const showUnclassified = unclassifiedOpen || visible.length === 0;
+
   const activeCount = Object.values(selected).reduce(
     (total, picked) => total + picked.length,
     0,
@@ -149,7 +153,7 @@ export function CatalogueGrid<T extends CatalogueEntry>({
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={searchLabel}
-            className="w-full rounded-lg border border-line bg-surface py-2.5 pr-11 pl-10 text-sm text-ink placeholder:text-ink-faint focus:border-line-strong focus:outline-none"
+            className="w-full rounded-lg border border-line bg-surface py-2.5 pr-11 pl-10 text-sm text-ink placeholder:text-ink-faint focus:border-line-strong"
           />
           <kbd
             aria-hidden
@@ -170,7 +174,7 @@ export function CatalogueGrid<T extends CatalogueEntry>({
             />
           ))}
           {/* Classified rows only; the section below carries its own count. */}
-          <span className="ml-1 shrink-0 text-sm text-ink-muted">
+          <span role="status" className="ml-1 shrink-0 text-sm text-ink-muted">
             <span className="font-mono text-ink">{visible.length}</span> of{" "}
             <span className="font-mono">{entries.length}</span>
           </span>
@@ -199,7 +203,19 @@ export function CatalogueGrid<T extends CatalogueEntry>({
                   <button
                     key={value}
                     type="button"
-                    onClick={() => toggle(facet.key, value)}
+                    aria-label={`Remove ${facet.label} filter: ${value}`}
+                    onClick={(event) => {
+                      // Both this chip and Clear all remove themselves; without moving focus
+                      // first it lands on the body and the next Tab restarts at the top.
+                      const row =
+                        event.currentTarget.parentElement?.parentElement;
+                      toggle(facet.key, value);
+                      const next = row?.querySelector<HTMLElement>(
+                        `button:not([data-chip="${value}"])`,
+                      );
+                      (next ?? searchRef.current)?.focus();
+                    }}
+                    data-chip={value}
                     className="flex items-center gap-1.5 rounded-full border border-line-strong bg-accent-wash px-3 py-1 text-xs text-ink transition-colors hover:border-line"
                   >
                     {grouped ? value : `${facet.label}: ${value}`}
@@ -217,6 +233,7 @@ export function CatalogueGrid<T extends CatalogueEntry>({
             onClick={() => {
               setSelected({});
               setQuery("");
+              searchRef.current?.focus();
             }}
             className="text-sm text-accent hover:underline"
           >
@@ -250,8 +267,8 @@ export function CatalogueGrid<T extends CatalogueEntry>({
               browsed, and open they push the classified rows off the first screen. */}
           <button
             type="button"
-            aria-expanded={toolchainOpen}
-            onClick={() => setToolchainOpen((was) => !was)}
+            aria-expanded={showUnclassified}
+            onClick={() => setUnclassifiedOpen((was) => !was)}
             className="flex items-center gap-3 rounded-xl border border-dashed border-line px-4 py-3 text-left transition-colors hover:border-line-strong"
           >
             <span className="text-sm font-medium text-ink">
@@ -266,11 +283,11 @@ export function CatalogueGrid<T extends CatalogueEntry>({
               </span>
             )}
             <span aria-hidden className="ml-auto text-xs text-ink-faint">
-              {toolchainOpen ? "▾" : "▸"}
+              {showUnclassified ? "▾" : "▸"}
             </span>
           </button>
 
-          {toolchainOpen && (
+          {showUnclassified && (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {visibleUnclassified.map((entry) => (
                 <div key={entry.id} id={entry.id} className="scroll-mt-24">
