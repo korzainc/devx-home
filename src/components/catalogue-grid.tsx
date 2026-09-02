@@ -1,16 +1,24 @@
 "use client";
 
-import { useId, useMemo, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { FacetMenu } from "@/components/facet-menu";
 import { facetValues, type CatalogueEntry, type Facet } from "@/lib/catalogue";
 import { filterEntries } from "@/lib/filter";
+import { terms } from "@/lib/search";
 
 type CatalogueGridProps<T extends CatalogueEntry> = {
   entries: T[];
   facets: Facet<T>[];
   renderCard: (entry: T) => ReactNode;
   searchLabel: string;
-  /** Singular noun for the rows, used in the empty state. Required, so a caller cannot
-   * silently inherit a wrong one. */
+  /** Singular noun for the rows, used in the empty state. */
   noun: string;
   /**
    * Rows the page lists but does not classify. Search reaches them; facet chips do not, and
@@ -19,7 +27,7 @@ type CatalogueGridProps<T extends CatalogueEntry> = {
   unclassified?: T[];
   /** Heading for the unclassified section. */
   unclassifiedLabel?: string;
-  /** One line saying why those rows sit apart, shown under the heading. */
+  /** One line saying why those rows sit apart, shown beside the heading. */
   unclassifiedNote?: string;
 };
 
@@ -37,6 +45,26 @@ export function CatalogueGrid<T extends CatalogueEntry>({
   // Both panels stay mounted, so a fixed id would give the document two search inputs.
   const searchId = useId();
   const [selected, setSelected] = useState<Record<string, string[]>>({});
+  // null follows the search; a click pins it. One value, so the chevron, the rows and the
+  // count cannot disagree.
+  const [pinned, setPinned] = useState<boolean | null>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // "/" focuses search, which is what the hint in the field promises. Ignored while typing, or
+  // the shortcut eats the character.
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== "/" || event.metaKey || event.ctrlKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.matches("input, textarea, [contenteditable]")) return;
+      // Both tab panels stay mounted; only the visible one should take the key.
+      if (!searchRef.current?.offsetParent) return;
+      event.preventDefault();
+      searchRef.current.focus();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
 
   const facetOptions = useMemo(
     () =>
@@ -60,7 +88,7 @@ export function CatalogueGrid<T extends CatalogueEntry>({
     [entries, facets, query, selected],
   );
 
-  // Query only. An empty facet list is what makes that literal rather than a promise.
+  // Query only: these rows are never faceted.
   const visibleUnclassified = useMemo(
     () =>
       filterEntries({
@@ -71,6 +99,21 @@ export function CatalogueGrid<T extends CatalogueEntry>({
       }),
     [unclassified, query],
   );
+
+  const searching = terms(query).length > 0;
+  const facetsActive = Object.values(selected).some(
+    (picked) => picked.length > 0,
+  );
+  // A search reveals these rows; a facet cannot, since they sit outside every facet.
+  const unclassifiedShown = pinned ?? (searching && !facetsActive);
+  // The count and the empty state both answer "what is on screen", so they cannot contradict
+  // each other or the rows themselves.
+  const onScreen =
+    visible.length + (unclassifiedShown ? visibleUnclassified.length : 0);
+  // What the search could reveal, pinned or not: a collapsed section may hold the only match.
+  const couldShow =
+    visible.length +
+    (searching && !facetsActive ? visibleUnclassified.length : 0);
 
   const activeCount = Object.values(selected).reduce(
     (total, picked) => total + picked.length,
@@ -90,115 +133,166 @@ export function CatalogueGrid<T extends CatalogueEntry>({
   }
 
   return (
-    <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-12">
-      <aside className="flex shrink-0 flex-col gap-6 lg:sticky lg:top-24 lg:w-56">
-        <div className="flex flex-col gap-2">
-          <label
-            htmlFor={searchId}
-            className="text-xs font-medium tracking-wide text-ink-faint uppercase"
-          >
-            Search
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="relative flex-1">
+          <label htmlFor={searchId} className="sr-only">
+            {searchLabel}
           </label>
+          <span
+            aria-hidden
+            className="absolute top-1/2 left-3.5 -translate-y-1/2 text-ink-faint"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+              <circle
+                cx="11"
+                cy="11"
+                r="7"
+                stroke="currentColor"
+                strokeWidth="2"
+              />
+              <path
+                d="m20 20-3.5-3.5"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            </svg>
+          </span>
           <input
             id={searchId}
+            ref={searchRef}
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") event.currentTarget.blur();
+            }}
             placeholder={searchLabel}
-            className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-faint"
+            className="w-full rounded-lg border border-line bg-surface py-2.5 pr-11 pl-10 text-sm text-ink placeholder:text-ink-faint focus:border-line-strong"
           />
+          <kbd
+            aria-hidden
+            className="absolute top-1/2 right-3 -translate-y-1/2 rounded border border-line px-1.5 py-0.5 font-mono text-[0.65rem] text-ink-faint"
+          >
+            /
+          </kbd>
         </div>
 
-        {facetOptions.map((facet) => (
-          <fieldset key={facet.key} className="flex flex-col gap-2">
-            <legend className="mb-2 text-xs font-medium tracking-wide text-ink-faint uppercase">
-              {facet.label}
-            </legend>
-            <div className="flex flex-wrap gap-1.5">
-              {facet.options.map(([value, count]) => {
-                const isOn = selected[facet.key]?.includes(value) ?? false;
-                return (
+        <div className="flex flex-wrap items-center gap-2">
+          {facetOptions.map((facet) => (
+            <FacetMenu
+              key={facet.key}
+              label={facet.label}
+              options={facet.options}
+              selected={selected[facet.key] ?? []}
+              onToggle={(value) => toggle(facet.key, value)}
+            />
+          ))}
+          <span role="status" className="ml-1 shrink-0 text-sm text-ink-muted">
+            <span className="font-mono text-ink">{onScreen}</span> of{" "}
+            <span className="font-mono">
+              {entries.length + unclassified.length}
+            </span>
+          </span>
+        </div>
+      </div>
+
+      {(activeCount > 0 || query) && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          {facetOptions.map((facet) => {
+            const picked = selected[facet.key] ?? [];
+            if (picked.length === 0) return null;
+            // The facet name earns its own label only once a second facet is also on;
+            // before that the chip says "Category: Build" and carries it inline.
+            const grouped = activeCount > picked.length;
+            return (
+              <div
+                key={facet.key}
+                className="flex flex-wrap items-center gap-2"
+              >
+                {grouped && (
+                  <span className="text-[0.65rem] tracking-wide text-ink-faint uppercase">
+                    {facet.label}
+                  </span>
+                )}
+                {picked.map((value) => (
                   <button
                     key={value}
                     type="button"
-                    aria-pressed={isOn}
-                    onClick={() => toggle(facet.key, value)}
-                    className={`flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors ${
-                      isOn
-                        ? "border-accent bg-accent-wash text-ink"
-                        : "border-line bg-surface text-ink-muted hover:border-line-strong hover:text-ink"
-                    }`}
+                    aria-label={`Remove ${facet.label} filter: ${value}`}
+                    onClick={(event) => {
+                      toggle(facet.key, value);
+                      // Keyboard only: a text input always matches :focus-visible, so
+                      // doing this on a mouse click paints an accent ring on the field.
+                      if (event.detail === 0) searchRef.current?.focus();
+                    }}
+                    className="flex items-center gap-1.5 rounded-full border border-line-strong bg-accent-wash px-3 py-1 text-xs text-ink transition-colors hover:border-line"
                   >
-                    {value}
-                    <span className="font-mono text-[0.65rem] text-ink-faint">
-                      {count}
+                    {grouped ? value : `${facet.label}: ${value}`}
+                    <span aria-hidden className="text-ink-faint">
+                      ✕
                     </span>
                   </button>
-                );
-              })}
-            </div>
-          </fieldset>
-        ))}
-      </aside>
-
-      <div className="flex min-w-0 flex-1 flex-col gap-4">
-        <div className="flex items-center gap-3 text-sm text-ink-muted">
-          {/* Classified rows only; the section below carries its own count. */}
-          <span>
-            <span className="font-mono text-ink">{visible.length}</span> of{" "}
-            <span className="font-mono">{entries.length}</span>
-          </span>
-          {(activeCount > 0 || query) && (
-            <button
-              type="button"
-              onClick={() => {
-                setSelected({});
-                setQuery("");
-              }}
-              className="text-accent hover:underline"
-            >
-              Clear filters
-            </button>
-          )}
-        </div>
-
-        {visible.length > 0 && (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {visible.map((entry) => (
-              // Anchor target for gap-analysis links. Resolves in the unfiltered state.
-              <div key={entry.id} id={entry.id} className="scroll-mt-24">
-                {renderCard(entry)}
+                ))}
               </div>
-            ))}
-          </div>
-        )}
+            );
+          })}
+          <button
+            type="button"
+            onClick={(event) => {
+              setSelected({});
+              setQuery("");
+              if (event.detail === 0) searchRef.current?.focus();
+            }}
+            className="text-sm text-accent hover:underline"
+          >
+            Clear all
+          </button>
+        </div>
+      )}
 
-        {/* Only when nothing at all matched: "no skill matches" above a section listing one
-            that did is a small lie. A "gap in the catalogue" message used to live here, and
-            became unreachable once the matrix went — chips are built from values the entries
-            carry, so none can match nothing. Surfacing that again means drawing the empty
-            values, not restoring the message. */}
-        {visible.length === 0 && visibleUnclassified.length === 0 && (
-          <p className="rounded-xl border border-dashed border-line px-6 py-16 text-center text-sm text-ink-muted">
-            No {noun} matches those filters.
-          </p>
-        )}
-
-        {visibleUnclassified.length > 0 && (
-          <section className="flex flex-col gap-3 border-t border-line pt-6">
-            <div className="flex flex-col gap-1">
-              <h3 className="text-xs font-medium tracking-wide text-ink-faint uppercase">
-                {unclassifiedLabel}{" "}
-                <span className="font-mono normal-case">
-                  ({visibleUnclassified.length})
-                </span>
-              </h3>
-              {unclassifiedNote && (
-                <p className="max-w-2xl text-xs text-ink-faint">
-                  {unclassifiedNote}
-                </p>
-              )}
+      {visible.length > 0 && (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {visible.map((entry) => (
+            // Anchor target for gap-analysis links. Resolves in the unfiltered state.
+            <div key={entry.id} id={entry.id} className="scroll-mt-24">
+              {renderCard(entry)}
             </div>
+          ))}
+        </div>
+      )}
+
+      {onScreen === 0 && couldShow === 0 && (
+        <p className="rounded-xl border border-dashed border-line px-6 py-16 text-center text-sm text-ink-muted">
+          No {noun} matches those filters.
+        </p>
+      )}
+
+      {visibleUnclassified.length > 0 && (
+        <section className="flex flex-col gap-4">
+          {/* Open, these nine push the classified rows off the first screen. */}
+          <button
+            type="button"
+            aria-expanded={unclassifiedShown}
+            onClick={() => setPinned(!unclassifiedShown)}
+            className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-dashed border-line px-4 py-3 text-left transition-colors hover:border-line-strong"
+          >
+            <span className="text-sm font-medium text-ink">
+              {unclassifiedLabel}
+            </span>
+            <span className="font-mono text-xs text-ink-faint">
+              {visibleUnclassified.length}
+            </span>
+            {unclassifiedNote && (
+              <span className="text-xs text-ink-faint">{unclassifiedNote}</span>
+            )}
+            <span aria-hidden className="ml-auto text-xs text-ink-faint">
+              {unclassifiedShown ? "▾" : "▸"}
+            </span>
+          </button>
+
+          {unclassifiedShown && (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {visibleUnclassified.map((entry) => (
                 <div key={entry.id} id={entry.id} className="scroll-mt-24">
@@ -206,9 +300,9 @@ export function CatalogueGrid<T extends CatalogueEntry>({
                 </div>
               ))}
             </div>
-          </section>
-        )}
-      </div>
+          )}
+        </section>
+      )}
     </div>
   );
 }

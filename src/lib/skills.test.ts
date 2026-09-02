@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import skillsData from "@/data/skills.json";
 import { CATEGORIES, plugins, skills, skillsForPlugin } from "./catalogue";
 
 // Quiet failures: an orphan filter nobody can clear, or one card swallowing another.
@@ -30,7 +31,12 @@ describe("skill catalogue", () => {
   it("gives every skill the fields a card renders", () => {
     for (const skill of skills) {
       expect(skill.name, `${skill.id} has no name`).toBeTruthy();
-      expect(skill.summary, `${skill.id} has no summary`).toBeTruthy();
+      // A skill with no overlay entry has a null summary by design; the card renders the
+      // upstream description instead, so that is what has to be there.
+      expect(
+        skill.summary ?? skill.description,
+        `${skill.id} has neither a summary nor a description`,
+      ).toBeTruthy();
       expect(skill.agents.length, `${skill.id} has no agents`).toBeGreaterThan(
         0,
       );
@@ -40,18 +46,21 @@ describe("skill catalogue", () => {
   // humanizer's description is a block scalar; a single-line reader yields a blank card.
   it("gives every skill a summary a human can read", () => {
     for (const skill of skills) {
+      // Null is legal and tested above; an empty string is not, and `??` would render it.
+      const summary = skill.summary ?? skill.description;
+
       expect(
-        skill.summary.length,
-        `${skill.id} summary is too short to be real: ${JSON.stringify(skill.summary)}`,
+        summary.length,
+        `${skill.id} summary is too short to be real: ${JSON.stringify(summary)}`,
       ).toBeGreaterThan(20);
 
       expect(
-        skill.summary.split(/\s+/).length,
-        `${skill.id} summary is not a sentence: ${JSON.stringify(skill.summary)}`,
+        summary.split(/\s+/).length,
+        `${skill.id} summary is not a sentence: ${JSON.stringify(summary)}`,
       ).toBeGreaterThan(3);
 
       expect(
-        /^[|>]/.test(skill.summary),
+        /^[|>]/.test(summary),
         `${skill.id} summary starts with a YAML block scalar marker, so the parser kept the marker instead of the value`,
       ).toBe(false);
     }
@@ -136,12 +145,14 @@ describe("skill catalogue", () => {
     }
   });
 
-  it("marks every skill either Live or Planned", () => {
-    for (const skill of skills) {
+  it("keeps Planned rows in the index and out of the catalogue", () => {
+    const indexed = skillsData.skills;
+    for (const skill of indexed) {
       expect(["Live", "Planned"]).toContain(skill.status);
     }
-    expect(skills.filter((skill) => skill.status === "Planned")).toHaveLength(
+    expect(indexed.filter((skill) => skill.status === "Planned")).toHaveLength(
       6,
     );
+    expect(skills.filter((skill) => skill.status === "Planned")).toEqual([]);
   });
 });

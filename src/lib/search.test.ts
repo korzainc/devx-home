@@ -76,18 +76,17 @@ describe("catalogue search", () => {
   });
 
   it("does not match through facet values", () => {
-    // A leak returns 57, not 1. The probe must be a word that is only ever a facet value.
-
-    const codebase = hits("codebase");
-    expect(codebase.length).toBeLessThan(skills.length);
-    for (const skill of codebase) {
-      expect(entryHaystack(skill).toLowerCase()).toContain("code");
+    // Exact, not a threshold: an Origin or Category leak adds 11 rows, which any "less than
+    // half the corpus" bound would wave through.
+    for (const term of ["korza", "coordinate", "mattpocock"]) {
+      expect(hits(term), `"${term}" is only ever a facet value`).toHaveLength(
+        0,
+      );
     }
-
-    // Through the word "build" in prose, not a facet.
-    for (const skill of hits("buildings")) {
-      expect(entryHaystack(skill).toLowerCase()).toContain("build");
-    }
+    // "Claude Code" is on every skill, so an agents leak matches everything.
+    expect(hits("claude").length).toBeLessThan(skills.length / 2);
+    // Prose still reaches the same rows.
+    expect(hits("code").length).toBeGreaterThan(0);
   });
 
   it("still returns nothing for a term the catalogue has no skill for", () => {
@@ -98,7 +97,6 @@ describe("catalogue search", () => {
 
 describe("the reverse direction only matches inflections", () => {
   it("does not let a short word swallow a longer query", () => {
-    // `when` used to match 33 of 57 rows.
     for (const magnet of ["whenever", "userland", "checklist"]) {
       expect(hits(magnet), magnet).toHaveLength(0);
     }
@@ -112,8 +110,15 @@ describe("the reverse direction only matches inflections", () => {
   });
 
   it("searches the jobs, which nothing else in the haystack carries", () => {
-    const onlyInJobs = "put timelines on a piece of work";
-    expect(skills.some((s) => s.summary.includes(onlyInJobs))).toBe(false);
+    // Shares no stem with any summary, description or name, so a hit can only come from jobs.
+    const onlyInJobs = "edit prose before publishing it";
+    expect(
+      skills.some(
+        (s) =>
+          (s.summary ?? "").includes(onlyInJobs) ||
+          s.description.includes(onlyInJobs),
+      ),
+    ).toBe(false);
     expect(hits(onlyInJobs).length).toBeGreaterThan(0);
   });
 });

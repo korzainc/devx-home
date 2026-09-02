@@ -4,10 +4,12 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { CatalogueTabs } from "@/components/catalogue-tabs";
+import { PluginsCatalogue } from "@/components/plugins-catalogue";
 import { SkillsCatalogue } from "@/components/skills-catalogue";
+import { entryHaystack, matchesQuery } from "@/lib/search";
 import {
   browsableSkills,
-  pluginRows,
+  plugins,
   skillFacets,
   skills,
   toolchainSkills,
@@ -29,23 +31,51 @@ function renderPage() {
 /** Skill cards are links to a plugin page; the sidebar contains no such links. */
 function cardCount() {
   return screen
-    .getAllByRole("link")
+    .queryAllByRole("link")
     .filter((node) => node.getAttribute("href")?.startsWith("/skills/")).length;
 }
 
-function search() {
-  return screen.getByLabelText("Search");
+/** The card for one skill. The name is split across elements, so match the link's own name. */
+function card(name: string) {
+  return screen.queryByRole("link", { name: new RegExp(`^/${name}\\b`) });
 }
 
-/** The count has no space before it, so the accessible name is "Verify7" and `\b` never matches. */
-function chip(label: string) {
-  const escaped = label.replace(/[.*+?^${}()|[\]\\-]/g, "\\$&");
-  return screen.getByRole("button", { name: new RegExp(`^${escaped}\\d`) });
+function search() {
+  return screen.getByLabelText("What are you trying to do?");
+}
+
+function escape(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\-]/g, "\\$&");
+}
+
+/** Values live inside a closed menu now, so reaching one means opening its facet first. */
+function option(facet: string, value: string) {
+  // A chip for the same facet is named "Remove Category filter: …", so it cannot collide.
+  const trigger = screen.getByRole("button", {
+    name: new RegExp(`^${escape(facet)}`),
+  });
+  if (trigger.getAttribute("aria-expanded") !== "true")
+    fireEvent.click(trigger);
+  // The count has no space before it, so the accessible name is "Verify7".
+  return screen.getByRole("checkbox", {
+    name: new RegExp(`^${escape(value)}\\d`),
+  });
+}
+
+function pick(facet: string, value: string) {
+  fireEvent.click(option(facet, value));
+}
+
+/** Collapsed by default, so counting its cards means opening it. */
+function expandToolchain() {
+  const toggle = screen.getByRole("button", { name: /^Setup and toolchain/ });
+  if (toggle.getAttribute("aria-expanded") !== "true") fireEvent.click(toggle);
 }
 
 describe("the skills catalogue", () => {
   it("lists every skill in the index, classified or not", () => {
     renderPage();
+    expandToolchain();
     expect(cardCount()).toBe(skills.length);
   });
 
@@ -63,7 +93,8 @@ describe("the skills catalogue", () => {
 
   it("narrows to a category and keeps the toolchain rows listed", () => {
     renderPage();
-    fireEvent.click(chip("Verify"));
+    pick("Category", "Verify");
+    expandToolchain();
 
     const inCategory = browsableSkills.filter(
       (skill) => skill.category === "Verify",
@@ -84,25 +115,29 @@ describe("the skills catalogue", () => {
 
     // The chip text, not just the card count: leaking the toolchain rows into the tally makes
     // the chip read "Coordinate11" while clicking it still shows four.
-    expect(chip("Coordinate").textContent).toBe(`Coordinate${coordinate}`);
-    fireEvent.click(chip("Coordinate"));
+    expect(option("Category", "Coordinate").closest("label")?.textContent).toBe(
+      `Coordinate${coordinate}`,
+    );
+    pick("Category", "Coordinate");
+    expandToolchain();
     expect(cardCount()).toBe(coordinate + toolchainSkills.length);
   });
 
   it("searches the toolchain rows even though it cannot filter them", () => {
     renderPage();
     fireEvent.change(search(), { target: { value: "credentials" } });
+    expandToolchain();
 
     const shown = cardCount();
     expect(shown).toBeGreaterThan(0);
     expect(shown).toBeLessThan(skills.length);
-    expect(screen.getByText("/setup")).toBeTruthy();
+    expect(card("setup")).toBeTruthy();
     // A toolchain row the query does NOT match, or this cannot tell "search reaches them" from
     // "they are always listed in full".
     // Guard first: without it, renaming `teach` upstream makes this pass for the trivial
     // reason and the test silently stops distinguishing anything.
     expect(toolchainSkills.some((skill) => skill.name === "teach")).toBe(true);
-    expect(screen.queryByText("/teach")).toBeNull();
+    expect(card("teach")).toBeNull();
   });
 
   it("finds a skill by the job it does, not only by its name", () => {
@@ -115,7 +150,7 @@ describe("the skills catalogue", () => {
     const byJobsOnly = browsableSkills.filter(
       (skill) =>
         skill.jobs.some((job) => job.includes("pull request")) &&
-        !skill.summary.includes("pull request"),
+        !(skill.summary ?? "").includes("pull request"),
     );
     expect(byJobsOnly.length).toBeGreaterThan(0);
   });
@@ -126,7 +161,7 @@ describe("the skills catalogue", () => {
     const withJob = browsableSkills.find((skill) =>
       skill.jobs.some((job) => job.includes("pull request")),
     )!;
-    expect(screen.getByText(`/${withJob.name}`)).toBeTruthy();
+    expect(card(withJob.name)).toBeTruthy();
     for (const job of withJob.jobs) {
       expect(screen.queryByText(job), `"${job}" is on the card`).toBeNull();
     }
@@ -134,10 +169,11 @@ describe("the skills catalogue", () => {
 
   it("clears back to the full list", () => {
     renderPage();
-    fireEvent.click(chip("Verify"));
+    pick("Category", "Verify");
     expect(cardCount()).toBeLessThan(skills.length);
 
-    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear all" }));
+    expandToolchain();
     expect(cardCount()).toBe(skills.length);
   });
 
@@ -152,11 +188,43 @@ describe("the skills catalogue", () => {
         }),
       );
       for (const value of values) {
-        fireEvent.click(chip(value));
-        expect(cardCount(), `${facet.key}=${value}`).toBeGreaterThan(
-          toolchainSkills.length,
-        );
-        fireEvent.click(chip(value));
+        pick(facet.label, value);
+        expect(cardCount(), `${facet.key}=${value}`).toBeGreaterThan(0);
+        pick(facet.label, value);
+      }
+    }
+  });
+});
+
+describe("the plugins catalogue", () => {
+  // The card shows a trimmed summary, so the prose beneath it is the only searchable text a
+  // plugin has. Trimming the summaries for the card silently emptied the search with it.
+  it("searches the prose the card does not show", () => {
+    render(<PluginsCatalogue entries={plugins} />);
+    const search = screen.getByLabelText("Filter plugins");
+
+    for (const [query, expected] of [
+      ["code review", "mattpocock-skills"],
+      ["Wikipedia", "humanizer"],
+      ["domain modeling", "mattpocock-skills"],
+      ["python", "pyright-lsp"],
+    ] as const) {
+      fireEvent.change(search, { target: { value: query } });
+      expect(
+        screen.queryByRole("link", { name: new RegExp(`^${expected}`) }),
+        `"${query}" does not find ${expected}`,
+      ).toBeTruthy();
+    }
+  });
+
+  it("does not draw the prose it searches", () => {
+    // Paired with the test above: together they pin problem and benefits into the haystack
+    // and off the card.
+    render(<PluginsCatalogue entries={plugins} />);
+    for (const plugin of plugins) {
+      expect(screen.queryByText(plugin.problem)).toBeNull();
+      for (const benefit of plugin.benefits) {
+        expect(screen.queryByText(benefit)).toBeNull();
       }
     }
   });
@@ -176,10 +244,9 @@ describe("the page around the grid", () => {
     // rendering SkillsCatalogue directly cannot see it.
     render(
       <CatalogueTabs
-        plugins={pluginRows}
+        plugins={plugins}
         skills={browsableSkills}
         toolchain={toolchainSkills}
-        placeholder={false}
       />,
     );
     fireEvent.click(screen.getByRole("tab", { name: /^Skills/ }));
@@ -189,5 +256,147 @@ describe("the page around the grid", () => {
     expect(screen.getByRole("tab", { name: /^Skills/ }).textContent).toContain(
       String(browsableSkills.length + toolchainSkills.length),
     );
+  });
+});
+
+describe("what a card links to", () => {
+  it("points at the plugin that ships the skill, not the skill", () => {
+    // generateStaticParams only emits plugin ids, so a name here 404s on every card while
+    // the suite stays green: cardCount matches on the /skills/ prefix alone.
+    renderPage();
+    const withDistinctName = browsableSkills.find(
+      (skill) => skill.name !== skill.plugin,
+    )!;
+    expect(card(withDistinctName.name)?.getAttribute("href")).toBe(
+      `/skills/${withDistinctName.plugin}#${withDistinctName.name}`,
+    );
+  });
+});
+
+describe("the tabs switch panels", () => {
+  it("shows one panel at a time, and switching changes which", () => {
+    // getByRole respects `hidden`; getByText does not, which is why clicking a tab used to be
+    // provable without the click doing anything.
+    render(
+      <CatalogueTabs
+        plugins={plugins}
+        skills={browsableSkills}
+        toolchain={toolchainSkills}
+      />,
+    );
+    const panel = () =>
+      screen.getByRole("tabpanel").getAttribute("aria-labelledby");
+
+    expect(panel()).toBe("catalogue-tab-plugins");
+    fireEvent.click(screen.getByRole("tab", { name: /^Skills/ }));
+    expect(panel()).toBe("catalogue-tab-skills");
+    fireEvent.click(screen.getByRole("tab", { name: /^Plugins/ }));
+    expect(panel()).toBe("catalogue-tab-plugins");
+  });
+});
+
+describe("a search that only the toolchain matches", () => {
+  it("shows those rows rather than an empty grid", () => {
+    // The empty state is suppressed while these match, so leaving the section collapsed
+    // rendered nothing at all. "superpowers" hit this.
+    renderPage();
+    const onlyToolchain = "superpowers";
+    expect(
+      browsableSkills.some((skill) =>
+        matchesQuery(onlyToolchain, entryHaystack(skill)),
+      ),
+    ).toBe(false);
+    expect(
+      toolchainSkills.some((skill) =>
+        matchesQuery(onlyToolchain, entryHaystack(skill)),
+      ),
+    ).toBe(true);
+
+    fireEvent.change(search(), { target: { value: onlyToolchain } });
+    expect(cardCount()).toBeGreaterThan(0);
+    expect(screen.queryByText("No skill matches those filters.")).toBeNull();
+  });
+
+  it("treats a whitespace query as no query", () => {
+    // matchesQuery has no terms to apply, so a space is not a search and must not reveal
+    // the toolchain rows. Gating on `query !== ""` instead of on the parsed terms did.
+    renderPage();
+    expect(card("teach")).toBeNull();
+    fireEvent.change(search(), { target: { value: "   " } });
+    expect(card("teach")).toBeNull();
+  });
+
+  it("does not answer a faceted search with unfaceted rows", () => {
+    // The toolchain rows ignore facets, so they cannot be the result of a faceted search.
+    renderPage();
+    pick("Category", "Build");
+    fireEvent.change(search(), { target: { value: "bootstrap" } });
+    expect(screen.getByText("No skill matches those filters.")).toBeTruthy();
+    expect(cardCount()).toBe(0);
+  });
+
+  // "teach" is a toolchain row and matches nothing classified, so the counts stay unambiguous.
+  it("says on screen what is on screen", () => {
+    // The count, the chevron and the empty state each used to read a different set: a search
+    // could reveal toolchain rows while the chevron said closed and the count said none.
+    renderPage();
+    const toggle = screen.getByRole("button", { name: /^Setup and toolchain/ });
+    const count = () => screen.getByRole("status").textContent;
+
+    expect(count()).toBe(`${browsableSkills.length} of ${skills.length}`);
+
+    fireEvent.change(search(), { target: { value: "teach" } });
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(cardCount()).toBe(1);
+    expect(count()).toBe(`1 of ${skills.length}`);
+    expect(screen.queryByText("No skill matches those filters.")).toBeNull();
+  });
+
+  it("does not put the empty state above a visible card", () => {
+    // Facets do not reach the toolchain rows, but with the section held open they are on
+    // screen, and an empty state above them told the reader the opposite of what they saw.
+    renderPage();
+    expandToolchain();
+    fireEvent.change(search(), { target: { value: "teach" } });
+    pick("Category", "Discover");
+
+    expect(cardCount()).toBe(1);
+    expect(screen.queryByText("No skill matches those filters.")).toBeNull();
+    expect(screen.getByRole("status").textContent).toBe(
+      `1 of ${skills.length}`,
+    );
+  });
+
+  it("keeps the toggle working while a search has opened the section", () => {
+    // Deriving the open state from the search alone left the button pressing against itself.
+    renderPage();
+    fireEvent.change(search(), { target: { value: "teach" } });
+    const toggle = screen.getByRole("button", { name: /^Setup and toolchain/ });
+
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(cardCount()).toBe(0);
+  });
+
+  it("does not claim nothing matches while a collapsed section holds the match", () => {
+    // Collapsing search-revealed rows hides them; it does not make the match stop existing.
+    renderPage();
+
+    fireEvent.change(search(), { target: { value: "teach" } });
+    fireEvent.click(
+      screen.getByRole("button", { name: /^Setup and toolchain/ }),
+    );
+
+    expect(screen.queryByText("No skill matches those filters.")).toBeNull();
+    expect(cardCount()).toBe(0);
+  });
+
+  it("still shows the empty state when a facet leaves nothing", () => {
+    // The toolchain rows match an empty query, so gating the empty state on them hid it
+    // whenever a facet combination found nothing.
+    renderPage();
+    pick("Category", "Discover");
+    pick("Plugin", "humanizer");
+    expect(screen.getByText("No skill matches those filters.")).toBeTruthy();
   });
 });

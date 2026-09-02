@@ -6,15 +6,9 @@ import {
   installCommands,
   marketplaceName,
   marketplaceRepo,
-  duplicateClaims,
   getPlugin,
-  pluginRows,
   plugins,
-  rivalPlugins,
-  skills,
-  skillsArePlaceholder,
-  versionFacetLabel,
-  versionStatusFor,
+  shortAgents,
   tools,
 } from "./catalogue";
 
@@ -140,30 +134,18 @@ describe("install commands", () => {
   });
 });
 
-describe("plugin rows", () => {
-  it("derives a pin state for every plugin", () => {
-    // Powers the Pin facet.
-    for (const plugin of pluginRows) {
-      expect(plugin.pinState, plugin.id).toBe(
-        versionFacetLabel(versionStatusFor(plugin.id)),
-      );
-      expect(plugin.pinState).not.toBe("Unknown");
-    }
-  });
-});
-
 describe("provenance", () => {
   // The placeholder half cannot be pinned while the data says false: a literal and the
   // derivation agree.
   it("declares the skill index as generated, at the schema the file states", () => {
     // Fails if a hand-extracted file is dropped back in.
-    expect(skillsArePlaceholder).toBe(false);
+    expect(skillsData.placeholder).toBe(false);
     expect(indexSchemaVersion).toBe(skillsData.schemaVersion);
     expect(indexSchemaVersion).toBeGreaterThan(0);
   });
 });
 
-describe("install commands and duplicate claims", () => {
+describe("install commands", () => {
   it("names the marketplace and the plugin the user actually types", () => {
     // Text a user copies into a terminal.
     const codezen = plugins.find((p) => p.id === "codezen")!;
@@ -183,20 +165,26 @@ describe("install commands and duplicate claims", () => {
     expect(getPlugin("superpowers")?.id).toBe("superpowers");
     expect(getPlugin("not-a-plugin")).toBeUndefined();
   });
+});
 
-  it("reports a name only when more than one plugin claims it", () => {
-    // `code-review` and `tdd` each ship from two plugins.
-    expect([...duplicateClaims.keys()].sort()).toEqual(["code-review", "tdd"]);
-    for (const [name, claimants] of duplicateClaims) {
-      expect(claimants.length, name).toBeGreaterThan(1);
-      expect([...claimants]).toEqual([...claimants].sort());
-    }
+describe("agent abbreviation", () => {
+  it("keeps the first word, lowercased, one per agent", () => {
+    expect(shortAgents(["Claude Code", "Codex CLI"])).toEqual([
+      "claude",
+      "codex",
+    ]);
+    expect(shortAgents([])).toEqual([]);
   });
 
-  it("lists the other plugins claiming a name, never the skill's own", () => {
-    const codeReview = skills.find(
-      (s) => s.name === "code-review" && s.plugin === "codezen",
-    )!;
-    expect(rivalPlugins(codeReview)).toEqual(["mattpocock-skills"]);
+  it("abbreviates every agent the catalogue actually carries", () => {
+    // The card footer exists to show that some skills cannot run on Codex, so an empty or
+    // unabbreviated result erases the only signal that says so.
+    const all = [...new Set(plugins.flatMap((plugin) => plugin.agents))];
+    expect(all.length).toBeGreaterThan(1);
+    for (const agent of all) {
+      const [short] = shortAgents([agent]);
+      expect(short, agent).toBe(agent.split(" ")[0].toLowerCase());
+      expect(short).not.toContain(" ");
+    }
   });
 });

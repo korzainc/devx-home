@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { PluginsCatalogue } from "@/components/plugins-catalogue";
 import { SkillsCatalogue } from "@/components/skills-catalogue";
-import type { PluginRow, SkillEntry } from "@/lib/catalogue";
+import type { PluginEntry, SkillEntry } from "@/lib/catalogue";
 
 type View = "plugins" | "skills";
 
@@ -13,14 +13,12 @@ export function CatalogueTabs({
   plugins,
   skills,
   toolchain,
-  placeholder,
 }: {
-  plugins: PluginRow[];
+  plugins: PluginEntry[];
   /** The classified rows: everything the facets apply to. */
   skills: SkillEntry[];
   /** Setup and meta rows. Listed and searchable, but outside every facet. */
   toolchain: SkillEntry[];
-  placeholder: boolean;
 }) {
   const [view, setView] = useState<View>("plugins");
   const tabRefs = useRef<Record<View, HTMLButtonElement | null>>({
@@ -28,10 +26,8 @@ export function CatalogueTabs({
     skills: null,
   });
 
-  // Tab counts every row the panel lists; the grid counts the classified ones. 48 + 9 = 57.
+  // Tab counts every row the panel lists; the grid counts the classified ones.
   const allSkills = [...skills, ...toolchain];
-  const liveSkills = allSkills.filter((skill) => skill.status !== "Planned");
-  const plannedCount = allSkills.length - liveSkills.length;
 
   const tabs: { id: View; label: string; count: number }[] = [
     { id: "plugins", label: "Plugins", count: plugins.length },
@@ -54,66 +50,57 @@ export function CatalogueTabs({
 
   return (
     <div className="flex flex-col gap-6">
-      <div
-        role="tablist"
-        aria-label="Browse by"
-        onKeyDown={onKeyDown}
-        className="flex w-fit gap-1 rounded-lg border border-line bg-surface p-1"
-      >
-        {tabs.map((tab) => {
-          const isOn = view === tab.id;
-          return (
-            <button
-              key={tab.id}
-              id={`catalogue-tab-${tab.id}`}
-              ref={(node) => {
-                tabRefs.current[tab.id] = node;
-              }}
-              role="tab"
-              type="button"
-              aria-selected={isOn}
-              aria-controls={`catalogue-panel-${tab.id}`}
-              // Roving tabIndex: one stop for the whole tablist, arrows move within it.
-              tabIndex={isOn ? 0 : -1}
-              onClick={() => setView(tab.id)}
-              className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors ${
-                isOn
-                  ? "bg-accent-wash text-ink"
-                  : "text-ink-muted hover:text-ink"
-              }`}
-            >
-              {tab.label}
-              <span className="font-mono text-[0.65rem] text-ink-faint">
-                {tab.count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Gated on `placeholder`, which is what makes the internal Linear link below safe: the
-          notice and the link both disappear the moment the generated index replaces the
-          hand-extracted file, which is the same moment this page is fit to publish. */}
-      {view === "skills" && placeholder && (
-        <p className="rounded-lg border border-line bg-surface-raised px-4 py-3 text-sm text-ink-muted">
-          Preview. {allSkills.length} rows: {liveSkills.length} skills that ship
-          in the catalogue today, plus {plannedCount} marked{" "}
-          <span className="font-mono">Planned</span> that do not exist yet (the
-          document formats agreed in{" "}
-          <a
-            href="https://linear.app/korza-ai/issue/DX-22"
-            className="underline hover:text-ink"
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-4">
+          <h1 className="font-display text-3xl font-semibold tracking-tight">
+            Skills
+          </h1>
+          <div
+            role="tablist"
+            aria-label="Browse by"
+            onKeyDown={onKeyDown}
+            className="flex w-fit gap-1 rounded-lg border border-line bg-surface p-1"
           >
-            DX-22
-          </a>
-          ). The live rows were read from the source repositories on 2026-08-26
-          and will be generated in CI once that lands. {toolchain.length} of the{" "}
-          {allSkills.length} sit under Setup and toolchain at the foot of the
-          page: the filters do not apply to them, though search still finds
-          them. <span className="font-mono">Category</span> is a hand-authored
-          classification, pending an agreed metadata standard.
+            {tabs.map((tab) => {
+              const isOn = view === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  id={`catalogue-tab-${tab.id}`}
+                  ref={(node) => {
+                    tabRefs.current[tab.id] = node;
+                  }}
+                  role="tab"
+                  type="button"
+                  aria-selected={isOn}
+                  aria-controls={`catalogue-panel-${tab.id}`}
+                  // Roving tabIndex: one stop for the whole tablist, arrows move within it.
+                  tabIndex={isOn ? 0 : -1}
+                  onClick={() => setView(tab.id)}
+                  className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors ${
+                    isOn
+                      ? "border border-line-strong bg-accent-wash text-ink"
+                      : "border border-transparent text-ink-muted hover:text-ink"
+                  }`}
+                >
+                  {tab.label}
+                  <span
+                    className={`font-mono text-[0.65rem] ${isOn ? "text-ink" : "text-ink-faint"}`}
+                  >
+                    {tab.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <p className="max-w-2xl leading-relaxed text-ink-muted">
+          {view === "plugins"
+            ? "Skills ship as plugins, so a plugin is what you install. Open one to see what it solves and how to install it in Claude Code or Codex. Sources live in their own repos; this is a catalogue, not an installer."
+            : "Find a skill by the job it does. Each one ships inside a plugin — open the plugin to install it in Claude Code or Codex."}
         </p>
-      )}
+      </div>
 
       {/* Both panels stay mounted, with the inactive one hidden. Mounting on selection was
           cheaper, but it reset every filter on each tab switch: filter the skills, flip to
@@ -124,7 +111,6 @@ export function CatalogueTabs({
         id="catalogue-panel-plugins"
         aria-labelledby="catalogue-tab-plugins"
         hidden={view !== "plugins"}
-        tabIndex={0}
       >
         <PluginsCatalogue entries={plugins} />
       </div>
@@ -133,7 +119,6 @@ export function CatalogueTabs({
         id="catalogue-panel-skills"
         aria-labelledby="catalogue-tab-skills"
         hidden={view !== "skills"}
-        tabIndex={0}
       >
         <SkillsCatalogue entries={skills} toolchain={toolchain} />
       </div>

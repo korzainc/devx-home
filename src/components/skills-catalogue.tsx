@@ -2,71 +2,32 @@
 
 import Link from "next/link";
 import { CatalogueGrid } from "@/components/catalogue-grid";
-import {
-  describeVersion,
-  rivalPlugins,
-  skillFacets,
-  versionStatusFor,
-  type SkillEntry,
-} from "@/lib/catalogue";
+import { shortAgents, skillFacets, type SkillEntry } from "@/lib/catalogue";
 
-// A skill is not installable alone, so the card links to the plugin that ships it.
+// Category and origin are facets, not card text: after filtering they read the same on every card.
 function SkillCard({ skill }: { skill: SkillEntry }) {
-  const planned = skill.status === "Planned";
-  const pin = versionStatusFor(skill.plugin);
-  const rivals = rivalPlugins(skill);
+  const agents = shortAgents(skill.agents);
 
   return (
     <Link
-      href={`/skills/${skill.plugin}`}
-      className="group flex h-full flex-col gap-2 rounded-xl border border-line bg-surface p-5 transition-colors hover:border-line-strong hover:bg-surface-raised"
+      href={`/skills/${skill.plugin}#${skill.name}`}
+      className="group flex h-full flex-col rounded-xl border border-line bg-surface p-5 transition-colors hover:border-line-strong hover:bg-surface-raised"
     >
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="flex items-baseline gap-1.5">
-          <span className="font-mono text-sm font-medium text-ink group-hover:text-accent">
-            /{skill.name}
-          </span>
-          {rivals.length > 0 && (
-            <span
-              title={`Also claimed by ${rivals.join(", ")}`}
-              className="rounded border border-line-strong px-1 py-0.5 font-mono text-[0.55rem] text-ink-muted"
-            >
-              also in {rivals.join(", ")}
-            </span>
-          )}
-        </span>
-        {planned ? (
-          <span className="shrink-0 rounded border border-line px-1.5 py-0.5 font-mono text-[0.6rem] tracking-wide text-ink-faint uppercase">
-            Planned
-          </span>
-        ) : (
-          <span className="shrink-0 font-mono text-[0.65rem] text-ink-faint">
-            {skill.plugin}
-          </span>
-        )}
-      </div>
+      <span className="font-mono text-[0.9375rem] leading-snug font-medium text-ink [overflow-wrap:anywhere]">
+        <span className="text-accent">/</span>
+        {skill.name}
+      </span>
 
-      <p className="line-clamp-3 flex-1 text-sm leading-relaxed text-ink-muted">
-        {skill.summary}
+      <p className="mt-2.5 mb-4 text-[0.8125rem] leading-relaxed text-ink-muted">
+        {skill.summary ?? skill.description}
       </p>
 
-      {/* Pin state rides along: 36 of the 51 live skills come from a plugin that is unpinned or
-          has no releases. Skipped for Planned skills, which have nothing pinned yet. */}
-      <div className="flex items-center gap-1.5 font-mono text-[0.65rem] text-ink-faint">
-        <span className="rounded border border-line px-1.5 py-0.5 text-ink-muted">
-          {skill.category}
-        </span>
-        <span>{skill.origin}</span>
-        {!planned && pin && (
-          <>
-            <span aria-hidden>·</span>
-            <span className={pin.state === "current" ? "" : "text-ink-muted"}>
-              {describeVersion(pin)}
-            </span>
-          </>
-        )}
-        <span className="ml-auto group-hover:text-accent">
-          {planned ? "intended plugin →" : "how to install →"}
+      {/* Claude Code is on every skill, so it says nothing alone: the signal is whether codex
+          sits beside it. */}
+      <div className="mt-auto flex items-baseline justify-between gap-3 border-t border-line pt-3.5 font-mono text-[0.65rem] text-ink-faint">
+        <span className="shrink-0">{agents.join(" · ")}</span>
+        <span className="truncate transition-colors group-hover:text-accent">
+          {skill.plugin}
         </span>
       </div>
     </Link>
@@ -90,7 +51,7 @@ export function SkillsCatalogue({
       renderCard={(skill) => <SkillCard skill={skill} />}
       unclassified={toolchain}
       unclassifiedLabel="Setup and toolchain"
-      unclassifiedNote="These configure a plugin or describe the toolchain itself rather than doing a job, so the filters above do not apply to them. Search still finds them."
+      unclassifiedNote="These configure a plugin or describe the toolchain itself — filters above do not apply, search still finds them."
     />
   );
 }

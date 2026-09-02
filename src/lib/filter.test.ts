@@ -62,7 +62,7 @@ describe("grid filtering", () => {
     for (const skill of codex) expect(skill.agents).toContain("Codex CLI");
   });
 
-  // Not every value: all 48 run on Claude Code. A facet where EVERY value covers everything
+  // Not every value: every skill runs on Claude Code. A facet where EVERY value covers everything
   // is not a control.
   it("gives every facet values that each match something and one that narrows", () => {
     for (const facet of skillFacets) {
