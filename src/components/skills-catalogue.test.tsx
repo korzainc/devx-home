@@ -378,6 +378,19 @@ describe("a search that only the toolchain matches", () => {
     expect(cardCount()).toBe(0);
   });
 
+  it("does not claim nothing matches while a collapsed section holds the match", () => {
+    // Collapsing search-revealed rows hides them; it does not make the match stop existing.
+    renderPage();
+
+    fireEvent.change(search(), { target: { value: "teach" } });
+    fireEvent.click(
+      screen.getByRole("button", { name: /^Setup and toolchain/ }),
+    );
+
+    expect(screen.queryByText("No skill matches those filters.")).toBeNull();
+    expect(cardCount()).toBe(0);
+  });
+
   it("still shows the empty state when a facet leaves nothing", () => {
     // The toolchain rows match an empty query, so gating the empty state on them hid it
     // whenever a facet combination found nothing.

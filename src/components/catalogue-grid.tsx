@@ -110,6 +110,10 @@ export function CatalogueGrid<T extends CatalogueEntry>({
   // each other or the rows themselves.
   const onScreen =
     visible.length + (unclassifiedShown ? visibleUnclassified.length : 0);
+  // What the search could reveal, pinned or not: a collapsed section may hold the only match.
+  const couldShow =
+    visible.length +
+    (searching && !facetsActive ? visibleUnclassified.length : 0);
 
   const activeCount = Object.values(selected).reduce(
     (total, picked) => total + picked.length,
@@ -259,7 +263,7 @@ export function CatalogueGrid<T extends CatalogueEntry>({
         </div>
       )}
 
-      {onScreen === 0 && (
+      {onScreen === 0 && couldShow === 0 && (
         <p className="rounded-xl border border-dashed border-line px-6 py-16 text-center text-sm text-ink-muted">
           No {noun} matches those filters.
         </p>
