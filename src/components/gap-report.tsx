@@ -38,9 +38,9 @@ function RecommendedTools({
   alwaysAttribute = false,
 }: {
   tools: CapabilityReport["recommended"];
-  /** Task 9 passes true for a partially-covered capability: even a single remaining tool needs
-   * its stack named there, since the reader already sees another stack's tool sitting right
-   * above it in the present list. */
+  /** Set by a caller rendering a capability that's already partially satisfied by another
+   * stack's tool, so the reader needs this remaining tool's stack named explicitly, even
+   * alone. */
   alwaysAttribute?: boolean;
 }) {
   const formatter = isDisjunction(tools) ? alternatives : requirements;

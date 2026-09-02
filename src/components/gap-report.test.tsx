@@ -105,6 +105,11 @@ describe("GapReport", () => {
     expect(screen.getByText(/for Go/)).toBeTruthy();
     expect(screen.queryByText(/and one is enough/)).toBeNull();
     expect(screen.queryByText(/ or /)).toBeNull();
+    // Pins the Link-nesting invariant structurally: if "for JavaScript" ever leaked inside the
+    // anchor, its accessible name would become "ESLint for JavaScript" and this lookup for a
+    // link named exactly "ESLint" would fail to find it.
+    expect(screen.getByRole("link", { name: "ESLint" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "golangci-lint" })).toBeTruthy();
   });
 
   it("still phrases genuine alternatives with or and 'one is enough'", () => {
