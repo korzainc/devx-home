@@ -212,7 +212,6 @@ describe("the page around the grid", () => {
         plugins={plugins}
         skills={browsableSkills}
         toolchain={toolchainSkills}
-        placeholder={false}
       />,
     );
     fireEvent.click(screen.getByRole("tab", { name: /^Skills/ }));

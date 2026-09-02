@@ -5,7 +5,6 @@ import {
   browsableSkills,
   indexSchemaVersion,
   plugins,
-  skillsArePlaceholder,
   toolchainSkills,
 } from "@/lib/catalogue";
 
@@ -31,29 +30,23 @@ export default function SkillsPage() {
           plugins={plugins}
           skills={browsableSkills}
           toolchain={toolchainSkills}
-          placeholder={skillsArePlaceholder}
         />
       </div>
 
-      {/* Where the numbers came from. Pre-empts "is this real?" and makes the generated-index
-          promise concrete: once CI produces the file, the commit replaces the date.
-
-          It says "entries", not "five source repositories": pyright-lsp contributes no skills,
-          so the index came from four repos, and the Plugin facet on the next tab lists exactly
-          four values. */}
+      {/* Provenance only. A date or a tally written here goes stale the next time the index
+          is regenerated, and deriving the tally from skill rows undercounts: an entry that
+          ships no skills has no rows. Each entry's ref is on its own page instead. */}
       <footer className="border-t border-line pt-4 font-mono text-xs text-ink-faint">
-        Skill index: schema v{indexSchemaVersion}. Read on 2026-08-26 from the
-        entries listed in{" "}
+        Skill index: schema v{indexSchemaVersion}, generated from the entries
+        listed in{" "}
         <a
           href="https://github.com/korzainc/marketplace"
           className="hover:text-accent"
         >
           korzainc/marketplace
         </a>
-        , each at the ref the catalogue records
-        {skillsArePlaceholder && ", by hand pending the generator"}. Three of
-        those refs are branches rather than tags, so those entries track
-        whatever upstream ships next.
+        , each at the ref the catalogue records, which each entry&rsquo;s page
+        shows beside its name.
       </footer>
     </div>
   );

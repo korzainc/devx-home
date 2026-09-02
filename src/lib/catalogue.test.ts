@@ -8,7 +8,6 @@ import {
   marketplaceRepo,
   getPlugin,
   plugins,
-  skillsArePlaceholder,
   tools,
 } from "./catalogue";
 
@@ -139,7 +138,7 @@ describe("provenance", () => {
   // derivation agree.
   it("declares the skill index as generated, at the schema the file states", () => {
     // Fails if a hand-extracted file is dropped back in.
-    expect(skillsArePlaceholder).toBe(false);
+    expect(skillsData.placeholder).toBe(false);
     expect(indexSchemaVersion).toBe(skillsData.schemaVersion);
     expect(indexSchemaVersion).toBeGreaterThan(0);
   });

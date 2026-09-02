@@ -13,14 +13,12 @@ export function CatalogueTabs({
   plugins,
   skills,
   toolchain,
-  placeholder,
 }: {
   plugins: PluginEntry[];
   /** The classified rows: everything the facets apply to. */
   skills: SkillEntry[];
   /** Setup and meta rows. Listed and searchable, but outside every facet. */
   toolchain: SkillEntry[];
-  placeholder: boolean;
 }) {
   const [view, setView] = useState<View>("plugins");
   const tabRefs = useRef<Record<View, HTMLButtonElement | null>>({
@@ -103,20 +101,6 @@ export function CatalogueTabs({
             : "Find a skill by the job it does. Each one ships inside a plugin — open the plugin to install it in Claude Code or Codex."}
         </p>
       </div>
-
-      {/* Gated on `placeholder`, which is what makes the internal Linear link below safe: the
-          notice and the link both disappear the moment the generated index replaces the
-          hand-extracted file, which is the same moment this page is fit to publish. */}
-      {view === "skills" && placeholder && (
-        <p className="rounded-lg border border-line bg-surface-raised px-4 py-3 text-sm text-ink-muted">
-          Preview. {allSkills.length} skills, read from the source repositories
-          on 2026-08-26 and generated in CI once that lands. {toolchain.length}{" "}
-          of them sit under Setup and toolchain at the foot of the page: the
-          filters do not apply to them, though search still finds them.{" "}
-          <span className="font-mono">Category</span> is a hand-authored
-          classification, pending an agreed metadata standard.
-        </p>
-      )}
 
       {/* Both panels stay mounted, with the inactive one hidden. Mounting on selection was
           cheaper, but it reset every filter on each tab switch: filter the skills, flip to

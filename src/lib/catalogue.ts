@@ -113,8 +113,6 @@ export const toolchainSkills: SkillEntry[] = skills.filter(
   (skill) => skill.kind !== "skill",
 );
 
-export const skillsArePlaceholder: boolean = skillsData.placeholder === true;
-
 export const indexSchemaVersion: number = skillsData.schemaVersion;
 
 export function skillsForPlugin(pluginId: string): SkillEntry[] {
