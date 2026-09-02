@@ -1,6 +1,6 @@
 import { analyze } from "./analyze";
 import { githubReader } from "./github";
-import { RepoReadError } from "./types";
+import { CatalogueDataError, RepoReadError } from "./types";
 import type { Analysis, AnalysisTool, Baseline, RepoReader } from "./types";
 
 // Adding a provider means adding a reader here. The first one whose `parseRef` recognises the
@@ -56,6 +56,9 @@ export async function runAnalysis(
   } catch (error) {
     if (error instanceof RepoReadError) {
       return { ok: false, status: statusFor(error), error: error.message };
+    }
+    if (error instanceof CatalogueDataError) {
+      return { ok: false, status: 500, error: error.message };
     }
     throw error;
   }
