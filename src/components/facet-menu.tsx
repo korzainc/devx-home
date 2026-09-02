@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 /** Gap kept clear of the viewport edge. */
 const EDGE = 8;
 
-/** One facet as a dropdown. The count sits on the button so a closed menu still says it is on. */
+/** The count sits on the button so a closed menu still says it is on. */
 export function FacetMenu({
   label,
   options,

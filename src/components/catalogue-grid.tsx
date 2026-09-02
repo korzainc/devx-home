@@ -18,8 +18,7 @@ type CatalogueGridProps<T extends CatalogueEntry> = {
   facets: Facet<T>[];
   renderCard: (entry: T) => ReactNode;
   searchLabel: string;
-  /** Singular noun for the rows, used in the empty state. Required, so a caller cannot
-   * silently inherit a wrong one. */
+  /** Singular noun for the rows, used in the empty state. */
   noun: string;
   /**
    * Rows the page lists but does not classify. Search reaches them; facet chips do not, and
@@ -87,7 +86,7 @@ export function CatalogueGrid<T extends CatalogueEntry>({
     [entries, facets, query, selected],
   );
 
-  // Query only. An empty facet list is what makes that literal rather than a promise.
+  // Query only: these rows are never faceted.
   const visibleUnclassified = useMemo(
     () =>
       filterEntries({
@@ -217,8 +216,8 @@ export function CatalogueGrid<T extends CatalogueEntry>({
                     aria-label={`Remove ${facet.label} filter: ${value}`}
                     onClick={(event) => {
                       toggle(facet.key, value);
-                      // Keyboard only: this chip is about to unmount, and on a mouse click
-                      // there is no focus worth rescuing.
+                      // Keyboard only: a text input always matches :focus-visible, so
+                      // doing this on a mouse click paints an accent ring on the field.
                       if (event.detail === 0) searchRef.current?.focus();
                     }}
                     className="flex items-center gap-1.5 rounded-full border border-line-strong bg-accent-wash px-3 py-1 text-xs text-ink transition-colors hover:border-line"
@@ -265,8 +264,7 @@ export function CatalogueGrid<T extends CatalogueEntry>({
 
       {visibleUnclassified.length > 0 && (
         <section className="flex flex-col gap-4">
-          {/* Collapsed by default: these are listed for completeness rather than to be
-              browsed, and open they push the classified rows off the first screen. */}
+          {/* Open, these nine push the classified rows off the first screen. */}
           <button
             type="button"
             aria-expanded={unclassifiedOpen}
