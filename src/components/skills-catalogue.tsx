@@ -19,7 +19,7 @@ function SkillCard({ skill }: { skill: SkillEntry }) {
       </span>
 
       <p className="mt-2.5 mb-4 text-[0.8125rem] leading-relaxed text-ink-muted">
-        {skill.summary || skill.description}
+        {skill.summary ?? skill.description}
       </p>
 
       {/* Claude Code is on every skill, so it says nothing alone: the signal is whether codex

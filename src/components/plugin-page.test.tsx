@@ -69,6 +69,25 @@ describe("the install panel", () => {
     expect(written).toEqual([claude.install]);
   });
 
+  it("acknowledges a copy without resizing the button", async () => {
+    // A word in place of the icon grew the button and took the width off the command beside it.
+    const written: string[] = [];
+    vi.stubGlobal("navigator", {
+      ...navigator,
+      clipboard: { writeText: async (v: string) => void written.push(v) },
+    });
+    render(<InstallPanel commands={installCommands(codezen)} />);
+    const button = screen.getByRole("button", { name: /^Copy install/ });
+    const label = button.textContent;
+
+    fireEvent.click(button);
+    await waitFor(() => expect(written).toHaveLength(1));
+    expect(button.textContent).toBe(label);
+    expect(button.querySelector("path")?.getAttribute("class")).toContain(
+      "text-positive",
+    );
+  });
+
   it("offers no control for an agent the plugin does not ship for", () => {
     expect(mattpocock.agents).toEqual(["Claude Code"]);
     render(<InstallPanel commands={installCommands(mattpocock)} />);
@@ -103,5 +122,22 @@ describe("the skills in a plugin", () => {
   it("does not offer to expand when everything is already shown", () => {
     render(<PluginSkills skills={skills.slice(0, 3)} />);
     expect(screen.queryByRole("button", { name: /^Show all/ })).toBeNull();
+  });
+
+  it("falls back to the upstream description when a skill has no summary", () => {
+    // The generator emits a null summary for a skill with no overlay entry, so the card has
+    // to read from somewhere; an unhandled null renders a card with a name and no text.
+    const [first] = skills;
+    render(<PluginSkills skills={[{ ...first, summary: null }]} />);
+    expect(screen.getByText(first.description)).toBeTruthy();
+  });
+
+  it("survives a hash that is not valid encoding", () => {
+    // "#%" throws inside decodeURIComponent. Thrown during render it takes down the list,
+    // not just the anchor.
+    window.location.hash = "#%";
+    expect(() => render(<PluginSkills skills={skills} />)).not.toThrow();
+    expect(screen.getByRole("button", { name: /^Show all/ })).toBeTruthy();
+    window.location.hash = "";
   });
 });

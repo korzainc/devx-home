@@ -5,7 +5,16 @@ import type { SkillEntry } from "@/lib/catalogue";
 
 const PREVIEW = 5;
 
-const readHash = () => decodeURIComponent(window.location.hash.slice(1));
+const readHash = () => {
+  const raw = window.location.hash.slice(1);
+  // A hand-typed "#%" is not valid encoding. Decoding throws during render, which takes the
+  // whole list down rather than failing to find one skill.
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+};
 
 function subscribeToHash(onChange: () => void) {
   window.addEventListener("hashchange", onChange);
@@ -44,7 +53,7 @@ export function PluginSkills({ skills }: { skills: SkillEntry[] }) {
               {skill.name}
             </span>
             <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-ink-muted">
-              {skill.summary || skill.description}
+              {skill.summary ?? skill.description}
             </p>
           </div>
         ))}
@@ -56,7 +65,12 @@ export function PluginSkills({ skills }: { skills: SkillEntry[] }) {
             type="button"
             aria-expanded={showAll}
             onClick={() => {
-              if (showAll) history.replaceState(null, "", location.pathname);
+              if (showAll)
+                history.replaceState(
+                  null,
+                  "",
+                  location.pathname + location.search,
+                );
               setExpanded(!showAll);
             }}
             className="rounded-xl border border-dashed border-line p-4 text-sm text-ink-muted transition-colors hover:border-line-strong hover:text-ink"

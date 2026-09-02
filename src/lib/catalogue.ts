@@ -46,7 +46,7 @@ export type SkillEntry = CatalogueEntry & {
   kind: "skill" | "setup" | "meta";
   /** Searched, not rendered. */
   jobs: string[];
-  /** Upstream's SKILL.md text: searched, not rendered. */
+  /** Upstream's SKILL.md text. Searched, and rendered when `summary` is null. */
   description: string;
   invocation: string;
   licence: { spdx: string; osiApproved: boolean; source: string };
