@@ -20,7 +20,6 @@ export function CollapsibleGrid({
 }) {
   const [expanded, setExpanded] = useState(false);
   const shown = expanded ? items : items.slice(0, PREVIEW);
-  const hidden = items.length - shown.length;
 
   return (
     <section className="flex flex-col gap-4">
@@ -33,29 +32,22 @@ export function CollapsibleGrid({
           <div key={item.key}>{item.node}</div>
         ))}
 
-        {hidden > 0 && (
+        {items.length > PREVIEW && (
+          // One button rather than two that swap: activating one that then unmounts
+          // drops focus to the body.
           <button
             type="button"
-            onClick={() => setExpanded(true)}
+            aria-expanded={expanded}
+            onClick={() => setExpanded((was) => !was)}
             className="rounded-xl border border-dashed border-line p-4 text-sm text-ink-muted transition-colors hover:border-line-strong hover:text-ink"
           >
-            Show all {items.length} {noun}
+            {expanded ? "Show fewer" : `Show all ${items.length} ${noun}`}
             <span aria-hidden className="ml-1.5 text-[0.65rem]">
-              ▾
+              {expanded ? "▴" : "▾"}
             </span>
           </button>
         )}
       </div>
-
-      {expanded && items.length > PREVIEW && (
-        <button
-          type="button"
-          onClick={() => setExpanded(false)}
-          className="w-fit text-sm text-accent hover:underline"
-        >
-          Show fewer
-        </button>
-      )}
     </section>
   );
 }

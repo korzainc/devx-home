@@ -40,15 +40,22 @@ describe("CollapsibleGrid", () => {
     screen.getByText("Skills in this plugin (11)");
     expect(screen.getAllByText(/^Item \d+$/)).toHaveLength(5);
 
-    fireEvent.click(
-      screen.getByRole("button", { name: /show all 11 skills/i }),
-    );
-    expect(screen.getAllByText(/^Item \d+$/)).toHaveLength(11);
-    expect(screen.queryByRole("button", { name: /show all/i })).toBeNull();
+    const toggle = screen.getByRole("button", {
+      name: /show all 11 skills/i,
+    });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
 
-    fireEvent.click(screen.getByRole("button", { name: /show fewer/i }));
+    fireEvent.click(toggle);
+    expect(screen.getAllByText(/^Item \d+$/)).toHaveLength(11);
+    // Same element throughout: it never unmounts, so focus never drops to the body.
+    expect(screen.getByRole("button", { name: /show fewer/i })).toBe(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+
+    fireEvent.click(toggle);
     expect(screen.getAllByText(/^Item \d+$/)).toHaveLength(5);
-    // getByRole throws if it's missing, which is the assertion that the button came back.
-    screen.getByRole("button", { name: /show all 11 skills/i });
+    expect(screen.getByRole("button", { name: /show all 11 skills/i })).toBe(
+      toggle,
+    );
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
   });
 });
