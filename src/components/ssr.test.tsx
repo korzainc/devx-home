@@ -8,11 +8,8 @@ import { SkillContextStrip } from "@/components/skill-context-strip";
 import { skillsForPlugin } from "@/lib/catalogue";
 
 /**
- * The only tests that run outside jsdom. Both components read the URL through a store whose
- * server snapshot is deliberately empty, and every other test in the suite runs where `window`
- * exists — so the whole prerender path, and the reason that snapshot is a constant, had no
- * coverage at all. Reading the live URL there instead crashes the build, silently as far as the
- * rest of the suite is concerned.
+ * The only tests outside jsdom. The store's server snapshot must be a constant: reading the
+ * live URL there crashes the prerender, and every other test runs where `window` exists.
  */
 
 const skills = skillsForPlugin("mattpocock-skills");

@@ -62,8 +62,7 @@ describe("CollapsibleGrid", () => {
   });
 
   it("offers no control when the count is exactly the preview", () => {
-    // The boundary: `>` and `>=` are indistinguishable at 4 or 11 items, so a plugin with
-    // exactly five skills would grow a "Show all 5 skills" button that expands to the same five.
+    // `>` and `>=` are indistinguishable at 4 or 11 items.
     render(
       <CollapsibleGrid
         id="grid"
@@ -77,8 +76,7 @@ describe("CollapsibleGrid", () => {
   });
 
   it("names the grid it expands, so aria-expanded says what is expanding", () => {
-    // aria-expanded on its own announces a state with no object. The grid it refers to is the
-    // one an outside control also has to be able to name.
+    // aria-expanded alone announces a state with no object.
     render(
       <CollapsibleGrid
         id="skills-in-this-plugin"

@@ -9,15 +9,10 @@ import {
   subscribeToLocation,
 } from "@/lib/skill-link";
 
-/**
- * Names the skill you clicked to get here. The plugin page is otherwise identical however you
- * arrived, so without this the list below is 25 cards and no indication which one you asked for.
- * The matching card carries the mark; this carries the name, the position and the way in.
- */
+/** Names the skill you clicked to get here; the matching card carries the mark. */
 export function SkillContextStrip({ skills }: { skills: SkillEntry[] }) {
-  // The server snapshot is empty so the prerendered markup and the first client render agree,
-  // and the strip appears on hydration. Reading `searchParams` on the server instead would make
-  // this route dynamic or need a Suspense boundary, which is a bigger change than it looks.
+  // Empty server snapshot, so the strip appears on hydration. Reading `searchParams` on the
+  // server instead costs the static route.
   const openedFor = useSyncExternalStore(
     subscribeToLocation,
     readOpenedSkill,
@@ -43,22 +38,14 @@ export function SkillContextStrip({ skills }: { skills: SkillEntry[] }) {
           {openedFor}
         </span>
         {skill ? (
-          // Clamped because this falls back to upstream's own SKILL.md prose, which runs to
-          // ~890 characters in the current index. Unclamped that made the strip 511px tall on
-          // a 390px-wide phone, pushing the install panel off the first screen. Every row has
-          // a summary today, so the fallback only fires when CI picks up a new upstream skill
-          // before the Korza overlay catches up.
+          // Clamped: the fallback is upstream SKILL.md prose, ~890 chars at its longest.
           <p className="line-clamp-2 text-[0.8125rem] leading-relaxed text-ink-muted">
             {skill.summary ?? skill.description}
           </p>
         ) : (
-          // Names no cause. It reads as "renamed upstream" but the same branch catches a
-          // skill that is merely unreleased: the six `Planned` rows are filtered out of the
-          // index, so /skills/codezen?skill=design-doc lands here while that skill is neither
-          // renamed nor gone.
-          //
-          // A whole sentence, not a predicate: the name above it is a separate element, so a
-          // fragment here reads as "is not in this plugin" on its own to a screen reader.
+          // Names no cause: this also catches the `Planned` rows, which are filtered out of
+          // the index and neither renamed nor gone. A whole sentence, because the name above
+          // is a separate element.
           <p className="text-[0.8125rem] leading-relaxed text-ink-muted">
             This skill is not in the plugin&apos;s current index.
           </p>

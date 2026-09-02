@@ -17,15 +17,12 @@ import { skillsForPlugin } from "@/lib/catalogue";
 import { SKILL_LIST_ID } from "@/lib/skill-link";
 
 /**
- * The strip sits above the install fold and the list sits below it, with a server component in
- * between, so they cannot share React state. These tests are the contract between them.
- *
- * What is NOT here, because jsdom cannot express it: an `<Activity>` hide/show. Next hides pages
- * rather than unmounting them, and the jump's reset hangs off that. Its proof is a CDP run.
+ * The contract between the strip and the list, which cannot share state.
+ * Not here, because jsdom cannot hide a tree: the `<Activity>` reset. Proven by CDP.
  */
 
 beforeEach(() => {
-  // jsdom has no layout engine, so it implements neither of these.
+  // jsdom implements neither.
   Element.prototype.scrollIntoView = vi.fn();
   vi.stubGlobal("scrollTo", vi.fn());
 });
@@ -41,9 +38,8 @@ const openedFor = (name: string) =>
 
 const skills = skillsForPlugin("mattpocock-skills");
 
-// Positions relative to PREVIEW, never hardcoded. The index that matters most is the boundary:
-// hardcoded 1-and-17 fixtures straddled it without landing on it, which is how a broken jump
-// for exactly one skill stayed invisible.
+// Relative to PREVIEW, never hardcoded: fixed indices straddled the boundary without landing
+// on it, which hid a jump that does nothing for exactly one skill.
 const inside = skills[1];
 const boundary = skills[PREVIEW];
 const past = skills[PREVIEW + 12];
@@ -65,8 +61,7 @@ function renderPage() {
   rerenderPage = () => rerender(<Page />);
 }
 
-// Scoped to the list: the strip names the target skill too, so an unscoped count reads one
-// card more than the grid is actually showing.
+// Scoped: the strip names the skill too, so an unscoped count reads one card too many.
 const list = () => within(document.getElementById(SKILL_LIST_ID)!);
 const shownCount = () =>
   skills.filter((skill) => list().queryByText(skill.name)).length;
@@ -85,16 +80,14 @@ describe("arriving from a skill card", () => {
       }),
     ).toBeTruthy();
     expect(screen.getByText(position(past))).toBeTruthy();
-    // First rows are the plugin's own order, not the target hoisted to the top.
+    // The plugin's own order, not the target hoisted to the top.
     expect(list().queryByText(skills[0].name)).toBeTruthy();
     expect(list().queryByText(past.name)).toBeNull();
   });
 
   it("moves neither the viewport nor the scroll position on arrival", () => {
-    // Auto-scrolling puts the install commands behind the reader, which is the cost treatment
-    // B pays and A does not. `scrollTo` is asserted too: an earlier fix reset the scroll here
-    // and stomped the position the browser restores on a reload. Nothing may move the window
-    // on arrival.
+    // Nothing may move the window on arrival: auto-scroll hides the install commands, and a
+    // scroll reset here stomped what the browser restores on reload.
     openedFor(past.name);
     renderPage();
 
@@ -109,19 +102,17 @@ describe("arriving from a skill card", () => {
 
     expect(shownCount()).toBe(skills.length);
     const card = document.getElementById(past.name);
-    // Focus, not just scroll: a keyboard user who activates the control is otherwise left on
-    // a button at the top of the page while the view moves without them.
+    // Focus too, or a keyboard user is left behind while the view moves.
     expect(document.activeElement).toBe(card);
     expect(card?.getAttribute("tabindex")).toBe("-1");
-    // Centred, not "start": the sticky header would otherwise sit over the card.
+    // Centred, not "start": the sticky header would sit over the card.
     expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({
       block: "center",
     });
   });
 
   it("reveals the first skill hidden behind the preview", () => {
-    // The boundary. One off-by-one in `focusedIndex >= PREVIEW` leaves the grid collapsed for
-    // exactly this skill, so its card never mounts and the control does nothing at all.
+    // Off-by-one here leaves the grid collapsed for this one skill; the control does nothing.
     openedFor(boundary.name);
     renderPage();
     expect(list().queryByText(boundary.name)).toBeNull();
@@ -141,8 +132,7 @@ describe("arriving from a skill card", () => {
   });
 
   it("collapses again after a jump", () => {
-    // The jump forces the grid open from outside its own toggle, so the toggle has to be able
-    // to undo it, or the grid is stuck open for the rest of the visit.
+    // The jump opens the grid from outside its toggle; the toggle must still close it.
     openedFor(past.name);
     renderPage();
     jump();
@@ -153,8 +143,7 @@ describe("arriving from a skill card", () => {
   });
 
   it("moves focus back to the card when the control is used a second time", () => {
-    // Reading further down and then reaching for the strip again is the obvious second use.
-    // Keyed only on the skill name, the second press is a no-op because the name never changed.
+    // Keyed on the name alone, a second press is a no-op.
     openedFor(past.name);
     renderPage();
     jump();
@@ -167,8 +156,7 @@ describe("arriving from a skill card", () => {
   });
 
   it("still names the skill after the list collapses again", () => {
-    // The strip reads the URL, so anything on this page that rewrites it blanks the strip
-    // mid-visit. The list used to clear the URL on collapse for its own reasons.
+    // The list used to clear the URL on collapse, which blanked the strip.
     openedFor(past.name);
     renderPage();
     jump();
@@ -181,8 +169,7 @@ describe("arriving from a skill card", () => {
 
 describe("the mark on the opened card", () => {
   it("marks the card the page was opened for, and only that one", () => {
-    // A mark on every card identifies nothing, which is the failure the strip exists to
-    // prevent. Both halves matter: the ARIA state, and the border a sighted reader sees.
+    // A mark on every card identifies nothing. Both halves: the ARIA state and the border.
     openedFor(inside.name);
     renderPage();
 
@@ -213,15 +200,13 @@ describe("the mark on the opened card", () => {
   });
 
   it("updates on back and forward, with no re-render to lean on", () => {
-    // The subscription's only job. Everything else in this file re-renders for other reasons,
-    // so swapping popstate for another event went unnoticed.
+    // The subscription's only job; everything else here re-renders for other reasons.
     openedFor(past.name);
     renderPage();
     expect(screen.getByText(position(past))).toBeTruthy();
 
     history.pushState(null, "", `?skill=${inside.name}`);
-    // Raw dispatch, not fireEvent: the point is that the store notifies with nothing else
-    // prompting a render. act() only flushes what React schedules in response.
+    // Raw dispatch: the store must notify with nothing else prompting a render.
     act(() => void window.dispatchEvent(new PopStateEvent("popstate")));
 
     expect(screen.getByText(position(inside))).toBeTruthy();
@@ -230,8 +215,7 @@ describe("the mark on the opened card", () => {
 
 describe("focus when the list collapses", () => {
   it("takes focus off a card the collapse is about to remove", () => {
-    // Clicking a button does not focus it on Safari or Firefox, so the focused row was
-    // unmounted underneath focus and the next Tab restarted at the top of the document.
+    // On Safari and Firefox the click does not focus the button, so the row unmounts under it.
     openedFor(past.name);
     renderPage();
     jump();
@@ -243,8 +227,7 @@ describe("focus when the list collapses", () => {
   });
 
   it("leaves focus alone on a card that survives the collapse", () => {
-    // Rows inside the preview stay mounted, so there is no reason to move focus off them.
-    // A whole-grid check stole focus from them too.
+    // Preview rows stay mounted, so they keep focus. A whole-grid check took it anyway.
     openedFor(past.name);
     renderPage();
     jump();
@@ -271,8 +254,7 @@ describe("focus when the list collapses", () => {
 
 describe("the wiring between the two", () => {
   it("points the strip's control at the grid that holds the cards", () => {
-    // Not merely at *something* carrying that id: on an ancestor, aria-controls would name a
-    // region containing the control itself, and the toggle would name the heading.
+    // Not merely at *something* with that id: on an ancestor it would contain the control.
     openedFor(past.name);
     renderPage();
 
@@ -286,8 +268,7 @@ describe("the wiring between the two", () => {
   });
 
   it("stops listening once the list goes away", () => {
-    // Both stores hand back a cleanup. Without it every mount leaves a listener behind and a
-    // dead component keeps reacting to navigation.
+    // Without the cleanups every mount leaves a listener behind.
     const removed: string[] = [];
     const spy = vi
       .spyOn(window, "removeEventListener")
