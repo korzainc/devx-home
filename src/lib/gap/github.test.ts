@@ -38,6 +38,8 @@ describe("parseRepoRef", () => {
       parseRepoRef("https://github.com/korzainc/devx-home/tree/main"),
     ).toBeNull();
     expect(parseRepoRef("https://gitlab.com/korzainc/devx-home")).toBeNull();
+    // The SSH form has its own host check. Without this line, widening it to any host passed.
+    expect(parseRepoRef("git@gitlab.com:korzainc/devx-home.git")).toBeNull();
   });
 
   it("rejects dot segments that would redirect the API request", () => {
