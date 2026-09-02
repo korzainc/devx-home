@@ -4,14 +4,14 @@ import pluginsData from "@/data/plugins.json";
 import skillsData from "@/data/skills.json";
 import type { Baseline, DetectSignals } from "@/lib/gap/types";
 
-// ToolEntry is a provisional stand-in.
-
 export type CatalogueEntry = {
   id: string;
   name: string;
-  summary: string;
+  /** Null for a skill with no overlay entry; the card falls back to `description`. */
+  summary: string | null;
 };
 
+/** Provisional stand-in. */
 export type ToolEntry = CatalogueEntry & {
   category: string;
   capabilities: string[];

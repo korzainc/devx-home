@@ -25,8 +25,8 @@ export function FacetMenu({
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
 
-  // Close on outside click and on Escape: a menu that only closes by re-clicking its own button
-  // strands the pointer once a second menu is open.
+  // A menu that only closes by re-clicking its own button strands the pointer once a second
+  // one is open.
   useEffect(() => {
     if (!open) return;
     function onDown(event: MouseEvent) {
@@ -39,18 +39,11 @@ export function FacetMenu({
       // restarts at the top of the page.
       trigger.current?.focus();
     }
-    // Tabbing past the last checkbox left the menu open over the results.
-    function onOut(event: FocusEvent) {
-      if (!root.current?.contains(event.relatedTarget as Node)) setOpen(false);
-    }
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
-    root.current?.addEventListener("focusout", onOut);
-    const node = root.current;
     return () => {
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
-      node?.removeEventListener("focusout", onOut);
     };
   }, [open]);
 
@@ -93,6 +86,8 @@ export function FacetMenu({
 
       {open && (
         <div
+          role="group"
+          aria-label={label}
           className={`absolute top-full z-20 mt-1.5 max-h-80 w-56 overflow-y-auto rounded-lg border border-line-strong bg-surface-raised p-1 shadow-lg ${alignLeft ? "left-0" : "right-0"}`}
         >
           {options.map(([value, count]) => {

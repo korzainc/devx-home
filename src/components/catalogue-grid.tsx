@@ -98,9 +98,11 @@ export function CatalogueGrid<T extends CatalogueEntry>({
     [unclassified, query],
   );
 
-  // Forced open when nothing else matched, or a query that only hits these rows renders an
-  // empty grid with no empty state: the section is what "something matched" points at.
-  const showUnclassified = unclassifiedOpen || visible.length === 0;
+  // A query that matches only these rows would otherwise render an empty grid with no empty
+  // state, since the empty state is suppressed while they match.
+  const forcedOpen =
+    query !== "" && visible.length === 0 && visibleUnclassified.length > 0;
+  const showUnclassified = unclassifiedOpen || forcedOpen;
 
   const activeCount = Object.values(selected).reduce(
     (total, picked) => total + picked.length,
@@ -205,24 +207,17 @@ export function CatalogueGrid<T extends CatalogueEntry>({
                     type="button"
                     aria-label={`Remove ${facet.label} filter: ${value}`}
                     onClick={(event) => {
-                      // Both this chip and Clear all remove themselves; without moving focus
-                      // first it lands on the body and the next Tab restarts at the top.
-                      const row =
-                        event.currentTarget.parentElement?.parentElement;
                       toggle(facet.key, value);
-                      const next = row?.querySelector<HTMLElement>(
-                        `button:not([data-chip="${value}"])`,
-                      );
-                      (next ?? searchRef.current)?.focus();
+                      // Keyboard only: this chip is about to unmount, and on a mouse click
+                      // there is no focus worth rescuing.
+                      if (event.detail === 0) searchRef.current?.focus();
                     }}
-                    data-chip={value}
                     className="flex items-center gap-1.5 rounded-full border border-line-strong bg-accent-wash px-3 py-1 text-xs text-ink transition-colors hover:border-line"
                   >
                     {grouped ? value : `${facet.label}: ${value}`}
                     <span aria-hidden className="text-ink-faint">
                       ✕
                     </span>
-                    <span className="sr-only">, remove filter</span>
                   </button>
                 ))}
               </div>
@@ -230,10 +225,10 @@ export function CatalogueGrid<T extends CatalogueEntry>({
           })}
           <button
             type="button"
-            onClick={() => {
+            onClick={(event) => {
               setSelected({});
               setQuery("");
-              searchRef.current?.focus();
+              if (event.detail === 0) searchRef.current?.focus();
             }}
             className="text-sm text-accent hover:underline"
           >
@@ -255,7 +250,7 @@ export function CatalogueGrid<T extends CatalogueEntry>({
 
       {/* Only when nothing at all matched: "no skill matches" above a section listing one
           that did is a small lie. */}
-      {visible.length === 0 && visibleUnclassified.length === 0 && (
+      {visible.length === 0 && !forcedOpen && (
         <p className="rounded-xl border border-dashed border-line px-6 py-16 text-center text-sm text-ink-muted">
           No {noun} matches those filters.
         </p>
@@ -268,7 +263,8 @@ export function CatalogueGrid<T extends CatalogueEntry>({
           <button
             type="button"
             aria-expanded={showUnclassified}
-            onClick={() => setUnclassifiedOpen((was) => !was)}
+            disabled={forcedOpen}
+            onClick={() => setUnclassifiedOpen(!showUnclassified)}
             className="flex items-center gap-3 rounded-xl border border-dashed border-line px-4 py-3 text-left transition-colors hover:border-line-strong"
           >
             <span className="text-sm font-medium text-ink">

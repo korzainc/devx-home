@@ -10,7 +10,7 @@
   --line: #e6e8eb;
   --line-strong: #d3d7dd;
   --ink: #101418;
-  --ink-muted: #5b6673;
+  --ink-muted: #464f5c;
   --ink-faint: #697280;
   /* Korza's brand red is #ff0000, which only reaches 4:1 on white and fails AA for text.
      Light mode therefore uses the darker red the marketing site already pairs with it. */

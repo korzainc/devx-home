@@ -31,7 +31,7 @@ describe("skill catalogue", () => {
   it("gives every skill the fields a card renders", () => {
     for (const skill of skills) {
       expect(skill.name, `${skill.id} has no name`).toBeTruthy();
-      expect(skill.summary, `${skill.id} has no summary`).toBeTruthy();
+      expect(skill.summary ?? "", `${skill.id} has no summary`).toBeTruthy();
       expect(skill.agents.length, `${skill.id} has no agents`).toBeGreaterThan(
         0,
       );
@@ -42,17 +42,17 @@ describe("skill catalogue", () => {
   it("gives every skill a summary a human can read", () => {
     for (const skill of skills) {
       expect(
-        skill.summary.length,
-        `${skill.id} summary is too short to be real: ${JSON.stringify(skill.summary)}`,
+        (skill.summary ?? "").length,
+        `${skill.id} summary is too short to be real: ${JSON.stringify(skill.summary ?? "")}`,
       ).toBeGreaterThan(20);
 
       expect(
-        skill.summary.split(/\s+/).length,
-        `${skill.id} summary is not a sentence: ${JSON.stringify(skill.summary)}`,
+        (skill.summary ?? "").split(/\s+/).length,
+        `${skill.id} summary is not a sentence: ${JSON.stringify(skill.summary ?? "")}`,
       ).toBeGreaterThan(3);
 
       expect(
-        /^[|>]/.test(skill.summary),
+        /^[|>]/.test(skill.summary ?? ""),
         `${skill.id} summary starts with a YAML block scalar marker, so the parser kept the marker instead of the value`,
       ).toBe(false);
     }

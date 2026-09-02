@@ -66,7 +66,7 @@ export function matchesQuery(query: string, haystack: string): boolean {
 /** Facet values excluded: every skill carries "Claude Code", which put `code` in every row. */
 export function entryHaystack(entry: {
   name: string;
-  summary: string;
+  summary: string | null;
   description?: string;
   jobs?: string[];
 }): string {

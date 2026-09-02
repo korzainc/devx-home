@@ -76,22 +76,17 @@ describe("catalogue search", () => {
   });
 
   it("does not match through facet values", () => {
-    // Asserting against entryHaystack proves nothing: a leak puts the facet value into the
-    // haystack, so the haystack then contains it. Probe the result counts instead, with terms
-    // that appear only as facet values.
-    for (const [term, value] of [
-      ["claude", "every skill carries the agent Claude Code"],
-      ["korza", "Origin"],
-      ["coordinate", "Category"],
-    ] as const) {
-      expect(
-        hits(term).length,
-        `"${term}" leaks through ${value}`,
-      ).toBeLessThan(skills.length / 2);
+    // Exact, not a threshold: an Origin or Category leak adds 11 rows, which any "less than
+    // half the corpus" bound would wave through.
+    for (const term of ["korza", "coordinate", "mattpocock"]) {
+      expect(hits(term), `"${term}" is only ever a facet value`).toHaveLength(
+        0,
+      );
     }
-    // Prose still reaches the same rows: "code" is in summaries, "claude" only in a facet.
+    // "Claude Code" is on every skill, so an agents leak matches everything.
+    expect(hits("claude").length).toBeLessThan(skills.length / 2);
+    // Prose still reaches the same rows.
     expect(hits("code").length).toBeGreaterThan(0);
-    expect(hits("code").length).toBeLessThan(skills.length);
   });
 
   it("still returns nothing for a term the catalogue has no skill for", () => {
@@ -120,7 +115,8 @@ describe("the reverse direction only matches inflections", () => {
     expect(
       skills.some(
         (s) =>
-          s.summary.includes(onlyInJobs) || s.description.includes(onlyInJobs),
+          (s.summary ?? "").includes(onlyInJobs) ||
+          s.description.includes(onlyInJobs),
       ),
     ).toBe(false);
     expect(hits(onlyInJobs).length).toBeGreaterThan(0);

@@ -5,6 +5,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { CatalogueTabs } from "@/components/catalogue-tabs";
 import { SkillsCatalogue } from "@/components/skills-catalogue";
+import { entryHaystack, matchesQuery } from "@/lib/search";
 import {
   browsableSkills,
   plugins,
@@ -148,7 +149,7 @@ describe("the skills catalogue", () => {
     const byJobsOnly = browsableSkills.filter(
       (skill) =>
         skill.jobs.some((job) => job.includes("pull request")) &&
-        !skill.summary.includes("pull request"),
+        !(skill.summary ?? "").includes("pull request"),
     );
     expect(byJobsOnly.length).toBeGreaterThan(0);
   });
@@ -256,5 +257,37 @@ describe("the tabs switch panels", () => {
     expect(panel()).toBe("catalogue-tab-skills");
     fireEvent.click(screen.getByRole("tab", { name: /^Plugins/ }));
     expect(panel()).toBe("catalogue-tab-plugins");
+  });
+});
+
+describe("a search that only the toolchain matches", () => {
+  it("shows those rows rather than an empty grid", () => {
+    // The empty state is suppressed while these match, so leaving the section collapsed
+    // rendered nothing at all. "superpowers" hit this.
+    renderPage();
+    const onlyToolchain = "superpowers";
+    expect(
+      browsableSkills.some((skill) =>
+        matchesQuery(onlyToolchain, entryHaystack(skill)),
+      ),
+    ).toBe(false);
+    expect(
+      toolchainSkills.some((skill) =>
+        matchesQuery(onlyToolchain, entryHaystack(skill)),
+      ),
+    ).toBe(true);
+
+    fireEvent.change(search(), { target: { value: onlyToolchain } });
+    expect(cardCount()).toBeGreaterThan(0);
+    expect(screen.queryByText("No skill matches those filters.")).toBeNull();
+  });
+
+  it("still shows the empty state when a facet leaves nothing", () => {
+    // The toolchain rows match an empty query, so gating the empty state on them hid it
+    // whenever a facet combination found nothing.
+    renderPage();
+    pick("Category", "Discover");
+    pick("Plugin", "humanizer");
+    expect(screen.getByText("No skill matches those filters.")).toBeTruthy();
   });
 });

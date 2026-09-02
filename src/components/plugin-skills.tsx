@@ -26,14 +26,14 @@ export function PluginSkills({ skills }: { skills: SkillEntry[] }) {
               {skill.name}
             </span>
             <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-ink-muted">
-              {skill.summary}
+              {skill.summary || skill.description}
             </p>
           </div>
         ))}
 
         {skills.length > PREVIEW && (
-          // One button in a fixed position rather than two that swap: activating a button that
-          // then unmounts drops focus to the body.
+          // One button rather than two that swap: activating one that then unmounts drops
+          // focus to the body.
           <button
             type="button"
             aria-expanded={expanded}

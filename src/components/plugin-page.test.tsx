@@ -8,7 +8,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { InstallPanel } from "@/components/install-panel";
 import { PluginSkills } from "@/components/plugin-skills";
 import { getPlugin, installCommands, skillsForPlugin } from "@/lib/catalogue";
@@ -18,7 +18,10 @@ import { getPlugin, installCommands, skillsForPlugin } from "@/lib/catalogue";
  * that no control can reach. Neither looks broken on screen.
  */
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 const codezen = getPlugin("codezen")!;
 // Claude Code only, which is what makes the single-agent case real rather than hypothetical.
@@ -53,14 +56,17 @@ describe("the install panel", () => {
   it("copies the command it displays", async () => {
     // The panel's primary action; writing the label instead of the value was invisible.
     const written: string[] = [];
-    Object.assign(navigator, {
+    vi.stubGlobal("navigator", {
+      ...navigator,
       clipboard: { writeText: async (v: string) => void written.push(v) },
     });
     render(<InstallPanel commands={installCommands(codezen)} />);
     const [claude] = installCommands(codezen);
 
     fireEvent.click(screen.getByRole("button", { name: /^Copy install/ }));
-    await waitFor(() => expect(written).toEqual([claude.install]));
+    await waitFor(() => expect(written).toHaveLength(1));
+    // Not waitFor: that passes on a momentarily-correct value and ignores a trailing write.
+    expect(written).toEqual([claude.install]);
   });
 
   it("offers no control for an agent the plugin does not ship for", () => {
