@@ -3,6 +3,7 @@ import skillsData from "@/data/skills.json";
 import {
   baseline,
   bundles,
+  ecosystemLabel,
   getPlugin,
   indexSchemaVersion,
   installCommands,
@@ -211,6 +212,14 @@ describe("flattenBaseline", () => {
       (stack) => stack.id === "typescript",
     );
     expect(typescript?.label).toBe("TypeScript");
+  });
+
+  it("resolves a pinned ecosystem id to its label", () => {
+    expect(ecosystemLabel("go")).toBe("Go");
+  });
+
+  it("throws rather than shipping a raw id for an unpinned ecosystem", () => {
+    expect(() => ecosystemLabel("rust")).toThrow(/rust/);
   });
 });
 

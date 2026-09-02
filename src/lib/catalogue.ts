@@ -144,6 +144,16 @@ const ECOSYSTEM_LABELS: Record<string, string> = {
   docker: "Docker",
 };
 
+export function ecosystemLabel(id: string): string {
+  const label = ECOSYSTEM_LABELS[id];
+  if (!label) {
+    throw new Error(
+      `No display label is pinned for ecosystem "${id}" in ECOSYSTEM_LABELS.`,
+    );
+  }
+  return label;
+}
+
 function flattenBaseline(catalogue: RealCatalogue): Baseline {
   const ecosystems = Object.values(catalogue.baselines);
   return {
@@ -164,7 +174,7 @@ function flattenBaseline(catalogue: RealCatalogue): Baseline {
     universal: [],
     stacks: ecosystems.map((ecosystem) => ({
       id: ecosystem.ecosystem,
-      label: ECOSYSTEM_LABELS[ecosystem.ecosystem] ?? ecosystem.ecosystem,
+      label: ecosystemLabel(ecosystem.ecosystem),
       markers: ecosystem.markers,
       // recommended/acceptable pass through unchanged; required doesn't, since devx-home's
       // report only distinguishes "satisfied" from "gap", not required vs optional.
