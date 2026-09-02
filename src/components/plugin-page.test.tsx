@@ -86,6 +86,10 @@ describe("the install panel", () => {
     expect(button.querySelector("path")?.getAttribute("class")).toContain(
       "text-positive",
     );
+    // The word used to be inside the button, so removing it took the only announcement with it.
+    expect(
+      screen.getAllByRole("status").map((node) => node.textContent),
+    ).toContain("Install command copied");
   });
 
   it("offers no control for an agent the plugin does not ship for", () => {

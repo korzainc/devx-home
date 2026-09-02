@@ -69,9 +69,19 @@ export function entryHaystack(entry: {
   summary: string | null;
   description?: string;
   jobs?: string[];
+  problem?: string;
+  benefits?: string[];
 }): string {
-  // Upstream's wording stays searchable even though the card shows ours.
-  return [entry.name, entry.summary, entry.description, entry.jobs?.join(" ")]
+  // Upstream's wording stays searchable even though the card shows ours. A plugin card shows
+  // only a trimmed summary, so without its problem and benefits it is barely searchable at all.
+  return [
+    entry.name,
+    entry.summary,
+    entry.description,
+    entry.jobs?.join(" "),
+    entry.problem,
+    entry.benefits?.join(" "),
+  ]
     .filter(Boolean)
     .join(" ");
 }

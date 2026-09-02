@@ -52,7 +52,7 @@
     "summary": "Matt Pocock's engineering and productivity skills.",
     "problem": "The jobs around writing code get re-improvised every time: reviewing a PR, diagnosing a bug, turning a spec into tickets, handing work over. How well they go depends on who asked and how.",
     "benefits": [
-      "Twenty-five task-specific skills covering review, TDD, domain modelling, triage and architecture.",
+      "Twenty-five task-specific skills covering review, TDD, domain modeling, triage and architecture.",
       "Includes the communication side of the work: teaching, handoffs, questionnaires, writing for agents.",
       "Currently tracks main rather than a tag, so upstream commits reach your machine unreviewed. v1.2.3 declares the same twenty-five skills, so there is nothing blocking a pin."
     ],

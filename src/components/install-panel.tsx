@@ -35,34 +35,49 @@ function CommandField({ label, value }: { label: string; value: string }) {
           className="shrink-0 rounded-md p-1.5 text-ink-faint transition-colors hover:bg-surface hover:text-ink"
         >
           <span className="sr-only">Copy {label.toLowerCase()} command</span>
-          {copied ? (
-            <span className="font-mono text-[0.65rem] text-accent">copied</span>
-          ) : (
-            <svg
-              aria-hidden
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-            >
-              <rect
-                x="9"
-                y="9"
-                width="11"
-                height="11"
-                rx="2"
-                stroke="currentColor"
-                strokeWidth="2"
-              />
+          {/* A check in the same box as the icon it replaces: a word here grew the button and
+              took the width off the command beside it. */}
+          <svg
+            aria-hidden
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+          >
+            {copied ? (
               <path
-                d="M5 15V5a2 2 0 0 1 2-2h10"
+                d="m5 13 4 4L19 7"
+                className="text-positive"
                 stroke="currentColor"
                 strokeWidth="2"
                 strokeLinecap="round"
+                strokeLinejoin="round"
               />
-            </svg>
-          )}
+            ) : (
+              <>
+                <rect
+                  x="9"
+                  y="9"
+                  width="11"
+                  height="11"
+                  rx="2"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                />
+                <path
+                  d="M5 15V5a2 2 0 0 1 2-2h10"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </>
+            )}
+          </svg>
         </button>
+        {/* The icon says it silently. Outside the button, so the button's own name stays put. */}
+        <span role="status" className="sr-only">
+          {copied ? `${label} command copied` : ""}
+        </span>
       </div>
     </div>
   );
