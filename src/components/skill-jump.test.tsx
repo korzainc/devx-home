@@ -26,8 +26,11 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
-  window.location.hash = "";
+  history.replaceState(null, "", "/");
 });
+
+const openedFor = (name: string) =>
+  history.replaceState(null, "", name ? `?skill=${name}` : "/");
 
 const skills = skillsForPlugin("mattpocock-skills");
 
@@ -51,7 +54,7 @@ describe("arriving from a skill card", () => {
     // The whole point of treatment A: the strip carries the answer, so the list does not have
     // to reorder or unfold itself to deliver it.
     const target = skills[17];
-    window.location.hash = `#${target.name}`;
+    openedFor(target.name);
     render(<Page />);
 
     expect(shownCount()).toBe(5);
@@ -71,14 +74,14 @@ describe("arriving from a skill card", () => {
   it("does not scroll on arrival", () => {
     // Auto-scrolling puts the install commands behind the reader, which is the cost treatment
     // B pays and A does not.
-    window.location.hash = `#${skills[17].name}`;
+    openedFor(skills[17].name);
     render(<Page />);
     expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
   });
 
   it("reveals the skill and moves focus onto its card when Show in list is used", () => {
     const target = skills[17];
-    window.location.hash = `#${target.name}`;
+    openedFor(target.name);
     render(<Page />);
 
     fireEvent.click(screen.getByRole("button", { name: /show in list/i }));
@@ -94,7 +97,7 @@ describe("arriving from a skill card", () => {
 
   it("moves focus without expanding when the skill is already in the preview", () => {
     const target = skills[1];
-    window.location.hash = `#${target.name}`;
+    openedFor(target.name);
     render(<Page />);
 
     fireEvent.click(screen.getByRole("button", { name: /show in list/i }));
@@ -105,8 +108,8 @@ describe("arriving from a skill card", () => {
 
   it("collapses again after a jump", () => {
     // The jump forces the grid open from outside its own toggle, so the toggle has to be able
-    // to undo it. This is the same class of bug as a hash-forced grid that will not collapse.
-    window.location.hash = `#${skills[17].name}`;
+    // to undo it, or the grid is stuck open for the rest of the visit.
+    openedFor(skills[17].name);
     render(<Page />);
 
     fireEvent.click(screen.getByRole("button", { name: /show in list/i }));
@@ -120,7 +123,7 @@ describe("arriving from a skill card", () => {
     // Reading further down and then reaching for the strip again is the obvious second use.
     // Keyed only on the skill name, the second press is a no-op because the name never changed.
     const target = skills[17];
-    window.location.hash = `#${target.name}`;
+    openedFor(target.name);
     render(<Page />);
     const control = screen.getByRole("button", { name: /show in list/i });
 
@@ -135,11 +138,11 @@ describe("arriving from a skill card", () => {
   });
 
   it("still names the skill after the list collapses again", () => {
-    // The strip reads the fragment, so anything on this page that rewrites the URL blanks it
-    // mid-visit. The list used to clear the fragment on collapse for its own reasons; this is
-    // what fails if that comes back.
+    // The strip reads the URL, so anything on this page that rewrites it blanks the strip
+    // mid-visit. The list used to clear the URL on collapse for its own reasons; this is what
+    // fails if that comes back.
     const target = skills[17];
-    window.location.hash = `#${target.name}`;
+    openedFor(target.name);
     render(<Page />);
 
     fireEvent.click(screen.getByRole("button", { name: /show in list/i }));
@@ -152,7 +155,7 @@ describe("arriving from a skill card", () => {
   });
 
   it("points the strip's control at the list it expands", () => {
-    window.location.hash = `#${skills[17].name}`;
+    openedFor(skills[17].name);
     render(<Page />);
 
     const control = screen.getByRole("button", { name: /show in list/i });

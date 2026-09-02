@@ -143,7 +143,7 @@ describe("the skills in a plugin", () => {
     // jsdom has no layout engine, so it doesn't implement scrollIntoView at all.
     Element.prototype.scrollIntoView = vi.fn();
     const target = skills[skills.length - 1];
-    window.location.hash = `#${target.name}`;
+    history.replaceState(null, "", `?skill=${target.name}`);
     render(<PluginSkills skills={skills} />);
 
     expect(screen.queryByText(target.name)).toBeNull();
@@ -153,10 +153,10 @@ describe("the skills in a plugin", () => {
       }),
     ).toBeTruthy();
     expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
-    window.location.hash = "";
+    history.replaceState(null, "", "/");
   });
 
-  // Reaching a card from the strip, and the malformed-hash guard that went with the old
-  // hash-reading code, are covered in skill-jump.test.tsx and skill-context-strip.tsx's tests.
-  // Repeating them here would only assert that this component no longer reads the hash.
+  // Reaching a card from the strip, and the malformed-value guard that went with the old
+  // URL-reading code, are covered in skill-jump.test.tsx and skill-context-strip.test.tsx.
+  // Repeating them here would only assert that this component no longer reads the URL.
 });

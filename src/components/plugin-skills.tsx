@@ -55,7 +55,7 @@ export function PluginSkills({ skills }: { skills: SkillEntry[] }) {
           <div
             id={skill.name}
             tabIndex={-1}
-            className="scroll-mt-24 rounded-xl border border-line bg-surface p-4 target:border-accent focus:border-accent focus:outline-none"
+            className="scroll-mt-24 rounded-xl border border-line bg-surface p-4 focus:border-accent focus:outline-none"
           >
             <span className="font-mono text-sm font-medium text-ink [overflow-wrap:anywhere]">
               <span className="text-accent">/</span>

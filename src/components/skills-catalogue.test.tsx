@@ -275,12 +275,17 @@ describe("what a card links to", () => {
   it("points at the plugin that ships the skill, not the skill", () => {
     // generateStaticParams only emits plugin ids, so a name here 404s on every card while
     // the suite stays green: cardCount matches on the /skills/ prefix alone.
+    //
+    // The skill goes in the query string, never the fragment. A fragment is not data to a
+    // browser, it is a scroll instruction: the plugin page server-renders its first five cards
+    // below the install panel, so `#<name>` landed the page at the bottom before any
+    // JavaScript ran, and nothing on the page could opt out of it.
     renderPage();
     const withDistinctName = browsableSkills.find(
       (skill) => skill.name !== skill.plugin,
     )!;
     expect(card(withDistinctName.name)?.getAttribute("href")).toBe(
-      `/skills/${withDistinctName.plugin}#${withDistinctName.name}`,
+      `/skills/${withDistinctName.plugin}?skill=${withDistinctName.name}`,
     );
   });
 });

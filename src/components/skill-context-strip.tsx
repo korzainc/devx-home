@@ -4,21 +4,25 @@ import { useSyncExternalStore } from "react";
 import type { SkillEntry } from "@/lib/catalogue";
 import {
   focusSkill,
-  readHash,
+  readOpenedSkill,
   SKILL_LIST_ID,
-  subscribeToHash,
+  subscribeToLocation,
 } from "@/lib/skill-link";
 
 /**
  * Names the skill you clicked to get here. The plugin page is otherwise identical however you
  * arrived, so without this the list below is 25 cards and no indication which one you asked for.
+ * The card highlight comes from focus, not `:target`, because nothing sets a fragment now.
  */
 export function SkillContextStrip({ skills }: { skills: SkillEntry[] }) {
-  // The server snapshot is empty because the fragment is never sent to the server, so the
-  // prerendered markup and the first client render agree and the strip appears on hydration.
-  // Nothing on this page rewrites the fragment, so this stays put for the whole visit — see
-  // the collapse case in skill-jump.test.tsx, which is what would break if that changed.
-  const openedFor = useSyncExternalStore(subscribeToHash, readHash, () => "");
+  // The server snapshot is empty so the prerendered markup and the first client render agree,
+  // and the strip appears on hydration. Reading `searchParams` on the server instead would make
+  // this route dynamic or need a Suspense boundary, which is a bigger change than it looks.
+  const openedFor = useSyncExternalStore(
+    subscribeToLocation,
+    readOpenedSkill,
+    () => "",
+  );
 
   if (!openedFor) return null;
 

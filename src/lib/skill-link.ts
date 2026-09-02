@@ -1,33 +1,35 @@
 /**
  * How a link to one skill reaches the plugin page that ships it.
  *
- * A skill card on /skills links to `/skills/<plugin>#<skill name>`, so the skill you clicked
- * only ever exists in the URL fragment. That is client state by construction: it is never sent
- * to the server, so nothing prerendered can read it.
+ * The skill you clicked travels in the query string, not the fragment. A fragment is not data
+ * to a browser, it is a scroll instruction: the plugin page server-renders the first five cards
+ * below the install panel, so `#<name>` made the page land at the bottom before any JavaScript
+ * ran, and nothing on the page could opt out of it. A query string carries the same value with
+ * no scroll semantics attached.
  */
 
-/** The fragment, decoded, or "" when there is none. */
-export const readHash = () => {
-  const raw = window.location.hash.slice(1);
-  // A hand-typed "#%" is not valid encoding. Decoding throws during render, which takes the
-  // whole page down rather than failing to find one skill.
-  try {
-    return decodeURIComponent(raw);
-  } catch {
-    return raw;
-  }
-};
+/** Shared so the link builder and the reader below cannot drift apart. */
+const SKILL_PARAM = "skill";
 
-export function subscribeToHash(onChange: () => void) {
-  window.addEventListener("hashchange", onChange);
-  return () => window.removeEventListener("hashchange", onChange);
+export function skillLink(plugin: string, name: string) {
+  return `/skills/${plugin}?${SKILL_PARAM}=${name}`;
+}
+
+/** The skill the page was opened for, or "" when it was opened directly. */
+export const readOpenedSkill = () =>
+  new URLSearchParams(window.location.search).get(SKILL_PARAM) ?? "";
+
+/** Back and forward are the only things that change the query without a remount. */
+export function subscribeToLocation(onChange: () => void) {
+  window.addEventListener("popstate", onChange);
+  return () => window.removeEventListener("popstate", onChange);
 }
 
 /**
  * The strip renders above the install fold and the skill list below it, with a server component
  * between them, so they cannot share React state and cannot be given a common provider without
  * dragging the whole page into a client boundary. A DOM event carries the one thing that has to
- * cross: "reveal this skill". Same mechanism the grid already uses to announce a cleared hash.
+ * cross: "reveal this skill".
  */
 const SKILL_FOCUS_EVENT = "korza:skill-focus";
 

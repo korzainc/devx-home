@@ -14,8 +14,11 @@ import { skillsForPlugin } from "@/lib/catalogue";
 
 afterEach(() => {
   cleanup();
-  window.location.hash = "";
+  history.replaceState(null, "", "/");
 });
+
+const openedFor = (name: string) =>
+  history.replaceState(null, "", name ? `?skill=${name}` : "/");
 
 const skills = skillsForPlugin("mattpocock-skills");
 
@@ -23,7 +26,7 @@ describe("the skill context strip", () => {
   it("names the skill the page was opened for, and where it sits in the plugin", () => {
     const target = skills[17];
     expect(target.name).toBe("wizard");
-    window.location.hash = `#${target.name}`;
+    openedFor(target.name);
 
     render(<SkillContextStrip skills={skills} />);
 
@@ -41,9 +44,9 @@ describe("the skill context strip", () => {
   });
 
   it("says a link has gone stale rather than rendering nothing", () => {
-    // Skill names come from the generated index, so an upstream rename changes the fragment.
-    // Rendering nothing is indistinguishable from arriving with no hash at all.
-    window.location.hash = "#renamed-upstream";
+    // Skill names come from the generated index, so an upstream rename changes the link.
+    // Rendering nothing is indistinguishable from arriving with no link at all.
+    openedFor("renamed-upstream");
     render(<SkillContextStrip skills={skills} />);
 
     expect(screen.getByText(/renamed-upstream/)).toBeTruthy();
@@ -51,9 +54,9 @@ describe("the skill context strip", () => {
     expect(screen.queryByRole("button")).toBeNull();
   });
 
-  it("survives a hash that is not valid encoding", () => {
-    // "#%" throws inside decodeURIComponent. Thrown during render it takes the page down.
-    window.location.hash = "#%";
+  it("survives a skill value that is not valid encoding", () => {
+    // A hand-rolled decode of "%" throws, and thrown during render it takes the page down.
+    openedFor("%");
     expect(() => render(<SkillContextStrip skills={skills} />)).not.toThrow();
   });
 });
