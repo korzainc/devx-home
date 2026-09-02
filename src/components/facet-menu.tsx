@@ -35,9 +35,10 @@ export function FacetMenu({
     function onKey(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
       setOpen(false);
-      // Without this, closing from a checkbox drops focus to the body and the next Tab
-      // restarts at the top of the page.
-      trigger.current?.focus();
+      // Only reclaim focus if it was inside the menu; the listener is on document, so
+      // otherwise Escape drags focus here from wherever the user actually was.
+      if (root.current?.contains(document.activeElement))
+        trigger.current?.focus();
     }
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);

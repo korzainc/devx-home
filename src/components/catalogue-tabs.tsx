@@ -111,7 +111,6 @@ export function CatalogueTabs({
         id="catalogue-panel-plugins"
         aria-labelledby="catalogue-tab-plugins"
         hidden={view !== "plugins"}
-        tabIndex={0}
       >
         <PluginsCatalogue entries={plugins} />
       </div>
@@ -120,7 +119,6 @@ export function CatalogueTabs({
         id="catalogue-panel-skills"
         aria-labelledby="catalogue-tab-skills"
         hidden={view !== "skills"}
-        tabIndex={0}
       >
         <SkillsCatalogue entries={skills} toolchain={toolchain} />
       </div>

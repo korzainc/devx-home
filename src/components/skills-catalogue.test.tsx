@@ -30,7 +30,7 @@ function renderPage() {
 /** Skill cards are links to a plugin page; the sidebar contains no such links. */
 function cardCount() {
   return screen
-    .getAllByRole("link")
+    .queryAllByRole("link")
     .filter((node) => node.getAttribute("href")?.startsWith("/skills/")).length;
 }
 
@@ -280,6 +280,24 @@ describe("a search that only the toolchain matches", () => {
     fireEvent.change(search(), { target: { value: onlyToolchain } });
     expect(cardCount()).toBeGreaterThan(0);
     expect(screen.queryByText("No skill matches those filters.")).toBeNull();
+  });
+
+  it("treats a whitespace query as no query", () => {
+    // matchesQuery has no terms to apply, so a space is not a search and must not reveal
+    // the toolchain rows. Gating on `query !== ""` instead of on the parsed terms did.
+    renderPage();
+    expect(card("teach")).toBeNull();
+    fireEvent.change(search(), { target: { value: "   " } });
+    expect(card("teach")).toBeNull();
+  });
+
+  it("does not answer a faceted search with unfaceted rows", () => {
+    // The toolchain rows ignore facets, so they cannot be the result of a faceted search.
+    renderPage();
+    pick("Category", "Build");
+    fireEvent.change(search(), { target: { value: "bootstrap" } });
+    expect(screen.getByText("No skill matches those filters.")).toBeTruthy();
+    expect(cardCount()).toBe(0);
   });
 
   it("still shows the empty state when a facet leaves nothing", () => {

@@ -11,6 +11,7 @@ import {
 import { FacetMenu } from "@/components/facet-menu";
 import { facetValues, type CatalogueEntry, type Facet } from "@/lib/catalogue";
 import { filterEntries } from "@/lib/filter";
+import { terms } from "@/lib/search";
 
 type CatalogueGridProps<T extends CatalogueEntry> = {
   entries: T[];
@@ -98,11 +99,16 @@ export function CatalogueGrid<T extends CatalogueEntry>({
     [unclassified, query],
   );
 
-  // A query that matches only these rows would otherwise render an empty grid with no empty
-  // state, since the empty state is suppressed while they match.
-  const forcedOpen =
-    query !== "" && visible.length === 0 && visibleUnclassified.length > 0;
-  const showUnclassified = unclassifiedOpen || forcedOpen;
+  // Two rules, stated once, because three places have to agree about them.
+  //
+  // Unclassified rows are searched but never faceted, so they can only ever answer a query.
+  // With a facet on, they are not candidates and their matching says nothing.
+  const searching = terms(query).length > 0;
+  const facetsActive = Object.values(selected).some(
+    (picked) => picked.length > 0,
+  );
+  const nothingMatched =
+    visible.length === 0 && (facetsActive || visibleUnclassified.length === 0);
 
   const activeCount = Object.values(selected).reduce(
     (total, picked) => total + picked.length,
@@ -248,9 +254,7 @@ export function CatalogueGrid<T extends CatalogueEntry>({
         </div>
       )}
 
-      {/* Only when nothing at all matched: "no skill matches" above a section listing one
-          that did is a small lie. */}
-      {visible.length === 0 && !forcedOpen && (
+      {nothingMatched && (
         <p className="rounded-xl border border-dashed border-line px-6 py-16 text-center text-sm text-ink-muted">
           No {noun} matches those filters.
         </p>
@@ -262,9 +266,8 @@ export function CatalogueGrid<T extends CatalogueEntry>({
               browsed, and open they push the classified rows off the first screen. */}
           <button
             type="button"
-            aria-expanded={showUnclassified}
-            disabled={forcedOpen}
-            onClick={() => setUnclassifiedOpen(!showUnclassified)}
+            aria-expanded={unclassifiedOpen}
+            onClick={() => setUnclassifiedOpen((was) => !was)}
             className="flex items-center gap-3 rounded-xl border border-dashed border-line px-4 py-3 text-left transition-colors hover:border-line-strong"
           >
             <span className="text-sm font-medium text-ink">
@@ -279,11 +282,11 @@ export function CatalogueGrid<T extends CatalogueEntry>({
               </span>
             )}
             <span aria-hidden className="ml-auto text-xs text-ink-faint">
-              {showUnclassified ? "▾" : "▸"}
+              {unclassifiedOpen ? "▾" : "▸"}
             </span>
           </button>
 
-          {showUnclassified && (
+          {(unclassifiedOpen || (searching && !facetsActive)) && (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {visibleUnclassified.map((entry) => (
                 <div key={entry.id} id={entry.id} className="scroll-mt-24">
