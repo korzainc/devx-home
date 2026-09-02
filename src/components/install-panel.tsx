@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { InstallCommand } from "@/lib/catalogue";
 
+/** Keyed on its command by the caller, so switching agents remounts it and clears `copied`. */
 function CommandField({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false);
 
@@ -94,8 +95,16 @@ export function InstallPanel({ commands }: { commands: InstallCommand[] }) {
         </div>
       </div>
 
-      <CommandField label="Install" value={active.install} />
-      <CommandField label="Register once per machine" value={active.register} />
+      <CommandField
+        key={active.install}
+        label="Install"
+        value={active.install}
+      />
+      <CommandField
+        key={active.register}
+        label="Register once per machine"
+        value={active.register}
+      />
     </section>
   );
 }

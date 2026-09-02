@@ -6,15 +6,9 @@ import {
   installCommands,
   marketplaceName,
   marketplaceRepo,
-  duplicateClaims,
   getPlugin,
-  pluginRows,
   plugins,
-  rivalPlugins,
-  skills,
   skillsArePlaceholder,
-  versionFacetLabel,
-  versionStatusFor,
   tools,
 } from "./catalogue";
 
@@ -140,18 +134,6 @@ describe("install commands", () => {
   });
 });
 
-describe("plugin rows", () => {
-  it("derives a pin state for every plugin", () => {
-    // Powers the Pin facet.
-    for (const plugin of pluginRows) {
-      expect(plugin.pinState, plugin.id).toBe(
-        versionFacetLabel(versionStatusFor(plugin.id)),
-      );
-      expect(plugin.pinState).not.toBe("Unknown");
-    }
-  });
-});
-
 describe("provenance", () => {
   // The placeholder half cannot be pinned while the data says false: a literal and the
   // derivation agree.
@@ -163,7 +145,7 @@ describe("provenance", () => {
   });
 });
 
-describe("install commands and duplicate claims", () => {
+describe("install commands", () => {
   it("names the marketplace and the plugin the user actually types", () => {
     // Text a user copies into a terminal.
     const codezen = plugins.find((p) => p.id === "codezen")!;
@@ -184,19 +166,8 @@ describe("install commands and duplicate claims", () => {
     expect(getPlugin("not-a-plugin")).toBeUndefined();
   });
 
-  it("reports a name only when more than one plugin claims it", () => {
-    // `code-review` and `tdd` each ship from two plugins.
-    expect([...duplicateClaims.keys()].sort()).toEqual(["code-review", "tdd"]);
-    for (const [name, claimants] of duplicateClaims) {
-      expect(claimants.length, name).toBeGreaterThan(1);
-      expect([...claimants]).toEqual([...claimants].sort());
-    }
-  });
-
-  it("lists the other plugins claiming a name, never the skill's own", () => {
-    const codeReview = skills.find(
-      (s) => s.name === "code-review" && s.plugin === "codezen",
-    )!;
-    expect(rivalPlugins(codeReview)).toEqual(["mattpocock-skills"]);
+  it("looks a plugin up by id", () => {
+    expect(getPlugin("superpowers")?.id).toBe("superpowers");
+    expect(getPlugin("not-a-plugin")).toBeUndefined();
   });
 });

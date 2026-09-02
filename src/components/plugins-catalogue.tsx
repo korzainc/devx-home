@@ -2,18 +2,23 @@
 
 import Link from "next/link";
 import { CatalogueGrid } from "@/components/catalogue-grid";
-import { skillsForPlugin, type Facet, type PluginRow } from "@/lib/catalogue";
+import {
+  shortAgents,
+  skillsForPlugin,
+  type Facet,
+  type PluginEntry,
+} from "@/lib/catalogue";
 
 // Module scope, not inline: the grid memoises on facet identity.
-const facets: Facet<PluginRow>[] = [
+const facets: Facet<PluginEntry>[] = [
   { key: "agents", label: "Agent" },
   { key: "origin", label: "Origin" },
 ];
 
-function PluginCard({ plugin }: { plugin: PluginRow }) {
+function PluginCard({ plugin }: { plugin: PluginEntry }) {
   // From the index, never plugin.skills, which says 0 for codezen.
   const skillCount = skillsForPlugin(plugin.id).length;
-  const agents = plugin.agents.map((a) => a.split(" ")[0].toLowerCase());
+  const agents = shortAgents(plugin.agents);
 
   return (
     <Link
@@ -43,7 +48,7 @@ function PluginCard({ plugin }: { plugin: PluginRow }) {
   );
 }
 
-export function PluginsCatalogue({ entries }: { entries: PluginRow[] }) {
+export function PluginsCatalogue({ entries }: { entries: PluginEntry[] }) {
   return (
     <CatalogueGrid
       noun="plugin"

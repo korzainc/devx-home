@@ -7,7 +7,7 @@ import { CatalogueTabs } from "@/components/catalogue-tabs";
 import { SkillsCatalogue } from "@/components/skills-catalogue";
 import {
   browsableSkills,
-  pluginRows,
+  plugins,
   skillFacets,
   skills,
   toolchainSkills,
@@ -209,7 +209,7 @@ describe("the page around the grid", () => {
     // rendering SkillsCatalogue directly cannot see it.
     render(
       <CatalogueTabs
-        plugins={pluginRows}
+        plugins={plugins}
         skills={browsableSkills}
         toolchain={toolchainSkills}
         placeholder={false}

@@ -4,7 +4,7 @@ import { CatalogueTabs } from "@/components/catalogue-tabs";
 import {
   browsableSkills,
   indexSchemaVersion,
-  pluginRows,
+  plugins,
   skillsArePlaceholder,
   toolchainSkills,
 } from "@/lib/catalogue";
@@ -28,7 +28,7 @@ export default function SkillsPage() {
           ← Home
         </Link>
         <CatalogueTabs
-          plugins={pluginRows}
+          plugins={plugins}
           skills={browsableSkills}
           toolchain={toolchainSkills}
           placeholder={skillsArePlaceholder}

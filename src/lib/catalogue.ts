@@ -91,23 +91,15 @@ export function facetValues<T>(entry: T, key: FacetKey<T>): string[] {
   return Array.isArray(value) ? value : [value];
 }
 
-export const tools: ToolEntry[] = toolsData;
+/** "Claude Code" -> "claude". Short enough to sit opposite the plugin on a card footer. */
+export function shortAgents(agents: string[]): string[] {
+  return agents.map((agent) => agent.split(" ")[0].toLowerCase());
+}
 
-export type PluginRow = PluginEntry & { pinState: string };
+export const tools: ToolEntry[] = toolsData;
 
 export const plugins: PluginEntry[] = pluginsData;
 
-// "N behind" only means anything for an entry pinned to a tag.
-export type VersionStatus = {
-  state: "behind" | "current" | "unpinned" | "no-releases";
-  pinned: string;
-  latest: string | null;
-  /** Null unless state is "behind". */
-  behind: number | null;
-};
-
-// A JSON import widens every string, so `kind` arrives as `string`.
-// Planned rows stay in the index but are hidden for now: nobody can install one.
 export const skills: SkillEntry[] = (skillsData.skills as SkillEntry[]).filter(
   (skill) => skill.status !== "Planned",
 );
@@ -121,78 +113,12 @@ export const toolchainSkills: SkillEntry[] = skills.filter(
   (skill) => skill.kind !== "skill",
 );
 
-const versions = skillsData.versions as Record<string, VersionStatus>;
-
-export function versionStatusFor(pluginId: string): VersionStatus | undefined {
-  return versions[pluginId];
-}
-
-export const pluginRows: PluginRow[] = plugins.map((plugin) => ({
-  ...plugin,
-  pinState: versionFacetLabel(versionStatusFor(plugin.id)),
-}));
-
-/** Derived, not stored: two descriptions of one fact had drifted into a contradiction. */
-export function versionFacetLabel(status: VersionStatus | undefined): string {
-  switch (status?.state) {
-    case "behind":
-      return "Behind";
-    case "current":
-      return "Current";
-    case "unpinned":
-      return "Unpinned";
-    case "no-releases":
-      return "No releases";
-    default:
-      return "Unknown";
-  }
-}
-
-/** `versions` is cast from JSON, so an unknown state reaches the default arm. */
-export function describeVersion(status: VersionStatus): string {
-  switch (status.state) {
-    case "behind":
-      return `${status.behind} version${status.behind === 1 ? "" : "s"} behind (${status.latest})`;
-    case "current":
-      return "current";
-    case "unpinned":
-      return `unpinned, upstream is at ${status.latest}`;
-    case "no-releases":
-      return "unpinned, upstream has no releases";
-    default:
-      return `pin state unknown (${String(status.state)})`;
-  }
-}
-
 export const skillsArePlaceholder: boolean = skillsData.placeholder === true;
 
 export const indexSchemaVersion: number = skillsData.schemaVersion;
 
 export function skillsForPlugin(pluginId: string): SkillEntry[] {
   return skills.filter((skill) => skill.plugin === pluginId);
-}
-
-/** Computed, so a new overlap appears without anyone maintaining a list. */
-export function claimsByName(entries: SkillEntry[]): Map<string, string[]> {
-  const byName = new Map<string, Set<string>>();
-  for (const skill of entries) {
-    const seen = byName.get(skill.name) ?? new Set<string>();
-    seen.add(skill.plugin);
-    byName.set(skill.name, seen);
-  }
-  return new Map(
-    [...byName]
-      .filter(([, plugins]) => plugins.size > 1)
-      .map(([name, plugins]) => [name, [...plugins].sort()]),
-  );
-}
-
-export const duplicateClaims: Map<string, string[]> = claimsByName(skills);
-
-export function rivalPlugins(skill: SkillEntry): string[] {
-  return (duplicateClaims.get(skill.name) ?? []).filter(
-    (plugin) => plugin !== skill.plugin,
-  );
 }
 
 export const baseline: Baseline = baselineData;

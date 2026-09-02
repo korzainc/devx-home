@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { PluginsCatalogue } from "@/components/plugins-catalogue";
 import { SkillsCatalogue } from "@/components/skills-catalogue";
-import type { PluginRow, SkillEntry } from "@/lib/catalogue";
+import type { PluginEntry, SkillEntry } from "@/lib/catalogue";
 
 type View = "plugins" | "skills";
 
@@ -15,7 +15,7 @@ export function CatalogueTabs({
   toolchain,
   placeholder,
 }: {
-  plugins: PluginRow[];
+  plugins: PluginEntry[];
   /** The classified rows: everything the facets apply to. */
   skills: SkillEntry[];
   /** Setup and meta rows. Listed and searchable, but outside every facet. */

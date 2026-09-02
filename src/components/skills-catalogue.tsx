@@ -2,14 +2,13 @@
 
 import Link from "next/link";
 import { CatalogueGrid } from "@/components/catalogue-grid";
-import { skillFacets, type SkillEntry } from "@/lib/catalogue";
+import { shortAgents, skillFacets, type SkillEntry } from "@/lib/catalogue";
 
 // Category, origin and pin state are facets, not card text: after filtering they read the same
 // on every card. What stays is the command, what it does, the plugin you install to get it,
 // and the runtimes that can run it.
 function SkillCard({ skill }: { skill: SkillEntry }) {
-  // "Claude Code" -> "claude": short enough to sit opposite the plugin on one line.
-  const agents = skill.agents.map((a) => a.split(" ")[0].toLowerCase());
+  const agents = shortAgents(skill.agents);
 
   return (
     <Link

@@ -7,6 +7,7 @@ import {
   getPlugin,
   installCommands,
   plugins,
+  shortAgents,
   skillsForPlugin,
 } from "@/lib/catalogue";
 
@@ -48,9 +49,7 @@ export default async function PluginPage({
   const skills = skillsForPlugin(plugin.id);
   // Derived from the index, so it cannot disagree with the skill list below.
   const shipsNothing = skills.length === 0;
-  const agents = plugin.agents.map((agent) =>
-    agent.split(" ")[0].toLowerCase(),
-  );
+  const agents = shortAgents(plugin.agents);
 
   return (
     <article className="flex flex-col gap-8">
