@@ -7,6 +7,7 @@ import type {
   BaselineStack,
   CapabilityReport,
   CategoryReport,
+  PresentTool,
   RecommendedTool,
   RepoSnapshot,
 } from "./types";
@@ -73,29 +74,34 @@ export function analyze(
 
   const reports: CapabilityReport[] = [...expected].map((id) => {
     const meta = baseline.capabilities[id];
-    const present = detected.filter((entry) =>
-      tools.find((tool) => tool.id === entry.id)?.capabilities.includes(id),
+    const owningStacks = stacks.filter(
+      (stack) => stack.expects[id] !== undefined,
     );
 
-    let recommended: RecommendedTool[] = [];
-    if (present.length === 0) {
-      const ownedByAStack = stacks.some(
-        (stack) => stack.expects[id] !== undefined,
-      );
+    const rawPresent = detected.filter((entry) =>
+      tools.find((tool) => tool.id === entry.id)?.capabilities.includes(id),
+    );
+    const present: PresentTool[] = rawPresent.map((entry) => {
+      const tool = toolById.get(entry.id);
+      const stackLabels = owningStacks
+        .filter((stack) => tool?.stacks.includes(stack.id))
+        .map((stack) => stack.label);
+      return { ...entry, stackLabels };
+    });
 
-      if (ownedByAStack) {
-        // The matched stack's baseline already names which tool applies here, so there's no
-        // need to re-derive stack fit generically like the fallback below.
-        recommended = toRecommendedTools(
-          recommendationsByToolId(stacks, id),
-          toolById,
-          id,
-        );
-      } else {
-        // No matched stack's baseline mentions this capability (only ever a `universal` one,
-        // which the real catalogue never populates), so fall back to searching every tool
-        // generically. A wrapped tool is never itself recommended, and a bundle covering the
-        // capability sorts first.
+    let satisfied: boolean;
+    // A gap names the tools the catalogue would put there, and nothing else. No generated
+    // workflow snippet: a snippet that has not been run against the repo is a guess.
+    let recommended: RecommendedTool[] = [];
+
+    if (owningStacks.length === 0) {
+      // Only reachable via `baseline.universal`, which the real catalogue always leaves empty:
+      // there's no stack dimension to check partial coverage against.
+      satisfied = present.length > 0;
+      if (!satisfied) {
+        // No matched stack's baseline mentions this capability, so fall back to searching every
+        // tool generically. A wrapped tool is never itself recommended, and a bundle covering
+        // the capability sorts first.
         const wrappedIds = new Set(
           tools.flatMap(
             (tool) =>
@@ -118,15 +124,34 @@ export function analyze(
           )
           .map((tool) => ({ id: tool.id, name: tool.name, stackLabels: [] }));
       }
+    } else {
+      const uncoveredStacks = owningStacks.filter(
+        (stack) =>
+          !present.some((entry) => {
+            const tool = toolById.get(entry.id);
+            return (
+              tool !== undefined &&
+              (tool.stacks.includes("any") || tool.stacks.includes(stack.id))
+            );
+          }),
+      );
+      satisfied = uncoveredStacks.length === 0;
+      if (!satisfied) {
+        // Each uncovered stack's own baseline entry already names which tool applies here, so
+        // there's no need to re-derive stack fit generically like the fallback above.
+        recommended = toRecommendedTools(
+          recommendationsByToolId(uncoveredStacks, id),
+          toolById,
+          id,
+        );
+      }
     }
 
     return {
       id,
       label: meta?.label ?? id,
-      satisfied: present.length > 0,
+      satisfied,
       present,
-      // A gap names the tools the catalogue would put there, and nothing else. No generated
-      // workflow snippet: a snippet that has not been run against the repo is a guess.
       recommended,
     };
   });

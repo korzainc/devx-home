@@ -112,6 +112,10 @@ export type DetectedTool = Match & {
   name: string;
 };
 
+/** A `present` tool, attributed to whichever matched stack(s) it belongs to. Empty when the
+ * tool's own stacks include "any" - it isn't tied to one stack to attribute it to. */
+export type PresentTool = DetectedTool & { stackLabels: string[] };
+
 /** A tool the baseline recommends to close a gap. More than one can appear at once: a repo
  * matching two stacks, e.g. a JS+Go monorepo, gets a recommendation from each. */
 export type RecommendedTool = {
@@ -127,7 +131,7 @@ export type CapabilityReport = {
   label: string;
   satisfied: boolean;
   /** Tools found in the repo that cover this capability. */
-  present: DetectedTool[];
+  present: PresentTool[];
   /** Catalogue tools that would cover it, limited to the stacks detected. Empty when satisfied. */
   recommended: RecommendedTool[];
 };
