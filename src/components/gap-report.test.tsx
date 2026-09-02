@@ -208,4 +208,44 @@ describe("GapReport", () => {
 
     expect(screen.getByText(/JavaScript, Go/)).toBeTruthy();
   });
+
+  it("renders a partial capability with what's present, attributed, and what's still needed", () => {
+    render(
+      <GapReport
+        stacks={stacks}
+        analysis={analysisWith({
+          categories: [
+            {
+              category: "Testing",
+              capabilities: [
+                {
+                  id: "unit-tests",
+                  label: "Unit tests",
+                  satisfied: false,
+                  present: [
+                    {
+                      id: "jest",
+                      name: "Jest",
+                      evidence: "jest.config.js",
+                      stackLabels: ["JavaScript"],
+                    },
+                  ],
+                  recommended: [
+                    { id: "go-test", name: "go test", stackLabels: ["Go"] },
+                  ],
+                },
+              ],
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByText("partial")).toBeTruthy();
+    expect(screen.getByText(/Jest/)).toBeTruthy();
+    expect(screen.getByText(/for JavaScript/)).toBeTruthy();
+    expect(screen.getByText(/Still need/)).toBeTruthy();
+    expect(screen.getByText(/for Go/)).toBeTruthy();
+    expect(screen.queryByText("missing")).toBeNull();
+  });
 });

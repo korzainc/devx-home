@@ -19,16 +19,24 @@ import type {
 // so a report URL still reads with no client JavaScript. The one exception is the fix prompt
 // control, which needs an overlay and the clipboard.
 
-function StatusChip({ satisfied }: { satisfied: boolean }) {
+function StatusChip({
+  status,
+}: {
+  status: "satisfied" | "partial" | "missing";
+}) {
   return (
     <span
       className={`shrink-0 rounded-md border px-1.5 py-0.5 font-mono text-[0.65rem] ${
-        satisfied
+        status === "satisfied"
           ? "border-positive bg-positive-wash text-positive"
           : "border-accent bg-accent-wash text-accent"
       }`}
     >
-      {satisfied ? "present" : "missing"}
+      {status === "satisfied"
+        ? "present"
+        : status === "partial"
+          ? "partial"
+          : "missing"}
     </span>
   );
 }
@@ -81,11 +89,17 @@ function RecommendedTools({
 }
 
 function Capability({ capability }: { capability: CapabilityReport }) {
+  const status = capability.satisfied
+    ? "satisfied"
+    : capability.present.length > 0
+      ? "partial"
+      : "missing";
+
   return (
     <div className="flex flex-col gap-2 py-4">
       <div className="flex items-baseline justify-between gap-3">
         <h4 className="font-medium text-ink">{capability.label}</h4>
-        <StatusChip satisfied={capability.satisfied} />
+        <StatusChip status={status} />
       </div>
 
       {capability.satisfied ? (
@@ -99,6 +113,45 @@ function Capability({ capability }: { capability: CapabilityReport }) {
             </li>
           ))}
         </ul>
+      ) : capability.present.length > 0 ? (
+        capability.recommended.length > 0 ? (
+          <>
+            <ul className="flex flex-col gap-1">
+              {capability.present.map((tool) => (
+                <li key={tool.id} className="text-sm text-ink-muted">
+                  {tool.name}
+                  {tool.stackLabels.length > 0
+                    ? ` for ${requirements.format(tool.stackLabels)}`
+                    : ""}{" "}
+                  <span className="font-mono text-xs text-ink-faint">
+                    {tool.evidence}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-sm text-ink-muted">
+              Still need{" "}
+              <RecommendedTools
+                tools={capability.recommended}
+                alwaysAttribute
+              />
+              .
+            </p>
+          </>
+        ) : (
+          // Unreachable given analyze.ts's invariant (an uncovered owning stack always yields a
+          // recommendation or throws) - kept only as a defensive fallback, never a designed path.
+          <ul className="flex flex-col gap-1">
+            {capability.present.map((tool) => (
+              <li key={tool.id} className="text-sm text-ink-muted">
+                {tool.name}{" "}
+                <span className="font-mono text-xs text-ink-faint">
+                  {tool.evidence}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )
       ) : capability.recommended.length > 0 ? (
         // A multi-tool line says outright that one of them is enough only when they are genuine
         // alternatives - a per-stack line lists tools that are each required, not a choice.
