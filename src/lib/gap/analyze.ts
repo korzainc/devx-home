@@ -1,5 +1,5 @@
 import { detectStacks, detectTools } from "./detect";
-import { refLabel } from "./types";
+import { CatalogueDataError, refLabel } from "./types";
 import type {
   Analysis,
   AnalysisTool,
@@ -11,26 +11,44 @@ import type {
   RepoSnapshot,
 } from "./types";
 
-/** Every matched stack's own recommended tool id for one capability, deduped, first-seen order.
- * `acceptable` alternatives exist in the baseline but aren't surfaced here: the report only
- * names the recommendation. More than one stack can contribute one; a repo matching both
- * `javascript` and `go` wants jest for its JS half and go-test for its Go half, neither taking
- * priority over the other. */
-function recommendedToolIds(stacks: BaselineStack[], id: string) {
-  const recommendedIds: string[] = [];
-  let ownedByAStack = false;
+/** Every stack in `targetStacks` that expects capability `id`, keyed by the tool id it names,
+ * with the labels of every stack that named it. Two stacks naming the same tool merge into one
+ * entry instead of repeating it. */
+function recommendationsByToolId(
+  targetStacks: BaselineStack[],
+  id: string,
+): Map<string, string[]> {
+  const byToolId = new Map<string, string[]>();
 
-  for (const stack of stacks) {
+  for (const stack of targetStacks) {
     const entry = stack.expects[id];
     if (!entry) continue;
-    ownedByAStack = true;
 
-    if (!recommendedIds.includes(entry.recommended)) {
-      recommendedIds.push(entry.recommended);
-    }
+    const labels = byToolId.get(entry.recommended) ?? [];
+    if (!labels.includes(stack.label)) labels.push(stack.label);
+    byToolId.set(entry.recommended, labels);
   }
 
-  return { ownedByAStack, recommendedIds };
+  return byToolId;
+}
+
+/** Resolves each accumulated tool id against the catalogue. A baseline naming a tool id the
+ * catalogue doesn't have is a data bug, not a real user-input path - `catalogue.test.ts` already
+ * asserts this never happens for real data, so this throws rather than silently dropping it. */
+function toRecommendedTools(
+  byToolId: Map<string, string[]>,
+  toolById: Map<string, AnalysisTool>,
+  id: string,
+): RecommendedTool[] {
+  return [...byToolId].map(([toolId, stackLabels]) => {
+    const tool = toolById.get(toolId);
+    if (!tool) {
+      throw new CatalogueDataError(
+        `The baseline names "${toolId}" for "${id}" (${stackLabels.join(", ")}), but no catalogue tool has that id.`,
+      );
+    }
+    return { id: tool.id, name: tool.name, stackLabels };
+  });
 }
 
 /**
@@ -61,15 +79,18 @@ export function analyze(
 
     let recommended: RecommendedTool[] = [];
     if (present.length === 0) {
-      const { ownedByAStack, recommendedIds } = recommendedToolIds(stacks, id);
+      const ownedByAStack = stacks.some(
+        (stack) => stack.expects[id] !== undefined,
+      );
 
       if (ownedByAStack) {
         // The matched stack's baseline already names which tool applies here, so there's no
         // need to re-derive stack fit generically like the fallback below.
-        recommended = recommendedIds.flatMap((toolId) => {
-          const tool = toolById.get(toolId);
-          return tool ? [{ id: tool.id, name: tool.name }] : [];
-        });
+        recommended = toRecommendedTools(
+          recommendationsByToolId(stacks, id),
+          toolById,
+          id,
+        );
       } else {
         // No matched stack's baseline mentions this capability (only ever a `universal` one,
         // which the real catalogue never populates), so fall back to searching every tool
@@ -95,7 +116,7 @@ export function analyze(
             (a, b) =>
               Number(b.wraps !== undefined) - Number(a.wraps !== undefined),
           )
-          .map((tool) => ({ id: tool.id, name: tool.name }));
+          .map((tool) => ({ id: tool.id, name: tool.name, stackLabels: [] }));
       }
     }
 

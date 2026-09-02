@@ -11,7 +11,6 @@ const baseline: Baseline = {
     "e2e-tests": { label: "End-to-end tests", category: "Testing" },
     "secret-scanning": { label: "Secret scanning", category: "Security" },
     sast: { label: "SAST", category: "Security" },
-    orphan: { label: "Orphan", category: "Nowhere" },
   },
   universal: ["secret-scanning"],
   stacks: [
@@ -23,13 +22,11 @@ const baseline: Baseline = {
         lint: { recommended: "eslint", acceptable: [] },
         "unit-tests": { recommended: "vitest", acceptable: [] },
         coverage: { recommended: "vitest", acceptable: [] },
-        // No tool in the fixture provides this, so Testing always mixes a gap with satisfied
-        // capabilities - otherwise the gaps-first sort below would pass by luck.
-        "e2e-tests": { recommended: "playwright", acceptable: [] },
+        // vitest resolves as a real tool id, but its own capabilities never include
+        // e2e-tests, so this capability stays permanently unsatisfied regardless of what
+        // any future snapshot detects.
+        "e2e-tests": { recommended: "vitest", acceptable: [] },
         sast: { recommended: "semgrep", acceptable: ["codeql"] },
-        // Nothing in `tools` provides this: exercises the "baseline names a tool that isn't a
-        // real catalogue entry" path, filtered out rather than thrown.
-        orphan: { recommended: "no-such-tool", acceptable: [] },
       },
     },
     {
@@ -159,12 +156,6 @@ describe("analyze", () => {
     ]);
   });
 
-  it("recommends nothing when the catalogue has no tool for the capability", () => {
-    const report = analyze(snapshot(["package.json"]), { tools, baseline });
-
-    expect(capability(report, "orphan").recommended).toEqual([]);
-  });
-
   it("names only the stack's recommended tool, never its acceptable alternatives", () => {
     const report = analyze(snapshot(["package.json"]), { tools, baseline });
 
@@ -187,6 +178,74 @@ describe("analyze", () => {
     ]);
   });
 
+  it("merges two stacks that name the same tool into one entry with both labels", () => {
+    // Both stacks recommend gitleaks's own bundle for secret-scanning (an `any`-stack tool),
+    // by way of the shared `secret-scanning` capability being reachable from both `javascript`
+    // and a synthetic second stack that also expects it.
+    const merged: Baseline = {
+      ...baseline,
+      stacks: [
+        baseline.stacks[0],
+        {
+          id: "java",
+          label: "Java",
+          markers: ["pom.xml"],
+          expects: {
+            "secret-scanning": {
+              recommended: "ci-base-checks",
+              acceptable: [],
+            },
+          },
+        },
+      ],
+    };
+    // javascript's own expects has no secret-scanning entry (it's universal in this fixture),
+    // so this baseline adds it there too to force the merge.
+    merged.stacks[0] = {
+      ...merged.stacks[0],
+      expects: {
+        ...merged.stacks[0].expects,
+        "secret-scanning": { recommended: "ci-base-checks", acceptable: [] },
+      },
+    };
+
+    const report = analyze(snapshot(["package.json", "pom.xml"]), {
+      tools,
+      baseline: merged,
+    });
+
+    const capability = report.categories
+      .flatMap((category) => category.capabilities)
+      .find((entry) => entry.id === "secret-scanning")!;
+    expect(capability.recommended).toEqual([
+      {
+        id: "ci-base-checks",
+        name: "Korza CI Base Checks",
+        stackLabels: ["JavaScript", "Java"],
+      },
+    ]);
+  });
+
+  it("throws when the baseline names a tool id absent from the catalogue", () => {
+    const orphanBaseline: Baseline = {
+      categories: ["Linting"],
+      capabilities: { orphan: { label: "Orphan", category: "Linting" } },
+      universal: [],
+      stacks: [
+        {
+          id: "javascript",
+          label: "JavaScript",
+          markers: ["package.json"],
+          expects: { orphan: { recommended: "no-such-tool", acceptable: [] } },
+        },
+      ],
+    };
+
+    expect(() =>
+      analyze(snapshot(["package.json"]), { tools, baseline: orphanBaseline }),
+    ).toThrow(/no-such-tool/);
+  });
+
   it("orders categories by the baseline and puts unknown ones last", () => {
     const report = analyze(snapshot(["package.json"]), { tools, baseline });
 
@@ -194,7 +253,6 @@ describe("analyze", () => {
       "Security",
       "Testing",
       "Linting",
-      "Nowhere",
     ]);
   });
 
@@ -230,8 +288,8 @@ describe("analyze", () => {
       baseline,
     });
 
-    // lint, unit-tests, coverage, e2e-tests, sast, orphan, secret-scanning.
-    expect(report.satisfiedCount + report.gapCount).toBe(7);
+    // lint, unit-tests, coverage, e2e-tests, sast, secret-scanning.
+    expect(report.satisfiedCount + report.gapCount).toBe(6);
     expect(report.satisfiedCount).toBe(1);
   });
 
