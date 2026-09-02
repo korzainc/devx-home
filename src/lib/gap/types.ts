@@ -68,6 +68,16 @@ export class RepoReadError extends Error {
   }
 }
 
+/** Thrown when the baseline names a tool id that isn't in the catalogue - a data invariant
+ * violation `catalogue.test.ts` already guards against for real data, so this is defense-in-depth,
+ * not a real user-input path. `runAnalysis` catches it the same way it catches `RepoReadError`. */
+export class CatalogueDataError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "CatalogueDataError";
+  }
+}
+
 /**
  * One provider's half of the analysis: turn what someone pasted into a ref, then read that repo
  * into a snapshot. Everything downstream sees only the snapshot, so a second provider means a
@@ -107,6 +117,9 @@ export type DetectedTool = Match & {
 export type RecommendedTool = {
   id: string;
   name: string;
+  /** Stack labels this recommendation is required for (e.g. ["Go"]). Empty means this entry is
+   * a genuine alternative to the others in the list, not tied to one stack. */
+  stackLabels: string[];
 };
 
 export type CapabilityReport = {
