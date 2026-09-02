@@ -131,7 +131,7 @@ export default async function ToolPage({ params }: PageProps<"/tools/[id]">) {
 
       {isBundle(entry) && (
         <CollapsibleGrid
-          id="tools-in-this-bundle"
+          id={`tools-in-${entry.id}`}
           heading="Tools in this bundle"
           noun="tools"
           items={entry.wraps.map((wrap) => {
