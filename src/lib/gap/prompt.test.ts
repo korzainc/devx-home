@@ -162,6 +162,7 @@ describe("buildFixPrompt", () => {
                   id: "vitest",
                   name: "Vitest",
                   evidence: "runs vitest in a|b/`c`.json",
+                  stackLabels: ["JavaScript"],
                 },
               ],
               recommended: [],
@@ -254,5 +255,27 @@ describe("buildFixPrompt", () => {
 
     expect(prompt).toContain("branch other than `weird'branch\\|name`");
     expect(prompt).toContain("Default branch: `weird'branch\\|name`");
+  });
+
+  it("lists a partial capability's present tool as already running, not just its gap", () => {
+    const analysis = withGap();
+    analysis.categories[0].capabilities[0] = {
+      id: "unit-tests",
+      label: "Unit tests",
+      satisfied: false,
+      present: [
+        {
+          id: "jest",
+          name: "Jest",
+          evidence: "jest.config.js",
+          stackLabels: ["JavaScript"],
+        },
+      ],
+      recommended: [{ id: "go-test", name: "go test", stackLabels: ["Go"] }],
+    };
+
+    const prompt = buildFixPrompt(analysis);
+    expect(prompt).toContain("| Unit tests | Jest | `jest.config.js` |");
+    expect(prompt).toContain("| 1 | Unit tests | Security | go test for Go |");
   });
 });

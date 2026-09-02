@@ -121,7 +121,7 @@ export function buildFixPrompt(analysis: Analysis): string {
   const expected = analysis.satisfiedCount + analysis.gapCount;
 
   const running = analysis.categories.flatMap((category) =>
-    category.capabilities.filter((capability) => capability.satisfied),
+    category.capabilities.filter((capability) => capability.present.length > 0),
   );
 
   const gaps: Gap[] = analysis.categories.flatMap((category) =>
