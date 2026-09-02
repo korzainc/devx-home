@@ -1,7 +1,16 @@
 import Link from "next/link";
 import { FixPromptButton } from "@/components/fix-prompt";
-import { alternatives, buildFixPrompt } from "@/lib/gap/prompt";
-import type { Analysis, CapabilityReport } from "@/lib/gap/types";
+import {
+  alternatives,
+  buildFixPrompt,
+  isDisjunction,
+  requirements,
+} from "@/lib/gap/prompt";
+import type {
+  Analysis,
+  BaselineStack,
+  CapabilityReport,
+} from "@/lib/gap/types";
 
 // The report itself renders on the server and the disclosure at the bottom is a native `details`,
 // so a report URL still reads with no client JavaScript. The one exception is the fix prompt
@@ -21,28 +30,46 @@ function StatusChip({ satisfied }: { satisfied: boolean }) {
   );
 }
 
-// The same disjunction the prompt uses, rendered as links instead of text. `formatToParts` keeps
-// the separators in one place: hand-rolling `or` here is how the two drift apart. Elements come
-// back in input order, so a cursor pairs each one with the tool it was formatted from.
-function Alternatives({ tools }: { tools: CapabilityReport["recommended"] }) {
+// Renders two cases: genuine alternatives ("X or Y, and one is enough") and required-per-stack
+// tools ("X for Go and Y for JavaScript"). `formatToParts` only gets tool names, never a
+// compound "name for stack" string, which would render as one atomic part inside the link.
+function RecommendedTools({
+  tools,
+  alwaysAttribute = false,
+}: {
+  tools: CapabilityReport["recommended"];
+  /** Task 9 passes true for a partially-covered capability: even a single remaining tool needs
+   * its stack named there, since the reader already sees another stack's tool sitting right
+   * above it in the present list. */
+  alwaysAttribute?: boolean;
+}) {
+  const formatter = isDisjunction(tools) ? alternatives : requirements;
+  const showAttribution =
+    alwaysAttribute ||
+    tools.length > 1 ||
+    tools.some((tool) => tool.stackLabels.length > 1);
   let cursor = 0;
 
   return (
     <>
-      {alternatives
+      {formatter
         .formatToParts(tools.map((tool) => tool.name))
         .map((part, index) => {
           if (part.type === "literal") return part.value;
 
           const tool = tools[cursor++];
           return (
-            <Link
-              key={index}
-              href={`/tools/${tool.id}`}
-              className="text-accent hover:underline"
-            >
-              {tool.name}
-            </Link>
+            <span key={index}>
+              <Link
+                href={`/tools/${tool.id}`}
+                className="text-accent hover:underline"
+              >
+                {tool.name}
+              </Link>
+              {showAttribution && tool.stackLabels.length > 0
+                ? ` for ${requirements.format(tool.stackLabels)}`
+                : null}
+            </span>
           );
         })}
     </>
@@ -69,12 +96,15 @@ function Capability({ capability }: { capability: CapabilityReport }) {
           ))}
         </ul>
       ) : capability.recommended.length > 0 ? (
-        // The tools listed are alternatives, not a shopping list, so a multi-tool line says
-        // outright that one of them is enough.
+        // A multi-tool line says outright that one of them is enough only when they are genuine
+        // alternatives - a per-stack line lists tools that are each required, not a choice.
         <p className="text-sm text-ink-muted">
           Nothing found. The catalogue recommends{" "}
-          <Alternatives tools={capability.recommended} />
-          {capability.recommended.length > 1 ? ", and one is enough." : "."}
+          <RecommendedTools tools={capability.recommended} />
+          {isDisjunction(capability.recommended) &&
+          capability.recommended.length > 1
+            ? ", and one is enough."
+            : "."}
         </p>
       ) : (
         <p className="text-sm text-ink-muted">
@@ -85,7 +115,13 @@ function Capability({ capability }: { capability: CapabilityReport }) {
   );
 }
 
-export function GapReport({ analysis }: { analysis: Analysis }) {
+export function GapReport({
+  analysis,
+  stacks,
+}: {
+  analysis: Analysis;
+  stacks: BaselineStack[];
+}) {
   const expected = analysis.satisfiedCount + analysis.gapCount;
   // The real baseline has no "universal" capability - every one belongs to some ecosystem's own
   // baseline, so `expected` is zero only when no recognized stack matched.
@@ -137,9 +173,9 @@ export function GapReport({ analysis }: { analysis: Analysis }) {
           <p className="text-sm text-ink-muted">
             {noStackDetected ? (
               <>
-                No manifest for a stack the catalogue covers (Java, JavaScript,
-                TypeScript, Go, Python, Docker) was found at the repo root, so
-                nothing could be compared.
+                No manifest for a stack the catalogue covers (
+                {stacks.map((stack) => stack.label).join(", ")}) was found at
+                the repo root, so nothing could be compared.
               </>
             ) : (
               <>

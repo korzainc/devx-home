@@ -22,7 +22,7 @@ async function Result({ repo }: { repo: string }) {
   const result = await runAnalysis(repo, token, { tools, baseline });
   if (!result.ok) return <Notice>{result.error}</Notice>;
 
-  return <GapReport analysis={result.analysis} />;
+  return <GapReport analysis={result.analysis} stacks={baseline.stacks} />;
 }
 
 // Shown whenever nobody is signed in, so it cannot say anything about the repository itself.
