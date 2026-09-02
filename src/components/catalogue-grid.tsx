@@ -45,7 +45,9 @@ export function CatalogueGrid<T extends CatalogueEntry>({
   // Both panels stay mounted, so a fixed id would give the document two search inputs.
   const searchId = useId();
   const [selected, setSelected] = useState<Record<string, string[]>>({});
-  const [unclassifiedOpen, setUnclassifiedOpen] = useState(false);
+  // null follows the search; a click pins it. One value, so the chevron, the rows and the
+  // count cannot disagree.
+  const [pinned, setPinned] = useState<boolean | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   // "/" focuses search, which is what the hint in the field promises. Ignored while typing, or
@@ -98,16 +100,16 @@ export function CatalogueGrid<T extends CatalogueEntry>({
     [unclassified, query],
   );
 
-  // Two rules, stated once, because three places have to agree about them.
-  //
-  // Unclassified rows are searched but never faceted, so they can only ever answer a query.
-  // With a facet on, they are not candidates and their matching says nothing.
   const searching = terms(query).length > 0;
   const facetsActive = Object.values(selected).some(
     (picked) => picked.length > 0,
   );
-  const nothingMatched =
-    visible.length === 0 && (facetsActive || visibleUnclassified.length === 0);
+  // A search reveals these rows; a facet cannot, since they sit outside every facet.
+  const unclassifiedShown = pinned ?? (searching && !facetsActive);
+  // The count and the empty state both answer "what is on screen", so they cannot contradict
+  // each other or the rows themselves.
+  const onScreen =
+    visible.length + (unclassifiedShown ? visibleUnclassified.length : 0);
 
   const activeCount = Object.values(selected).reduce(
     (total, picked) => total + picked.length,
@@ -183,10 +185,11 @@ export function CatalogueGrid<T extends CatalogueEntry>({
               onToggle={(value) => toggle(facet.key, value)}
             />
           ))}
-          {/* Classified rows only; the section below carries its own count. */}
           <span role="status" className="ml-1 shrink-0 text-sm text-ink-muted">
-            <span className="font-mono text-ink">{visible.length}</span> of{" "}
-            <span className="font-mono">{entries.length}</span>
+            <span className="font-mono text-ink">{onScreen}</span> of{" "}
+            <span className="font-mono">
+              {entries.length + unclassified.length}
+            </span>
           </span>
         </div>
       </div>
@@ -256,7 +259,7 @@ export function CatalogueGrid<T extends CatalogueEntry>({
         </div>
       )}
 
-      {nothingMatched && (
+      {onScreen === 0 && (
         <p className="rounded-xl border border-dashed border-line px-6 py-16 text-center text-sm text-ink-muted">
           No {noun} matches those filters.
         </p>
@@ -267,9 +270,9 @@ export function CatalogueGrid<T extends CatalogueEntry>({
           {/* Open, these nine push the classified rows off the first screen. */}
           <button
             type="button"
-            aria-expanded={unclassifiedOpen}
-            onClick={() => setUnclassifiedOpen((was) => !was)}
-            className="flex items-center gap-3 rounded-xl border border-dashed border-line px-4 py-3 text-left transition-colors hover:border-line-strong"
+            aria-expanded={unclassifiedShown}
+            onClick={() => setPinned(!unclassifiedShown)}
+            className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-dashed border-line px-4 py-3 text-left transition-colors hover:border-line-strong"
           >
             <span className="text-sm font-medium text-ink">
               {unclassifiedLabel}
@@ -278,16 +281,14 @@ export function CatalogueGrid<T extends CatalogueEntry>({
               {visibleUnclassified.length}
             </span>
             {unclassifiedNote && (
-              <span className="hidden text-xs text-ink-faint lg:block">
-                {unclassifiedNote}
-              </span>
+              <span className="text-xs text-ink-faint">{unclassifiedNote}</span>
             )}
             <span aria-hidden className="ml-auto text-xs text-ink-faint">
-              {unclassifiedOpen ? "▾" : "▸"}
+              {unclassifiedShown ? "▾" : "▸"}
             </span>
           </button>
 
-          {(unclassifiedOpen || (searching && !facetsActive)) && (
+          {unclassifiedShown && (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {visibleUnclassified.map((entry) => (
                 <div key={entry.id} id={entry.id} className="scroll-mt-24">

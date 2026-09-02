@@ -4,6 +4,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { CatalogueTabs } from "@/components/catalogue-tabs";
+import { PluginsCatalogue } from "@/components/plugins-catalogue";
 import { SkillsCatalogue } from "@/components/skills-catalogue";
 import { entryHaystack, matchesQuery } from "@/lib/search";
 import {
@@ -195,6 +196,40 @@ describe("the skills catalogue", () => {
   });
 });
 
+describe("the plugins catalogue", () => {
+  // The card shows a trimmed summary, so the prose beneath it is the only searchable text a
+  // plugin has. Trimming the summaries for the card silently emptied the search with it.
+  it("searches the prose the card does not show", () => {
+    render(<PluginsCatalogue entries={plugins} />);
+    const search = screen.getByLabelText("Filter plugins");
+
+    for (const [query, expected] of [
+      ["code review", "mattpocock-skills"],
+      ["Wikipedia", "humanizer"],
+      ["domain modeling", "mattpocock-skills"],
+      ["python", "pyright-lsp"],
+    ] as const) {
+      fireEvent.change(search, { target: { value: query } });
+      expect(
+        screen.queryByRole("link", { name: new RegExp(`^${expected}`) }),
+        `"${query}" does not find ${expected}`,
+      ).toBeTruthy();
+    }
+  });
+
+  it("does not draw the prose it searches", () => {
+    // Paired with the test above: together they pin problem and benefits into the haystack
+    // and off the card.
+    render(<PluginsCatalogue entries={plugins} />);
+    for (const plugin of plugins) {
+      expect(screen.queryByText(plugin.problem)).toBeNull();
+      for (const benefit of plugin.benefits) {
+        expect(screen.queryByText(benefit)).toBeNull();
+      }
+    }
+  });
+});
+
 describe("the page around the grid", () => {
   it("names the rows in the empty state", () => {
     // Hardcoding the noun, or passing the wrong one, survived every other assertion -- and
@@ -297,6 +332,49 @@ describe("a search that only the toolchain matches", () => {
     pick("Category", "Build");
     fireEvent.change(search(), { target: { value: "bootstrap" } });
     expect(screen.getByText("No skill matches those filters.")).toBeTruthy();
+    expect(cardCount()).toBe(0);
+  });
+
+  // "teach" is a toolchain row and matches nothing classified, so the counts stay unambiguous.
+  it("says on screen what is on screen", () => {
+    // The count, the chevron and the empty state each used to read a different set: a search
+    // could reveal toolchain rows while the chevron said closed and the count said none.
+    renderPage();
+    const toggle = screen.getByRole("button", { name: /^Setup and toolchain/ });
+    const count = () => screen.getByRole("status").textContent;
+
+    expect(count()).toBe(`${browsableSkills.length} of ${skills.length}`);
+
+    fireEvent.change(search(), { target: { value: "teach" } });
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(cardCount()).toBe(1);
+    expect(count()).toBe(`1 of ${skills.length}`);
+    expect(screen.queryByText("No skill matches those filters.")).toBeNull();
+  });
+
+  it("does not put the empty state above a visible card", () => {
+    // Facets do not reach the toolchain rows, but with the section held open they are on
+    // screen, and an empty state above them told the reader the opposite of what they saw.
+    renderPage();
+    expandToolchain();
+    fireEvent.change(search(), { target: { value: "teach" } });
+    pick("Category", "Discover");
+
+    expect(cardCount()).toBe(1);
+    expect(screen.queryByText("No skill matches those filters.")).toBeNull();
+    expect(screen.getByRole("status").textContent).toBe(
+      `1 of ${skills.length}`,
+    );
+  });
+
+  it("keeps the toggle working while a search has opened the section", () => {
+    // Deriving the open state from the search alone left the button pressing against itself.
+    renderPage();
+    fireEvent.change(search(), { target: { value: "teach" } });
+    const toggle = screen.getByRole("button", { name: /^Setup and toolchain/ });
+
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
     expect(cardCount()).toBe(0);
   });
 
