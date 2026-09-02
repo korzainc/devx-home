@@ -45,8 +45,8 @@ export default function SkillsPage() {
         >
           korzainc/marketplace
         </a>
-        , each at the ref the catalogue records, which each entry&rsquo;s page
-        shows beside its name.
+        . Each entry is read at the ref the catalogue records, which its own
+        page shows beside its name.
       </footer>
     </div>
   );
