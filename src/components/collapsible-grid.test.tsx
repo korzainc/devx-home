@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { CollapsibleGrid } from "@/components/collapsible-grid";
 
 afterEach(cleanup);
@@ -57,5 +57,51 @@ describe("CollapsibleGrid", () => {
       toggle,
     );
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("renders every item when forceExpanded is set, without the toggle ever being clicked", () => {
+    render(
+      <CollapsibleGrid
+        heading="Skills in this plugin"
+        noun="skills"
+        items={items(11)}
+        forceExpanded
+      />,
+    );
+    expect(screen.getAllByText(/^Item \d+$/)).toHaveLength(11);
+    expect(
+      screen
+        .getByRole("button", { name: /show fewer/i })
+        .getAttribute("aria-expanded"),
+    ).toBe("true");
+  });
+
+  it("fires onCollapse when the button collapses the grid, whether expanded via state or forceExpanded", () => {
+    const onCollapseFromState = vi.fn();
+    render(
+      <CollapsibleGrid
+        heading="Skills in this plugin"
+        noun="skills"
+        items={items(11)}
+        onCollapse={onCollapseFromState}
+      />,
+    );
+    const toggle = screen.getByRole("button", { name: /show all/i });
+    fireEvent.click(toggle); // expand
+    fireEvent.click(toggle); // collapse
+    expect(onCollapseFromState).toHaveBeenCalledTimes(1);
+
+    const onCollapseFromForce = vi.fn();
+    render(
+      <CollapsibleGrid
+        heading="Skills in this plugin"
+        noun="skills"
+        items={items(11)}
+        forceExpanded
+        onCollapse={onCollapseFromForce}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /show fewer/i }));
+    expect(onCollapseFromForce).toHaveBeenCalledTimes(1);
   });
 });
