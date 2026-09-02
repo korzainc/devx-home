@@ -171,10 +171,14 @@ describe("analyze", () => {
     });
 
     // javascript recommends eslint for lint, java recommends spotbugs: both are real for
-    // their half of a polyglot repo, neither dropped for matching second.
-    expect(capability(report, "lint").recommended).toEqual([
-      "eslint",
-      "spotbugs",
+    // their half of a polyglot repo, neither dropped for matching second, and each is
+    // attributed only to the stack that named it.
+    const lint = report.categories
+      .flatMap((category) => category.capabilities)
+      .find((entry) => entry.id === "lint")!;
+    expect(lint.recommended).toEqual([
+      { id: "eslint", name: "ESLint", stackLabels: ["JavaScript"] },
+      { id: "spotbugs", name: "SpotBugs", stackLabels: ["Java"] },
     ]);
   });
 
