@@ -18,6 +18,7 @@ describe("CollapsibleGrid", () => {
   it("renders every item and no show-more control when the count fits the preview", () => {
     render(
       <CollapsibleGrid
+        id="grid"
         heading="Tools in this bundle"
         noun="tools"
         items={items(4)}
@@ -30,6 +31,7 @@ describe("CollapsibleGrid", () => {
   it("previews 5 items behind a full count and a show-all button, then expands and collapses", () => {
     render(
       <CollapsibleGrid
+        id="grid"
         heading="Skills in this plugin"
         noun="skills"
         items={items(11)}
@@ -64,6 +66,7 @@ describe("CollapsibleGrid", () => {
     // exactly five skills would grow a "Show all 5 skills" button that expands to the same five.
     render(
       <CollapsibleGrid
+        id="grid"
         heading="Skills in this plugin"
         noun="skills"
         items={items(5)}
@@ -92,6 +95,7 @@ describe("CollapsibleGrid", () => {
   it("renders every item when forceExpanded is set, without the toggle ever being clicked", () => {
     render(
       <CollapsibleGrid
+        id="grid"
         heading="Skills in this plugin"
         noun="skills"
         items={items(11)}
@@ -110,6 +114,7 @@ describe("CollapsibleGrid", () => {
     const onCollapseFromState = vi.fn();
     render(
       <CollapsibleGrid
+        id="grid"
         heading="Skills in this plugin"
         noun="skills"
         items={items(11)}
@@ -124,6 +129,7 @@ describe("CollapsibleGrid", () => {
     const onCollapseFromForce = vi.fn();
     render(
       <CollapsibleGrid
+        id="grid"
         heading="Skills in this plugin"
         noun="skills"
         items={items(11)}

@@ -13,8 +13,11 @@ export function CollapsibleGrid({
   forceExpanded = false,
   onCollapse,
 }: {
-  /** Put on the grid itself, so a control outside this component can name what it expands. */
-  id?: string;
+  /** Put on the grid itself, so `aria-controls` on the toggle resolves and a control outside
+   * this component can name what it expands. Required: when it was optional, the tools page
+   * omitted it and would have shipped a toggle with `aria-expanded` and no `aria-controls`
+   * the day a bundle wrapped more than PREVIEW tools. */
+  id: string;
   /** Rendered as "{heading} ({items.length})". */
   heading: string;
   /** Plural noun for the "Show all N <noun>" button. */
@@ -55,12 +58,16 @@ export function CollapsibleGrid({
                 // one of them. Clicking a button does not focus it on Safari or Firefox, so
                 // without this the focused row is removed and focus falls to the body, sending
                 // the next Tab back to the top of the document.
+                //
+                // Scoped to rows that will actually go: a whole-grid check also stole focus
+                // off a row inside the preview, which survives and had no reason to lose it.
                 const toggle = event.currentTarget;
-                if (
-                  document.activeElement !== toggle &&
-                  toggle.parentElement?.contains(document.activeElement)
-                ) {
-                  toggle.focus();
+                const grid = toggle.parentElement;
+                const focused = document.activeElement;
+                if (grid && focused && focused !== toggle) {
+                  const cells = [...grid.children];
+                  const cell = cells.find((node) => node.contains(focused));
+                  if (cell && cells.indexOf(cell) >= PREVIEW) toggle.focus();
                 }
                 onCollapse?.();
               }

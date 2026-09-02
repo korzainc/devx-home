@@ -35,6 +35,11 @@ describe("the skill context strip", () => {
     // Position, not just the name: it is what tells you the list below is 25 long and in its
     // own order, so the card is somewhere other than the top.
     expect(screen.getByText("18 of 25 in this plugin")).toBeTruthy();
+    // The landmark's accessible name: an <aside> keeps role="complementary" without it, so
+    // dropping the label left a nameless landmark that queryByRole still found.
+    expect(
+      screen.getByRole("complementary", { name: /opened for/i }),
+    ).toBeTruthy();
   });
 
   it("renders nothing when the page was opened without a skill", () => {
@@ -54,7 +59,7 @@ describe("the skill context strip", () => {
     render(<SkillContextStrip skills={skills} />);
 
     expect(screen.getByText(/renamed-upstream/)).toBeTruthy();
-    expect(screen.getByText(/no longer in this plugin/i)).toBeTruthy();
+    expect(screen.getByText(/not in the plugin/i)).toBeTruthy();
     expect(screen.queryByRole("button")).toBeNull();
   });
 

@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { CollapsibleGrid, PREVIEW } from "@/components/collapsible-grid";
 import type { SkillEntry } from "@/lib/catalogue";
 import {
@@ -19,53 +24,29 @@ export function PluginSkills({ skills }: { skills: SkillEntry[] }) {
     readOpenedSkill,
     () => "",
   );
+  // A new object per press, so the effect below re-runs even when the same skill is asked for
+  // twice. Keying on the name alone made every press after the first a no-op.
+  const [request, setRequest] = useState<{ name: string } | null>(null);
+  useEffect(() => subscribeToSkillFocus((name) => setRequest({ name })), []);
 
-  // Carries a count, not just a name: asking for the same skill twice is a real request, and
-  // keying on the name alone makes every press after the first a no-op.
-  const [madeRequest, setRequest] = useState<{
-    name: string;
-    count: number;
-  } | null>(null);
-  useEffect(
-    () =>
-      subscribeToSkillFocus((name) =>
-        setRequest((previous) => ({
-          name,
-          count: (previous?.count ?? 0) + 1,
-        })),
-      ),
-    [],
-  );
-
-  // Next hides the page with `<Activity>` instead of unmounting it, so leaving and coming back
-  // to another skill of this plugin keeps everything below alive: the jump would otherwise
-  // outlive the URL that produced it, leaving the list expanded on the previous skill's card
-  // while the strip already named the new one.
+  // A jump is a transient interaction, not view state, so it is undone when this page is
+  // hidden — the reset `preserving-ui-state.md` prescribes for exactly this case, in a layout
+  // effect so it runs synchronously before the page goes away.
   //
-  // Cleared, not just masked. Masking alone revives the jump on returning to the skill it
-  // belonged to, because the object identity never changed and the effect re-fires. The mask
-  // stays as well: it covers the render in which the reset is still settling.
+  // Next hides pages with `<Activity>` rather than unmounting them, so without this the jump
+  // outlives the visit: coming back to the plugin re-ran it, focusing the previous skill's card
+  // and dragging the viewport to it. Measured, not reasoned — jsdom cannot hide a tree, so the
+  // proof for this one is a CDP run, not a unit test.
+  useLayoutEffect(() => () => setRequest(null), []);
+
+  // Belt and braces for a skill change inside a live tree. The cleanup above covers leaving
+  // and returning, which is the path a reader actually takes; this covers the URL moving while
+  // the list stays mounted.
   const [seenOpened, setSeenOpened] = useState(openedFor);
   if (seenOpened !== openedFor) {
     setSeenOpened(openedFor);
     setRequest(null);
   }
-  const request = madeRequest?.name === openedFor ? madeRequest : null;
-
-  // A hidden `<Activity>` tree keeps its scroll offset, so returning here restores wherever a
-  // previous jump left the page. Opening a different skill has to land at the top, which is the
-  // whole promise of naming it in the strip instead of scrolling to it.
-  //
-  // Skips its first run rather than firing on mount: arriving here with the page already
-  // scrolled is a back navigation, and Next restoring that position is wanted.
-  const settled = useRef(false);
-  useEffect(() => {
-    if (!settled.current) {
-      settled.current = true;
-      return;
-    }
-    window.scrollTo(0, 0);
-  }, [openedFor]);
 
   const focusedIndex =
     request === null

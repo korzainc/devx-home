@@ -59,8 +59,10 @@ export default async function PluginPage({
 
       {/* Above the fold and outside the two-column block: the skill you clicked is the reason
           you are on this page, so it reads before what the plugin as a whole solves. Renders
-          nothing when the page was opened directly. */}
-      {skills.length > 0 && <SkillContextStrip skills={skills} />}
+          nothing when the page was opened directly.
+          Not gated on skills.length: a plugin that resolves to no skills is exactly where a
+          stale link most needs explaining, and pyright-lsp is that plugin today. */}
+      <SkillContextStrip skills={skills} />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
         <div className="overflow-hidden rounded-xl border border-line bg-surface">

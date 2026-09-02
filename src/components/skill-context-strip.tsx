@@ -43,17 +43,24 @@ export function SkillContextStrip({ skills }: { skills: SkillEntry[] }) {
           {openedFor}
         </span>
         {skill ? (
-          <p className="text-[0.8125rem] leading-relaxed text-ink-muted">
+          // Clamped because this falls back to upstream's own SKILL.md prose, which runs to
+          // ~890 characters in the current index. Unclamped that made the strip 511px tall on
+          // a 390px-wide phone, pushing the install panel off the first screen. Every row has
+          // a summary today, so the fallback only fires when CI picks up a new upstream skill
+          // before the Korza overlay catches up.
+          <p className="line-clamp-2 text-[0.8125rem] leading-relaxed text-ink-muted">
             {skill.summary ?? skill.description}
           </p>
         ) : (
-          // Skill names come from the generated index, so an upstream rename changes the link.
-          // Saying so beats rendering nothing, which reads as arriving with no link at all.
+          // Names no cause. It reads as "renamed upstream" but the same branch catches a
+          // skill that is merely unreleased: the six `Planned` rows are filtered out of the
+          // index, so /skills/codezen?skill=design-doc lands here while that skill is neither
+          // renamed nor gone.
+          //
           // A whole sentence, not a predicate: the name above it is a separate element, so a
-          // fragment here reads as "is no longer in this plugin" on its own to a screen reader.
+          // fragment here reads as "is not in this plugin" on its own to a screen reader.
           <p className="text-[0.8125rem] leading-relaxed text-ink-muted">
-            This skill is no longer in this plugin — it may have been renamed
-            upstream.
+            This skill is not in the plugin&apos;s current index.
           </p>
         )}
       </div>
