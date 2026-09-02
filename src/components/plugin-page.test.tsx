@@ -136,36 +136,27 @@ describe("the skills in a plugin", () => {
     expect(screen.getByText(first.description)).toBeTruthy();
   });
 
-  it("expands to a skill past the preview via hash, then actually collapses on Show fewer", () => {
-    // CollapsibleGrid's own toggle state never moves in this flow (it was already false,
-    // forced open by the hash instead), so a stale snapshot here would leave the grid stuck
-    // open even after the hash clears from the URL.
+  it("leaves the list alone when the URL names a skill past the preview", () => {
+    // The list used to unfold and scroll itself on arrival. The context strip carries that
+    // answer now, so the list keeps its own order and preview until asked — re-adding either
+    // behaviour makes what a reader sees depend on how they arrived.
     // jsdom has no layout engine, so it doesn't implement scrollIntoView at all.
     Element.prototype.scrollIntoView = vi.fn();
     const target = skills[skills.length - 1];
     window.location.hash = `#${target.name}`;
     render(<PluginSkills skills={skills} />);
-    expect(screen.getByText(target.name)).toBeTruthy();
-    expect(screen.getByRole("button", { name: /^Show fewer/ })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: /^Show fewer/ }));
-    expect(window.location.hash).toBe("");
+    expect(screen.queryByText(target.name)).toBeNull();
     expect(
       screen.getByRole("button", {
         name: new RegExp(`^Show all ${skills.length} skills`),
       }),
     ).toBeTruthy();
-    const shown = () =>
-      skills.filter((skill) => screen.queryByText(skill.name)).length;
-    expect(shown()).toBe(5);
-  });
-
-  it("survives a hash that is not valid encoding", () => {
-    // "#%" throws inside decodeURIComponent. Thrown during render it takes down the list,
-    // not just the anchor.
-    window.location.hash = "#%";
-    expect(() => render(<PluginSkills skills={skills} />)).not.toThrow();
-    expect(screen.getByRole("button", { name: /^Show all/ })).toBeTruthy();
+    expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
     window.location.hash = "";
   });
+
+  // Reaching a card from the strip, and the malformed-hash guard that went with the old
+  // hash-reading code, are covered in skill-jump.test.tsx and skill-context-strip.tsx's tests.
+  // Repeating them here would only assert that this component no longer reads the hash.
 });

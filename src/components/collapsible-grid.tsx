@@ -6,12 +6,15 @@ import { useState } from "react";
 export const PREVIEW = 5;
 
 export function CollapsibleGrid({
+  id,
   heading,
   noun,
   items,
   forceExpanded = false,
   onCollapse,
 }: {
+  /** Put on the grid itself, so a control outside this component can name what it expands. */
+  id?: string;
   /** Rendered as "{heading} ({items.length})". */
   heading: string;
   /** Plural noun for the "Show all N <noun>" button. */
@@ -34,7 +37,7 @@ export function CollapsibleGrid({
         {heading} ({items.length})
       </h2>
 
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div id={id} className="grid gap-3 lg:grid-cols-2">
         {shown.map((item) => (
           <div key={item.key}>{item.node}</div>
         ))}
@@ -44,6 +47,7 @@ export function CollapsibleGrid({
           // drops focus to the body.
           <button
             type="button"
+            aria-controls={id}
             aria-expanded={showAll}
             onClick={() => {
               if (showAll) onCollapse?.();

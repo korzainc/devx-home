@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { InstallPanel } from "@/components/install-panel";
 import { MetaRow } from "@/components/meta-row";
 import { PluginSkills } from "@/components/plugin-skills";
+import { SkillContextStrip } from "@/components/skill-context-strip";
 import {
   getPlugin,
   installCommands,
@@ -55,6 +56,11 @@ export default async function PluginPage({
           {plugin.summary}
         </p>
       </header>
+
+      {/* Above the fold and outside the two-column block: the skill you clicked is the reason
+          you are on this page, so it reads before what the plugin as a whole solves. Renders
+          nothing when the page was opened directly. */}
+      {skills.length > 0 && <SkillContextStrip skills={skills} />}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
         <div className="overflow-hidden rounded-xl border border-line bg-surface">

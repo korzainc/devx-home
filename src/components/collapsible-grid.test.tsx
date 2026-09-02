@@ -59,6 +59,22 @@ describe("CollapsibleGrid", () => {
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
   });
 
+  it("names the grid it expands, so aria-expanded says what is expanding", () => {
+    // aria-expanded on its own announces a state with no object. The grid it refers to is the
+    // one an outside control also has to be able to name.
+    render(
+      <CollapsibleGrid
+        id="skills-in-this-plugin"
+        heading="Skills in this plugin"
+        noun="skills"
+        items={items(11)}
+      />,
+    );
+    const toggle = screen.getByRole("button", { name: /show all/i });
+    expect(toggle.getAttribute("aria-controls")).toBe("skills-in-this-plugin");
+    expect(document.getElementById("skills-in-this-plugin")).toBeTruthy();
+  });
+
   it("renders every item when forceExpanded is set, without the toggle ever being clicked", () => {
     render(
       <CollapsibleGrid
