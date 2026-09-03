@@ -41,15 +41,22 @@ export function SiteHeader() {
         <nav className="ml-auto hidden items-center gap-5 sm:flex">
           <NavLinks />
           {/* Reading the session queries Postgres, so it stays behind its own boundary and the
-              rest of the header paints without waiting on it. */}
-          <Suspense fallback={null}>
+              rest of the header paints without waiting on it.
+
+              The fallback is the signed-out control rather than null, and that is load-bearing.
+              Content inside a boundary is streamed into a hidden div and moved into place by an
+              inline `$RC` call, so a client that does not run scripts never sees it: the fallback
+              is the only auth markup a no-JS reader or a non-executing fetcher paints. `null` left
+              them with no way to reach /login at all (DX-100). A signed-in reader sees this swap
+              to their name once the session resolves. */}
+          <Suspense fallback={<LoginLink />}>
             <AuthControl />
           </Suspense>
         </nav>
 
         <NavMenu>
           <NavLinks />
-          <Suspense fallback={null}>
+          <Suspense fallback={<LoginLink />}>
             <AuthControl />
           </Suspense>
         </NavMenu>
@@ -74,16 +81,20 @@ function NavLinks() {
   );
 }
 
+// Shared with the boundary's fallback above, so the shell and the resolved signed-out state
+// cannot drift into naming the route two different ways.
+function LoginLink() {
+  return (
+    <Link href="/login" className={navLink}>
+      Log in
+    </Link>
+  );
+}
+
 async function AuthControl() {
   const session = await getSession();
 
-  if (!session) {
-    return (
-      <Link href="/login" className={navLink}>
-        Log in
-      </Link>
-    );
-  }
+  if (!session) return <LoginLink />;
 
   return (
     <div className="flex items-center gap-3">
