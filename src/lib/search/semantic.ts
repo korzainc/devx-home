@@ -74,28 +74,60 @@ const STOPWORDS = new Set([
 /**
  * Phrases that frame a request without describing the task.
  *
- * "I want a skill for documentation" embeds badly: at 384 dimensions the words "I want a skill
- * for" carry enough weight to pull the query toward skills that are *about* skills, and the
- * documentation skill drops out of the top four entirely. Stripping the frame first lifts it to
- * the top. The lexical pass still sees the original query, so nothing is lost when a frame word
- * is also a real term.
+ * "I want a skill for documentation" ranks badly unframed. At 384 dimensions the words "I want a
+ * skill for" carry enough weight to pull the query toward skills that are *about* skills, and the
+ * documentation skill drops out of the top four entirely.
  *
- * Applied to the embedding only, and only when something survives - "how to" on its own stays
- * "how to" rather than becoming the empty string.
+ * Both passes get the stripped query, not just the embedding. "skill", "tool" and "plugin" name
+ * the catalogue rather than any job inside it, so on "help me get skills for planning" the
+ * lexical pass matched the literal word "skills" and put /writing-skills and two plugin rows
+ * above every planning skill.
+ *
+ * Unanchored and global, because framing is not only a prefix: that same query wraps the task at
+ * both ends ("i want to get started with... help me get skills for..."). An earlier anchored
+ * version cut the middle and left "to get started with a new project, help me get planning" -
+ * grammatical debris that embedded worse than the original. Hence the edge-word pass below.
+ *
+ * Falls back to the original when the frame is all there was, so "how to" stays "how to" rather
+ * than becoming the empty string.
  */
 const QUERY_FRAMES: RegExp[] = [
   /^\s*(i\s+)?(want|need|am\s+looking\s+for|looking\s+for|would\s+like)\b/i,
-  /^\s*(is\s+there|do\s+you\s+have|can\s+i\s+get|find\s+me|show\s+me|give\s+me|help\s+me)\b/i,
-  /^\s*(how\s+(do|can)\s+i|how\s+to)\b/i,
-  /\b(a|an|any|some)?\s*(skill|tool|plugin|something|anything)s?\s+(for|to|that|which)\b/i,
-  /^\s*(a|an|the)\b/i,
+  /\b(get|find|show|give)?\s*(me)?\s*(a|an|any|some)?\s*(skill|tool|plugin)s?\s+(for|to|that|which)\b/gi,
+  /\b(help|show|find|give)\s+me\s+(with|to|a|an|some)?\b/gi,
+  /\b(is\s+there|do\s+you\s+have|can\s+i\s+get)\s*(a|an|any)?\b/gi,
+  /\b(how\s+(do|can)\s+i|how\s+to)\b/gi,
+  /\b(i\s+)?(am|'m|im)\s*(looking\s+for|trying\s+to)\s*(a|an|some)?\b/gi,
+  /\b(something|anything)\s+(that|which|to)\b/gi,
+  // Intent, not a task any catalogue row describes.
+  /\bget(ting)?\s+started\s+(with|on)\b/gi,
 ];
+
+/**
+ * Words left stranded at either edge once a frame is cut out. Stripped one at a time from each
+ * end, so "to get started with a new project" does not keep a leading "to".
+ */
+const EDGE_WORDS = /^(i|to|for|with|and|a|an|the|me|get)\b\s*/i;
+const TRAILING_EDGE_WORDS = /\s+(to|for|with|and|a|an|the|me|get)$/i;
 
 /** The task inside a request. Falls back to the original when the frame is all there was. */
 export function taskOf(query: string): string {
   let task = query;
   for (const frame of QUERY_FRAMES) task = task.replace(frame, " ");
-  return task.replace(/\s+/g, " ").trim() || query;
+
+  task = task
+    .replace(/\s+/g, " ")
+    // Punctuation a cut frame leaves behind, at either end.
+    .replace(/^[\s,.;:-]+|[\s,.;:-]+$/g, "");
+
+  // Repeated, not single-pass: cutting one frame can expose another edge word behind it.
+  let previous = "";
+  while (task !== previous) {
+    previous = task;
+    task = task.replace(EDGE_WORDS, "").replace(TRAILING_EDGE_WORDS, "").trim();
+  }
+
+  return task || query;
 }
 
 const index = indexData as {
@@ -211,7 +243,13 @@ export async function search(
 
   const { docs, byKey, vectors, lexical } = corpus();
 
-  const lexicalKeys = lexical.search(trimmed).map((hit) => hit.id as string);
+  // Both passes see the task, not the request. "skill", "tool" and "plugin" are words about the
+  // catalogue rather than about any job in it, so a query that names one - "help me get skills
+  // for planning" - otherwise ranks /writing-skills and the plugin rows above the planning
+  // skills it asked for. `taskOf` already removes them for the embedding; the lexical pass has
+  // the same problem and needs the same input.
+  const task = taskOf(trimmed);
+  const lexicalKeys = lexical.search(task).map((hit) => hit.id as string);
 
   let semanticKeys: string[] = [];
   let topSimilarity = 0;
@@ -219,11 +257,7 @@ export async function search(
   let semantic = true;
   try {
     const embed = await getEmbedder();
-    const ranking = semanticRanking(
-      await embed(taskOf(trimmed)),
-      vectors,
-      docs,
-    );
+    const ranking = semanticRanking(await embed(task), vectors, docs);
     semanticKeys = ranking.map((row) => row.key);
     topSimilarity = ranking[0]?.similarity ?? 0;
     meanSimilarity =

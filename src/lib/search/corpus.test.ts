@@ -126,4 +126,42 @@ describe("taskOf", () => {
     expect(taskOf("how to")).toBe("how to");
     expect(taskOf("I want")).toBe("I want");
   });
+
+  it("strips framing that wraps the task at both ends", () => {
+    // An anchored version cut only the middle here and left "to get started with a new project,
+    // help me get planning" - debris that ranked worse than not stripping at all.
+    expect(
+      taskOf(
+        "i want to get started with a new project, help me get skills for planning",
+      ),
+    ).toBe("new project, planning");
+  });
+
+  it("leaves no stranded connective at either edge", () => {
+    for (const query of [
+      "i want to get started with a new project, help me get skills for planning",
+      "i'm looking for a skill to write specs",
+      "help me plan a project",
+      "is there a tool that scans containers",
+    ]) {
+      const task = taskOf(query);
+      expect(task, query).not.toMatch(
+        /^(i|to|for|with|and|a|an|the|me|get)\b/i,
+      );
+      expect(task, query).not.toMatch(/\b(to|for|with|and|a|an|the|me|get)$/i);
+      expect(task, query).not.toMatch(/^[\s,.;:-]|[\s,.;:-]$/);
+    }
+  });
+
+  it("removes the words that name the catalogue rather than a job in it", () => {
+    // These are what the lexical pass used to match: "skills" put /writing-skills and the plugin
+    // rows above every planning skill.
+    for (const query of [
+      "help me get skills for planning",
+      "i want a tool for linting",
+      "is there a plugin that reviews code",
+    ]) {
+      expect(taskOf(query), query).not.toMatch(/\b(skill|tool|plugin)s?\b/i);
+    }
+  });
 });
