@@ -273,6 +273,19 @@ describe("detectTools", () => {
     expect(found).toEqual([]);
   });
 
+  it("credits ruff from a pyproject.toml with only a [tool.ruff.lint] sub-table", () => {
+    const found = detectTools(
+      snapshot({
+        paths: ["pyproject.toml"],
+        files: {
+          "pyproject.toml": '[tool.ruff.lint]\nextend-select = ["Q"]\n',
+        },
+      }),
+      [tool("ruff", { configFiles: ["pyproject.toml"] })],
+    );
+    expect(found[0].evidence).toBe("pyproject.toml");
+  });
+
   it("still credits a nested pyproject.toml on existence alone, content unread", () => {
     const found = detectTools(
       snapshot({ paths: ["services/api/pyproject.toml"] }),

@@ -185,9 +185,12 @@ const notOwnedByRepo =
 // proves nothing about which of them are actually configured there. Content markers for the
 // two catalogue tools that share it as a configFiles signal - keyed by tool id, not stored in
 // the catalogue, the same way dependsOn()'s package.json parsing is devx-home-only knowledge.
-const pyprojectMarkers: Record<string, string> = {
-  ruff: "[tool.ruff]",
-  pytest: "[tool.pytest.ini_options]",
+// Anchored to line start so a table header inside a comment or string can't false-match, and
+// widened to also match a sub-table (e.g. `[tool.ruff.lint]`), which ruff and pytest both allow
+// in place of the bare table.
+const pyprojectMarkers: Record<string, RegExp> = {
+  ruff: /^\s*\[\s*tool\.ruff[\].]/m,
+  pytest: /^\s*\[\s*tool\.pytest[\].]/m,
 };
 
 /**
@@ -202,6 +205,23 @@ function configFileMatch(paths: string[], candidate: string): string | null {
     paths.find((path) => path.endsWith(suffix) && !notOwnedByRepo.test(path)) ??
     null
   );
+}
+
+// A shared config file only counts as evidence when it actually configures this specific tool -
+// existence alone can't distinguish "configured here" from "just also present" for a file more
+// than one tool lists. Root-only: a nested match's content is never fetched (see filesToRead), so
+// there's nothing to check there either way. If the root file's content failed to fetch (network
+// error, oversized file - see github.ts), it's treated as unconfirmed rather than credited.
+function configuresPyproject(
+  tool: AnalysisTool,
+  candidate: string,
+  hit: string,
+  snapshot: RepoSnapshot,
+): boolean {
+  if (candidate !== "pyproject.toml" || hit !== candidate) return true;
+  const marker = pyprojectMarkers[tool.id];
+  if (!marker) return true;
+  return marker.test(snapshot.files[hit] ?? "");
 }
 
 /** Signals are OR'd. CI evidence is preferred because this reports on pipelines, not checkouts. */
@@ -229,10 +249,7 @@ function evidenceFor(
   for (const candidate of tool.detect.configFiles ?? []) {
     const hit = configFileMatch(snapshot.paths, candidate);
     if (!hit) continue;
-    // Only the root file's content is ever fetched (see filesToRead), so a nested match keeps
-    // today's existence-only behaviour - there is nothing to check it against either way.
-    const marker = candidate === "pyproject.toml" ? pyprojectMarkers[tool.id] : undefined;
-    if (marker && hit === candidate && !(snapshot.files[hit] ?? "").includes(marker)) continue;
+    if (!configuresPyproject(tool, candidate, hit, snapshot)) continue;
     return hit;
   }
 
