@@ -232,7 +232,7 @@
       ],
       "detection": {
         "github": {
-          "ciUses": ["gitleaks/gitleaks-action@v3"],
+          "ciUses": ["gitleaks/gitleaks-action"],
           "commands": ["gitleaks", "gitleaks detect"]
         },
         "azureDevops": {},
@@ -377,7 +377,10 @@
       },
       "detection": {
         "github": {
-          "ciUses": ["hadolint/hadolint-action"],
+          "ciUses": [
+            "hadolint/hadolint-action",
+            "korzainc/shared-workflows/.github/workflows/security-iac-dockerfile-lint.yml"
+          ],
           "commands": ["hadolint"]
         },
         "azureDevops": {},
@@ -553,11 +556,13 @@
       },
       "detection": {
         "github": {
-          "ciUses": [],
+          "ciUses": [
+            "korzainc/shared-workflows/.github/workflows/security-secrets-scan.yml"
+          ],
           "commands": ["kingfisher scan"]
         },
         "azureDevops": {},
-        "configFiles": [],
+        "configFiles": ["kingfisher.yml"],
         "manifestDeps": []
       },
       "overlaps": ["gitleaks"],
@@ -812,7 +817,9 @@
       },
       "detection": {
         "github": {
-          "ciUses": [],
+          "ciUses": [
+            "korzainc/shared-workflows/.github/workflows/security-sast.yml"
+          ],
           "commands": ["semgrep scan", "semgrep ci"]
         },
         "azureDevops": {},
@@ -990,7 +997,12 @@
       },
       "detection": {
         "github": {
-          "ciUses": ["aquasecurity/trivy-action"],
+          "ciUses": [
+            "aquasecurity/trivy-action",
+            "korzainc/shared-workflows/.github/workflows/security-sca.yml",
+            "korzainc/shared-workflows/.github/workflows/security-iac-config.yml",
+            "korzainc/shared-workflows/.github/workflows/security-image-scan.yml"
+          ],
           "commands": ["trivy fs", "trivy config"]
         },
         "azureDevops": {},
