@@ -114,6 +114,23 @@ describe("buildFixPrompt", () => {
     );
   });
 
+  it("joins with semicolons when a merged tool's own stack list would collide with the outer and", () => {
+    const analysis = withGap();
+    analysis.categories[0].capabilities[0].recommended = [
+      {
+        id: "ci-base-checks",
+        name: "Korza CI Base Checks",
+        stackLabels: ["Docker", "Go"],
+      },
+      { id: "npm-audit", name: "npm audit", stackLabels: ["JavaScript"] },
+    ];
+
+    const prompt = buildFixPrompt(analysis);
+    expect(prompt).toContain(
+      "Korza CI Base Checks for Docker and Go; and npm audit for JavaScript",
+    );
+  });
+
   it("no longer claims every multi-tool row is alternatives", () => {
     const prompt = buildFixPrompt(withGap());
     expect(prompt).not.toContain("they are alternatives, so pick one");

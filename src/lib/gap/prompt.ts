@@ -40,6 +40,40 @@ export function isDisjunction(tools: RecommendedTool[]): boolean {
   return tools.every((tool) => tool.stackLabels.length === 0);
 }
 
+/** True when the outer tool list and an inner per-tool stack list would both use "and",
+ * colliding into a run-on ("X for A and B and Y for C"). Shared with gap-report.tsx so the
+ * two pick the same outer joiner. */
+export function needsClauses(tools: RecommendedTool[]): boolean {
+  return tools.length > 1 && tools.some((tool) => tool.stackLabels.length > 1);
+}
+
+/** Semicolon-joined clauses, for when `requirements`'s "and" would collide with an inner
+ * per-tool stack list's own "and". `Intl.ListFormat` has no semicolon type, so this mirrors
+ * its two-method shape by hand. Exported for the same reason as `alternatives`. */
+export const clauses = {
+  format(items: string[]): string {
+    if (items.length <= 1) return items.join("");
+    const last = items[items.length - 1];
+    return `${items.slice(0, -1).join("; ")}; and ${last}`;
+  },
+  formatToParts(
+    items: string[],
+  ): { type: "literal" | "element"; value: string }[] {
+    return items.flatMap((item, index) => {
+      const literal =
+        index === 0
+          ? []
+          : [
+              {
+                type: "literal" as const,
+                value: index === items.length - 1 ? "; and " : "; ",
+              },
+            ];
+      return [...literal, { type: "element" as const, value: item }];
+    });
+  },
+};
+
 function suggestion(gap: Gap): string {
   if (gap.recommended.length === 0)
     return "no tool in the catalogue for this stack";
@@ -51,7 +85,11 @@ function suggestion(gap: Gap): string {
       gap.recommended.length > 1 ||
       gap.recommended.some((tool) => tool.stackLabels.length > 1));
 
-  const formatter = disjunction ? alternatives : requirements;
+  const formatter = disjunction
+    ? alternatives
+    : needsClauses(gap.recommended)
+      ? clauses
+      : requirements;
   return formatter.format(
     gap.recommended.map((tool) =>
       showAttribution && tool.stackLabels.length > 0

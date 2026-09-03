@@ -3,7 +3,9 @@ import { FixPromptButton } from "@/components/fix-prompt";
 import {
   alternatives,
   buildFixPrompt,
+  clauses,
   isDisjunction,
+  needsClauses,
   requirements,
 } from "@/lib/gap/prompt";
 import type {
@@ -43,7 +45,11 @@ function RecommendedTools({
    * alone. */
   alwaysAttribute?: boolean;
 }) {
-  const formatter = isDisjunction(tools) ? alternatives : requirements;
+  const formatter = isDisjunction(tools)
+    ? alternatives
+    : needsClauses(tools)
+      ? clauses
+      : requirements;
   const showAttribution =
     alwaysAttribute ||
     tools.length > 1 ||

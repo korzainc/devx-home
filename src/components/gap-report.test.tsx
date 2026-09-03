@@ -112,6 +112,57 @@ describe("GapReport", () => {
     expect(screen.getByRole("link", { name: "golangci-lint" })).toBeTruthy();
   });
 
+  it("joins with a semicolon when a merged tool's stack list would collide with the outer and", () => {
+    render(
+      <GapReport
+        stacks={stacks}
+        analysis={analysisWith({
+          gapCount: 1,
+          categories: [
+            {
+              category: "Security",
+              capabilities: [
+                {
+                  id: "sca",
+                  label: "Dependency Scanning (SCA)",
+                  satisfied: false,
+                  present: [],
+                  recommended: [
+                    {
+                      id: "ci-base-checks",
+                      name: "Korza CI Base Checks",
+                      stackLabels: ["Docker", "Go"],
+                    },
+                    {
+                      id: "npm-audit",
+                      name: "npm audit",
+                      stackLabels: ["JavaScript"],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        (_, element) =>
+          element?.tagName === "P" &&
+          /Korza CI Base Checks for Docker and Go; and npm audit for JavaScript/.test(
+            element.textContent ?? "",
+          ),
+      ),
+    ).toBeTruthy();
+    // The semicolon sits outside both links, same invariant as the plain "and" case.
+    expect(
+      screen.getByRole("link", { name: "Korza CI Base Checks" }),
+    ).toBeTruthy();
+    expect(screen.getByRole("link", { name: "npm audit" })).toBeTruthy();
+  });
+
   it("still phrases genuine alternatives with or and 'one is enough'", () => {
     render(
       <GapReport
