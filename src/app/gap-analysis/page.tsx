@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { GapReport } from "@/components/gap-report";
 import { Octocat } from "@/components/octocat";
 import { signInWithGitHub } from "@/lib/auth-actions";
-import { baseline, tools } from "@/lib/catalogue";
+import { getBaseline, tools } from "@/lib/catalogue";
 import { runAnalysis } from "@/lib/gap/run";
 import { getGitHubToken } from "@/lib/session";
 
@@ -19,10 +19,11 @@ async function Result({ repo }: { repo: string }) {
   const token = await getGitHubToken();
   if (!token) return <SignInPrompt repo={repo} />;
 
+  const baseline = getBaseline();
   const result = await runAnalysis(repo, token, { tools, baseline });
   if (!result.ok) return <Notice>{result.error}</Notice>;
 
-  return <GapReport analysis={result.analysis} />;
+  return <GapReport analysis={result.analysis} stacks={baseline.stacks} />;
 }
 
 // Shown whenever nobody is signed in, so it cannot say anything about the repository itself.
@@ -144,9 +145,8 @@ export default function GapAnalysisPage({ searchParams }: Params) {
           Give it a GitHub repository and it reads the manifests and CI config
           through the API, then compares what runs against what the catalogue
           expects for the stacks it finds. Every result names the file it came
-          from, so you can check the reasoning. The tool list behind it is still
-          placeholder data, so read the recommendations as a shape rather than
-          Korza policy.
+          from, so you can check the reasoning, and every recommendation is
+          backed by Korza&apos;s real catalogue.
         </p>
       </header>
 

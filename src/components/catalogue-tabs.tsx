@@ -3,7 +3,11 @@
 import { useRef, useState } from "react";
 import { PluginsCatalogue } from "@/components/plugins-catalogue";
 import { SkillsCatalogue } from "@/components/skills-catalogue";
-import type { PluginEntry, SkillEntry } from "@/lib/catalogue";
+import {
+  skillCountByPlugin,
+  type PluginEntry,
+  type SkillEntry,
+} from "@/lib/catalogue-entries";
 
 type View = "plugins" | "skills";
 
@@ -28,6 +32,10 @@ export function CatalogueTabs({
 
   // Tab counts every row the panel lists; the grid counts the classified ones.
   const allSkills = [...skills, ...toolchain];
+  // A plugin card's own skill count, computed client-side from rows already in props - the
+  // alternative (importing skillsForPlugin) would pull the whole catalogue module, detect
+  // signals included, into the browser bundle along with it.
+  const skillCounts = skillCountByPlugin(allSkills);
 
   const tabs: { id: View; label: string; count: number }[] = [
     { id: "plugins", label: "Plugins", count: plugins.length },
@@ -112,7 +120,7 @@ export function CatalogueTabs({
         aria-labelledby="catalogue-tab-plugins"
         hidden={view !== "plugins"}
       >
-        <PluginsCatalogue entries={plugins} />
+        <PluginsCatalogue entries={plugins} skillCounts={skillCounts} />
       </div>
       <div
         role="tabpanel"

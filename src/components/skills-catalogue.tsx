@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 import { CatalogueGrid } from "@/components/catalogue-grid";
-import { shortAgents, skillFacets, type SkillEntry } from "@/lib/catalogue";
+import {
+  shortAgents,
+  skillFacets,
+  type SkillEntry,
+} from "@/lib/catalogue-entries";
 
 // Category and origin are facets, not card text: after filtering they read the same on every card.
 function SkillCard({ skill }: { skill: SkillEntry }) {

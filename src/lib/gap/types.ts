@@ -21,6 +21,9 @@ export type AnalysisTool = {
   capabilities: string[];
   stacks: string[];
   detect: DetectSignals;
+  /** Tools this one wraps. A wrapped tool is never itself recommended once this one covers
+   * the same capability (see analyze.ts). */
+  wraps?: { tool: string; capabilities: string[] }[];
 };
 
 export type Baseline = {
@@ -32,12 +35,19 @@ export type Baseline = {
   stacks: BaselineStack[];
 };
 
+/** What the baseline says about one capability for one stack: the recommended tool, and
+ * which others are acceptable alternatives. */
+export type BaselineExpectation = {
+  recommended: string;
+  acceptable: string[];
+};
+
 export type BaselineStack = {
   id: string;
   label: string;
   /** Root-level filenames, or directories matched as a path prefix. */
   markers: string[];
-  expects: string[];
+  expects: Record<string, BaselineExpectation>;
 };
 
 export type RepoRef = { provider: "github"; owner: string; repo: string };
@@ -55,6 +65,16 @@ export class RepoReadError extends Error {
   ) {
     super(message);
     this.name = "RepoReadError";
+  }
+}
+
+/** Thrown when the baseline names a tool id that isn't in the catalogue - a data invariant
+ * violation `catalogue.test.ts` already guards against for real data, so this is defense-in-depth,
+ * not a real user-input path. `runAnalysis` catches it the same way it catches `RepoReadError`. */
+export class CatalogueDataError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "CatalogueDataError";
   }
 }
 
@@ -92,6 +112,16 @@ export type DetectedTool = Match & {
   name: string;
 };
 
+/** A tool the baseline recommends to close a gap. More than one can appear at once: a repo
+ * matching two stacks, e.g. a JS+Go monorepo, gets a recommendation from each. */
+export type RecommendedTool = {
+  id: string;
+  name: string;
+  /** Stack labels this recommendation is required for (e.g. ["Go"]). Empty means this entry is
+   * a genuine alternative to the others in the list, not tied to one stack. */
+  stackLabels: string[];
+};
+
 export type CapabilityReport = {
   id: string;
   label: string;
@@ -99,7 +129,7 @@ export type CapabilityReport = {
   /** Tools found in the repo that cover this capability. */
   present: DetectedTool[];
   /** Catalogue tools that would cover it, limited to the stacks detected. Empty when satisfied. */
-  recommended: { id: string; name: string }[];
+  recommended: RecommendedTool[];
 };
 
 export type CategoryReport = {

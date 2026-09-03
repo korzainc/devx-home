@@ -105,6 +105,9 @@ export function FacetMenu({
                   type="checkbox"
                   checked={checked}
                   onChange={() => onToggle(value)}
+                  // Without this, the accessible name is the label's own text: value and count
+                  // run together with no separator a screen reader can use, e.g. "codezen 12".
+                  aria-label={`${value}, ${count} matching`}
                   className="size-3.5 accent-accent"
                 />
                 <span className="truncate">{value}</span>

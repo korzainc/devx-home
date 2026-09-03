@@ -10,7 +10,13 @@ import { defineConfig } from "vitest/config";
 // `@vitest-environment jsdom`.
 export default defineConfig({
   resolve: {
-    alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
+    alias: {
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
+      // Next enforces the server/client boundary at build time; under vitest it's a no-op.
+      "server-only": fileURLToPath(
+        new URL("./src/test/server-only-stub.ts", import.meta.url),
+      ),
+    },
   },
   test: {
     // Agent worktrees live under .claude/worktrees and carry their own copy of every test,

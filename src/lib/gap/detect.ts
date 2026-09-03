@@ -181,6 +181,18 @@ function dependsOn(snapshot: RepoSnapshot, dep: string): string | null {
 const notOwnedByRepo =
   /(^|\/)(vendor|node_modules|third_party|testdata|\.venv|\.yarn|dist|build|target)\//;
 
+// pyproject.toml is Python's central config file for many tools at once; its mere existence
+// proves nothing about which of them are actually configured there. Content markers for the
+// two catalogue tools that share it as a configFiles signal - keyed by tool id, not stored in
+// the catalogue, the same way dependsOn()'s package.json parsing is devx-home-only knowledge.
+// Anchored to line start so a table header inside a comment or string can't false-match, and
+// widened to also match a sub-table (e.g. `[tool.ruff.lint]`), which ruff and pytest both allow
+// in place of the bare table.
+const pyprojectMarkers: Record<string, RegExp> = {
+  ruff: /^\s*\[\s*tool\.ruff[\].]/m,
+  pytest: /^\s*\[\s*tool\.pytest[\].]/m,
+};
+
 /**
  * A root-level file is the strongest signal. Nested matches still count, because a monorepo can
  * hold its only linter config in a package directory, but vendored paths are excluded.
@@ -195,6 +207,40 @@ function configFileMatch(paths: string[], candidate: string): string | null {
   );
 }
 
+// A shared config file only counts as evidence when it actually configures this specific tool -
+// existence alone can't distinguish "configured here" from "just also present" for a file more
+// than one tool lists. Root-only: a nested match's content is never fetched (see filesToRead), so
+// there's nothing to check there either way. If the root file's content failed to fetch (network
+// error, oversized file - see github.ts), it's treated as unconfirmed rather than credited.
+function configuresPyproject(
+  tool: AnalysisTool,
+  candidate: string,
+  hit: string,
+  snapshot: RepoSnapshot,
+): boolean {
+  if (candidate !== "pyproject.toml" || hit !== candidate) return true;
+  const marker = pyprojectMarkers[tool.id];
+  if (!marker) return true;
+  return marker.test(snapshot.files[hit] ?? "");
+}
+
+// The prefix match above only guarantees the value starts with the catalogue's trusted family
+// name; everything past that is the repo's own text, landing in a document a coding agent
+// treats as ground truth. A suffix that doesn't look like real path segments is dropped,
+// falling back to the family name alone.
+//
+// An all-dot segment is rejected too, the same way parseRepoRef (github.ts) rejects one: not a
+// name any real ref carries, and misleading evidence even though it can't break the code span.
+const subActionPath = /^(?!\.+(?:\/|$))[\w.-]+(?:\/(?!\.+(?:\/|$))[\w.-]+)*$/;
+
+function usesEvidence(action: string, value: string): string {
+  if (value === action) return `uses: ${action}`;
+  const suffix = value.slice(action.length + 1);
+  return subActionPath.test(suffix)
+    ? `uses: ${action}/${suffix}`
+    : `uses: ${action}`;
+}
+
 /** Signals are OR'd. CI evidence is preferred because this reports on pipelines, not checkouts. */
 function evidenceFor(
   tool: AnalysisTool,
@@ -202,8 +248,14 @@ function evidenceFor(
   signals: CiSignals,
 ): string | null {
   for (const action of tool.detect.ciUses ?? []) {
-    const hit = signals.uses.find((entry) => entry.value === action);
-    if (hit) return `uses: ${action}`;
+    // A catalogue entry can name an action family (e.g. github/codeql-action), invoked in the
+    // wild only through a specific sub-action (.../analyze, /init, /upload-sarif); the trailing
+    // "/" requires a real path boundary, so a family name never matches an unrelated action that
+    // merely shares its prefix.
+    const hit = signals.uses.find(
+      (entry) => entry.value === action || entry.value.startsWith(`${action}/`),
+    );
+    if (hit) return usesEvidence(action, hit.value);
   }
 
   for (const command of tool.detect.commands ?? []) {
@@ -213,7 +265,9 @@ function evidenceFor(
 
   for (const candidate of tool.detect.configFiles ?? []) {
     const hit = configFileMatch(snapshot.paths, candidate);
-    if (hit) return hit;
+    if (!hit) continue;
+    if (!configuresPyproject(tool, candidate, hit, snapshot)) continue;
+    return hit;
   }
 
   for (const dep of tool.detect.manifestDeps ?? []) {

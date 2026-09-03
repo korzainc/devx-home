@@ -1,4 +1,4 @@
-import type { Analysis, CapabilityReport } from "./types";
+import type { Analysis, CapabilityReport, RecommendedTool } from "./types";
 
 // The brief a coding agent gets handed, built from the report and nothing else. It is a brief
 // rather than a recipe on purpose: `analyze` refuses to emit a workflow snippet it has not run,
@@ -6,16 +6,24 @@ import type { Analysis, CapabilityReport } from "./types";
 // the catalogue would put there. Exclude paths, trigger events and monorepo layout are the
 // agent's to work out, because it has the repo and the portal read at most a couple of dozen files.
 //
-// TODO(DX-103): revisit when the real CI catalogue lands. Install commands, docs URLs and any
-// required-vs-recommended distinction would all belong in here, and none of them exist yet.
+// TODO(DX-103): the real catalogue now carries install commands, docs URLs and (DX-62) a
+// mandatory-vs-recommended distinction; none of that has been threaded into this brief yet.
 
 type Gap = CapabilityReport & { category: string };
 
-// Labels and tool names come from the catalogue, but evidence strings carry a repo path and paths
-// are the repo's to name. A pipe would end the table row early and a backtick would close the code
-// span the value sits in.
+// Evidence strings carry repo-controlled paths and, via a quoted YAML scalar in a workflow
+// file, can carry a real newline. A pipe would end the table row early, a backtick would close
+// the code span the value sits in, and an unescaped newline would let the rest write fresh
+// markdown into a document a coding agent treats as ground truth.
+//
+// Backslash goes first: escaping "|" without it first turns a literal "a\|b" into "a\\|b",
+// which GFM reads as an escaped backslash followed by a live, row-ending pipe.
 function cell(value: string): string {
-  return value.replaceAll("|", "\\|").replaceAll("`", "'");
+  return value
+    .replaceAll("\\", "\\\\")
+    .replaceAll("|", "\\|")
+    .replaceAll("`", "'")
+    .replaceAll(/\r\n|\r|\n/g, " ");
 }
 
 // `or` rather than commas, because the tools in a row are alternatives and an agent handed a
@@ -26,10 +34,87 @@ export const alternatives = new Intl.ListFormat("en-GB", {
   type: "disjunction",
 });
 
+// `and` for a row where every tool is required, not a choice - the counterpart to
+// `alternatives` above. Exported for the same reason: the report renders the same list and
+// must not drift on the wording.
+export const requirements = new Intl.ListFormat("en-GB", {
+  style: "long",
+  type: "conjunction",
+});
+
+/** True when every entry is a genuine alternative (not tied to a stack) - shared with
+ * gap-report.tsx so the two can't independently drift on what counts as one. */
+export function isDisjunction(tools: RecommendedTool[]): boolean {
+  return tools.every((tool) => tool.stackLabels.length === 0);
+}
+
+/** True when the outer tool list and an inner per-tool stack list would both use "and",
+ * colliding into a run-on ("X for A and B and Y for C"). Shared with gap-report.tsx so the
+ * two pick the same outer joiner. */
+export function needsClauses(tools: RecommendedTool[]): boolean {
+  return tools.length > 1 && tools.some((tool) => tool.stackLabels.length > 1);
+}
+
+/** True when attribution should show even for a single entry - shared with gap-report.tsx so
+ * the two can't independently drift on when to attribute. `alwaysAttribute` covers a partially
+ * covered capability, where a lone remaining tool still needs its stack named explicitly. */
+export function showAttribution(
+  tools: RecommendedTool[],
+  alwaysAttribute = false,
+): boolean {
+  return (
+    alwaysAttribute ||
+    tools.length > 1 ||
+    tools.some((tool) => tool.stackLabels.length > 1)
+  );
+}
+
+/** Semicolon-joined clauses, for when `requirements`'s "and" would collide with an inner
+ * per-tool stack list's own "and". `Intl.ListFormat` has no semicolon type, so this mirrors
+ * its two-method shape by hand. Exported for the same reason as `alternatives`. */
+export const clauses = {
+  format(items: string[]): string {
+    if (items.length <= 1) return items.join("");
+    const last = items[items.length - 1];
+    return `${items.slice(0, -1).join("; ")}; and ${last}`;
+  },
+  formatToParts(
+    items: string[],
+  ): { type: "literal" | "element"; value: string }[] {
+    return items.flatMap((item, index) => {
+      const literal =
+        index === 0
+          ? []
+          : [
+              {
+                type: "literal" as const,
+                value: index === items.length - 1 ? "; and " : "; ",
+              },
+            ];
+      return [...literal, { type: "element" as const, value: item }];
+    });
+  },
+};
+
 function suggestion(gap: Gap): string {
-  return gap.recommended.length > 0
-    ? alternatives.format(gap.recommended.map((tool) => cell(tool.name)))
-    : "no tool in the catalogue for this stack";
+  if (gap.recommended.length === 0)
+    return "no tool in the catalogue for this stack";
+
+  const disjunction = isDisjunction(gap.recommended);
+  const attribute = showAttribution(gap.recommended, gap.present.length > 0);
+
+  const formatter = disjunction
+    ? alternatives
+    : needsClauses(gap.recommended)
+      ? clauses
+      : requirements;
+  return formatter.format(
+    gap.recommended.map((tool) =>
+      attribute && tool.stackLabels.length > 0
+        ? `${cell(tool.name)} for ${requirements.format(tool.stackLabels)}`
+        : cell(tool.name),
+    ),
+  );
 }
 
 export function buildFixPrompt(analysis: Analysis): string {
@@ -56,7 +141,7 @@ export function buildFixPrompt(analysis: Analysis): string {
   const filesRead =
     analysis.filesRead.length > 0
       ? `It read these files and nothing else:\n\n${analysis.filesRead
-          .map((path) => `- ${cell(path)}`)
+          .map((path) => `- \`${cell(path)}\``)
           .join("\n")}`
       : "It found no manifest and no CI config worth reading, so everything below rests on the list of tracked paths alone.";
 
@@ -79,8 +164,12 @@ export function buildFixPrompt(analysis: Analysis): string {
 
   const gapTable =
     gapRows.length > 0
-      ? `| # | Check | Category | Tools that would cover it (any one) |\n| --- | --- | --- | --- |\n${gapRows.join("\n")}`
+      ? `| # | Check | Category | Tools that would cover it |\n| --- | --- | --- | --- |\n${gapRows.join("\n")}`
       : "Nothing. Every check the baseline expects is already running.";
+
+  // A git ref permits both backticks and pipes, which is why this goes through the same escape
+  // as every repo-controlled string here rather than being trusted as GitHub API output.
+  const defaultBranch = cell(analysis.defaultBranch);
 
   return `# Fix the CI pipeline in ${analysis.repo}
 
@@ -92,7 +181,7 @@ DevX portal and is reproduced below. Your job is to close the gaps it lists.
 The portal read the default branch over the GitHub API. ${filesRead}
 
 It never ran anything, and it never saw repo history, required status checks, branch protection,
-org rulesets or self-hosted runner config. It saw no branch other than \`${analysis.defaultBranch}\`.
+org rulesets or self-hosted runner config. It saw no branch other than \`${defaultBranch}\`.
 Detection is signal matching, so it can miss a check that runs through an indirection it does not
 recognise.
 
@@ -101,7 +190,7 @@ You have the whole repo. Where the report and the repo disagree, the repo wins.
 ## What the report found
 
 Repo: ${analysis.repo}
-Default branch: ${analysis.defaultBranch}
+Default branch: \`${defaultBranch}\`
 Stacks detected: ${stacks}
 Score: ${analysis.satisfiedCount} of ${expected} recommended checks are running.
 
@@ -113,8 +202,8 @@ ${runningTable}
 
 ${gapTable}
 
-Where a row names more than one tool they are alternatives, so pick one and move on. Two tools
-covering the same check is maintenance for no extra coverage.
+Where a row names more than one tool, its own wording says whether they are alternatives (pick
+one) or each required for a different part of the repo (install every one named).
 
 The tool column is a suggestion from a catalogue, not a decision. If the repo already has a house
 tool for the same job, use that one and say so.

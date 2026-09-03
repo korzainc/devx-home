@@ -46,3 +46,5 @@ next-env.d.ts
 
 # Agent worktrees, created inside the repo by tooling.
 .claude/worktrees/
+docs/superpowers
+.superpowers/

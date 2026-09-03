@@ -1,4 +1,8 @@
-import { facetValues, type CatalogueEntry, type Facet } from "@/lib/catalogue";
+import {
+  facetValues,
+  type CatalogueEntry,
+  type Facet,
+} from "@/lib/catalogue-entries";
 import { entryHaystack, matchesQuery } from "@/lib/search";
 
 /**

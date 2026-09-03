@@ -6,12 +6,56 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { FacetMenu } from "@/components/facet-menu";
-import { facetValues, type CatalogueEntry, type Facet } from "@/lib/catalogue";
+import {
+  facetValues,
+  type CatalogueEntry,
+  type Facet,
+} from "@/lib/catalogue-entries";
 import { filterEntries } from "@/lib/filter";
 import { terms } from "@/lib/search";
+
+// WCAG 2.1.4 requires an unmodified single-character shortcut to be turnable off, remappable,
+// or focus-scoped; this is the "turn it off" escape, shared by both catalogues since they
+// render the same grid. The server has no localStorage, so `useSyncExternalStore`'s
+// `getServerSnapshot` renders "on" there and on first client paint, then hands off with no mismatch.
+const SLASH_SHORTCUT_KEY = "korza-devx:slash-shortcut-enabled";
+const slashShortcutListeners = new Set<() => void>();
+// Set only when a write fails (private browsing, storage disabled), so a read has something to
+// return instead of replaying the stale pre-write value from storage. Cleared on a write that
+// succeeds, so storage recovering mid-session is trusted again rather than shadowed forever.
+let slashShortcutOverride: boolean | null = null;
+
+function getSlashShortcutEnabled(): boolean {
+  if (slashShortcutOverride !== null) return slashShortcutOverride;
+  try {
+    return localStorage.getItem(SLASH_SHORTCUT_KEY) !== "false";
+  } catch {
+    return true;
+  }
+}
+
+function getSlashShortcutServerSnapshot(): boolean {
+  return true;
+}
+
+function subscribeSlashShortcut(onChange: () => void): () => void {
+  slashShortcutListeners.add(onChange);
+  return () => slashShortcutListeners.delete(onChange);
+}
+
+function setSlashShortcutEnabled(next: boolean): void {
+  try {
+    localStorage.setItem(SLASH_SHORTCUT_KEY, String(next));
+    slashShortcutOverride = null;
+  } catch {
+    slashShortcutOverride = next;
+  }
+  for (const listener of slashShortcutListeners) listener();
+}
 
 type CatalogueGridProps<T extends CatalogueEntry> = {
   entries: T[];
@@ -49,14 +93,32 @@ export function CatalogueGrid<T extends CatalogueEntry>({
   // count cannot disagree.
   const [pinned, setPinned] = useState<boolean | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const slashEnabled = useSyncExternalStore(
+    subscribeSlashShortcut,
+    getSlashShortcutEnabled,
+    getSlashShortcutServerSnapshot,
+  );
+
+  function toggleSlashShortcut() {
+    setSlashShortcutEnabled(!slashEnabled);
+  }
 
   // "/" focuses search, which is what the hint in the field promises. Ignored while typing, or
   // the shortcut eats the character.
   useEffect(() => {
+    if (!slashEnabled) return;
     function onKey(event: KeyboardEvent) {
       if (event.key !== "/" || event.metaKey || event.ctrlKey) return;
       const target = event.target as HTMLElement | null;
-      if (target?.matches("input, textarea, [contenteditable]")) return;
+      // Also covers any expanded disclosure (a facet popup, the unclassified-rows toggle), not
+      // just the trigger itself: a facet popup doesn't close on a focus change alone, so
+      // stealing focus here would leave it open but no longer focused.
+      if (
+        target?.matches(
+          'input, textarea, [contenteditable], [aria-expanded="true"]',
+        )
+      )
+        return;
       // Both tab panels stay mounted; only the visible one should take the key.
       if (!searchRef.current?.offsetParent) return;
       event.preventDefault();
@@ -64,7 +126,7 @@ export function CatalogueGrid<T extends CatalogueEntry>({
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, []);
+  }, [slashEnabled]);
 
   const facetOptions = useMemo(
     () =>
@@ -120,6 +182,15 @@ export function CatalogueGrid<T extends CatalogueEntry>({
     0,
   );
 
+  // The visible count updates every keystroke; the announcement waits for typing to settle, so
+  // a screen reader isn't read ten results in a row while a word is still being typed.
+  const [announcedCount, setAnnouncedCount] = useState(onScreen);
+  useEffect(() => {
+    const timeout = setTimeout(() => setAnnouncedCount(onScreen), 500);
+    return () => clearTimeout(timeout);
+  }, [onScreen]);
+  const total = entries.length + unclassified.length;
+
   function toggle(key: string, value: string) {
     setSelected((previous) => {
       const picked = previous[key] ?? [];
@@ -166,17 +237,38 @@ export function CatalogueGrid<T extends CatalogueEntry>({
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === "Escape") event.currentTarget.blur();
+              if (event.key !== "Escape") return;
+              // Clears first; blurring outright would dump focus onto <body>, restarting the
+              // next Tab from the top of the document instead of continuing past this field. An
+              // already-empty field has nothing left to clear, so Escape falls back to the plain
+              // dismiss a user expects instead of doing nothing at all.
+              if (query) setQuery("");
+              else event.currentTarget.blur();
             }}
             placeholder={searchLabel}
-            className="w-full rounded-lg border border-line bg-surface py-2.5 pr-11 pl-10 text-sm text-ink placeholder:text-ink-faint focus:border-line-strong"
+            // A text input matches :focus-visible on every click, not just keyboard nav, so the
+            // global accent outline painted here on every click. border-accent keeps a real,
+            // AA-contrast focus signal without bringing that ring back.
+            className="w-full rounded-lg border border-line bg-surface py-2.5 pr-11 pl-10 text-sm text-ink placeholder:text-ink-faint focus:border-accent focus-visible:outline-none"
           />
-          <kbd
-            aria-hidden
-            className="absolute top-1/2 right-3 -translate-y-1/2 rounded border border-line px-1.5 py-0.5 font-mono text-[0.65rem] text-ink-faint"
+          <button
+            type="button"
+            onClick={toggleSlashShortcut}
+            aria-pressed={slashEnabled}
+            aria-label={
+              slashEnabled
+                ? "Keyboard shortcut: press / to jump here. Click to turn it off."
+                : "The / keyboard shortcut is off. Click to turn it back on."
+            }
+            title={
+              slashEnabled
+                ? "Press / to jump here. Click to turn off."
+                : "The / shortcut is off. Click to turn back on."
+            }
+            className={`absolute top-1/2 right-3 -translate-y-1/2 rounded border border-line px-1.5 py-0.5 font-mono text-[0.65rem] text-ink-faint transition-colors hover:border-line-strong ${slashEnabled ? "" : "line-through"}`}
           >
             /
-          </kbd>
+          </button>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -189,11 +281,15 @@ export function CatalogueGrid<T extends CatalogueEntry>({
               onToggle={(value) => toggle(facet.key, value)}
             />
           ))}
-          <span role="status" className="ml-1 shrink-0 text-sm text-ink-muted">
+          {/* The debounced, worded version below carries this for assistive tech, so a screen
+              reader doesn't read the count twice. */}
+          <span aria-hidden className="ml-1 shrink-0 text-sm text-ink-muted">
             <span className="font-mono text-ink">{onScreen}</span> of{" "}
-            <span className="font-mono">
-              {entries.length + unclassified.length}
-            </span>
+            <span className="font-mono">{total}</span>
+          </span>
+          <span role="status" className="sr-only">
+            {announcedCount} of {total} {noun}
+            {announcedCount === 1 ? "" : "s"} shown
           </span>
         </div>
       </div>

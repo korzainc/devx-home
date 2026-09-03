@@ -1,21 +1,24 @@
 "use client";
 
+import Link from "next/link";
 import { CatalogueGrid } from "@/components/catalogue-grid";
-import type { Facet, ToolEntry } from "@/lib/catalogue";
+import type {
+  Facet,
+  PublicBundleEntry,
+  PublicToolEntry,
+} from "@/lib/catalogue-entries";
 
 // Module scope, not inline: the grid memoises on facet identity.
-const facets: Facet<ToolEntry>[] = [
+const facets: Facet<PublicToolEntry>[] = [
   { key: "category", label: "Category" },
   { key: "capabilities", label: "Capability" },
   { key: "stacks", label: "Stack" },
 ];
 
-function ToolCard({ tool }: { tool: ToolEntry }) {
+function ToolCard({ tool }: { tool: PublicToolEntry | PublicBundleEntry }) {
   return (
-    <a
-      href={tool.docsUrl}
-      target="_blank"
-      rel="noreferrer"
+    <Link
+      href={`/tools/${tool.id}`}
       className="group flex h-full flex-col gap-3 rounded-xl border border-line bg-surface p-4 transition-colors hover:border-line-strong hover:bg-surface-raised"
     >
       <div className="flex items-start justify-between gap-3">
@@ -41,11 +44,15 @@ function ToolCard({ tool }: { tool: ToolEntry }) {
           </li>
         ))}
       </ul>
-    </a>
+    </Link>
   );
 }
 
-export function ToolsCatalogue({ entries }: { entries: ToolEntry[] }) {
+export function ToolsCatalogue({
+  entries,
+}: {
+  entries: (PublicToolEntry | PublicBundleEntry)[];
+}) {
   return (
     <CatalogueGrid
       noun="tool"

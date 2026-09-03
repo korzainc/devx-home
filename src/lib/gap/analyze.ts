@@ -1,13 +1,55 @@
 import { detectStacks, detectTools } from "./detect";
-import { refLabel } from "./types";
+import { CatalogueDataError, refLabel } from "./types";
 import type {
   Analysis,
   AnalysisTool,
   Baseline,
+  BaselineStack,
   CapabilityReport,
   CategoryReport,
+  RecommendedTool,
   RepoSnapshot,
 } from "./types";
+
+/** Every stack in `targetStacks` that expects capability `id`, keyed by the tool id it names,
+ * with the labels of every stack that named it. Two stacks naming the same tool merge into one
+ * entry instead of repeating it. */
+function recommendationsByToolId(
+  targetStacks: BaselineStack[],
+  id: string,
+): Map<string, string[]> {
+  const byToolId = new Map<string, string[]>();
+
+  for (const stack of targetStacks) {
+    const entry = stack.expects[id];
+    if (!entry) continue;
+
+    const labels = byToolId.get(entry.recommended) ?? [];
+    if (!labels.includes(stack.label)) labels.push(stack.label);
+    byToolId.set(entry.recommended, labels);
+  }
+
+  return byToolId;
+}
+
+/** Resolves each accumulated tool id against the catalogue. A baseline naming a tool id the
+ * catalogue doesn't have is a data bug, not a real user-input path - `catalogue.test.ts` already
+ * asserts this never happens for real data, so this throws rather than silently dropping it. */
+function toRecommendedTools(
+  byToolId: Map<string, string[]>,
+  toolById: Map<string, AnalysisTool>,
+  id: string,
+): RecommendedTool[] {
+  return [...byToolId].map(([toolId, stackLabels]) => {
+    const tool = toolById.get(toolId);
+    if (!tool) {
+      throw new CatalogueDataError(
+        `The baseline names "${toolId}" for "${id}" (${stackLabels.join(", ")}), but no catalogue tool has that id.`,
+      );
+    }
+    return { id: tool.id, name: tool.name, stackLabels };
+  });
+}
 
 /**
  * The whole diff. Deterministic: same snapshot and same catalogue give the same report, with no
@@ -23,9 +65,10 @@ export function analyze(
   const detected = detectTools(snapshot, tools);
 
   const stackIds = new Set(stacks.map((stack) => stack.id));
+  const toolById = new Map(tools.map((tool) => [tool.id, tool]));
   const expected = new Set([
     ...baseline.universal,
-    ...stacks.flatMap((stack) => stack.expects),
+    ...stacks.flatMap((stack) => Object.keys(stack.expects)),
   ]);
 
   const reports: CapabilityReport[] = [...expected].map((id) => {
@@ -34,6 +77,49 @@ export function analyze(
       tools.find((tool) => tool.id === entry.id)?.capabilities.includes(id),
     );
 
+    let recommended: RecommendedTool[] = [];
+    if (present.length === 0) {
+      const ownedByAStack = stacks.some(
+        (stack) => stack.expects[id] !== undefined,
+      );
+
+      if (ownedByAStack) {
+        // The matched stack's baseline already names which tool applies here, so there's no
+        // need to re-derive stack fit generically like the fallback below.
+        recommended = toRecommendedTools(
+          recommendationsByToolId(stacks, id),
+          toolById,
+          id,
+        );
+      } else {
+        // No matched stack's baseline mentions this capability (only ever a `universal` one,
+        // which the real catalogue never populates), so fall back to searching every tool
+        // generically. A wrapped tool is never itself recommended, and a bundle covering the
+        // capability sorts first.
+        const wrappedIds = new Set(
+          tools.flatMap(
+            (tool) =>
+              tool.wraps
+                ?.filter((entry) => entry.capabilities.includes(id))
+                .map((entry) => entry.tool) ?? [],
+          ),
+        );
+        recommended = tools
+          .filter(
+            (tool) =>
+              tool.capabilities.includes(id) &&
+              (tool.stacks.includes("any") ||
+                tool.stacks.some((stack) => stackIds.has(stack))) &&
+              !wrappedIds.has(tool.id),
+          )
+          .sort(
+            (a, b) =>
+              Number(b.wraps !== undefined) - Number(a.wraps !== undefined),
+          )
+          .map((tool) => ({ id: tool.id, name: tool.name, stackLabels: [] }));
+      }
+    }
+
     return {
       id,
       label: meta?.label ?? id,
@@ -41,17 +127,7 @@ export function analyze(
       present,
       // A gap names the tools the catalogue would put there, and nothing else. No generated
       // workflow snippet: a snippet that has not been run against the repo is a guess.
-      recommended:
-        present.length > 0
-          ? []
-          : tools
-              .filter(
-                (tool) =>
-                  tool.capabilities.includes(id) &&
-                  (tool.stacks.includes("any") ||
-                    tool.stacks.some((stack) => stackIds.has(stack))),
-              )
-              .map((tool) => ({ id: tool.id, name: tool.name })),
+      recommended,
     };
   });
 

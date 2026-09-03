@@ -1,16 +1,22 @@
 import { describe, expect, it } from "vitest";
 import skillsData from "@/data/skills.json";
 import {
-  baseline,
+  bundles,
+  ecosystemLabel,
+  getBaseline,
+  getPlugin,
   indexSchemaVersion,
   installCommands,
   marketplaceName,
   marketplaceRepo,
-  getPlugin,
   plugins,
+  publicToolEntry,
   shortAgents,
   tools,
+  visibleTools,
 } from "./catalogue";
+
+const baseline = getBaseline();
 
 // The failures are quiet: a capability with no tool renders as a gap nobody can act on.
 describe("catalogue and baseline agree", () => {
@@ -61,7 +67,7 @@ describe("catalogue and baseline agree", () => {
   it("expects only capabilities the baseline defines", () => {
     const expected = [
       ...baseline.universal,
-      ...baseline.stacks.flatMap((stack) => stack.expects),
+      ...baseline.stacks.flatMap((stack) => Object.keys(stack.expects)),
     ];
 
     for (const capability of expected) {
@@ -83,7 +89,7 @@ describe("catalogue and baseline agree", () => {
 
   it("offers a tool for everything a stack is expected to have", () => {
     for (const stack of baseline.stacks) {
-      for (const capability of stack.expects) {
+      for (const capability of Object.keys(stack.expects)) {
         const candidates = tools.filter(
           (tool) =>
             tool.capabilities.includes(capability) &&
@@ -98,17 +104,167 @@ describe("catalogue and baseline agree", () => {
     }
   });
 
-  it("offers a stack-agnostic tool for every universal capability", () => {
-    for (const capability of baseline.universal) {
-      const candidates = tools.filter(
-        (tool) =>
-          tool.capabilities.includes(capability) && tool.stacks.includes("any"),
-      );
+  it("gives every stack's recommended/acceptable tool ids a real, capability-matching tool, never a wrapped one", () => {
+    const toolIds = new Set(tools.map((tool) => tool.id));
+    // A wrapped tool's own page has no link back into /tools' grid (it isn't one of its
+    // cards), so a baseline that recommended it directly would point gap-analysis at a page
+    // orphaned from the catalogue a reader browses.
+    const wrappedIds = new Set(
+      bundles.flatMap((bundle) => bundle.wraps.map((wrap) => wrap.tool)),
+    );
+    for (const stack of baseline.stacks) {
+      for (const [capability, entry] of Object.entries(stack.expects)) {
+        for (const toolId of [entry.recommended, ...entry.acceptable]) {
+          expect(
+            toolIds.has(toolId),
+            `${stack.id}'s ${capability} names ${toolId}, not a real tool id`,
+          ).toBe(true);
+          expect(
+            wrappedIds.has(toolId),
+            `${stack.id}'s ${capability} names ${toolId}, which is wrapped by a bundle`,
+          ).toBe(false);
+          const tool = tools.find((candidate) => candidate.id === toolId);
+          expect(
+            tool?.capabilities.includes(capability),
+            `${toolId} doesn't actually provide ${capability}`,
+          ).toBe(true);
+        }
+      }
+    }
+  });
 
+  // No "stack-agnostic tool for every universal capability" test: baseline.universal is
+  // always [] (see flattenBaseline in catalogue.ts), so that assertion would loop over
+  // nothing and pass without testing anything.
+
+  it("gives every tool and bundle a non-empty problem, 1-3 benefits, and a parseable docsUrl", () => {
+    // The detail page renders `problem`/`benefits` unconditionally and parses `docsUrl` with
+    // an unguarded `new URL()`. catalogue.ts falls back to ""/[] rather than crashing on the
+    // first two, so a missing value would only render a blank section; a bad docsUrl fails
+    // `next build` outright. This test turns all three into a build failure instead.
+    for (const tool of [...tools, ...bundles]) {
+      expect(tool.problem, `${tool.id} has no problem statement`).not.toBe("");
       expect(
-        candidates.length,
-        `universal capability ${capability} has no stack-agnostic tool`,
+        tool.benefits.length,
+        `${tool.id} has ${tool.benefits.length} benefits`,
       ).toBeGreaterThan(0);
+      expect(
+        tool.benefits.length,
+        `${tool.id} has ${tool.benefits.length} benefits`,
+      ).toBeLessThanOrEqual(3);
+      expect(
+        () => new URL(tool.docsUrl),
+        `${tool.id} has an unparseable docsUrl`,
+      ).not.toThrow();
+    }
+  });
+
+  it("ci-base-checks wraps exactly the four real tools with our real capability ids", () => {
+    const ciBaseChecks = bundles.find(
+      (bundle) => bundle.id === "ci-base-checks",
+    );
+    expect(ciBaseChecks?.wraps.map((entry) => entry.tool).sort()).toEqual([
+      "hadolint",
+      "kingfisher",
+      "semgrep",
+      "trivy",
+    ]);
+    expect(ciBaseChecks?.capabilities.sort()).toEqual(
+      [
+        "secrets",
+        "sast",
+        "sca",
+        "iac-config",
+        "image-scan",
+        "iac-dockerfile-lint",
+      ].sort(),
+    );
+  });
+
+  it("categorizes a tool/bundle by its majority capability category, not its first", () => {
+    // ci-base-checks is the case that matters: 5 of its 6 capabilities are security, 1 is
+    // quality, so picking capabilities[0] would land on the right answer only by accident.
+    const ciBaseChecks = bundles.find(
+      (bundle) => bundle.id === "ci-base-checks",
+    );
+    expect(ciBaseChecks?.category).toBe("Security");
+
+    // eslint is single-category (lint-style only): a sanity check that the common case still
+    // resolves correctly, not just the majority-vote edge case above.
+    const eslint = tools.find((tool) => tool.id === "eslint");
+    expect(eslint?.category).toBe("Code Quality");
+  });
+});
+
+describe("flattenBaseline", () => {
+  it("has no universal capability - the real schema has no such bucket", () => {
+    expect(baseline.universal).toEqual([]);
+  });
+
+  it("includes every real ecosystem, none dropped", () => {
+    const ids = baseline.stacks.map((stack) => stack.id).sort();
+    expect(ids).toEqual(
+      ["docker", "go", "java", "javascript", "python", "typescript"].sort(),
+    );
+  });
+
+  it("labels ecosystems from the pinned map, not title-casing", () => {
+    // "typescript" is exactly the case title-casing gets wrong, which is why the label map
+    // is pinned rather than derived.
+    const typescript = baseline.stacks.find(
+      (stack) => stack.id === "typescript",
+    );
+    expect(typescript?.label).toBe("TypeScript");
+  });
+
+  it("resolves a pinned ecosystem id to its label", () => {
+    expect(ecosystemLabel("go")).toBe("Go");
+  });
+
+  it("throws rather than shipping a raw id for an unpinned ecosystem", () => {
+    expect(() => ecosystemLabel("rust")).toThrow(/rust/);
+  });
+});
+
+describe("visibleTools", () => {
+  it("excludes every wrapped tool while keeping every non-wrapped one", () => {
+    const wrappedIds = new Set(
+      bundles.flatMap((bundle) => bundle.wraps.map((entry) => entry.tool)),
+    );
+    for (const tool of visibleTools) {
+      expect(wrappedIds.has(tool.id)).toBe(false);
+    }
+    // eslint/spotbugs are real catalogue tools too, just not wrapped by any bundle: confirms
+    // the filter removes only the wrapped ids.
+    const ids = visibleTools.map((tool) => tool.id);
+    expect(ids).toEqual(expect.arrayContaining(["eslint", "spotbugs"]));
+  });
+
+  it("includes every bundle", () => {
+    const visibleIds = new Set(visibleTools.map((tool) => tool.id));
+    for (const bundle of bundles) {
+      expect(visibleIds.has(bundle.id)).toBe(true);
+    }
+  });
+});
+
+describe("publicToolEntry", () => {
+  it("drops detect signals but keeps every other field", () => {
+    const tool = visibleTools[0];
+    const publicTool = publicToolEntry(tool);
+
+    expect(publicTool).not.toHaveProperty("detect");
+    expect(publicTool).toEqual({ ...tool, detect: undefined });
+  });
+});
+
+describe("bundles", () => {
+  it("gives every bundle a capabilities list matching the union of what it wraps", () => {
+    for (const bundle of bundles) {
+      const wrappedCapabilities = new Set(
+        bundle.wraps.flatMap((entry) => entry.capabilities),
+      );
+      expect(new Set(bundle.capabilities)).toEqual(wrappedCapabilities);
     }
   });
 });

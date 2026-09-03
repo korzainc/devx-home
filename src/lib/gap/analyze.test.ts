@@ -8,8 +8,9 @@ const baseline: Baseline = {
     lint: { label: "Linting", category: "Linting" },
     "unit-tests": { label: "Unit tests", category: "Testing" },
     coverage: { label: "Coverage reporting", category: "Testing" },
+    "e2e-tests": { label: "End-to-end tests", category: "Testing" },
     "secret-scanning": { label: "Secret scanning", category: "Security" },
-    orphan: { label: "Orphan", category: "Nowhere" },
+    sast: { label: "SAST", category: "Security" },
   },
   universal: ["secret-scanning"],
   stacks: [
@@ -17,13 +18,24 @@ const baseline: Baseline = {
       id: "javascript",
       label: "JavaScript",
       markers: ["package.json"],
-      expects: ["lint", "unit-tests", "coverage", "orphan"],
+      expects: {
+        lint: { recommended: "eslint", acceptable: [] },
+        "unit-tests": { recommended: "vitest", acceptable: [] },
+        coverage: { recommended: "vitest", acceptable: [] },
+        // vitest resolves as a real tool id, but its own capabilities never include
+        // e2e-tests, so this capability stays permanently unsatisfied regardless of what
+        // any future snapshot detects.
+        "e2e-tests": { recommended: "vitest", acceptable: [] },
+        sast: { recommended: "semgrep", acceptable: ["codeql"] },
+      },
     },
     {
       id: "java",
       label: "Java",
       markers: ["pom.xml"],
-      expects: ["lint"],
+      expects: {
+        lint: { recommended: "spotbugs", acceptable: [] },
+      },
     },
   ],
 };
@@ -51,11 +63,33 @@ const tools: AnalysisTool[] = [
     detect: { configFiles: [".gitleaks.toml"] },
   },
   {
+    id: "ci-base-checks",
+    name: "Korza CI Base Checks",
+    capabilities: ["secret-scanning"],
+    stacks: ["any"],
+    detect: { ciUses: ["korzainc/shared-workflows/.github/workflows/ci.yml"] },
+    wraps: [{ tool: "gitleaks", capabilities: ["secret-scanning"] }],
+  },
+  {
     id: "vitest",
     name: "Vitest",
     capabilities: ["unit-tests", "coverage"],
     stacks: ["javascript"],
     detect: { configFiles: ["vitest.config.ts"] },
+  },
+  {
+    id: "semgrep",
+    name: "Semgrep",
+    capabilities: ["sast"],
+    stacks: ["any"],
+    detect: { configFiles: [".semgrep.yml"] },
+  },
+  {
+    id: "codeql",
+    name: "CodeQL",
+    capabilities: ["sast"],
+    stacks: ["any"],
+    detect: { ciUses: ["github/codeql-action/analyze"] },
   },
 ];
 
@@ -115,16 +149,105 @@ describe("analyze", () => {
 
     // SpotBugs also provides `lint`, but this repo is not a Java repo.
     expect(capability(report, "lint").recommended).toEqual(["eslint"]);
-    // An `any` tool fits whatever was detected.
+    // An `any` tool fits whatever was detected. gitleaks is wrapped by ci-base-checks, so
+    // only ci-base-checks is recommended, never gitleaks itself.
     expect(capability(report, "secret-scanning").recommended).toEqual([
-      "gitleaks",
+      "ci-base-checks",
     ]);
   });
 
-  it("recommends nothing when the catalogue has no tool for the capability", () => {
+  it("names only the stack's recommended tool, never its acceptable alternatives", () => {
     const report = analyze(snapshot(["package.json"]), { tools, baseline });
 
-    expect(capability(report, "orphan").recommended).toEqual([]);
+    // codeql is listed as acceptable for sast alongside semgrep's recommendation, but the
+    // report only ever names the recommendation.
+    expect(capability(report, "sast").recommended).toEqual(["semgrep"]);
+  });
+
+  it("unions every matched stack's own recommendation, not just the first stack's", () => {
+    const report = analyze(snapshot(["package.json", "pom.xml"]), {
+      tools,
+      baseline,
+    });
+
+    // javascript recommends eslint for lint, java recommends spotbugs: both are real for
+    // their half of a polyglot repo, neither dropped for matching second, and each is
+    // attributed only to the stack that named it.
+    const lint = report.categories
+      .flatMap((category) => category.capabilities)
+      .find((entry) => entry.id === "lint")!;
+    expect(lint.recommended).toEqual([
+      { id: "eslint", name: "ESLint", stackLabels: ["JavaScript"] },
+      { id: "spotbugs", name: "SpotBugs", stackLabels: ["Java"] },
+    ]);
+  });
+
+  it("merges two stacks that name the same tool into one entry with both labels", () => {
+    // Both stacks recommend gitleaks's own bundle for secret-scanning (an `any`-stack tool),
+    // by way of the shared `secret-scanning` capability being reachable from both `javascript`
+    // and a synthetic second stack that also expects it.
+    const merged: Baseline = {
+      ...baseline,
+      stacks: [
+        baseline.stacks[0],
+        {
+          id: "java",
+          label: "Java",
+          markers: ["pom.xml"],
+          expects: {
+            "secret-scanning": {
+              recommended: "ci-base-checks",
+              acceptable: [],
+            },
+          },
+        },
+      ],
+    };
+    // javascript's own expects has no secret-scanning entry (it's universal in this fixture),
+    // so this baseline adds it there too to force the merge.
+    merged.stacks[0] = {
+      ...merged.stacks[0],
+      expects: {
+        ...merged.stacks[0].expects,
+        "secret-scanning": { recommended: "ci-base-checks", acceptable: [] },
+      },
+    };
+
+    const report = analyze(snapshot(["package.json", "pom.xml"]), {
+      tools,
+      baseline: merged,
+    });
+
+    const capability = report.categories
+      .flatMap((category) => category.capabilities)
+      .find((entry) => entry.id === "secret-scanning")!;
+    expect(capability.recommended).toEqual([
+      {
+        id: "ci-base-checks",
+        name: "Korza CI Base Checks",
+        stackLabels: ["JavaScript", "Java"],
+      },
+    ]);
+  });
+
+  it("throws when the baseline names a tool id absent from the catalogue", () => {
+    const orphanBaseline: Baseline = {
+      categories: ["Linting"],
+      capabilities: { orphan: { label: "Orphan", category: "Linting" } },
+      universal: [],
+      stacks: [
+        {
+          id: "javascript",
+          label: "JavaScript",
+          markers: ["package.json"],
+          expects: { orphan: { recommended: "no-such-tool", acceptable: [] } },
+        },
+      ],
+    };
+
+    expect(() =>
+      analyze(snapshot(["package.json"]), { tools, baseline: orphanBaseline }),
+    ).toThrow(/no-such-tool/);
   });
 
   it("orders categories by the baseline and puts unknown ones last", () => {
@@ -134,7 +257,6 @@ describe("analyze", () => {
       "Security",
       "Testing",
       "Linting",
-      "Nowhere",
     ]);
   });
 
@@ -148,8 +270,14 @@ describe("analyze", () => {
       (entry) => entry.category === "Testing",
     );
     expect(testing?.capabilities.map((entry) => entry.satisfied)).toEqual([
+      false,
       true,
       true,
+    ]);
+    expect(testing?.capabilities.map((entry) => entry.label)).toEqual([
+      "End-to-end tests",
+      "Coverage reporting",
+      "Unit tests",
     ]);
 
     const lint = report.categories.find(
@@ -164,8 +292,8 @@ describe("analyze", () => {
       baseline,
     });
 
-    // lint, unit-tests, coverage, orphan, secret-scanning.
-    expect(report.satisfiedCount + report.gapCount).toBe(5);
+    // lint, unit-tests, coverage, e2e-tests, sast, secret-scanning.
+    expect(report.satisfiedCount + report.gapCount).toBe(6);
     expect(report.satisfiedCount).toBe(1);
   });
 
