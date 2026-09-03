@@ -43,20 +43,22 @@ export function SiteHeader() {
           {/* Reading the session queries Postgres, so it stays behind its own boundary and the
               rest of the header paints without waiting on it.
 
-              The fallback is the signed-out control rather than null, and that is load-bearing.
-              Content inside a boundary is streamed into a hidden div and moved into place by an
-              inline `$RC` call, so a client that does not run scripts never sees it: the fallback
-              is the only auth markup a no-JS reader or a non-executing fetcher paints. `null` left
-              them with no way to reach /login at all (DX-100). A signed-in reader sees this swap
-              to their name once the session resolves. */}
-          <Suspense fallback={<LoginLink />}>
+              A boundary's content is streamed into a hidden div and moved into place by an inline
+              `$RC` call, so a client that runs no script at all never sees it and had no way to
+              reach /login (DX-100). The <noscript> beside it is what those clients get. The
+              fallback stays null deliberately: rendering the signed-out control there would show
+              every signed-in reader "Log in" until the session resolves, measured at 300-1900ms
+              on every page, and a wrong state reads worse than an empty one. */}
+          <NoScriptLoginLink />
+          <Suspense fallback={null}>
             <AuthControl />
           </Suspense>
         </nav>
 
         <NavMenu>
           <NavLinks />
-          <Suspense fallback={<LoginLink />}>
+          <NoScriptLoginLink />
+          <Suspense fallback={null}>
             <AuthControl />
           </Suspense>
         </NavMenu>
@@ -81,13 +83,33 @@ function NavLinks() {
   );
 }
 
-// Shared with the boundary's fallback above, so the shell and the resolved signed-out state
-// cannot drift into naming the route two different ways.
+const loginHref = "/login";
+const loginLabel = "Log in";
+
 function LoginLink() {
   return (
-    <Link href="/login" className={navLink}>
-      Log in
+    <Link href={loginHref} className={navLink}>
+      {loginLabel}
     </Link>
+  );
+}
+
+/**
+ * The auth control for a client that executes no script. `$RC` is inline rather than part of the
+ * bundle, so a failed or blocked bundle still gets the real control -- this covers only scripts
+ * disabled outright, inline script blocked by CSP, and non-executing fetchers.
+ *
+ * A browser with scripts on parses <noscript> content as text rather than elements, so element
+ * children here risk a hydration mismatch. The markup is set directly instead, sharing the href,
+ * label and class with `LoginLink` so the two cannot drift. `site-header.test.tsx` pins that.
+ */
+function NoScriptLoginLink() {
+  return (
+    <noscript
+      dangerouslySetInnerHTML={{
+        __html: `<a class="${navLink}" href="${loginHref}">${loginLabel}</a>`,
+      }}
+    />
   );
 }
 
