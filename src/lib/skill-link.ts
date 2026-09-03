@@ -12,8 +12,20 @@ export function skillLink(plugin: string, name: string) {
   return `/skills/${plugin}?${SKILL_PARAM}=${encodeURIComponent(name)}`;
 }
 
-export const readOpenedSkill = () =>
-  new URLSearchParams(window.location.search).get(SKILL_PARAM) ?? "";
+export const readOpenedSkill = () => {
+  const fromQuery = new URLSearchParams(window.location.search).get(
+    SKILL_PARAM,
+  );
+  if (fromQuery) return fromQuery;
+  // Links the app handed out before the query string existed. Card ids are plugin-qualified
+  // now, so a fragment no longer even finds a native anchor target.
+  const raw = window.location.hash.slice(1);
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+};
 
 /**
  * Back and forward only. A query-only navigation within this route does not re-render at all in

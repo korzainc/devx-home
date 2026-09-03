@@ -75,6 +75,43 @@ describe("the skill context strip", () => {
     );
   });
 
+  it("clamps the skill name too, and keeps the full value for the lookup", () => {
+    // The name comes from the URL, so it is as unbounded as the summary was.
+    const target = skills[17];
+    openedFor(target.name);
+    render(<SkillContextStrip plugin="mattpocock-skills" skills={skills} />);
+
+    expect(screen.getByText(target.name).className).toContain("line-clamp-2");
+    // Clamping the render must not have narrowed the lookup: the position still resolves.
+    expect(
+      screen.getByText(`18 of ${skills.length} in this plugin`),
+    ).toBeTruthy();
+  });
+
+  it("keeps the arrow out of the control's accessible name", () => {
+    openedFor(skills[17].name);
+    render(<SkillContextStrip plugin="mattpocock-skills" skills={skills} />);
+
+    expect(screen.getByRole("button", { name: "Show in list" })).toBeTruthy();
+  });
+
+  it("uses no token that fails AA on its own background", () => {
+    // contrast.test.ts proves --accent-strong and --ink-muted clear 4.5 on --accent-wash.
+    // This is the other half: that the strip actually reaches for those and not the two that
+    // measure 4.38 and 2.76 there.
+    openedFor(skills[17].name);
+    const { container } = render(
+      <SkillContextStrip plugin="mattpocock-skills" skills={skills} />,
+    );
+
+    const classes = [...container.querySelectorAll("*")]
+      .map((node) => node.className)
+      .join(" ");
+    // Negative lookahead, or these also match text-accent-strong.
+    expect(classes).not.toMatch(/\btext-ink-faint(?![-\w])/);
+    expect(classes).not.toMatch(/\btext-accent(?![-\w])/);
+  });
+
   it("survives a skill value that is not valid encoding", () => {
     // A hand-rolled decode of "%" throws during render and takes the page down.
     openedFor("%");

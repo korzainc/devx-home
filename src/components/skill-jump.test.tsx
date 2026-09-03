@@ -18,8 +18,9 @@ import { skillsForPlugin } from "@/lib/catalogue";
 import { skillCardId, skillListId } from "@/lib/skill-link";
 
 /**
- * The contract between the strip and the list, which cannot share state.
- * Not here, because jsdom cannot hide a tree: the `<Activity>` reset. Proven by CDP.
+ * The contract between the strip and the list, which cannot share state. The `<Activity>`
+ * hide/show is exercised below with React's own `Activity`; the landing position it protects
+ * is the part jsdom cannot express, and that is proven by CDP.
  */
 
 beforeEach(() => {
@@ -177,9 +178,11 @@ describe("the mark on the opened card", () => {
     openedFor(inside.name);
     renderPage();
 
+    // Literal, not skillCardId(): deriving the expectation from the helper made this pass
+    // even with the helper reverted to an unqualified name.
     expect(
       [...document.querySelectorAll("[aria-current]")].map((node) => node.id),
-    ).toEqual([skillCardId(PLUGIN, inside.name)]);
+    ).toEqual([`${PLUGIN}--${inside.name}`]);
     expect(
       [
         ...document.querySelectorAll(`#${skillListId(PLUGIN)} .border-accent`),
@@ -350,14 +353,14 @@ describe("the wiring between the two", () => {
 
   it("stops listening once the list goes away", () => {
     // Without the cleanups every mount leaves a listener behind.
-    const removed: string[] = [];
-    const spy = vi
-      .spyOn(window, "removeEventListener")
-      .mockImplementation((type: string) => void removed.push(type));
+    // spyOn without mockImplementation: it records the calls and still removes the listeners,
+    // so the rest of this file is not left with them registered.
+    const spy = vi.spyOn(window, "removeEventListener");
 
     openedFor(past.name);
     renderPage();
     cleanup();
+    const removed = spy.mock.calls.map(([type]) => type);
     spy.mockRestore();
 
     expect(removed).toContain("popstate");

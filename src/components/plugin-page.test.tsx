@@ -158,7 +158,6 @@ describe("the skills in a plugin", () => {
     history.replaceState(null, "", "/");
   });
 
-  // Reaching a card from the strip, and the malformed-value guard that went with the old
-  // URL-reading code, are covered in skill-jump.test.tsx and skill-context-strip.test.tsx.
-  // Repeating them here would only assert that this component no longer reads the URL.
+  // Reaching a card from the strip, and the malformed-URL guard, are covered in
+  // skill-jump.test.tsx and skill-context-strip.test.tsx, against both components together.
 });

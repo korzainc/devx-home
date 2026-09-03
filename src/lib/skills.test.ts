@@ -159,8 +159,9 @@ describe("skill catalogue", () => {
 
 describe("the invariant the skill link depends on", () => {
   it("gives every skill in a plugin a distinct name", () => {
-    // A name is a link key and a DOM id now. Collisions *across* plugins are by design, which
-    // is why ids are `plugin:path`; nothing checked for collisions *within* one.
+    // A name is a link key, and half of a `plugin--name` DOM id. Collisions *across* plugins
+    // are by design, which is why a catalogue entry's own id is `plugin:path`; nothing checked
+    // for collisions *within* one.
     for (const plugin of new Set(skills.map((skill) => skill.plugin))) {
       const names = skills
         .filter((skill) => skill.plugin === plugin)

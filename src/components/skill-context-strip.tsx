@@ -36,11 +36,12 @@ export function SkillContextStrip({
       className="flex flex-col gap-1 rounded-xl border border-accent bg-accent-wash px-4 py-3 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6"
     >
       <div className="flex flex-col gap-1">
-        <span className="text-[0.65rem] tracking-wide text-ink-faint uppercase">
+        <span className="text-[0.65rem] tracking-wide text-ink-muted uppercase">
           Opened for
         </span>
-        <span className="font-mono text-sm font-medium text-ink [overflow-wrap:anywhere]">
-          <span className="text-accent">/</span>
+        {/* Clamped, not truncated at the source: the lookup above needs the whole value. */}
+        <span className="line-clamp-2 font-mono text-sm font-medium text-ink [overflow-wrap:anywhere]">
+          <span className="text-accent-strong">/</span>
           {openedFor}
         </span>
         {skill ? (
@@ -60,16 +61,19 @@ export function SkillContextStrip({
 
       {skill && (
         <div className="flex flex-col items-start gap-1 sm:items-end">
-          <span className="font-mono text-xs whitespace-nowrap text-ink-faint">
+          <span className="font-mono text-xs whitespace-nowrap text-ink-muted">
             {index + 1} of {skills.length} in this plugin
           </span>
           <button
             type="button"
             aria-controls={skillListId(plugin)}
             onClick={() => focusSkill(skill.name)}
-            className="font-mono text-xs whitespace-nowrap text-accent hover:underline"
+            className="font-mono text-xs whitespace-nowrap text-accent-strong hover:underline"
           >
-            Show in list ↓
+            Show in list
+            <span aria-hidden className="ml-1">
+              ↓
+            </span>
           </button>
         </div>
       )}
