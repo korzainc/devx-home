@@ -228,8 +228,10 @@ function configuresPyproject(
 // guarantees the value starts with the catalogue's own trusted family name, so the suffix past
 // that point is the only part a repo controls. This string lands in a document a coding agent
 // is handed as ground truth, so a suffix that doesn't look like a path is dropped rather than
-// echoed: the family name alone is still true, just less specific.
-const subActionPath = /^[\w.-]+(?:\/[\w.-]+)*$/;
+// echoed: the family name alone is still true, just less specific. An all-dot segment is
+// rejected the same way parseRepoRef (github.ts) rejects one: not a name any real ref carries,
+// and misleading evidence even though it can't break out of the code span it renders inside.
+const subActionPath = /^(?!\.+(?:\/|$))[\w.-]+(?:\/(?!\.+(?:\/|$))[\w.-]+)*$/;
 
 function usesEvidence(action: string, value: string): string {
   if (value === action) return `uses: ${action}`;

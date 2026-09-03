@@ -14,6 +14,7 @@ import {
   skills,
   toolchainSkills,
 } from "@/lib/catalogue";
+import { skillCountByPlugin } from "@/lib/catalogue-entries";
 
 /**
  * The wiring test: lib tests prove the rules, this proves the page uses them. Everything goes
@@ -201,7 +202,12 @@ describe("the plugins catalogue", () => {
   // The card shows a trimmed summary, so the prose beneath it is the only searchable text a
   // plugin has. Trimming the summaries for the card silently emptied the search with it.
   it("searches the prose the card does not show", () => {
-    render(<PluginsCatalogue entries={plugins} />);
+    render(
+      <PluginsCatalogue
+        entries={plugins}
+        skillCounts={skillCountByPlugin(skills)}
+      />,
+    );
     const search = screen.getByLabelText("Filter plugins");
 
     for (const [query, expected] of [
@@ -221,7 +227,12 @@ describe("the plugins catalogue", () => {
   it("does not draw the prose it searches", () => {
     // Paired with the test above: together they pin problem and benefits into the haystack
     // and off the card.
-    render(<PluginsCatalogue entries={plugins} />);
+    render(
+      <PluginsCatalogue
+        entries={plugins}
+        skillCounts={skillCountByPlugin(skills)}
+      />,
+    );
     for (const plugin of plugins) {
       expect(screen.queryByText(plugin.problem)).toBeNull();
       for (const benefit of plugin.benefits) {

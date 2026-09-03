@@ -3,8 +3,11 @@
 import { useRef, useState } from "react";
 import { PluginsCatalogue } from "@/components/plugins-catalogue";
 import { SkillsCatalogue } from "@/components/skills-catalogue";
-import { skillCountByPlugin } from "@/lib/catalogue-entries";
-import type { PluginEntry, SkillEntry } from "@/lib/catalogue-entries";
+import {
+  skillCountByPlugin,
+  type PluginEntry,
+  type SkillEntry,
+} from "@/lib/catalogue-entries";
 
 type View = "plugins" | "skills";
 

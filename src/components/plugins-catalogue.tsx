@@ -53,10 +53,10 @@ function PluginCard({
 
 export function PluginsCatalogue({
   entries,
-  skillCounts = {},
+  skillCounts,
 }: {
   entries: PluginEntry[];
-  skillCounts?: Record<string, number>;
+  skillCounts: Record<string, number>;
 }) {
   return (
     <CatalogueGrid

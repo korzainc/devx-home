@@ -12,13 +12,14 @@ import {
 } from "@/lib/catalogue-entries";
 import type { Baseline, DetectSignals } from "@/lib/gap/types";
 
+// Only the bindings a server file actually imports through this path - facetValues and
+// skillCountByPlugin exist in catalogue-entries specifically so a client component never has to
+// import this module at all, so re-advertising them here would undo the reason for the split.
 export {
   CATEGORIES,
-  facetValues,
   isBundle,
   publicToolEntry,
   shortAgents,
-  skillCountByPlugin,
   skillFacets,
   type BundleEntry,
   type CatalogueEntry,
@@ -250,7 +251,7 @@ export function getBaseline(): Baseline {
 /** A single capability's label, straight from the taxonomy - never touches ecosystems, so it
  * can't fail for an unrelated reason. Throws with the id rather than letting a caller read
  * `.label` off `undefined`, the same as `ecosystemLabel`. */
-export function capabilityLabel(id: string): string {
+export function capabilityLabel(id: CapabilityId): string {
   const label = realCatalogue.taxonomy.capabilities[id]?.label;
   if (!label) {
     throw new Error(`No capability "${id}" in the catalogue taxonomy.`);

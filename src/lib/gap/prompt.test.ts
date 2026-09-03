@@ -220,6 +220,33 @@ describe("buildFixPrompt", () => {
     ).toBe(1);
   });
 
+  it("escapes a literal backslash before escaping a pipe, so the two don't combine into a live one", () => {
+    const analysis = withGap({
+      satisfiedCount: 1,
+      categories: [
+        {
+          category: "Testing",
+          capabilities: [
+            {
+              id: "unit-tests",
+              label: "Unit tests",
+              satisfied: true,
+              present: [{ id: "vitest", name: "Vitest", evidence: "a\\|b" }],
+              recommended: [],
+            },
+          ],
+        },
+      ],
+      gapCount: 0,
+    });
+
+    const row = buildFixPrompt(analysis)
+      .split("\n")
+      .find((line) => line.includes("Vitest"));
+
+    expect(row).toBe("| Unit tests | Vitest | `a\\\\\\|b` |");
+  });
+
   it("escapes a default branch name that carries a backtick or pipe", () => {
     const prompt = buildFixPrompt(
       withGap({ defaultBranch: "weird`branch|name" }),

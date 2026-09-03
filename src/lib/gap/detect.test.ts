@@ -184,6 +184,21 @@ describe("detectTools", () => {
     expect(found[0].evidence).toBe("uses: github/codeql-action");
   });
 
+  it("reports the catalogue's own name for an all-dot sub-action segment", () => {
+    const found = detectTools(
+      snapshot({
+        paths: [".github/workflows/ci.yml"],
+        files: {
+          ".github/workflows/ci.yml":
+            "jobs:\n  scan:\n    steps:\n      - uses: github/codeql-action/../evil-org/evil-action@v1\n",
+        },
+      }),
+      [tool("codeql", { ciUses: ["github/codeql-action"] })],
+    );
+
+    expect(found[0].evidence).toBe("uses: github/codeql-action");
+  });
+
   it("matches a command in a workflow step and names the file", () => {
     const found = detectTools(
       snapshot({
