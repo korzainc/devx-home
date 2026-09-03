@@ -139,6 +139,36 @@ describe("detectTools", () => {
     ]);
   });
 
+  it("matches a ciUses family name against a specific sub-action", () => {
+    const found = detectTools(
+      snapshot({
+        paths: [".github/workflows/ci.yml"],
+        files: {
+          ".github/workflows/ci.yml":
+            "jobs:\n  scan:\n    steps:\n      - uses: github/codeql-action/analyze@v3\n",
+        },
+      }),
+      [tool("codeql", { ciUses: ["github/codeql-action"] })],
+    );
+
+    expect(found[0].evidence).toBe("uses: github/codeql-action/analyze");
+  });
+
+  it("does not match a ciUses family name against an unrelated action sharing its prefix", () => {
+    const found = detectTools(
+      snapshot({
+        paths: [".github/workflows/ci.yml"],
+        files: {
+          ".github/workflows/ci.yml":
+            "jobs:\n  scan:\n    steps:\n      - uses: github/codeql-action-extra@v1\n",
+        },
+      }),
+      [tool("codeql", { ciUses: ["github/codeql-action"] })],
+    );
+
+    expect(found).toEqual([]);
+  });
+
   it("matches a command in a workflow step and names the file", () => {
     const found = detectTools(
       snapshot({

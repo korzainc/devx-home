@@ -202,8 +202,14 @@ function evidenceFor(
   signals: CiSignals,
 ): string | null {
   for (const action of tool.detect.ciUses ?? []) {
-    const hit = signals.uses.find((entry) => entry.value === action);
-    if (hit) return `uses: ${action}`;
+    // A catalogue entry can name an action family (e.g. github/codeql-action), invoked in the
+    // wild only through a specific sub-action (.../analyze, /init, /upload-sarif); the trailing
+    // "/" requires a real path boundary, so a family name never matches an unrelated action that
+    // merely shares its prefix.
+    const hit = signals.uses.find(
+      (entry) => entry.value === action || entry.value.startsWith(`${action}/`),
+    );
+    if (hit) return `uses: ${hit.value}`;
   }
 
   for (const command of tool.detect.commands ?? []) {
