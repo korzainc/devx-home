@@ -230,6 +230,133 @@ describe("analyze", () => {
     ]);
   });
 
+  it("reports a capability partially covered when only some owning stacks have a present tool", () => {
+    const report = analyze(
+      snapshot(["package.json", "pom.xml", "eslint.config.mjs"]),
+      { tools, baseline },
+    );
+
+    const lint = report.categories
+      .flatMap((category) => category.capabilities)
+      .find((entry) => entry.id === "lint")!;
+
+    expect(lint.satisfied).toBe(false);
+    expect(lint.present).toEqual([
+      {
+        id: "eslint",
+        name: "ESLint",
+        evidence: expect.any(String),
+        stackLabels: ["JavaScript"],
+      },
+    ]);
+    expect(lint.recommended).toEqual([
+      { id: "spotbugs", name: "SpotBugs", stackLabels: ["Java"] },
+    ]);
+    expect(report.partialCount).toBe(1);
+    expect(report.gapCount).toBe(6);
+  });
+
+  it("excludes a present tool that doesn't apply to any owning stack, rather than reporting it partial", () => {
+    // No package.json, so javascript is never a detected stack here - eslint.config.mjs is a
+    // stray file (e.g. from a nested frontend), not evidence that JavaScript's lint tool covers
+    // this Java repo's own gap.
+    const report = analyze(snapshot(["pom.xml", "eslint.config.mjs"]), {
+      tools,
+      baseline,
+    });
+
+    const lint = report.categories
+      .flatMap((category) => category.capabilities)
+      .find((entry) => entry.id === "lint")!;
+
+    expect(lint.satisfied).toBe(false);
+    expect(lint.present).toEqual([]);
+    expect(lint.recommended).toEqual([
+      { id: "spotbugs", name: "SpotBugs", stackLabels: ["Java"] },
+    ]);
+    expect(report.partialCount).toBe(0);
+  });
+
+  it("still reports satisfied when every owning stack has a present tool", () => {
+    const report = analyze(
+      snapshot([
+        "package.json",
+        "pom.xml",
+        "eslint.config.mjs",
+        "spotbugs-exclude.xml",
+        ".semgrep.yml",
+      ]),
+      { tools, baseline },
+    );
+
+    const capabilities = report.categories.flatMap(
+      (category) => category.capabilities,
+    );
+    const lint = capabilities.find((entry) => entry.id === "lint")!;
+    expect(lint.satisfied).toBe(true);
+    expect(lint.recommended).toEqual([]);
+
+    // sast is owned only by `javascript`, and semgrep is an `"any"`-stack tool (`stacks:
+    // ["any"]`) - unlike lint's stack-specific tools above, this exercises a present tool whose
+    // own stacks never match a real owning stack id, so it gets no single stack to attribute.
+    const sast = capabilities.find((entry) => entry.id === "sast")!;
+    expect(sast.satisfied).toBe(true);
+    expect(sast.present[0]?.stackLabels).toEqual([]);
+
+    // Nothing is left partial once every owning stack is covered.
+    expect(report.partialCount).toBe(0);
+  });
+
+  it("lets a present any-stack tool cover every owning stack at once", () => {
+    const anyBaseline: Baseline = {
+      categories: ["Security"],
+      capabilities: {
+        "secret-scanning": { label: "Secrets", category: "Security" },
+      },
+      universal: [],
+      stacks: [
+        {
+          id: "javascript",
+          label: "JavaScript",
+          markers: ["package.json"],
+          expects: {
+            "secret-scanning": { recommended: "gitleaks", acceptable: [] },
+          },
+        },
+        {
+          id: "java",
+          label: "Java",
+          markers: ["pom.xml"],
+          expects: {
+            "secret-scanning": { recommended: "gitleaks", acceptable: [] },
+          },
+        },
+      ],
+    };
+
+    const report = analyze(
+      snapshot(["package.json", "pom.xml", ".gitleaks.toml"]),
+      {
+        tools,
+        baseline: anyBaseline,
+      },
+    );
+
+    const secrets = report.categories
+      .flatMap((category) => category.capabilities)
+      .find((entry) => entry.id === "secret-scanning")!;
+
+    expect(secrets.satisfied).toBe(true);
+    expect(secrets.present).toEqual([
+      {
+        id: "gitleaks",
+        name: "Gitleaks",
+        evidence: expect.any(String),
+        stackLabels: [],
+      },
+    ]);
+  });
+
   it("throws when the baseline names a tool id absent from the catalogue", () => {
     const orphanBaseline: Baseline = {
       categories: ["Linting"],

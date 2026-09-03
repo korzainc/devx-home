@@ -20,6 +20,11 @@
      than a brighter green that would fail AA on white. */
   --positive: #15803d;
   --positive-wash: #f0fdf4;
+  /* A partial result needs its own hue, not a shade of the accent red it sits next to. Amber
+     alone (hue ~26) reads as a burnt red at this size; yellow-700 (hue ~35) clears AA (4.76:1
+     on its own wash, where it renders) while staying unambiguously gold. */
+  --partial: #a16207;
+  --partial-wash: #fefce8;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -37,6 +42,10 @@
     --accent-wash: #2a1517;
     --positive: #4ade80;
     --positive-wash: #10261a;
+    /* yellow-400: fully saturated like the other two dark-mode values - yellow doesn't
+       "vibrate" on near-black the way red does, so it needs no desaturating. */
+    --partial: #facc15;
+    --partial-wash: #2a2013;
   }
 }
 
@@ -53,6 +62,8 @@
   --color-accent-wash: var(--accent-wash);
   --color-positive: var(--positive);
   --color-positive-wash: var(--positive-wash);
+  --color-partial: var(--partial);
+  --color-partial-wash: var(--partial-wash);
 
   --font-sans: var(--font-inter);
   --font-display: var(--font-work-sans);

@@ -96,6 +96,26 @@ export const clauses = {
   },
 };
 
+/** The " for A and B" a tool's name earns when attribution is on and it names a stack, or ""
+ * otherwise. Shared with gap-report.tsx so the running list, the partial list, and the gap
+ * table can't independently drift on how a tool's stack gets named. Returns plain text, not a
+ * table cell - `attributedName` below applies `cell()` for the markdown table this file builds. */
+export function attributionSuffix(
+  tool: { stackLabels: string[] },
+  attribute: boolean,
+): string {
+  return attribute && tool.stackLabels.length > 0
+    ? ` for ${requirements.format(tool.stackLabels)}`
+    : "";
+}
+
+function attributedName(
+  tool: { name: string; stackLabels: string[] },
+  attribute: boolean,
+): string {
+  return `${cell(tool.name)}${cell(attributionSuffix(tool, attribute))}`;
+}
+
 function suggestion(gap: Gap): string {
   if (gap.recommended.length === 0)
     return "no tool in the catalogue for this stack";
@@ -109,11 +129,7 @@ function suggestion(gap: Gap): string {
       ? clauses
       : requirements;
   return formatter.format(
-    gap.recommended.map((tool) =>
-      attribute && tool.stackLabels.length > 0
-        ? `${cell(tool.name)} for ${requirements.format(tool.stackLabels)}`
-        : cell(tool.name),
-    ),
+    gap.recommended.map((tool) => attributedName(tool, attribute)),
   );
 }
 
@@ -121,7 +137,7 @@ export function buildFixPrompt(analysis: Analysis): string {
   const expected = analysis.satisfiedCount + analysis.gapCount;
 
   const running = analysis.categories.flatMap((category) =>
-    category.capabilities.filter((capability) => capability.satisfied),
+    category.capabilities.filter((capability) => capability.present.length > 0),
   );
 
   const gaps: Gap[] = analysis.categories.flatMap((category) =>
@@ -145,12 +161,19 @@ export function buildFixPrompt(analysis: Analysis): string {
           .join("\n")}`
       : "It found no manifest and no CI config worth reading, so everything below rests on the list of tracked paths alone.";
 
-  const runningRows = running.flatMap((capability) =>
-    capability.present.map(
+  const runningRows = running.flatMap((capability) => {
+    // A partial capability's present tool covers only part of the requirement, the same reason
+    // the gap table names a lone remaining tool's stack even when attribute would otherwise stay
+    // off.
+    const attribute = showAttribution(
+      capability.present,
+      !capability.satisfied,
+    );
+    return capability.present.map(
       (tool) =>
-        `| ${cell(capability.label)} | ${cell(tool.name)} | \`${cell(tool.evidence)}\` |`,
-    ),
-  );
+        `| ${cell(capability.label)} | ${attributedName(tool, attribute)} | \`${cell(tool.evidence)}\` |`,
+    );
+  });
 
   const runningTable =
     runningRows.length > 0
@@ -192,7 +215,11 @@ You have the whole repo. Where the report and the repo disagree, the repo wins.
 Repo: ${analysis.repo}
 Default branch: \`${defaultBranch}\`
 Stacks detected: ${stacks}
-Score: ${analysis.satisfiedCount} of ${expected} recommended checks are running.
+Score: ${analysis.satisfiedCount} of ${expected} recommended checks are running${
+    analysis.partialCount > 0
+      ? `, plus ${analysis.partialCount} partially covered`
+      : ""
+  }.
 
 ### Already running, do not duplicate
 

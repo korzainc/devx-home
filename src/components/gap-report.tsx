@@ -2,6 +2,7 @@ import Link from "next/link";
 import { FixPromptButton } from "@/components/fix-prompt";
 import {
   alternatives,
+  attributionSuffix,
   buildFixPrompt,
   clauses,
   isDisjunction,
@@ -19,16 +20,26 @@ import type {
 // so a report URL still reads with no client JavaScript. The one exception is the fix prompt
 // control, which needs an overlay and the clipboard.
 
-function StatusChip({ satisfied }: { satisfied: boolean }) {
+function StatusChip({
+  status,
+}: {
+  status: "satisfied" | "partial" | "missing";
+}) {
   return (
     <span
       className={`shrink-0 rounded-md border px-1.5 py-0.5 font-mono text-[0.65rem] ${
-        satisfied
+        status === "satisfied"
           ? "border-positive bg-positive-wash text-positive"
-          : "border-accent bg-accent-wash text-accent"
+          : status === "partial"
+            ? "border-partial bg-partial-wash text-partial"
+            : "border-accent bg-accent-wash text-accent"
       }`}
     >
-      {satisfied ? "present" : "missing"}
+      {status === "satisfied"
+        ? "present"
+        : status === "partial"
+          ? "partial"
+          : "missing"}
     </span>
   );
 }
@@ -70,9 +81,7 @@ function RecommendedTools({
               >
                 {tool.name}
               </Link>
-              {attribute && tool.stackLabels.length > 0
-                ? ` for ${requirements.format(tool.stackLabels)}`
-                : null}
+              {attributionSuffix(tool, attribute)}
             </span>
           );
         })}
@@ -80,25 +89,69 @@ function RecommendedTools({
   );
 }
 
+// analyze.ts asserts this itself before returning, so a real violation throws there and never
+// reaches render. Kept as a second line of defense for any caller that builds a report by hand.
+function unreachableRecommendedGap(capability: CapabilityReport): never {
+  throw new Error(
+    `Capability "${capability.id}" is unsatisfied with tools present but has no recommendation.`,
+  );
+}
+
 function Capability({ capability }: { capability: CapabilityReport }) {
+  const status = capability.satisfied
+    ? "satisfied"
+    : capability.present.length > 0
+      ? "partial"
+      : "missing";
+
   return (
     <div className="flex flex-col gap-2 py-4">
       <div className="flex items-baseline justify-between gap-3">
         <h4 className="font-medium text-ink">{capability.label}</h4>
-        <StatusChip satisfied={capability.satisfied} />
+        <StatusChip status={status} />
       </div>
 
-      {capability.satisfied ? (
+      {status === "satisfied" ? (
         <ul className="flex flex-col gap-1">
-          {capability.present.map((tool) => (
-            <li key={tool.id} className="text-sm text-ink-muted">
-              {tool.name}{" "}
-              <span className="font-mono text-xs text-ink-faint">
-                {tool.evidence}
-              </span>
-            </li>
-          ))}
+          {(() => {
+            const attribute = showAttribution(capability.present);
+            return capability.present.map((tool) => (
+              <li key={tool.id} className="text-sm text-ink-muted">
+                {tool.name}
+                {attributionSuffix(tool, attribute)}{" "}
+                <span className="font-mono text-xs text-ink-faint">
+                  {tool.evidence}
+                </span>
+              </li>
+            ));
+          })()}
         </ul>
+      ) : status === "partial" ? (
+        capability.recommended.length > 0 ? (
+          <>
+            <ul className="flex flex-col gap-1">
+              {capability.present.map((tool) => (
+                <li key={tool.id} className="text-sm text-ink-muted">
+                  {tool.name}
+                  {attributionSuffix(tool, true)}{" "}
+                  <span className="font-mono text-xs text-ink-faint">
+                    {tool.evidence}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-sm text-ink-muted">
+              Still need{" "}
+              <RecommendedTools
+                tools={capability.recommended}
+                alwaysAttribute
+              />
+              .
+            </p>
+          </>
+        ) : (
+          unreachableRecommendedGap(capability)
+        )
       ) : capability.recommended.length > 0 ? (
         // A multi-tool line says outright that one of them is enough only when they are genuine
         // alternatives - a per-stack line lists tools that are each required, not a choice.
@@ -153,16 +206,26 @@ export function GapReport({
           <>
             <h2 className="font-display text-2xl font-semibold tracking-tight">
               {analysis.satisfiedCount} of {expected} recommended checks are
-              running.
+              running
+              {analysis.partialCount > 0
+                ? `, plus ${analysis.partialCount} partially covered`
+                : ""}
+              .
             </h2>
 
-            {/* The proportion lands before the numbers do. Green is what runs, red is what does
-                not, which is the same pairing the chips below use. */}
+            {/* The proportion lands before the numbers do. Green, amber, and red mirror the
+                chips below: what runs, what's partial, and what doesn't. */}
             <div className="flex h-1.5 overflow-hidden rounded-full bg-line">
               <div
                 className="bg-positive"
                 style={{
                   width: `${(analysis.satisfiedCount / expected) * 100}%`,
+                }}
+              />
+              <div
+                className="bg-partial"
+                style={{
+                  width: `${(analysis.partialCount / expected) * 100}%`,
                 }}
               />
               <div className="flex-1 bg-accent" />

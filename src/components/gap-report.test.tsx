@@ -21,6 +21,7 @@ function analysisWith(overrides: Partial<Analysis>): Analysis {
     filesRead: [],
     categories: [],
     satisfiedCount: 0,
+    partialCount: 0,
     gapCount: 0,
     ...overrides,
   };
@@ -207,5 +208,180 @@ describe("GapReport", () => {
     render(<GapReport stacks={stacks} analysis={analysisWith({})} />);
 
     expect(screen.getByText(/JavaScript, Go/)).toBeTruthy();
+  });
+
+  it("renders a partial capability with what's present, attributed, and what's still needed", () => {
+    render(
+      <GapReport
+        stacks={stacks}
+        analysis={analysisWith({
+          categories: [
+            {
+              category: "Testing",
+              capabilities: [
+                {
+                  id: "unit-tests",
+                  label: "Unit tests",
+                  satisfied: false,
+                  present: [
+                    {
+                      id: "jest",
+                      name: "Jest",
+                      evidence: "jest.config.js",
+                      stackLabels: ["JavaScript"],
+                    },
+                  ],
+                  recommended: [
+                    { id: "go-test", name: "go test", stackLabels: ["Go"] },
+                  ],
+                },
+              ],
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByText("partial")).toBeTruthy();
+    expect(screen.getByText(/Jest/)).toBeTruthy();
+    expect(screen.getByText(/for JavaScript/)).toBeTruthy();
+    expect(screen.getByText(/Still need/)).toBeTruthy();
+    expect(screen.getByText(/for Go/)).toBeTruthy();
+    expect(screen.queryByText("missing")).toBeNull();
+  });
+
+  it("names the partial count in the headline instead of folding it into the gap", () => {
+    render(
+      <GapReport
+        stacks={stacks}
+        analysis={analysisWith({
+          satisfiedCount: 3,
+          partialCount: 2,
+          gapCount: 5,
+          categories: [],
+        })}
+      />,
+    );
+
+    expect(
+      screen.getByText("3 of 8 recommended checks are running", {
+        exact: false,
+      }),
+    ).toBeTruthy();
+    expect(screen.getByText(/plus 2 partially covered/)).toBeTruthy();
+  });
+
+  it("throws rather than silently render an unsatisfied capability with no recommendation", () => {
+    const broken = analysisWith({
+      categories: [
+        {
+          category: "Testing",
+          capabilities: [
+            {
+              id: "unit-tests",
+              label: "Unit tests",
+              satisfied: false,
+              present: [
+                {
+                  id: "jest",
+                  name: "Jest",
+                  evidence: "jest.config.js",
+                  stackLabels: ["JavaScript"],
+                },
+              ],
+              // A real analyze.ts result never leaves this empty here - this pins the
+              // invariant check itself, not a reachable report shape.
+              recommended: [],
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(() =>
+      render(<GapReport stacks={stacks} analysis={broken} />),
+    ).toThrow(/has no recommendation/);
+  });
+
+  it("attributes a satisfied capability's tools when more than one covers it", () => {
+    render(
+      <GapReport
+        stacks={stacks}
+        analysis={analysisWith({
+          satisfiedCount: 1,
+          categories: [
+            {
+              category: "Linting",
+              capabilities: [
+                {
+                  id: "lint",
+                  label: "Style linting",
+                  satisfied: true,
+                  present: [
+                    {
+                      id: "eslint",
+                      name: "ESLint",
+                      evidence: "eslint.config.js",
+                      stackLabels: ["JavaScript"],
+                    },
+                    {
+                      id: "golangci-lint",
+                      name: "golangci-lint",
+                      evidence: ".golangci.yml",
+                      stackLabels: ["Go"],
+                    },
+                  ],
+                  recommended: [],
+                },
+              ],
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByText(/ESLint for JavaScript/)).toBeTruthy();
+    expect(screen.getByText(/golangci-lint for Go/)).toBeTruthy();
+  });
+
+  it("leaves a satisfied capability's lone, single-stack tool unattributed", () => {
+    render(
+      <GapReport
+        stacks={stacks}
+        analysis={analysisWith({
+          satisfiedCount: 1,
+          categories: [
+            {
+              category: "Testing",
+              capabilities: [
+                {
+                  id: "unit-tests",
+                  label: "Unit tests",
+                  satisfied: true,
+                  present: [
+                    {
+                      id: "vitest",
+                      name: "Vitest",
+                      evidence: "vitest.config.ts",
+                      stackLabels: ["JavaScript"],
+                    },
+                  ],
+                  recommended: [],
+                },
+              ],
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        (_, element) =>
+          element?.tagName === "LI" &&
+          (element.textContent ?? "").trim().startsWith("Vitest "),
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(/for JavaScript/)).toBeNull();
   });
 });
