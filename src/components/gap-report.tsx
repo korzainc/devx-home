@@ -29,7 +29,9 @@ function StatusChip({
       className={`shrink-0 rounded-md border px-1.5 py-0.5 font-mono text-[0.65rem] ${
         status === "satisfied"
           ? "border-positive bg-positive-wash text-positive"
-          : "border-accent bg-accent-wash text-accent"
+          : status === "partial"
+            ? "border-partial bg-partial-wash text-partial"
+            : "border-accent bg-accent-wash text-accent"
       }`}
     >
       {status === "satisfied"
