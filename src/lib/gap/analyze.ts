@@ -78,9 +78,18 @@ export function analyze(
       (stack) => stack.expects[id] !== undefined,
     );
 
-    const rawPresent = detected.filter((entry) =>
-      tools.find((tool) => tool.id === entry.id)?.capabilities.includes(id),
-    );
+    // Matching by capability id alone isn't enough: a detected tool can cover this capability
+    // for a stack this repo doesn't own (e.g. a nested frontend's ESLint in a Java-only repo).
+    // Keeping it in `present` would misreport a fully-missing capability as partially covered.
+    const rawPresent = detected.filter((entry) => {
+      const tool = toolById.get(entry.id);
+      if (!tool?.capabilities.includes(id)) return false;
+      return (
+        owningStacks.length === 0 ||
+        tool.stacks.includes("any") ||
+        owningStacks.some((stack) => tool.stacks.includes(stack.id))
+      );
+    });
     const present: PresentTool[] = rawPresent.map((entry) => {
       const tool = toolById.get(entry.id);
       const stackLabels = owningStacks
