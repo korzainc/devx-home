@@ -72,7 +72,7 @@ function BottomLink({ href, children }: { href: string; children: string }) {
 const exampleRun: { id: CapabilityId; evidence: string | null }[] = [
   {
     id: "secrets",
-    evidence: "runs kingfisher scan in .github/workflows/ci.yml",
+    evidence: "kingfisher.yml",
   },
   { id: "sast", evidence: null },
   { id: "unit-tests", evidence: "vitest in package.json" },
