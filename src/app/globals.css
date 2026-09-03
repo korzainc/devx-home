@@ -16,6 +16,8 @@
      Light mode therefore uses the darker red the marketing site already pairs with it. */
   --accent: #dc2626;
   --accent-wash: #fef1f1;
+  /* Small text on --accent-wash: --accent is 4.38:1 there, just under AA. */
+  --accent-strong: #b91c1c;
   /* Same constraint as the accent: this has to carry small text, so it is green-700 rather
      than a brighter green that would fail AA on white. */
   --positive: #15803d;
@@ -40,6 +42,8 @@
     /* Lifted off #ff0000: pure red on a near-black canvas reads as vibrating rather than sharp. */
     --accent: #ff5f5f;
     --accent-wash: #2a1517;
+    /* --accent already clears 4.5 on the dark wash, so this is the same hue. */
+    --accent-strong: #ff5f5f;
     --positive: #4ade80;
     --positive-wash: #10261a;
     /* yellow-400: fully saturated like the other two dark-mode values - yellow doesn't
@@ -60,6 +64,7 @@
   --color-ink-faint: var(--ink-faint);
   --color-accent: var(--accent);
   --color-accent-wash: var(--accent-wash);
+  --color-accent-strong: var(--accent-strong);
   --color-positive: var(--positive);
   --color-positive-wash: var(--positive-wash);
   --color-partial: var(--partial);

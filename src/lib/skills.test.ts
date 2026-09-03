@@ -156,3 +156,19 @@ describe("skill catalogue", () => {
     expect(skills.filter((skill) => skill.status === "Planned")).toEqual([]);
   });
 });
+
+describe("the invariant the skill link depends on", () => {
+  it("gives every skill in a plugin a distinct name", () => {
+    // A name is a link key, and half of a `plugin--name` DOM id. Collisions *across* plugins
+    // are by design, which is why a catalogue entry's own id is `plugin:path`; nothing checked
+    // for collisions *within* one.
+    for (const plugin of new Set(skills.map((skill) => skill.plugin))) {
+      const names = skills
+        .filter((skill) => skill.plugin === plugin)
+        .map((skill) => skill.name);
+      expect(new Set(names).size, `${plugin} has a duplicate name`).toBe(
+        names.length,
+      );
+    }
+  });
+});

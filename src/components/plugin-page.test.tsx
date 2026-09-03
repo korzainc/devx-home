@@ -109,7 +109,7 @@ describe("the skills in a plugin", () => {
     // The heading states the full count, so a broken control leaves the page contradicting
     // itself rather than looking empty.
     expect(skills.length).toBeGreaterThan(5);
-    render(<PluginSkills skills={skills} />);
+    render(<PluginSkills plugin="codezen" skills={skills} />);
 
     const shown = () =>
       skills.filter((skill) => screen.queryByText(skill.name)).length;
@@ -124,7 +124,7 @@ describe("the skills in a plugin", () => {
   });
 
   it("does not offer to expand when everything is already shown", () => {
-    render(<PluginSkills skills={skills.slice(0, 3)} />);
+    render(<PluginSkills plugin="codezen" skills={skills.slice(0, 3)} />);
     expect(screen.queryByRole("button", { name: /^Show all/ })).toBeNull();
   });
 
@@ -132,40 +132,32 @@ describe("the skills in a plugin", () => {
     // The generator emits a null summary for a skill with no overlay entry, so the card has
     // to read from somewhere; an unhandled null renders a card with a name and no text.
     const [first] = skills;
-    render(<PluginSkills skills={[{ ...first, summary: null }]} />);
+    render(
+      <PluginSkills plugin="codezen" skills={[{ ...first, summary: null }]} />,
+    );
     expect(screen.getByText(first.description)).toBeTruthy();
   });
 
-  it("expands to a skill past the preview via hash, then actually collapses on Show fewer", () => {
-    // CollapsibleGrid's own toggle state never moves in this flow (it was already false,
-    // forced open by the hash instead), so a stale snapshot here would leave the grid stuck
-    // open even after the hash clears from the URL.
+  it("leaves the list alone when the URL names a skill past the preview", () => {
+    // The list used to unfold and scroll itself on arrival. The context strip carries that
+    // answer now, so the list keeps its own order and preview until asked — re-adding either
+    // behaviour makes what a reader sees depend on how they arrived.
     // jsdom has no layout engine, so it doesn't implement scrollIntoView at all.
     Element.prototype.scrollIntoView = vi.fn();
     const target = skills[skills.length - 1];
-    window.location.hash = `#${target.name}`;
-    render(<PluginSkills skills={skills} />);
-    expect(screen.getByText(target.name)).toBeTruthy();
-    expect(screen.getByRole("button", { name: /^Show fewer/ })).toBeTruthy();
+    history.replaceState(null, "", `?skill=${target.name}`);
+    render(<PluginSkills plugin="codezen" skills={skills} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /^Show fewer/ }));
-    expect(window.location.hash).toBe("");
+    expect(screen.queryByText(target.name)).toBeNull();
     expect(
       screen.getByRole("button", {
         name: new RegExp(`^Show all ${skills.length} skills`),
       }),
     ).toBeTruthy();
-    const shown = () =>
-      skills.filter((skill) => screen.queryByText(skill.name)).length;
-    expect(shown()).toBe(5);
+    expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+    history.replaceState(null, "", "/");
   });
 
-  it("survives a hash that is not valid encoding", () => {
-    // "#%" throws inside decodeURIComponent. Thrown during render it takes down the list,
-    // not just the anchor.
-    window.location.hash = "#%";
-    expect(() => render(<PluginSkills skills={skills} />)).not.toThrow();
-    expect(screen.getByRole("button", { name: /^Show all/ })).toBeTruthy();
-    window.location.hash = "";
-  });
+  // Reaching a card from the strip, and the malformed-URL guard, are covered in
+  // skill-jump.test.tsx and skill-context-strip.test.tsx, against both components together.
 });

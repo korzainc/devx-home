@@ -7,6 +7,7 @@ import {
   skillFacets,
   type SkillEntry,
 } from "@/lib/catalogue-entries";
+import { skillLink } from "@/lib/skill-link";
 
 // Category and origin are facets, not card text: after filtering they read the same on every card.
 function SkillCard({ skill }: { skill: SkillEntry }) {
@@ -14,7 +15,7 @@ function SkillCard({ skill }: { skill: SkillEntry }) {
 
   return (
     <Link
-      href={`/skills/${skill.plugin}#${skill.name}`}
+      href={skillLink(skill.plugin, skill.name)}
       className="group flex h-full flex-col rounded-xl border border-line bg-surface p-5 transition-colors hover:border-line-strong hover:bg-surface-raised"
     >
       <span className="font-mono text-[0.9375rem] leading-snug font-medium text-ink [overflow-wrap:anywhere]">

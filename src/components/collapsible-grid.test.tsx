@@ -18,6 +18,7 @@ describe("CollapsibleGrid", () => {
   it("renders every item and no show-more control when the count fits the preview", () => {
     render(
       <CollapsibleGrid
+        id="grid"
         heading="Tools in this bundle"
         noun="tools"
         items={items(4)}
@@ -30,6 +31,7 @@ describe("CollapsibleGrid", () => {
   it("previews 5 items behind a full count and a show-all button, then expands and collapses", () => {
     render(
       <CollapsibleGrid
+        id="grid"
         heading="Skills in this plugin"
         noun="skills"
         items={items(11)}
@@ -59,9 +61,39 @@ describe("CollapsibleGrid", () => {
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
   });
 
+  it("offers no control when the count is exactly the preview", () => {
+    // `>` and `>=` are indistinguishable at 4 or 11 items.
+    render(
+      <CollapsibleGrid
+        id="grid"
+        heading="Skills in this plugin"
+        noun="skills"
+        items={items(5)}
+      />,
+    );
+    expect(screen.getAllByText(/^Item \d$/)).toHaveLength(5);
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it("names the grid it expands, so aria-expanded says what is expanding", () => {
+    // aria-expanded alone announces a state with no object.
+    render(
+      <CollapsibleGrid
+        id="skills-in-this-plugin"
+        heading="Skills in this plugin"
+        noun="skills"
+        items={items(11)}
+      />,
+    );
+    const toggle = screen.getByRole("button", { name: /show all/i });
+    expect(toggle.getAttribute("aria-controls")).toBe("skills-in-this-plugin");
+    expect(document.getElementById("skills-in-this-plugin")).toBeTruthy();
+  });
+
   it("renders every item when forceExpanded is set, without the toggle ever being clicked", () => {
     render(
       <CollapsibleGrid
+        id="grid"
         heading="Skills in this plugin"
         noun="skills"
         items={items(11)}
@@ -80,6 +112,7 @@ describe("CollapsibleGrid", () => {
     const onCollapseFromState = vi.fn();
     render(
       <CollapsibleGrid
+        id="grid"
         heading="Skills in this plugin"
         noun="skills"
         items={items(11)}
@@ -94,6 +127,7 @@ describe("CollapsibleGrid", () => {
     const onCollapseFromForce = vi.fn();
     render(
       <CollapsibleGrid
+        id="grid"
         heading="Skills in this plugin"
         noun="skills"
         items={items(11)}

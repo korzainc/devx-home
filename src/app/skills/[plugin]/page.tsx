@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { InstallPanel } from "@/components/install-panel";
 import { MetaRow } from "@/components/meta-row";
 import { PluginSkills } from "@/components/plugin-skills";
+import { SkillContextStrip } from "@/components/skill-context-strip";
 import {
   getPlugin,
   installCommands,
@@ -55,6 +56,11 @@ export default async function PluginPage({
           {plugin.summary}
         </p>
       </header>
+
+      {/* Reads before what the plugin as a whole solves. Renders nothing without a skill, and
+          is deliberately not gated on skills.length: a plugin that ships none is where a stale
+          link most needs explaining. */}
+      <SkillContextStrip plugin={plugin.id} skills={skills} />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
         <div className="overflow-hidden rounded-xl border border-line bg-surface">
@@ -117,7 +123,7 @@ export default async function PluginPage({
         <InstallPanel commands={installCommands(plugin)} />
       )}
 
-      {skills.length > 0 && <PluginSkills skills={skills} />}
+      {skills.length > 0 && <PluginSkills plugin={plugin.id} skills={skills} />}
     </article>
   );
 }

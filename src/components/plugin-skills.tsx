@@ -1,65 +1,97 @@
 "use client";
 
-import { useEffect, useSyncExternalStore } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { CollapsibleGrid, PREVIEW } from "@/components/collapsible-grid";
 import type { SkillEntry } from "@/lib/catalogue-entries";
+import {
+  readOpenedSkill,
+  skillCardId,
+  skillListId,
+  subscribeToLocation,
+  subscribeToSkillFocus,
+} from "@/lib/skill-link";
 
-const readHash = () => {
-  const raw = window.location.hash.slice(1);
-  // A hand-typed "#%" is not valid encoding. Decoding throws during render, which takes the
-  // whole list down rather than failing to find one skill.
-  try {
-    return decodeURIComponent(raw);
-  } catch {
-    return raw;
+export function PluginSkills({
+  plugin,
+  skills,
+}: {
+  plugin: string;
+  skills: SkillEntry[];
+}) {
+  // Nothing happens on arrival: the strip above already names the skill. Unfolding here would
+  // make what you see depend on how you got here.
+  const openedFor = useSyncExternalStore(
+    subscribeToLocation,
+    readOpenedSkill,
+    () => "",
+  );
+  // A new object per press, so a second press for the same skill is not a no-op.
+  const [request, setRequest] = useState<{ name: string } | null>(null);
+  useEffect(() => subscribeToSkillFocus((name) => setRequest({ name })), []);
+
+  // Activity hides this page rather than unmounting it, so without this the jump outlives the
+  // visit and re-fires on return. Layout effect: must run before the page is hidden.
+  useLayoutEffect(() => () => setRequest(null), []);
+
+  // Render phase, so the mark and the list never disagree in a committed paint.
+  const [seenOpened, setSeenOpened] = useState(openedFor);
+  if (seenOpened !== openedFor) {
+    setSeenOpened(openedFor);
+    setRequest(null);
   }
-};
 
-function subscribeToHash(onChange: () => void) {
-  window.addEventListener("hashchange", onChange);
-  return () => window.removeEventListener("hashchange", onChange);
-}
-
-export function PluginSkills({ skills }: { skills: SkillEntry[] }) {
-  // A card links to its own skill, which is usually past the preview. Derived rather than
-  // synced into state, so collapsing stays live -- it drops the hash on the way.
-  const hash = useSyncExternalStore(subscribeToHash, readHash, () => "");
-  const target = skills.findIndex((skill) => skill.name === hash);
+  const focusedIndex =
+    request === null
+      ? -1
+      : skills.findIndex((skill) => skill.name === request.name);
 
   useEffect(() => {
-    if (hash)
-      document.getElementById(hash)?.scrollIntoView({ block: "center" });
-  }, [hash]);
+    if (request === null) return;
+    // Focus as well as scroll: moving the viewport alone leaves a keyboard user behind.
+    const card = document.getElementById(skillCardId(plugin, request.name));
+    card?.focus({ preventScroll: true });
+    card?.scrollIntoView({ block: "center" });
+  }, [plugin, request]);
 
   return (
     <CollapsibleGrid
+      id={skillListId(plugin)}
       heading="Skills in this plugin"
       noun="skills"
-      forceExpanded={target >= PREVIEW}
-      onCollapse={() => {
-        history.replaceState(null, "", location.pathname + location.search);
-        // history.replaceState doesn't fire hashchange, so without this the
-        // useSyncExternalStore snapshot above stays stale and the grid never
-        // learns the hash is gone, leaving it stuck open.
-        window.dispatchEvent(new HashChangeEvent("hashchange"));
-      }}
-      items={skills.map((skill) => ({
-        key: skill.id,
-        node: (
-          <div
-            id={skill.name}
-            className="scroll-mt-24 rounded-xl border border-line bg-surface p-4 target:border-line-strong"
-          >
-            <span className="font-mono text-sm font-medium text-ink [overflow-wrap:anywhere]">
-              <span className="text-accent">/</span>
-              {skill.name}
-            </span>
-            <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-ink-muted">
-              {skill.summary ?? skill.description}
-            </p>
-          </div>
-        ),
-      }))}
+      forceExpanded={focusedIndex >= PREVIEW}
+      // The jump opens the grid from outside its own toggle, so releasing that is what lets the
+      // toggle close it again.
+      onCollapse={() => setRequest(null)}
+      items={skills.map((skill) => {
+        // Off the URL, not the jump, so it marks the card however you got to the list.
+        const opened = skill.name === openedFor;
+        return {
+          key: skill.id,
+          node: (
+            <div
+              id={skillCardId(plugin, skill.name)}
+              tabIndex={-1}
+              aria-current={opened ? "true" : undefined}
+              className={`scroll-mt-24 rounded-xl border bg-surface p-4 ${
+                opened ? "border-accent" : "border-line"
+              }`}
+            >
+              <span className="font-mono text-sm font-medium text-ink [overflow-wrap:anywhere]">
+                <span className="text-accent">/</span>
+                {skill.name}
+              </span>
+              <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-ink-muted">
+                {skill.summary ?? skill.description}
+              </p>
+            </div>
+          ),
+        };
+      })}
     />
   );
 }
