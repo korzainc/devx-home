@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { baseline, plugins } from "@/lib/catalogue";
+import { capabilityLabel, plugins, type CapabilityId } from "@/lib/catalogue";
 
 /* The band's outline is a masked overlay rather than a border on the element itself, which is the
    only way to have it fade out along the bottom. Closed at the top, open at the bottom, so two
@@ -69,7 +69,7 @@ function BottomLink({ href, children }: { href: string; children: string }) {
 
 // Illustrative, and labelled as such on screen. The capability labels are read from the baseline
 // rather than written here, so the preview cannot drift from what the analysis actually checks.
-const exampleRun = [
+const exampleRun: { id: CapabilityId; evidence: string | null }[] = [
   {
     id: "secrets",
     evidence: "runs kingfisher scan in .github/workflows/ci.yml",
@@ -97,9 +97,7 @@ function ReportPreview() {
             key={row.id}
             className="flex items-baseline justify-between gap-3 border-t border-line py-2.5"
           >
-            <span className="text-sm text-ink">
-              {baseline.capabilities[row.id].label}
-            </span>
+            <span className="text-sm text-ink">{capabilityLabel(row.id)}</span>
             {row.evidence ? (
               <span className="font-mono text-xs text-ink-faint">
                 {row.evidence}

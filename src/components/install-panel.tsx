@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { InstallCommand } from "@/lib/catalogue";
+import type { InstallCommand } from "@/lib/catalogue-entries";
 
 /** Keyed on its command by the caller, so switching agents remounts it and clears `copied`. */
 function CommandField({ label, value }: { label: string; value: string }) {

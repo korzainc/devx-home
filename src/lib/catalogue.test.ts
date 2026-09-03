@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import skillsData from "@/data/skills.json";
 import {
-  baseline,
   bundles,
   ecosystemLabel,
+  getBaseline,
   getPlugin,
   indexSchemaVersion,
   installCommands,
@@ -15,6 +15,8 @@ import {
   tools,
   visibleTools,
 } from "./catalogue";
+
+const baseline = getBaseline();
 
 // The failures are quiet: a capability with no tool renders as a gap nobody can act on.
 describe("catalogue and baseline agree", () => {

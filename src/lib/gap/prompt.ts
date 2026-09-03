@@ -137,7 +137,7 @@ export function buildFixPrompt(analysis: Analysis): string {
   const filesRead =
     analysis.filesRead.length > 0
       ? `It read these files and nothing else:\n\n${analysis.filesRead
-          .map((path) => `- ${cell(path)}`)
+          .map((path) => `- \`${cell(path)}\``)
           .join("\n")}`
       : "It found no manifest and no CI config worth reading, so everything below rests on the list of tracked paths alone.";
 
@@ -163,6 +163,10 @@ export function buildFixPrompt(analysis: Analysis): string {
       ? `| # | Check | Category | Tools that would cover it |\n| --- | --- | --- | --- |\n${gapRows.join("\n")}`
       : "Nothing. Every check the baseline expects is already running.";
 
+  // A git ref permits both backticks and pipes, which is why this goes through the same escape
+  // as every repo-controlled string here rather than being trusted as GitHub API output.
+  const defaultBranch = cell(analysis.defaultBranch);
+
   return `# Fix the CI pipeline in ${analysis.repo}
 
 You are working in the repo this file was pasted into. A CI gap report was produced by the Korza
@@ -173,7 +177,7 @@ DevX portal and is reproduced below. Your job is to close the gaps it lists.
 The portal read the default branch over the GitHub API. ${filesRead}
 
 It never ran anything, and it never saw repo history, required status checks, branch protection,
-org rulesets or self-hosted runner config. It saw no branch other than \`${analysis.defaultBranch}\`.
+org rulesets or self-hosted runner config. It saw no branch other than \`${defaultBranch}\`.
 Detection is signal matching, so it can miss a check that runs through an indirection it does not
 recognise.
 
@@ -182,7 +186,7 @@ You have the whole repo. Where the report and the repo disagree, the repo wins.
 ## What the report found
 
 Repo: ${analysis.repo}
-Default branch: ${analysis.defaultBranch}
+Default branch: \`${defaultBranch}\`
 Stacks detected: ${stacks}
 Score: ${analysis.satisfiedCount} of ${expected} recommended checks are running.
 

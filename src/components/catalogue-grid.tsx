@@ -10,7 +10,11 @@ import {
   type ReactNode,
 } from "react";
 import { FacetMenu } from "@/components/facet-menu";
-import { facetValues, type CatalogueEntry, type Facet } from "@/lib/catalogue";
+import {
+  facetValues,
+  type CatalogueEntry,
+  type Facet,
+} from "@/lib/catalogue-entries";
 import { filterEntries } from "@/lib/filter";
 import { terms } from "@/lib/search";
 

@@ -6,7 +6,7 @@ import type {
   Facet,
   PublicBundleEntry,
   PublicToolEntry,
-} from "@/lib/catalogue";
+} from "@/lib/catalogue-entries";
 
 // Module scope, not inline: the grid memoises on facet identity.
 const facets: Facet<PublicToolEntry>[] = [

@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { GapReport } from "@/components/gap-report";
 import { Octocat } from "@/components/octocat";
 import { signInWithGitHub } from "@/lib/auth-actions";
-import { baseline, tools } from "@/lib/catalogue";
+import { getBaseline, tools } from "@/lib/catalogue";
 import { runAnalysis } from "@/lib/gap/run";
 import { getGitHubToken } from "@/lib/session";
 
@@ -19,6 +19,7 @@ async function Result({ repo }: { repo: string }) {
   const token = await getGitHubToken();
   if (!token) return <SignInPrompt repo={repo} />;
 
+  const baseline = getBaseline();
   const result = await runAnalysis(repo, token, { tools, baseline });
   if (!result.ok) return <Notice>{result.error}</Notice>;
 

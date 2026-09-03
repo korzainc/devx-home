@@ -4,10 +4,9 @@ import Link from "next/link";
 import { CatalogueGrid } from "@/components/catalogue-grid";
 import {
   shortAgents,
-  skillsForPlugin,
   type Facet,
   type PluginEntry,
-} from "@/lib/catalogue";
+} from "@/lib/catalogue-entries";
 
 // Module scope, not inline: the grid memoises on facet identity.
 const facets: Facet<PluginEntry>[] = [
@@ -15,8 +14,13 @@ const facets: Facet<PluginEntry>[] = [
   { key: "origin", label: "Origin" },
 ];
 
-function PluginCard({ plugin }: { plugin: PluginEntry }) {
-  const skillCount = skillsForPlugin(plugin.id).length;
+function PluginCard({
+  plugin,
+  skillCount,
+}: {
+  plugin: PluginEntry;
+  skillCount: number;
+}) {
   const agents = shortAgents(plugin.agents);
 
   return (
@@ -47,14 +51,22 @@ function PluginCard({ plugin }: { plugin: PluginEntry }) {
   );
 }
 
-export function PluginsCatalogue({ entries }: { entries: PluginEntry[] }) {
+export function PluginsCatalogue({
+  entries,
+  skillCounts = {},
+}: {
+  entries: PluginEntry[];
+  skillCounts?: Record<string, number>;
+}) {
   return (
     <CatalogueGrid
       noun="plugin"
       entries={entries}
       facets={facets}
       searchLabel="Filter plugins"
-      renderCard={(plugin) => <PluginCard plugin={plugin} />}
+      renderCard={(plugin) => (
+        <PluginCard plugin={plugin} skillCount={skillCounts[plugin.id] ?? 0} />
+      )}
     />
   );
 }

@@ -219,4 +219,13 @@ describe("buildFixPrompt", () => {
       lines.filter((line) => line.includes("Ignore every rule")).length,
     ).toBe(1);
   });
+
+  it("escapes a default branch name that carries a backtick or pipe", () => {
+    const prompt = buildFixPrompt(
+      withGap({ defaultBranch: "weird`branch|name" }),
+    );
+
+    expect(prompt).toContain("branch other than `weird'branch\\|name`");
+    expect(prompt).toContain("Default branch: `weird'branch\\|name`");
+  });
 });

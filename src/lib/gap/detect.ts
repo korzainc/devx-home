@@ -224,6 +224,21 @@ function configuresPyproject(
   return marker.test(snapshot.files[hit] ?? "");
 }
 
+// A real sub-action path is plain path segments, nothing else - the prefix match above already
+// guarantees the value starts with the catalogue's own trusted family name, so the suffix past
+// that point is the only part a repo controls. This string lands in a document a coding agent
+// is handed as ground truth, so a suffix that doesn't look like a path is dropped rather than
+// echoed: the family name alone is still true, just less specific.
+const subActionPath = /^[\w.-]+(?:\/[\w.-]+)*$/;
+
+function usesEvidence(action: string, value: string): string {
+  if (value === action) return `uses: ${action}`;
+  const suffix = value.slice(action.length + 1);
+  return subActionPath.test(suffix)
+    ? `uses: ${action}/${suffix}`
+    : `uses: ${action}`;
+}
+
 /** Signals are OR'd. CI evidence is preferred because this reports on pipelines, not checkouts. */
 function evidenceFor(
   tool: AnalysisTool,
@@ -238,7 +253,7 @@ function evidenceFor(
     const hit = signals.uses.find(
       (entry) => entry.value === action || entry.value.startsWith(`${action}/`),
     );
-    if (hit) return `uses: ${hit.value}`;
+    if (hit) return usesEvidence(action, hit.value);
   }
 
   for (const command of tool.detect.commands ?? []) {
