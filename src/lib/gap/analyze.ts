@@ -193,6 +193,9 @@ export function analyze(
     filesRead: Object.keys(snapshot.files).sort(),
     categories,
     satisfiedCount: reports.filter((report) => report.satisfied).length,
+    partialCount: reports.filter(
+      (report) => !report.satisfied && report.present.length > 0,
+    ).length,
     gapCount: reports.filter((report) => !report.satisfied).length,
   };
 }

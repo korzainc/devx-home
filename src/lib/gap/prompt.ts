@@ -192,7 +192,11 @@ You have the whole repo. Where the report and the repo disagree, the repo wins.
 Repo: ${analysis.repo}
 Default branch: \`${defaultBranch}\`
 Stacks detected: ${stacks}
-Score: ${analysis.satisfiedCount} of ${expected} recommended checks are running.
+Score: ${analysis.satisfiedCount} of ${expected} recommended checks are running${
+    analysis.partialCount > 0
+      ? `, plus ${analysis.partialCount} partially covered`
+      : ""
+  }.
 
 ### Already running, do not duplicate
 

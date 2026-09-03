@@ -252,6 +252,8 @@ describe("analyze", () => {
     expect(lint.recommended).toEqual([
       { id: "spotbugs", name: "SpotBugs", stackLabels: ["Java"] },
     ]);
+    expect(report.partialCount).toBe(1);
+    expect(report.gapCount).toBe(6);
   });
 
   it("still reports satisfied when every owning stack has a present tool", () => {
@@ -279,6 +281,9 @@ describe("analyze", () => {
     const sast = capabilities.find((entry) => entry.id === "sast")!;
     expect(sast.satisfied).toBe(true);
     expect(sast.present[0]?.stackLabels).toEqual([]);
+
+    // Nothing is left partial once every owning stack is covered.
+    expect(report.partialCount).toBe(0);
   });
 
   it("throws when the baseline names a tool id absent from the catalogue", () => {

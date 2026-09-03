@@ -90,6 +90,14 @@ function RecommendedTools({
   );
 }
 
+// Reachable only if analyze.ts's invariant breaks: an uncovered owning stack always yields a
+// recommendation or a thrown CatalogueDataError, never an empty list.
+function unreachableRecommendedGap(capability: CapabilityReport): never {
+  throw new Error(
+    `Capability "${capability.id}" is unsatisfied with tools present but has no recommendation - analyze.ts's invariant is broken.`,
+  );
+}
+
 function Capability({ capability }: { capability: CapabilityReport }) {
   const status = capability.satisfied
     ? "satisfied"
@@ -141,18 +149,7 @@ function Capability({ capability }: { capability: CapabilityReport }) {
             </p>
           </>
         ) : (
-          // Unreachable given analyze.ts's invariant (an uncovered owning stack always yields a
-          // recommendation or throws) - kept only as a defensive fallback, never a designed path.
-          <ul className="flex flex-col gap-1">
-            {capability.present.map((tool) => (
-              <li key={tool.id} className="text-sm text-ink-muted">
-                {tool.name}{" "}
-                <span className="font-mono text-xs text-ink-faint">
-                  {tool.evidence}
-                </span>
-              </li>
-            ))}
-          </ul>
+          unreachableRecommendedGap(capability)
         )
       ) : capability.recommended.length > 0 ? (
         // A multi-tool line says outright that one of them is enough only when they are genuine
@@ -208,16 +205,26 @@ export function GapReport({
           <>
             <h2 className="font-display text-2xl font-semibold tracking-tight">
               {analysis.satisfiedCount} of {expected} recommended checks are
-              running.
+              running
+              {analysis.partialCount > 0
+                ? `, plus ${analysis.partialCount} partially covered`
+                : ""}
+              .
             </h2>
 
-            {/* The proportion lands before the numbers do. Green is what runs, red is what does
-                not, which is the same pairing the chips below use. */}
+            {/* The proportion lands before the numbers do. Green, amber, and red mirror the
+                chips below: what runs, what's partial, and what doesn't. */}
             <div className="flex h-1.5 overflow-hidden rounded-full bg-line">
               <div
                 className="bg-positive"
                 style={{
                   width: `${(analysis.satisfiedCount / expected) * 100}%`,
+                }}
+              />
+              <div
+                className="bg-partial"
+                style={{
+                  width: `${(analysis.partialCount / expected) * 100}%`,
                 }}
               />
               <div className="flex-1 bg-accent" />

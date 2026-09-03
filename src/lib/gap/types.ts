@@ -149,5 +149,7 @@ export type Analysis = {
   filesRead: string[];
   categories: CategoryReport[];
   satisfiedCount: number;
+  /** Not satisfied, but some owning stack's requirement is covered. A subset of `gapCount`. */
+  partialCount: number;
   gapCount: number;
 };

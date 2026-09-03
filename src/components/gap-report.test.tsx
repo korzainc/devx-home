@@ -21,6 +21,7 @@ function analysisWith(overrides: Partial<Analysis>): Analysis {
     filesRead: [],
     categories: [],
     satisfiedCount: 0,
+    partialCount: 0,
     gapCount: 0,
     ...overrides,
   };
@@ -247,5 +248,58 @@ describe("GapReport", () => {
     expect(screen.getByText(/Still need/)).toBeTruthy();
     expect(screen.getByText(/for Go/)).toBeTruthy();
     expect(screen.queryByText("missing")).toBeNull();
+  });
+
+  it("names the partial count in the headline instead of folding it into the gap", () => {
+    render(
+      <GapReport
+        stacks={stacks}
+        analysis={analysisWith({
+          satisfiedCount: 3,
+          partialCount: 2,
+          gapCount: 5,
+          categories: [],
+        })}
+      />,
+    );
+
+    expect(
+      screen.getByText("3 of 8 recommended checks are running", {
+        exact: false,
+      }),
+    ).toBeTruthy();
+    expect(screen.getByText(/plus 2 partially covered/)).toBeTruthy();
+  });
+
+  it("throws rather than silently render an unsatisfied capability with no recommendation", () => {
+    const broken = analysisWith({
+      categories: [
+        {
+          category: "Testing",
+          capabilities: [
+            {
+              id: "unit-tests",
+              label: "Unit tests",
+              satisfied: false,
+              present: [
+                {
+                  id: "jest",
+                  name: "Jest",
+                  evidence: "jest.config.js",
+                  stackLabels: ["JavaScript"],
+                },
+              ],
+              // A real analyze.ts result never leaves this empty here - this pins the
+              // invariant check itself, not a reachable report shape.
+              recommended: [],
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(() =>
+      render(<GapReport stacks={stacks} analysis={broken} />),
+    ).toThrow(/analyze\.ts's invariant is broken/);
   });
 });
