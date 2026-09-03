@@ -11,11 +11,15 @@ import type { Analysis, CapabilityReport, RecommendedTool } from "./types";
 
 type Gap = CapabilityReport & { category: string };
 
-// Labels and tool names come from the catalogue, but evidence strings carry a repo path and paths
-// are the repo's to name. A pipe would end the table row early and a backtick would close the code
-// span the value sits in.
+// Evidence strings carry repo-controlled paths and, via a quoted YAML scalar in a workflow
+// file, can carry a real newline. A pipe would end the table row early, a backtick would close
+// the code span the value sits in, and an unescaped newline would end the row entirely and let
+// the rest write fresh markdown into a document a coding agent treats as ground truth.
 function cell(value: string): string {
-  return value.replaceAll("|", "\\|").replaceAll("`", "'");
+  return value
+    .replaceAll("|", "\\|")
+    .replaceAll("`", "'")
+    .replaceAll(/\r\n|\r|\n/g, " ");
 }
 
 // `or` rather than commas, because the tools in a row are alternatives and an agent handed a
