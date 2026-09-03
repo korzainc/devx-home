@@ -111,11 +111,13 @@ function PromptOverlay({
         if (event.target === event.currentTarget) ref.current?.close();
       }}
       aria-labelledby="fix-prompt-title"
-      className="m-auto max-h-[80vh] w-full max-w-3xl rounded-xl border border-line-strong bg-surface-raised p-0 shadow-2xl backdrop:bg-canvas/70 backdrop:backdrop-blur-sm"
+      // `overflow-hidden` matters: a dialog scrolls its own box by default, which would stack a
+      // second bar outside the one on the <pre>. The panel clips; only the prompt scrolls.
+      className="m-auto max-h-[80vh] w-full max-w-3xl overflow-hidden rounded-xl border border-line-strong bg-surface-raised p-0 shadow-2xl backdrop:bg-canvas/70 backdrop:backdrop-blur-sm"
     >
       {/* The dialog itself shows no surface: any padding on it would be backdrop that does not
           dismiss, since a click there targets the dialog exactly as the backdrop does. */}
-      <div className="flex max-h-[80vh] flex-col">
+      <div className="flex max-h-[inherit] flex-col">
         <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3">
           <div className="flex items-center gap-2">
             <Sparkle className="h-3.5 w-3.5 text-positive" />
@@ -129,7 +131,7 @@ function PromptOverlay({
         {/* Focusable so the overflow can be reached by keyboard, not only by dragging a bar. */}
         <pre
           tabIndex={0}
-          className="flex-1 overflow-auto px-5 py-4 font-mono text-xs leading-relaxed whitespace-pre-wrap text-ink-muted"
+          className="min-h-0 flex-1 overflow-auto px-5 py-4 font-mono text-xs leading-relaxed whitespace-pre-wrap text-ink-muted"
         >
           {prompt}
         </pre>
