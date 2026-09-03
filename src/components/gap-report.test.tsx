@@ -300,6 +300,6 @@ describe("GapReport", () => {
 
     expect(() =>
       render(<GapReport stacks={stacks} analysis={broken} />),
-    ).toThrow(/analyze\.ts's invariant is broken/);
+    ).toThrow(/has no recommendation/);
   });
 });

@@ -153,6 +153,13 @@ export function analyze(
           toolById,
           id,
         );
+        // toRecommendedTools always resolves at least one entry per uncovered stack, or throws -
+        // this only fires if that guarantee itself breaks.
+        if (recommended.length === 0) {
+          throw new CatalogueDataError(
+            `Capability "${id}" is unsatisfied with tools present but produced no recommendation.`,
+          );
+        }
       }
     }
 

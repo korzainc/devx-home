@@ -90,11 +90,11 @@ function RecommendedTools({
   );
 }
 
-// Reachable only if analyze.ts's invariant breaks: an uncovered owning stack always yields a
-// recommendation or a thrown CatalogueDataError, never an empty list.
+// analyze.ts asserts this itself before returning, so a real violation throws there and never
+// reaches render. Kept as a second line of defense for any caller that builds a report by hand.
 function unreachableRecommendedGap(capability: CapabilityReport): never {
   throw new Error(
-    `Capability "${capability.id}" is unsatisfied with tools present but has no recommendation - analyze.ts's invariant is broken.`,
+    `Capability "${capability.id}" is unsatisfied with tools present but has no recommendation.`,
   );
 }
 
@@ -112,7 +112,7 @@ function Capability({ capability }: { capability: CapabilityReport }) {
         <StatusChip status={status} />
       </div>
 
-      {capability.satisfied ? (
+      {status === "satisfied" ? (
         <ul className="flex flex-col gap-1">
           {capability.present.map((tool) => (
             <li key={tool.id} className="text-sm text-ink-muted">
@@ -123,7 +123,7 @@ function Capability({ capability }: { capability: CapabilityReport }) {
             </li>
           ))}
         </ul>
-      ) : capability.present.length > 0 ? (
+      ) : status === "partial" ? (
         capability.recommended.length > 0 ? (
           <>
             <ul className="flex flex-col gap-1">

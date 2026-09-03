@@ -22,7 +22,7 @@
   --positive-wash: #f0fdf4;
   /* A partial result needs its own hue, not a shade of the accent red it sits next to. Amber
      alone (hue ~26) reads as a burnt red at this size; yellow-700 (hue ~35) clears AA (4.76:1
-     on white) while staying unambiguously gold. */
+     on its own wash, where it renders) while staying unambiguously gold. */
   --partial: #a16207;
   --partial-wash: #fefce8;
 }
