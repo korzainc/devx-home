@@ -20,8 +20,13 @@ import { terms } from "@/lib/search";
 // `getServerSnapshot` renders "on" there and on first client paint, then hands off with no mismatch.
 const SLASH_SHORTCUT_KEY = "korza-devx:slash-shortcut-enabled";
 const slashShortcutListeners = new Set<() => void>();
+// Set only when a write fails (private browsing, storage disabled), so a read has something to
+// return instead of replaying the stale pre-write value from storage. Cleared on a write that
+// succeeds, so storage recovering mid-session is trusted again rather than shadowed forever.
+let slashShortcutOverride: boolean | null = null;
 
 function getSlashShortcutEnabled(): boolean {
+  if (slashShortcutOverride !== null) return slashShortcutOverride;
   try {
     return localStorage.getItem(SLASH_SHORTCUT_KEY) !== "false";
   } catch {
@@ -41,9 +46,9 @@ function subscribeSlashShortcut(onChange: () => void): () => void {
 function setSlashShortcutEnabled(next: boolean): void {
   try {
     localStorage.setItem(SLASH_SHORTCUT_KEY, String(next));
+    slashShortcutOverride = null;
   } catch {
-    // Private browsing or storage disabled: the toggle still works for this visit, just
-    // not remembered for the next one.
+    slashShortcutOverride = next;
   }
   for (const listener of slashShortcutListeners) listener();
 }
@@ -252,7 +257,7 @@ export function CatalogueGrid<T extends CatalogueEntry>({
                 ? "Press / to jump here. Click to turn off."
                 : "The / shortcut is off. Click to turn back on."
             }
-            className={`absolute top-1/2 right-3 -translate-y-1/2 rounded border border-line px-1.5 py-0.5 font-mono text-[0.65rem] transition-colors hover:border-line-strong ${slashEnabled ? "text-ink-faint" : "text-ink-faint/40 line-through"}`}
+            className={`absolute top-1/2 right-3 -translate-y-1/2 rounded border border-line px-1.5 py-0.5 font-mono text-[0.65rem] text-ink-faint transition-colors hover:border-line-strong ${slashEnabled ? "" : "line-through"}`}
           >
             /
           </button>

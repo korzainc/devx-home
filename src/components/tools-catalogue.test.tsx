@@ -120,6 +120,40 @@ describe("the tools catalogue", () => {
     expect(document.activeElement).toBe(trigger);
   });
 
+  it("keeps the / shortcut working when storage can't save it, then trusts storage again once it recovers", () => {
+    const setItem = vi
+      .spyOn(Storage.prototype, "setItem")
+      .mockImplementation(() => {
+        throw new DOMException("", "QuotaExceededError");
+      });
+    try {
+      renderPage();
+      let toggle = screen.getByRole("button", { name: /^Keyboard shortcut/ });
+
+      fireEvent.click(toggle);
+      expect(toggle.getAttribute("aria-pressed")).toBe("false");
+
+      // A second flip proves the off state isn't a one-shot fluke of the failed write.
+      fireEvent.click(toggle);
+      expect(toggle.getAttribute("aria-pressed")).toBe("true");
+
+      setItem.mockRestore();
+      // A write that succeeds is trusted again rather than shadowed by the earlier failure -
+      // proven by a fresh mount reading real storage, not a stale in-memory value.
+      fireEvent.click(toggle);
+      cleanup();
+      renderPage();
+      toggle = screen.getByRole("button", { name: /shortcut/i });
+      expect(toggle.getAttribute("aria-pressed")).toBe("false");
+
+      // Leaves the default (on) in place for later tests in this file.
+      fireEvent.click(toggle);
+      expect(toggle.getAttribute("aria-pressed")).toBe("true");
+    } finally {
+      setItem.mockRestore();
+    }
+  });
+
   it("clears the query on Escape instead of blurring the field", () => {
     renderPage();
     const search = screen.getByLabelText("Filter tools") as HTMLInputElement;
