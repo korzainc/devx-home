@@ -70,11 +70,14 @@ function BottomLink({ href, children }: { href: string; children: string }) {
 // Illustrative, and labelled as such on screen. The capability labels are read from the baseline
 // rather than written here, so the preview cannot drift from what the analysis actually checks.
 const exampleRun = [
-  { id: "secrets", evidence: "kingfisher.yml" },
+  {
+    id: "secrets",
+    evidence: "runs kingfisher scan in .github/workflows/ci.yml",
+  },
   { id: "sast", evidence: null },
   { id: "unit-tests", evidence: "vitest in package.json" },
   { id: "dependency-updates", evidence: null },
-  { id: "lint-style", evidence: "eslint.config.mjs" },
+  { id: "lint-style", evidence: "eslint.config.js" },
 ];
 
 function ReportPreview() {
