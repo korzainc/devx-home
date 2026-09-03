@@ -56,8 +56,9 @@ export function CatalogueGrid<T extends CatalogueEntry>({
     function onKey(event: KeyboardEvent) {
       if (event.key !== "/" || event.metaKey || event.ctrlKey) return;
       const target = event.target as HTMLElement | null;
-      // A focused facet trigger with its popup open doesn't close on a focus change (only on
-      // Escape or an outside click), so stealing focus here would stand its menu up detached.
+      // Also covers any expanded disclosure (a facet popup, the unclassified-rows toggle), not
+      // just the trigger itself: a facet popup doesn't close on a focus change alone, so
+      // stealing focus here would leave it open but no longer focused.
       if (
         target?.matches(
           'input, textarea, [contenteditable], [aria-expanded="true"]',

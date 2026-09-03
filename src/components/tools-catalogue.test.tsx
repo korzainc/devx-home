@@ -106,28 +106,62 @@ describe("the tools catalogue", () => {
     expect(screen.getByText("No tool matches those filters.")).toBeTruthy();
   });
 
+  it("doesn't let the / shortcut steal focus from an open facet menu", () => {
+    renderPage();
+    const trigger = screen.getByRole("button", { name: /^Stack/ });
+    fireEvent.click(trigger);
+    trigger.focus();
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+
+    fireEvent.keyDown(trigger, { key: "/" });
+
+    // Stealing focus here, with nothing to close the menu, would leave it open and detached.
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it("clears the query on Escape instead of blurring the field", () => {
+    renderPage();
+    const search = screen.getByLabelText("Filter tools") as HTMLInputElement;
+    fireEvent.change(search, { target: { value: "eslint" } });
+    search.focus();
+    expect(cardCount()).toBeLessThan(visibleTools.length);
+
+    fireEvent.keyDown(search, { key: "Escape" });
+
+    // Blurring here used to dump focus onto <body>, restarting the next Tab from the top of
+    // the page instead of continuing past this field.
+    expect(search.value).toBe("");
+    expect(cardCount()).toBe(visibleTools.length);
+    expect(document.activeElement).toBe(search);
+  });
+
   it("announces the settled count for assistive tech, debounced and worded", () => {
     vi.useFakeTimers();
-    renderPage();
-    const status = () => screen.getByRole("status");
-    expect(status().textContent).toBe(
-      `${visibleTools.length} of ${visibleTools.length} tools shown`,
-    );
+    try {
+      renderPage();
+      const status = () => screen.getByRole("status");
+      expect(status().textContent).toBe(
+        `${visibleTools.length} of ${visibleTools.length} tools shown`,
+      );
 
-    fireEvent.change(screen.getByLabelText("Filter tools"), {
-      target: { value: "zzzznotathing" },
-    });
-    // The debounce hasn't fired yet - still announcing the pre-search count.
-    expect(status().textContent).toBe(
-      `${visibleTools.length} of ${visibleTools.length} tools shown`,
-    );
+      fireEvent.change(screen.getByLabelText("Filter tools"), {
+        target: { value: "zzzznotathing" },
+      });
+      // The debounce hasn't fired yet - still announcing the pre-search count.
+      expect(status().textContent).toBe(
+        `${visibleTools.length} of ${visibleTools.length} tools shown`,
+      );
 
-    act(() => {
-      vi.advanceTimersByTime(500);
-    });
-    expect(status().textContent).toBe(
-      `0 of ${visibleTools.length} tools shown`,
-    );
-    vi.useRealTimers();
+      act(() => {
+        vi.advanceTimersByTime(500);
+      });
+      expect(status().textContent).toBe(
+        `0 of ${visibleTools.length} tools shown`,
+      );
+    } finally {
+      // In a `finally` so a failed assertion above can't leak fake timers into later tests.
+      vi.useRealTimers();
+    }
   });
 });

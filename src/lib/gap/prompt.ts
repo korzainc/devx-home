@@ -47,6 +47,20 @@ export function needsClauses(tools: RecommendedTool[]): boolean {
   return tools.length > 1 && tools.some((tool) => tool.stackLabels.length > 1);
 }
 
+/** True when attribution should show even for a single entry - shared with gap-report.tsx so
+ * the two can't independently drift on when to attribute. `alwaysAttribute` covers a partially
+ * covered capability, where a lone remaining tool still needs its stack named explicitly. */
+export function showAttribution(
+  tools: RecommendedTool[],
+  alwaysAttribute = false,
+): boolean {
+  return (
+    alwaysAttribute ||
+    tools.length > 1 ||
+    tools.some((tool) => tool.stackLabels.length > 1)
+  );
+}
+
 /** Semicolon-joined clauses, for when `requirements`'s "and" would collide with an inner
  * per-tool stack list's own "and". `Intl.ListFormat` has no semicolon type, so this mirrors
  * its two-method shape by hand. Exported for the same reason as `alternatives`. */
@@ -79,11 +93,7 @@ function suggestion(gap: Gap): string {
     return "no tool in the catalogue for this stack";
 
   const disjunction = isDisjunction(gap.recommended);
-  const showAttribution =
-    !disjunction &&
-    (gap.present.length > 0 ||
-      gap.recommended.length > 1 ||
-      gap.recommended.some((tool) => tool.stackLabels.length > 1));
+  const attribute = showAttribution(gap.recommended, gap.present.length > 0);
 
   const formatter = disjunction
     ? alternatives
@@ -92,7 +102,7 @@ function suggestion(gap: Gap): string {
       : requirements;
   return formatter.format(
     gap.recommended.map((tool) =>
-      showAttribution && tool.stackLabels.length > 0
+      attribute && tool.stackLabels.length > 0
         ? `${cell(tool.name)} for ${requirements.format(tool.stackLabels)}`
         : cell(tool.name),
     ),

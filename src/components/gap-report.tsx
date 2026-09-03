@@ -7,6 +7,7 @@ import {
   isDisjunction,
   needsClauses,
   requirements,
+  showAttribution,
 } from "@/lib/gap/prompt";
 import type {
   Analysis,
@@ -50,10 +51,7 @@ function RecommendedTools({
     : needsClauses(tools)
       ? clauses
       : requirements;
-  const showAttribution =
-    alwaysAttribute ||
-    tools.length > 1 ||
-    tools.some((tool) => tool.stackLabels.length > 1);
+  const attribute = showAttribution(tools, alwaysAttribute);
   let cursor = 0;
 
   return (
@@ -72,7 +70,7 @@ function RecommendedTools({
               >
                 {tool.name}
               </Link>
-              {showAttribution && tool.stackLabels.length > 0
+              {attribute && tool.stackLabels.length > 0
                 ? ` for ${requirements.format(tool.stackLabels)}`
                 : null}
             </span>
