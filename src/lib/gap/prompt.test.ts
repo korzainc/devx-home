@@ -234,7 +234,14 @@ describe("buildFixPrompt", () => {
               id: "unit-tests",
               label: "Unit tests",
               satisfied: true,
-              present: [{ id: "vitest", name: "Vitest", evidence: "a\\|b" }],
+              present: [
+                {
+                  id: "vitest",
+                  name: "Vitest",
+                  evidence: "a\\|b",
+                  stackLabels: [],
+                },
+              ],
               recommended: [],
             },
           ],
