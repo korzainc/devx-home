@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import type { SkillEntry } from "@/lib/catalogue";
+import type { SkillEntry } from "@/lib/catalogue-entries";
 import {
   focusSkill,
   readOpenedSkill,

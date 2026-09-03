@@ -7,7 +7,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { CollapsibleGrid, PREVIEW } from "@/components/collapsible-grid";
-import type { SkillEntry } from "@/lib/catalogue";
+import type { SkillEntry } from "@/lib/catalogue-entries";
 import {
   readOpenedSkill,
   skillCardId,
