@@ -6,8 +6,8 @@ import type { Analysis, CapabilityReport, RecommendedTool } from "./types";
 // the catalogue would put there. Exclude paths, trigger events and monorepo layout are the
 // agent's to work out, because it has the repo and the portal read at most a couple of dozen files.
 //
-// TODO(DX-103): revisit when the real CI catalogue lands. Install commands, docs URLs and any
-// required-vs-recommended distinction would all belong in here, and none of them exist yet.
+// TODO(DX-103): the real catalogue now carries install commands, docs URLs and (DX-62) a
+// mandatory-vs-recommended distinction; none of that has been threaded into this brief yet.
 
 type Gap = CapabilityReport & { category: string };
 
