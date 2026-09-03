@@ -6,12 +6,47 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { FacetMenu } from "@/components/facet-menu";
 import { facetValues, type CatalogueEntry, type Facet } from "@/lib/catalogue";
 import { filterEntries } from "@/lib/filter";
 import { terms } from "@/lib/search";
+
+// WCAG 2.1.4 requires an unmodified single-character shortcut to be turnable off, remappable,
+// or focus-scoped; this is the "turn it off" escape, shared by both catalogues since they
+// render the same grid. The server has no localStorage, so `useSyncExternalStore`'s
+// `getServerSnapshot` renders "on" there and on first client paint, then hands off with no mismatch.
+const SLASH_SHORTCUT_KEY = "korza-devx:slash-shortcut-enabled";
+const slashShortcutListeners = new Set<() => void>();
+
+function getSlashShortcutEnabled(): boolean {
+  try {
+    return localStorage.getItem(SLASH_SHORTCUT_KEY) !== "false";
+  } catch {
+    return true;
+  }
+}
+
+function getSlashShortcutServerSnapshot(): boolean {
+  return true;
+}
+
+function subscribeSlashShortcut(onChange: () => void): () => void {
+  slashShortcutListeners.add(onChange);
+  return () => slashShortcutListeners.delete(onChange);
+}
+
+function setSlashShortcutEnabled(next: boolean): void {
+  try {
+    localStorage.setItem(SLASH_SHORTCUT_KEY, String(next));
+  } catch {
+    // Private browsing or storage disabled: the toggle still works for this visit, just
+    // not remembered for the next one.
+  }
+  for (const listener of slashShortcutListeners) listener();
+}
 
 type CatalogueGridProps<T extends CatalogueEntry> = {
   entries: T[];
@@ -49,10 +84,20 @@ export function CatalogueGrid<T extends CatalogueEntry>({
   // count cannot disagree.
   const [pinned, setPinned] = useState<boolean | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const slashEnabled = useSyncExternalStore(
+    subscribeSlashShortcut,
+    getSlashShortcutEnabled,
+    getSlashShortcutServerSnapshot,
+  );
+
+  function toggleSlashShortcut() {
+    setSlashShortcutEnabled(!slashEnabled);
+  }
 
   // "/" focuses search, which is what the hint in the field promises. Ignored while typing, or
   // the shortcut eats the character.
   useEffect(() => {
+    if (!slashEnabled) return;
     function onKey(event: KeyboardEvent) {
       if (event.key !== "/" || event.metaKey || event.ctrlKey) return;
       const target = event.target as HTMLElement | null;
@@ -72,7 +117,7 @@ export function CatalogueGrid<T extends CatalogueEntry>({
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, []);
+  }, [slashEnabled]);
 
   const facetOptions = useMemo(
     () =>
@@ -193,12 +238,24 @@ export function CatalogueGrid<T extends CatalogueEntry>({
             // AA-contrast focus signal without bringing that ring back.
             className="w-full rounded-lg border border-line bg-surface py-2.5 pr-11 pl-10 text-sm text-ink placeholder:text-ink-faint focus:border-accent focus-visible:outline-none"
           />
-          <kbd
-            aria-hidden
-            className="absolute top-1/2 right-3 -translate-y-1/2 rounded border border-line px-1.5 py-0.5 font-mono text-[0.65rem] text-ink-faint"
+          <button
+            type="button"
+            onClick={toggleSlashShortcut}
+            aria-pressed={slashEnabled}
+            aria-label={
+              slashEnabled
+                ? "Keyboard shortcut: press / to jump here. Click to turn it off."
+                : "The / keyboard shortcut is off. Click to turn it back on."
+            }
+            title={
+              slashEnabled
+                ? "Press / to jump here. Click to turn off."
+                : "The / shortcut is off. Click to turn back on."
+            }
+            className={`absolute top-1/2 right-3 -translate-y-1/2 rounded border border-line px-1.5 py-0.5 font-mono text-[0.65rem] transition-colors hover:border-line-strong ${slashEnabled ? "text-ink-faint" : "text-ink-faint/40 line-through"}`}
           >
             /
-          </kbd>
+          </button>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
