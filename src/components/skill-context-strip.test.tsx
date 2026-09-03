@@ -98,7 +98,7 @@ describe("the skill context strip", () => {
   it("uses no token that fails AA on its own background", () => {
     // contrast.test.ts proves --accent-strong and --ink-muted clear 4.5 on --accent-wash.
     // This is the other half: that the strip actually reaches for those and not the two that
-    // measure 4.38 and 2.76 there.
+    // measure 4.38 and 4.41 there.
     openedFor(skills[17].name);
     const { container } = render(
       <SkillContextStrip plugin="mattpocock-skills" skills={skills} />,
@@ -110,6 +110,22 @@ describe("the skill context strip", () => {
     // Negative lookahead, or these also match text-accent-strong.
     expect(classes).not.toMatch(/\btext-ink-faint(?![-\w])/);
     expect(classes).not.toMatch(/\btext-accent(?![-\w])/);
+  });
+
+  it("says nothing about a fragment that is not a skill", () => {
+    // The fallback carries old links, but any other anchor on the page must not be read as a
+    // stale skill link.
+    history.replaceState(null, "", "/skills/mattpocock-skills#install");
+    const { container } = render(
+      <SkillContextStrip plugin="mattpocock-skills" skills={skills} />,
+    );
+    expect(container.innerHTML).toBe("");
+  });
+
+  it("still explains a stale ?skill= link", () => {
+    openedFor("renamed-upstream");
+    render(<SkillContextStrip plugin="mattpocock-skills" skills={skills} />);
+    expect(screen.getByText(/not in the plugin/i)).toBeTruthy();
   });
 
   it("survives a skill value that is not valid encoding", () => {

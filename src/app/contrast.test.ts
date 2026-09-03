@@ -2,9 +2,9 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 /**
- * The strip sits on --accent-wash, where --accent measures 4.38:1 and --ink-faint 2.76:1 in
- * light mode. Both are under AA for normal-sized text, and neither is visible in a jsdom test,
- * so this reads the tokens and does the arithmetic.
+ * The strip sits on --accent-wash, where --accent is 4.38:1 and --ink-faint 4.41:1 in light
+ * mode. Both are under AA for normal-sized text, and a jsdom test cannot see either, so this
+ * reads the tokens out of the stylesheet and does the arithmetic. Dark clears throughout.
  */
 
 const css = readFileSync(new URL("./globals.css", import.meta.url), "utf8");
@@ -46,4 +46,20 @@ describe.each(["light", "dark"] as const)("%s mode", (mode) => {
       ).toBeGreaterThanOrEqual(4.5);
     },
   );
+});
+
+// The two the strip deliberately avoids there, asserted so the reason cannot go stale: if a
+// palette change lifts either over 4.5, the strip could use it again and this says so.
+describe("tokens the strip avoids on the accent wash", () => {
+  const light = palette("light");
+
+  it.each([
+    ["accent", 4.38],
+    ["ink-faint", 4.41],
+  ])("still measures %s at ~%s:1 in light mode, under AA", (name, expected) => {
+    expect(contrast(light(name as string), light("accent-wash"))).toBeCloseTo(
+      expected as number,
+      1,
+    );
+  });
 });

@@ -5,6 +5,7 @@ import type { SkillEntry } from "@/lib/catalogue";
 import {
   focusSkill,
   readOpenedSkill,
+  readSkillParam,
   skillListId,
   subscribeToLocation,
 } from "@/lib/skill-link";
@@ -25,10 +26,20 @@ export function SkillContextStrip({
     () => "",
   );
 
+  // Query only, to tell a deliberate skill link from any other fragment on the page.
+  const fromQuery = useSyncExternalStore(
+    subscribeToLocation,
+    readSkillParam,
+    () => "",
+  );
+
   if (!openedFor) return null;
 
   const index = skills.findIndex((skill) => skill.name === openedFor);
   const skill = index === -1 ? undefined : skills[index];
+  // A fragment that resolves to nothing was probably never a skill link, so say nothing about
+  // it. A `?skill=` that resolves to nothing was, so it gets the explanation below.
+  if (!skill && !fromQuery) return null;
 
   return (
     <aside

@@ -12,10 +12,12 @@ export function skillLink(plugin: string, name: string) {
   return `/skills/${plugin}?${SKILL_PARAM}=${encodeURIComponent(name)}`;
 }
 
+/** Query only. The strip uses this to tell a deliberate skill link from any other fragment. */
+export const readSkillParam = () =>
+  new URLSearchParams(window.location.search).get(SKILL_PARAM) ?? "";
+
 export const readOpenedSkill = () => {
-  const fromQuery = new URLSearchParams(window.location.search).get(
-    SKILL_PARAM,
-  );
+  const fromQuery = readSkillParam();
   if (fromQuery) return fromQuery;
   // Links the app handed out before the query string existed. Card ids are plugin-qualified
   // now, so a fragment no longer even finds a native anchor target.
