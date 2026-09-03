@@ -113,7 +113,7 @@ function attributedName(
   tool: { name: string; stackLabels: string[] },
   attribute: boolean,
 ): string {
-  return `${cell(tool.name)}${attributionSuffix(tool, attribute)}`;
+  return `${cell(tool.name)}${cell(attributionSuffix(tool, attribute))}`;
 }
 
 function suggestion(gap: Gap): string {
