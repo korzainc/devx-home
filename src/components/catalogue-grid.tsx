@@ -233,9 +233,13 @@ export function CatalogueGrid<T extends CatalogueEntry>({
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => {
+              if (event.key !== "Escape") return;
               // Clears first; blurring outright would dump focus onto <body>, restarting the
-              // next Tab from the top of the document instead of continuing past this field.
-              if (event.key === "Escape" && query) setQuery("");
+              // next Tab from the top of the document instead of continuing past this field. An
+              // already-empty field has nothing left to clear, so Escape falls back to the plain
+              // dismiss a user expects instead of doing nothing at all.
+              if (query) setQuery("");
+              else event.currentTarget.blur();
             }}
             placeholder={searchLabel}
             // A text input matches :focus-visible on every click, not just keyboard nav, so the

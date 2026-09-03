@@ -170,6 +170,17 @@ describe("the tools catalogue", () => {
     expect(document.activeElement).toBe(search);
   });
 
+  it("blurs on Escape when the field is already empty, so the key still does something", () => {
+    renderPage();
+    const search = screen.getByLabelText("Filter tools") as HTMLInputElement;
+    search.focus();
+    expect(document.activeElement).toBe(search);
+
+    fireEvent.keyDown(search, { key: "Escape" });
+
+    expect(document.activeElement).not.toBe(search);
+  });
+
   it("announces the settled count for assistive tech, debounced and worded", () => {
     vi.useFakeTimers();
     try {
