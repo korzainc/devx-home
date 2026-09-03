@@ -56,9 +56,10 @@ function option(facet: string, value: string) {
   });
   if (trigger.getAttribute("aria-expanded") !== "true")
     fireEvent.click(trigger);
-  // The count has no space before it, so the accessible name is "Verify7".
+  // An explicit aria-label now gives the checkbox "Verify, 7 matching" instead of letting the
+  // label's own text run the value and count together.
   return screen.getByRole("checkbox", {
-    name: new RegExp(`^${escape(value)}\\d`),
+    name: new RegExp(`^${escape(value)}, \\d`),
   });
 }
 
@@ -341,7 +342,14 @@ describe("a search that only the toolchain matches", () => {
     // could reveal toolchain rows while the chevron said closed and the count said none.
     renderPage();
     const toggle = screen.getByRole("button", { name: /^Setup and toolchain/ });
-    const count = () => screen.getByRole("status").textContent;
+    // The visible count is aria-hidden (a debounced, worded sibling carries this for assistive
+    // tech instead), so it's found by content, not role.
+    const count = () =>
+      screen.getByText(
+        (_, element) =>
+          element?.getAttribute("aria-hidden") === "true" &&
+          /^\d+ of \d+$/.test(element.textContent ?? ""),
+      ).textContent;
 
     expect(count()).toBe(`${browsableSkills.length} of ${skills.length}`);
 
@@ -362,9 +370,13 @@ describe("a search that only the toolchain matches", () => {
 
     expect(cardCount()).toBe(1);
     expect(screen.queryByText("No skill matches those filters.")).toBeNull();
-    expect(screen.getByRole("status").textContent).toBe(
-      `1 of ${skills.length}`,
-    );
+    expect(
+      screen.getByText(
+        (_, element) =>
+          element?.getAttribute("aria-hidden") === "true" &&
+          /^\d+ of \d+$/.test(element.textContent ?? ""),
+      ).textContent,
+    ).toBe(`1 of ${skills.length}`);
   });
 
   it("keeps the toggle working while a search has opened the section", () => {

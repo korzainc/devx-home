@@ -1,8 +1,14 @@
 /**
  * @vitest-environment jsdom
  */
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ToolsCatalogue } from "@/components/tools-catalogue";
 import { visibleTools } from "@/lib/catalogue";
 
@@ -36,11 +42,10 @@ function pick(facet: string, value: string) {
   });
   if (trigger.getAttribute("aria-expanded") !== "true")
     fireEvent.click(trigger);
-  // jsdom's accessible-name computation joins the label and count with no space ("go2"), but a
-  // real browser inserts one ("go 2") per the accname spec's text-node-join rule. \s* tolerates
-  // either, so this keeps matching if jsdom's algorithm is ever corrected.
+  // An explicit aria-label now gives the checkbox "go, 2 matching" instead of letting the
+  // label's own text run the value and count together.
   const option = screen.getByRole("checkbox", {
-    name: new RegExp(`^${escape(value)}\\s*\\d`),
+    name: new RegExp(`^${escape(value)}, \\d`),
   });
   fireEvent.click(option);
 }
@@ -99,5 +104,30 @@ describe("the tools catalogue", () => {
       target: { value: "zzzznotathing" },
     });
     expect(screen.getByText("No tool matches those filters.")).toBeTruthy();
+  });
+
+  it("announces the settled count for assistive tech, debounced and worded", () => {
+    vi.useFakeTimers();
+    renderPage();
+    const status = () => screen.getByRole("status");
+    expect(status().textContent).toBe(
+      `${visibleTools.length} of ${visibleTools.length} tools shown`,
+    );
+
+    fireEvent.change(screen.getByLabelText("Filter tools"), {
+      target: { value: "zzzznotathing" },
+    });
+    // The debounce hasn't fired yet - still announcing the pre-search count.
+    expect(status().textContent).toBe(
+      `${visibleTools.length} of ${visibleTools.length} tools shown`,
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+    expect(status().textContent).toBe(
+      `0 of ${visibleTools.length} tools shown`,
+    );
+    vi.useRealTimers();
   });
 });

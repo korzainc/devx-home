@@ -56,7 +56,14 @@ export function CatalogueGrid<T extends CatalogueEntry>({
     function onKey(event: KeyboardEvent) {
       if (event.key !== "/" || event.metaKey || event.ctrlKey) return;
       const target = event.target as HTMLElement | null;
-      if (target?.matches("input, textarea, [contenteditable]")) return;
+      // A focused facet trigger with its popup open doesn't close on a focus change (only on
+      // Escape or an outside click), so stealing focus here would stand its menu up detached.
+      if (
+        target?.matches(
+          'input, textarea, [contenteditable], [aria-expanded="true"]',
+        )
+      )
+        return;
       // Both tab panels stay mounted; only the visible one should take the key.
       if (!searchRef.current?.offsetParent) return;
       event.preventDefault();
@@ -120,6 +127,15 @@ export function CatalogueGrid<T extends CatalogueEntry>({
     0,
   );
 
+  // The visible count updates every keystroke; the announcement waits for typing to settle, so
+  // a screen reader isn't read ten results in a row while a word is still being typed.
+  const [announcedCount, setAnnouncedCount] = useState(onScreen);
+  useEffect(() => {
+    const timeout = setTimeout(() => setAnnouncedCount(onScreen), 500);
+    return () => clearTimeout(timeout);
+  }, [onScreen]);
+  const total = entries.length + unclassified.length;
+
   function toggle(key: string, value: string) {
     setSelected((previous) => {
       const picked = previous[key] ?? [];
@@ -166,12 +182,15 @@ export function CatalogueGrid<T extends CatalogueEntry>({
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === "Escape") event.currentTarget.blur();
+              // Clears first; blurring outright would dump focus onto <body>, restarting the
+              // next Tab from the top of the document instead of continuing past this field.
+              if (event.key === "Escape" && query) setQuery("");
             }}
             placeholder={searchLabel}
-            // A text input matches :focus-visible on every click, not just keyboard nav, so
-            // the global accent outline paints here on every click. Border brighten instead.
-            className="w-full rounded-lg border border-line bg-surface py-2.5 pr-11 pl-10 text-sm text-ink placeholder:text-ink-faint focus:border-line-strong focus-visible:outline-none"
+            // A text input matches :focus-visible on every click, not just keyboard nav, so the
+            // global accent outline painted here on every click. border-accent keeps a real,
+            // AA-contrast focus signal without bringing that ring back.
+            className="w-full rounded-lg border border-line bg-surface py-2.5 pr-11 pl-10 text-sm text-ink placeholder:text-ink-faint focus:border-accent focus-visible:outline-none"
           />
           <kbd
             aria-hidden
@@ -191,11 +210,15 @@ export function CatalogueGrid<T extends CatalogueEntry>({
               onToggle={(value) => toggle(facet.key, value)}
             />
           ))}
-          <span role="status" className="ml-1 shrink-0 text-sm text-ink-muted">
+          {/* The debounced, worded version below carries this for assistive tech, so a screen
+              reader doesn't read the count twice. */}
+          <span aria-hidden className="ml-1 shrink-0 text-sm text-ink-muted">
             <span className="font-mono text-ink">{onScreen}</span> of{" "}
-            <span className="font-mono">
-              {entries.length + unclassified.length}
-            </span>
+            <span className="font-mono">{total}</span>
+          </span>
+          <span role="status" className="sr-only">
+            {announcedCount} of {total} {noun}
+            {announcedCount === 1 ? "" : "s"} shown
           </span>
         </div>
       </div>
