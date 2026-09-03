@@ -224,13 +224,13 @@ function configuresPyproject(
   return marker.test(snapshot.files[hit] ?? "");
 }
 
-// A real sub-action path is plain path segments, nothing else - the prefix match above already
-// guarantees the value starts with the catalogue's own trusted family name, so the suffix past
-// that point is the only part a repo controls. This string lands in a document a coding agent
-// is handed as ground truth, so a suffix that doesn't look like a path is dropped rather than
-// echoed: the family name alone is still true, just less specific. An all-dot segment is
-// rejected the same way parseRepoRef (github.ts) rejects one: not a name any real ref carries,
-// and misleading evidence even though it can't break out of the code span it renders inside.
+// The prefix match above only guarantees the value starts with the catalogue's trusted family
+// name; everything past that is the repo's own text, landing in a document a coding agent
+// treats as ground truth. A suffix that doesn't look like real path segments is dropped,
+// falling back to the family name alone.
+//
+// An all-dot segment is rejected too, the same way parseRepoRef (github.ts) rejects one: not a
+// name any real ref carries, and misleading evidence even though it can't break the code span.
 const subActionPath = /^(?!\.+(?:\/|$))[\w.-]+(?:\/(?!\.+(?:\/|$))[\w.-]+)*$/;
 
 function usesEvidence(action: string, value: string): string {
