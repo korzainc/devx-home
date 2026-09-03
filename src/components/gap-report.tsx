@@ -2,6 +2,7 @@ import Link from "next/link";
 import { FixPromptButton } from "@/components/fix-prompt";
 import {
   alternatives,
+  attributionSuffix,
   buildFixPrompt,
   clauses,
   isDisjunction,
@@ -80,9 +81,7 @@ function RecommendedTools({
               >
                 {tool.name}
               </Link>
-              {attribute && tool.stackLabels.length > 0
-                ? ` for ${requirements.format(tool.stackLabels)}`
-                : null}
+              {attributionSuffix(tool, attribute)}
             </span>
           );
         })}
@@ -119,9 +118,7 @@ function Capability({ capability }: { capability: CapabilityReport }) {
             return capability.present.map((tool) => (
               <li key={tool.id} className="text-sm text-ink-muted">
                 {tool.name}
-                {attribute && tool.stackLabels.length > 0
-                  ? ` for ${requirements.format(tool.stackLabels)}`
-                  : ""}{" "}
+                {attributionSuffix(tool, attribute)}{" "}
                 <span className="font-mono text-xs text-ink-faint">
                   {tool.evidence}
                 </span>
@@ -136,9 +133,7 @@ function Capability({ capability }: { capability: CapabilityReport }) {
               {capability.present.map((tool) => (
                 <li key={tool.id} className="text-sm text-ink-muted">
                   {tool.name}
-                  {tool.stackLabels.length > 0
-                    ? ` for ${requirements.format(tool.stackLabels)}`
-                    : ""}{" "}
+                  {attributionSuffix(tool, true)}{" "}
                   <span className="font-mono text-xs text-ink-faint">
                     {tool.evidence}
                   </span>

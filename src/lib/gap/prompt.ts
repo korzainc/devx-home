@@ -96,16 +96,24 @@ export const clauses = {
   },
 };
 
-/** `tool.name`, attributed to its stack when that's real information rather than noise. Shared
- * by the gap table's `suggestion()` and the running table, so the two can't disagree on when a
- * capability's tools are worth naming a stack for. */
+/** The " for A and B" a tool's name earns when attribution is on and it names a stack, or ""
+ * otherwise. Shared with gap-report.tsx so the running list, the partial list, and the gap
+ * table can't independently drift on how a tool's stack gets named. Returns plain text, not a
+ * table cell - `attributedName` below applies `cell()` for the markdown table this file builds. */
+export function attributionSuffix(
+  tool: { stackLabels: string[] },
+  attribute: boolean,
+): string {
+  return attribute && tool.stackLabels.length > 0
+    ? ` for ${requirements.format(tool.stackLabels)}`
+    : "";
+}
+
 function attributedName(
   tool: { name: string; stackLabels: string[] },
   attribute: boolean,
 ): string {
-  return attribute && tool.stackLabels.length > 0
-    ? `${cell(tool.name)} for ${requirements.format(tool.stackLabels)}`
-    : cell(tool.name);
+  return `${cell(tool.name)}${attributionSuffix(tool, attribute)}`;
 }
 
 function suggestion(gap: Gap): string {
