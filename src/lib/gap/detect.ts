@@ -181,6 +181,15 @@ function dependsOn(snapshot: RepoSnapshot, dep: string): string | null {
 const notOwnedByRepo =
   /(^|\/)(vendor|node_modules|third_party|testdata|\.venv|\.yarn|dist|build|target)\//;
 
+// pyproject.toml is Python's central config file for many tools at once; its mere existence
+// proves nothing about which of them are actually configured there. Content markers for the
+// two catalogue tools that share it as a configFiles signal - keyed by tool id, not stored in
+// the catalogue, the same way dependsOn()'s package.json parsing is devx-home-only knowledge.
+const pyprojectMarkers: Record<string, string> = {
+  ruff: "[tool.ruff]",
+  pytest: "[tool.pytest.ini_options]",
+};
+
 /**
  * A root-level file is the strongest signal. Nested matches still count, because a monorepo can
  * hold its only linter config in a package directory, but vendored paths are excluded.
@@ -219,7 +228,12 @@ function evidenceFor(
 
   for (const candidate of tool.detect.configFiles ?? []) {
     const hit = configFileMatch(snapshot.paths, candidate);
-    if (hit) return hit;
+    if (!hit) continue;
+    // Only the root file's content is ever fetched (see filesToRead), so a nested match keeps
+    // today's existence-only behaviour - there is nothing to check it against either way.
+    const marker = candidate === "pyproject.toml" ? pyprojectMarkers[tool.id] : undefined;
+    if (marker && hit === candidate && !(snapshot.files[hit] ?? "").includes(marker)) continue;
+    return hit;
   }
 
   for (const dep of tool.detect.manifestDeps ?? []) {

@@ -240,6 +240,47 @@ describe("detectTools", () => {
     expect(vendored).toEqual([]);
   });
 
+  it("does not credit ruff from a pyproject.toml with no [tool.ruff] section", () => {
+    const found = detectTools(
+      snapshot({
+        paths: ["pyproject.toml"],
+        files: { "pyproject.toml": '[project]\nname = "demo"\n' },
+      }),
+      [tool("ruff", { configFiles: ["pyproject.toml"] })],
+    );
+    expect(found).toEqual([]);
+  });
+
+  it("credits ruff from a pyproject.toml that has a [tool.ruff] section", () => {
+    const found = detectTools(
+      snapshot({
+        paths: ["pyproject.toml"],
+        files: { "pyproject.toml": "[tool.ruff]\nline-length = 100\n" },
+      }),
+      [tool("ruff", { configFiles: ["pyproject.toml"] })],
+    );
+    expect(found[0].evidence).toBe("pyproject.toml");
+  });
+
+  it("does not credit pytest from a pyproject.toml with no [tool.pytest.ini_options] section", () => {
+    const found = detectTools(
+      snapshot({
+        paths: ["pyproject.toml"],
+        files: { "pyproject.toml": "[tool.ruff]\nline-length = 100\n" },
+      }),
+      [tool("pytest", { configFiles: ["pyproject.toml"] })],
+    );
+    expect(found).toEqual([]);
+  });
+
+  it("still credits a nested pyproject.toml on existence alone, content unread", () => {
+    const found = detectTools(
+      snapshot({ paths: ["services/api/pyproject.toml"] }),
+      [tool("ruff", { configFiles: ["pyproject.toml"] })],
+    );
+    expect(found[0].evidence).toBe("services/api/pyproject.toml");
+  });
+
   it("respects word boundaries when matching commands", () => {
     const found = detectTools(
       snapshot({
