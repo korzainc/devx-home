@@ -96,6 +96,18 @@ export const clauses = {
   },
 };
 
+/** `tool.name`, attributed to its stack when that's real information rather than noise. Shared
+ * by the gap table's `suggestion()` and the running table, so the two can't disagree on when a
+ * capability's tools are worth naming a stack for. */
+function attributedName(
+  tool: { name: string; stackLabels: string[] },
+  attribute: boolean,
+): string {
+  return attribute && tool.stackLabels.length > 0
+    ? `${cell(tool.name)} for ${requirements.format(tool.stackLabels)}`
+    : cell(tool.name);
+}
+
 function suggestion(gap: Gap): string {
   if (gap.recommended.length === 0)
     return "no tool in the catalogue for this stack";
@@ -109,11 +121,7 @@ function suggestion(gap: Gap): string {
       ? clauses
       : requirements;
   return formatter.format(
-    gap.recommended.map((tool) =>
-      attribute && tool.stackLabels.length > 0
-        ? `${cell(tool.name)} for ${requirements.format(tool.stackLabels)}`
-        : cell(tool.name),
-    ),
+    gap.recommended.map((tool) => attributedName(tool, attribute)),
   );
 }
 
@@ -145,12 +153,19 @@ export function buildFixPrompt(analysis: Analysis): string {
           .join("\n")}`
       : "It found no manifest and no CI config worth reading, so everything below rests on the list of tracked paths alone.";
 
-  const runningRows = running.flatMap((capability) =>
-    capability.present.map(
+  const runningRows = running.flatMap((capability) => {
+    // A partial capability's present tool covers only part of the requirement, the same reason
+    // the gap table names a lone remaining tool's stack even when attribute would otherwise stay
+    // off.
+    const attribute = showAttribution(
+      capability.present,
+      !capability.satisfied,
+    );
+    return capability.present.map(
       (tool) =>
-        `| ${cell(capability.label)} | ${cell(tool.name)} | \`${cell(tool.evidence)}\` |`,
-    ),
-  );
+        `| ${cell(capability.label)} | ${attributedName(tool, attribute)} | \`${cell(tool.evidence)}\` |`,
+    );
+  });
 
   const runningTable =
     runningRows.length > 0

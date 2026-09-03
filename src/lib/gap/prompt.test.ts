@@ -276,7 +276,115 @@ describe("buildFixPrompt", () => {
     };
 
     const prompt = buildFixPrompt(analysis);
-    expect(prompt).toContain("| Unit tests | Jest | `jest.config.js` |");
+    // Jest only covers the JavaScript side, so it's attributed the same as the gap table's
+    // lone remaining tool below it - a bare "Jest" would read as if it covered the whole check.
+    expect(prompt).toContain(
+      "| Unit tests | Jest for JavaScript | `jest.config.js` |",
+    );
     expect(prompt).toContain("| 1 | Unit tests | Security | go test for Go |");
+  });
+
+  it("leaves a fully satisfied capability's lone, single-stack tool unattributed", () => {
+    const analysis = withGap({
+      satisfiedCount: 1,
+      categories: [
+        {
+          category: "Testing",
+          capabilities: [
+            {
+              id: "unit-tests",
+              label: "Unit tests",
+              satisfied: true,
+              present: [
+                {
+                  id: "vitest",
+                  name: "Vitest",
+                  evidence: "vitest.config.ts",
+                  stackLabels: ["JavaScript"],
+                },
+              ],
+              recommended: [],
+            },
+          ],
+        },
+      ],
+      gapCount: 0,
+    });
+
+    expect(buildFixPrompt(analysis)).toContain(
+      "| Unit tests | Vitest | `vitest.config.ts` |",
+    );
+  });
+
+  it("attributes each running tool when more than one covers the same capability", () => {
+    const analysis = withGap({
+      satisfiedCount: 1,
+      categories: [
+        {
+          category: "Code Quality",
+          capabilities: [
+            {
+              id: "lint",
+              label: "Style Linting",
+              satisfied: true,
+              present: [
+                {
+                  id: "eslint",
+                  name: "ESLint",
+                  evidence: "eslint.config.mjs",
+                  stackLabels: ["JavaScript"],
+                },
+                {
+                  id: "golangci-lint",
+                  name: "golangci-lint",
+                  evidence: ".golangci.yml",
+                  stackLabels: ["Go"],
+                },
+              ],
+              recommended: [],
+            },
+          ],
+        },
+      ],
+      gapCount: 0,
+    });
+
+    const prompt = buildFixPrompt(analysis);
+    expect(prompt).toContain("| Style Linting | ESLint for JavaScript |");
+    expect(prompt).toContain(
+      "| Style Linting | golangci-lint for Go | `.golangci.yml` |",
+    );
+  });
+
+  it("joins a single running tool's own multi-stack coverage with and", () => {
+    const analysis = withGap({
+      satisfiedCount: 1,
+      categories: [
+        {
+          category: "Security",
+          capabilities: [
+            {
+              id: "sca",
+              label: "Dependency Scanning (SCA)",
+              satisfied: true,
+              present: [
+                {
+                  id: "ci-base-checks",
+                  name: "Korza CI Base Checks",
+                  evidence: ".github/workflows/ci.yml",
+                  stackLabels: ["Docker", "Go"],
+                },
+              ],
+              recommended: [],
+            },
+          ],
+        },
+      ],
+      gapCount: 0,
+    });
+
+    expect(buildFixPrompt(analysis)).toContain(
+      "| Korza CI Base Checks for Docker and Go |",
+    );
   });
 });

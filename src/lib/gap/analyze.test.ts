@@ -307,6 +307,56 @@ describe("analyze", () => {
     expect(report.partialCount).toBe(0);
   });
 
+  it("lets a present any-stack tool cover every owning stack at once", () => {
+    const anyBaseline: Baseline = {
+      categories: ["Security"],
+      capabilities: {
+        "secret-scanning": { label: "Secrets", category: "Security" },
+      },
+      universal: [],
+      stacks: [
+        {
+          id: "javascript",
+          label: "JavaScript",
+          markers: ["package.json"],
+          expects: {
+            "secret-scanning": { recommended: "gitleaks", acceptable: [] },
+          },
+        },
+        {
+          id: "java",
+          label: "Java",
+          markers: ["pom.xml"],
+          expects: {
+            "secret-scanning": { recommended: "gitleaks", acceptable: [] },
+          },
+        },
+      ],
+    };
+
+    const report = analyze(
+      snapshot(["package.json", "pom.xml", ".gitleaks.toml"]),
+      {
+        tools,
+        baseline: anyBaseline,
+      },
+    );
+
+    const secrets = report.categories
+      .flatMap((category) => category.capabilities)
+      .find((entry) => entry.id === "secret-scanning")!;
+
+    expect(secrets.satisfied).toBe(true);
+    expect(secrets.present).toEqual([
+      {
+        id: "gitleaks",
+        name: "Gitleaks",
+        evidence: expect.any(String),
+        stackLabels: [],
+      },
+    ]);
+  });
+
   it("throws when the baseline names a tool id absent from the catalogue", () => {
     const orphanBaseline: Baseline = {
       categories: ["Linting"],
