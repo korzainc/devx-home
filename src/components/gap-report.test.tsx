@@ -302,4 +302,86 @@ describe("GapReport", () => {
       render(<GapReport stacks={stacks} analysis={broken} />),
     ).toThrow(/has no recommendation/);
   });
+
+  it("attributes a satisfied capability's tools when more than one covers it", () => {
+    render(
+      <GapReport
+        stacks={stacks}
+        analysis={analysisWith({
+          satisfiedCount: 1,
+          categories: [
+            {
+              category: "Linting",
+              capabilities: [
+                {
+                  id: "lint",
+                  label: "Style linting",
+                  satisfied: true,
+                  present: [
+                    {
+                      id: "eslint",
+                      name: "ESLint",
+                      evidence: "eslint.config.js",
+                      stackLabels: ["JavaScript"],
+                    },
+                    {
+                      id: "golangci-lint",
+                      name: "golangci-lint",
+                      evidence: ".golangci.yml",
+                      stackLabels: ["Go"],
+                    },
+                  ],
+                  recommended: [],
+                },
+              ],
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByText(/ESLint for JavaScript/)).toBeTruthy();
+    expect(screen.getByText(/golangci-lint for Go/)).toBeTruthy();
+  });
+
+  it("leaves a satisfied capability's lone, single-stack tool unattributed", () => {
+    render(
+      <GapReport
+        stacks={stacks}
+        analysis={analysisWith({
+          satisfiedCount: 1,
+          categories: [
+            {
+              category: "Testing",
+              capabilities: [
+                {
+                  id: "unit-tests",
+                  label: "Unit tests",
+                  satisfied: true,
+                  present: [
+                    {
+                      id: "vitest",
+                      name: "Vitest",
+                      evidence: "vitest.config.ts",
+                      stackLabels: ["JavaScript"],
+                    },
+                  ],
+                  recommended: [],
+                },
+              ],
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        (_, element) =>
+          element?.tagName === "LI" &&
+          (element.textContent ?? "").trim().startsWith("Vitest "),
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(/for JavaScript/)).toBeNull();
+  });
 });

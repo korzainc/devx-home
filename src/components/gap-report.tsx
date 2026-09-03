@@ -114,14 +114,20 @@ function Capability({ capability }: { capability: CapabilityReport }) {
 
       {status === "satisfied" ? (
         <ul className="flex flex-col gap-1">
-          {capability.present.map((tool) => (
-            <li key={tool.id} className="text-sm text-ink-muted">
-              {tool.name}{" "}
-              <span className="font-mono text-xs text-ink-faint">
-                {tool.evidence}
-              </span>
-            </li>
-          ))}
+          {(() => {
+            const attribute = showAttribution(capability.present);
+            return capability.present.map((tool) => (
+              <li key={tool.id} className="text-sm text-ink-muted">
+                {tool.name}
+                {attribute && tool.stackLabels.length > 0
+                  ? ` for ${requirements.format(tool.stackLabels)}`
+                  : ""}{" "}
+                <span className="font-mono text-xs text-ink-faint">
+                  {tool.evidence}
+                </span>
+              </li>
+            ));
+          })()}
         </ul>
       ) : status === "partial" ? (
         capability.recommended.length > 0 ? (
