@@ -6,4 +6,7 @@
 # unrs-resolver is the native resolver behind eslint-import-resolver-typescript, pulled in by
 # eslint-config-next. Without its build step `pnpm lint` cannot resolve imports.
 allowBuilds:
+  onnxruntime-node: true
+  protobufjs: false
+  sharp: false
   unrs-resolver: true

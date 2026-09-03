@@ -83,6 +83,18 @@
   }
 }
 
+/* The search field's in-flight indicator: one bright segment travelling the bottom edge of the
+   input. A determinate bar would be a lie - the query is one embedding pass, not a measurable
+   sequence - so this reports "working" and nothing more. Guarded by motion-safe at the call site. */
+@keyframes searching {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+
 /* The fix-prompt control on the gap report. One bright segment runs a lap of the border while the
    prompt opens, which is drawn as a masked pseudo-element rather than a border so the segment can
    be a gradient and the button still needs no opaque fill behind it. `--sweep` has to be a

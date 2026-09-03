@@ -11,6 +11,8 @@
     "build": "next build",
     "start": "next start",
     "migrate": "node --env-file-if-exists=.env.local scripts/migrate.mjs",
+    "build:search-index": "node --experimental-strip-types --import ./scripts/register-alias.mjs scripts/build-search-index.mjs",
+    "check:search-index": "node --experimental-strip-types --import ./scripts/register-alias.mjs scripts/build-search-index.mjs --check",
     "vercel-build": "pnpm migrate --if-production && next build",
     "lint": "eslint --max-warnings=0",
     "test": "vitest run",
@@ -20,9 +22,11 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
+    "@huggingface/transformers": "4.2.0",
     "@vercel/analytics": "^2.0.1",
     "better-auth": "^1.7.1",
     "marked": "^18.0.10",
+    "minisearch": "7.2.0",
     "next": "16.3.1",
     "pg": "^8.23.0",
     "react": "19.2.8",

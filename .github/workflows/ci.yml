@@ -53,6 +53,29 @@ jobs:
       # Runs `next typegen` first - see the script. Plain tsc fails on a clean checkout.
       - run: pnpm typecheck
 
+  # The search index is committed, so it can fall behind the catalogue it was built from. Ranking
+  # against stale vectors is silent - every query still returns something, just the wrong things -
+  # so this rebuilds the index and fails if the result differs from what is checked in.
+  #
+  # Rebuilding needs the embedding model, which the builder downloads on first run and caches.
+  search-index:
+    name: search-index
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+
+      # Keyed on the model id in the builder, so a model change fetches a fresh one rather than
+      # embedding with the wrong weights out of cache.
+      - name: Cache the embedding model
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/huggingface
+          key: hf-${{ hashFiles('scripts/build-search-index.mjs') }}
+
+      - run: pnpm check:search-index
+
   # Proves the migrations apply to an empty database and that a second run is a no-op. Production
   # is migrated by the Vercel build command, not from here - see the vercel-build script - because
   # only that ordering guarantees the schema moves before the code that needs it. This job is the
