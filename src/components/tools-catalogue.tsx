@@ -2,16 +2,20 @@
 
 import Link from "next/link";
 import { CatalogueGrid } from "@/components/catalogue-grid";
-import type { BundleEntry, Facet, ToolEntry } from "@/lib/catalogue";
+import type {
+  Facet,
+  PublicBundleEntry,
+  PublicToolEntry,
+} from "@/lib/catalogue";
 
 // Module scope, not inline: the grid memoises on facet identity.
-const facets: Facet<ToolEntry>[] = [
+const facets: Facet<PublicToolEntry>[] = [
   { key: "category", label: "Category" },
   { key: "capabilities", label: "Capability" },
   { key: "stacks", label: "Stack" },
 ];
 
-function ToolCard({ tool }: { tool: ToolEntry | BundleEntry }) {
+function ToolCard({ tool }: { tool: PublicToolEntry | PublicBundleEntry }) {
   return (
     <Link
       href={`/tools/${tool.id}`}
@@ -47,7 +51,7 @@ function ToolCard({ tool }: { tool: ToolEntry | BundleEntry }) {
 export function ToolsCatalogue({
   entries,
 }: {
-  entries: (ToolEntry | BundleEntry)[];
+  entries: (PublicToolEntry | PublicBundleEntry)[];
 }) {
   return (
     <CatalogueGrid

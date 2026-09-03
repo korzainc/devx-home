@@ -31,6 +31,18 @@ export function isBundle(entry: ToolEntry | BundleEntry): entry is BundleEntry {
   return "wraps" in entry;
 }
 
+/** What a browsing page may pass to a client component. `detect` is how gap analysis reads a
+ * repo, not something a visitor to `/tools` needs shipped to their browser. */
+export type PublicToolEntry = Omit<ToolEntry, "detect">;
+export type PublicBundleEntry = Omit<BundleEntry, "detect">;
+
+export function publicToolEntry<T extends ToolEntry>(
+  tool: T,
+): Omit<T, "detect"> {
+  const { detect: _detect, ...rest } = tool;
+  return rest;
+}
+
 type RealTool = {
   id: string;
   name: string;
@@ -304,7 +316,7 @@ export function shortAgents(agents: string[]): string[] {
 }
 
 // Which capabilities a stack is expected to have. Separate from the tools because a baseline is a
-// statement about stacks, not about any one tool, and the two will be published separately.
+// statement about stacks, not about any one tool, and the two are authored separately upstream.
 export const baseline: Baseline = flattenBaseline(realCatalogue);
 
 export const marketplaceName = "korza-marketplace";

@@ -10,6 +10,7 @@ import {
   marketplaceName,
   marketplaceRepo,
   plugins,
+  publicToolEntry,
   shortAgents,
   tools,
   visibleTools,
@@ -242,6 +243,16 @@ describe("visibleTools", () => {
     for (const bundle of bundles) {
       expect(visibleIds.has(bundle.id)).toBe(true);
     }
+  });
+});
+
+describe("publicToolEntry", () => {
+  it("drops detect signals but keeps every other field", () => {
+    const tool = visibleTools[0];
+    const publicTool = publicToolEntry(tool);
+
+    expect(publicTool).not.toHaveProperty("detect");
+    expect(publicTool).toEqual({ ...tool, detect: undefined });
   });
 });
 

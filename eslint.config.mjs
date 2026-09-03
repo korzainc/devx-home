@@ -17,6 +17,15 @@ const eslintConfig = defineConfig([
     // root-anchored pattern above does not reach.
     ".claude/**",
   ]),
+  {
+    rules: {
+      // A destructured field named only to exclude it from a `...rest` isn't dead code.
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { ignoreRestSiblings: true },
+      ],
+    },
+  },
   // Last: turns off rules that would fight prettier. Formatting is prettier's job alone.
   prettier,
 ]);
