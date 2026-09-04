@@ -1,56 +1,34 @@
 @import "tailwindcss";
 
-/* Dark is the design target; light is a faithful port rather than the other way round.
-   Both live here as plain custom properties so `@theme inline` can expose them as
-   Tailwind utilities (bg-surface, text-ink-muted, border-line, ...). */
+/* The app is dark only, so these are the palette rather than a dark-mode override and nothing
+   here reads prefers-color-scheme. They live as plain custom properties so `@theme inline` can
+   expose them as Tailwind utilities (bg-surface, text-ink-muted, border-line, ...). */
 :root {
-  --canvas: #ffffff;
-  --surface: #fbfbfc;
-  --surface-raised: #ffffff;
-  --line: #e6e8eb;
-  --line-strong: #d3d7dd;
-  --ink: #101418;
-  --ink-muted: #464f5c;
-  --ink-faint: #697280;
-  /* Korza's brand red is #ff0000, which only reaches 4:1 on white and fails AA for text.
-     Light mode therefore uses the darker red the marketing site already pairs with it. */
-  --accent: #dc2626;
-  --accent-wash: #fef1f1;
-  /* Small text on --accent-wash: --accent is 4.38:1 there, just under AA. */
-  --accent-strong: #b91c1c;
-  /* Same constraint as the accent: this has to carry small text, so it is green-700 rather
-     than a brighter green that would fail AA on white. */
-  --positive: #15803d;
-  --positive-wash: #f0fdf4;
-  /* A partial result needs its own hue, not a shade of the accent red it sits next to. Amber
-     alone (hue ~26) reads as a burnt red at this size; yellow-700 (hue ~35) clears AA (4.76:1
-     on its own wash, where it renders) while staying unambiguously gold. */
-  --partial: #a16207;
-  --partial-wash: #fefce8;
-}
+  /* Scrollbars and native controls are drawn by the browser, which assumes light unless told
+     otherwise, so the facet checkboxes render white on the dark canvas without this. */
+  color-scheme: dark;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --canvas: #08090b;
-    --surface: #0e1013;
-    --surface-raised: #14171c;
-    --line: #1f242b;
-    --line-strong: #2b3239;
-    --ink: #e8eaed;
-    --ink-muted: #9aa4b2;
-    --ink-faint: #7b8592;
-    /* Lifted off #ff0000: pure red on a near-black canvas reads as vibrating rather than sharp. */
-    --accent: #ff5f5f;
-    --accent-wash: #2a1517;
-    /* --accent already clears 4.5 on the dark wash, so this is the same hue. */
-    --accent-strong: #ff5f5f;
-    --positive: #4ade80;
-    --positive-wash: #10261a;
-    /* yellow-400: fully saturated like the other two dark-mode values - yellow doesn't
-       "vibrate" on near-black the way red does, so it needs no desaturating. */
-    --partial: #facc15;
-    --partial-wash: #2a2013;
-  }
+  --canvas: #08090b;
+  --surface: #0e1013;
+  --surface-raised: #14171c;
+  --line: #1f242b;
+  --line-strong: #2b3239;
+  --ink: #e8eaed;
+  --ink-muted: #9aa4b2;
+  --ink-faint: #7b8592;
+  /* Lifted off #ff0000: pure red on a near-black canvas reads as vibrating rather than sharp. */
+  --accent: #ff5f5f;
+  --accent-wash: #2a1517;
+  /* Small text on --accent-wash, which --accent currently clears unaided at 5.79:1. Kept as its
+     own token so a brighter accent can be chosen later without auditing which usages needed the
+     readable one. */
+  --accent-strong: #ff5f5f;
+  --positive: #4ade80;
+  --positive-wash: #10261a;
+  /* yellow-400, fully saturated where the red is not: yellow doesn't "vibrate" on near-black
+     the way red does, so it needs no desaturating. */
+  --partial: #facc15;
+  --partial-wash: #2a2013;
 }
 
 @theme inline {

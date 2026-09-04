@@ -31,10 +31,7 @@ export const metadata: Metadata = {
 
 // Separate from `metadata` - Next 16 no longer accepts themeColor inside it.
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#08090b" },
-  ],
+  themeColor: "#08090b",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

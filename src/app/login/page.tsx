@@ -22,7 +22,7 @@ export default function LoginPage() {
         alt="Korza"
         width={128}
         height={40}
-        className="h-7 w-auto invert dark:invert-0"
+        className="h-7 w-auto"
       />
 
       {/* Static, unlike the header's X, which breathes. The glow is sized in em, so at this
