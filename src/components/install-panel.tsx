@@ -4,7 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import type { InstallCommand } from "@/lib/catalogue-entries";
 
 /** Keyed on its command by the caller, so switching agents remounts it and clears `copied`. */
-function CommandField({ label, value }: { label: string; value: string }) {
+export function CommandField({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
