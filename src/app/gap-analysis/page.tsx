@@ -19,8 +19,14 @@ export const metadata: Metadata = {
 // Signed out, the token is null and the read goes out anonymously, which GitHub serves for public
 // repositories. So an open source repo needs no account, and the sign-in prompt is kept for the
 // two failures where logging in is the actual remedy rather than a wall in front of everyone.
+//
+// The token is therefore read here and not by the page. DX-100 originally hoisted it so a
+// signed-out reader met the prompt in the shell; since #42 that reader gets a real report instead,
+// and whether the prompt shows at all depends on how the GitHub read fails. That cannot be known
+// before the round trip, so it cannot leave this boundary.
 async function Result({ repo }: { repo: string }) {
   const token = await getGitHubToken();
+
 
   const baseline = getBaseline();
   const result = await runAnalysis(repo, token, { tools, baseline });
@@ -131,28 +137,20 @@ function RepoForm({ target }: { target: string }) {
 type Params = Pick<PageProps<"/gap-analysis">, "searchParams">;
 
 // The home page posts its field here as a plain GET, so arriving with `?repo=` runs the analysis
-// on the server before anything reaches the browser. A report URL is linkable and needs no
-// client JavaScript.
+// on the server before anything reaches the browser.
 //
-// The promise is awaited here rather than in the page so that everything above it prerenders.
-// Reading a request-time value in the page body would make the whole route render on demand.
-async function Requested({ searchParams }: Params) {
+// `searchParams` is awaited in the page body rather than inside a boundary, which costs this route
+// its static shell -- hence `instant = false`, which opts the segment out of the static-shell
+// validation Cache Components runs. The trade is deliberate: a boundary's content is written into
+// a `<div hidden>` and moved into place by an inline `$RC` call, so behind one the repository just
+// typed never reaches a client that runs no script (DX-100). Nothing but the URL is read here, so
+// what TTFB pays is a parse, not a query.
+export const instant = false;
+
+export default async function GapAnalysisPage({ searchParams }: Params) {
   const { repo } = await searchParams;
   const target = (Array.isArray(repo) ? repo[0] : repo)?.trim() ?? "";
 
-  return (
-    <>
-      <RepoForm target={target} />
-      {target ? (
-        <Suspense key={target} fallback={<Pending repo={target} />}>
-          <Result repo={target} />
-        </Suspense>
-      ) : null}
-    </>
-  );
-}
-
-export default function GapAnalysisPage({ searchParams }: Params) {
   return (
     <div className="flex flex-col gap-10">
       <header className="flex max-w-2xl flex-col gap-3">
@@ -168,11 +166,18 @@ export default function GapAnalysisPage({ searchParams }: Params) {
         </p>
       </header>
 
-      {/* The fallback is the same form with an empty field, so the prerendered shell already
-          shows a usable control and only the value filled from the URL streams in. */}
-      <Suspense fallback={<RepoForm target="" />}>
-        <Requested searchParams={searchParams} />
-      </Suspense>
+      <RepoForm target={target} />
+
+      {/* Only the analysis stays behind a boundary. It is a GitHub round trip and belongs nowhere
+          near TTFB. A client that runs no script does not see the report, and since #42 does not
+          see the sign-in prompt either -- whether that shows depends on how the read fails, which
+          is not knowable before making it. What such a reader gets is the form above, carrying the
+          repository it was asked about. */}
+      {target ? (
+        <Suspense key={target} fallback={<Pending repo={target} />}>
+          <Result repo={target} />
+        </Suspense>
+      ) : null}
     </div>
   );
 }
