@@ -15,10 +15,10 @@ export const metadata: Metadata = {
 
 // The token belongs to whoever is signed in and is handed to `runAnalysis` as an argument.
 // Nothing under src/lib/gap touches the environment or the session.
-async function Result({ repo }: { repo: string }) {
-  const token = await getGitHubToken();
-  if (!token) return <SignInPrompt repo={repo} />;
-
+//
+// The token is read by the page rather than here, so that a signed-out reader gets the prompt in
+// the shell instead of behind this boundary. Only the GitHub round trip is left inside it.
+async function Result({ repo, token }: { repo: string; token: string }) {
   const baseline = getBaseline();
   const result = await runAnalysis(repo, token, { tools, baseline });
   if (!result.ok) return <Notice>{result.error}</Notice>;
@@ -113,28 +113,28 @@ function RepoForm({ target }: { target: string }) {
 type Params = Pick<PageProps<"/gap-analysis">, "searchParams">;
 
 // The home page posts its field here as a plain GET, so arriving with `?repo=` runs the analysis
-// on the server before anything reaches the browser. A report URL is linkable and needs no
-// client JavaScript.
+// on the server before anything reaches the browser.
 //
-// The promise is awaited here rather than in the page so that everything above it prerenders.
-// Reading a request-time value in the page body would make the whole route render on demand.
-async function Requested({ searchParams }: Params) {
+// `searchParams` is awaited in the page body rather than inside a boundary, which costs this route
+// its static shell -- hence `instant = false`, which opts the segment out of the static-shell
+// validation Cache Components runs. The trade is deliberate: a boundary's content is written into
+// a `<div hidden>` and moved into place by an inline `$RC` call, so behind one the repository just
+// typed never reaches a client that runs no script (DX-100). What is bought is one session query
+// on TTFB, not the GitHub round trip, which stays behind the boundary below.
+export const instant = false;
+
+export default async function GapAnalysisPage({ searchParams }: Params) {
   const { repo } = await searchParams;
   const target = (Array.isArray(repo) ? repo[0] : repo)?.trim() ?? "";
+  // Only when there is something to analyse: the bare page owes nobody a session query.
+  //
+  // Caught, because this read is in the page body: an exception here fails the shell and takes
+  // the whole route down, form included, which is what this page was changed to keep reachable.
+  // Behind a boundary it could only have spoiled the report. Treating a failure as signed out
+  // follows `getGitHubToken`'s own contract -- it already returns null for an expired grant on
+  // the grounds that the remedy is the same button either way, and so it is here.
+  const token = target ? await getGitHubToken().catch(() => null) : null;
 
-  return (
-    <>
-      <RepoForm target={target} />
-      {target ? (
-        <Suspense key={target} fallback={<Pending repo={target} />}>
-          <Result repo={target} />
-        </Suspense>
-      ) : null}
-    </>
-  );
-}
-
-export default function GapAnalysisPage({ searchParams }: Params) {
   return (
     <div className="flex flex-col gap-10">
       <header className="flex max-w-2xl flex-col gap-3">
@@ -150,11 +150,17 @@ export default function GapAnalysisPage({ searchParams }: Params) {
         </p>
       </header>
 
-      {/* The fallback is the same form with an empty field, so the prerendered shell already
-          shows a usable control and only the value filled from the URL streams in. */}
-      <Suspense fallback={<RepoForm target="" />}>
-        <Requested searchParams={searchParams} />
-      </Suspense>
+      <RepoForm target={target} />
+
+      {/* Only the analysis stays behind a boundary. It is a GitHub round trip and belongs
+          nowhere near TTFB, and a client that cannot see it still has the form and, when signed
+          out, the prompt -- both of which are in the shell. */}
+      {target && token ? (
+        <Suspense key={target} fallback={<Pending repo={target} />}>
+          <Result repo={target} token={token} />
+        </Suspense>
+      ) : null}
+      {target && !token ? <SignInPrompt repo={target} /> : null}
     </div>
   );
 }

@@ -16,9 +16,14 @@ import type {
   CapabilityReport,
 } from "@/lib/gap/types";
 
-// The report itself renders on the server and the disclosure at the bottom is a native `details`,
-// so a report URL still reads with no client JavaScript. The one exception is the fix prompt
-// control, which needs an overlay and the clipboard.
+// The report renders on the server and the disclosure at the bottom is a native `details`, so
+// nothing here needs client JavaScript to read. Reaching it is another matter: the page keeps
+// this component behind a Suspense boundary, whose content is written into a `<div hidden>` and
+// moved into place by an inline `$RC` call, so a client that runs no script never sees the report
+// at all. That is deliberate -- the analysis is a GitHub round trip and does not belong in the
+// shell -- and what such a reader does get is the form and the sign-in prompt (DX-100).
+//
+// The fix prompt control is a further exception either way: it needs an overlay and the clipboard.
 
 function StatusChip({
   status,

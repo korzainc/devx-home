@@ -41,7 +41,15 @@ export function SiteHeader() {
         <nav className="ml-auto hidden items-center gap-5 sm:flex">
           <NavLinks />
           {/* Reading the session queries Postgres, so it stays behind its own boundary and the
-              rest of the header paints without waiting on it. */}
+              rest of the header paints without waiting on it.
+
+              A boundary's content is streamed into a hidden div and moved into place by an inline
+              `$RC` call, so a client that runs no script at all never sees it and had no way to
+              reach /login (DX-100). The <noscript> beside it is what those clients get. The
+              fallback stays null deliberately: rendering the signed-out control there would show
+              every signed-in reader "Log in" until the session resolves, measured at 300-1900ms
+              on every page, and a wrong state reads worse than an empty one. */}
+          <NoScriptLoginLink />
           <Suspense fallback={null}>
             <AuthControl />
           </Suspense>
@@ -49,6 +57,7 @@ export function SiteHeader() {
 
         <NavMenu>
           <NavLinks />
+          <NoScriptLoginLink />
           <Suspense fallback={null}>
             <AuthControl />
           </Suspense>
@@ -74,16 +83,40 @@ function NavLinks() {
   );
 }
 
+const loginHref = "/login";
+const loginLabel = "Log in";
+
+function LoginLink() {
+  return (
+    <Link href={loginHref} className={navLink}>
+      {loginLabel}
+    </Link>
+  );
+}
+
+/**
+ * The auth control for a client that executes no script. `$RC` is inline rather than part of the
+ * bundle, so a failed or blocked bundle still gets the real control -- this covers only scripts
+ * disabled outright, inline script blocked by CSP, and non-executing fetchers.
+ *
+ * A browser with scripts on parses <noscript> content as text rather than elements, so element
+ * children here risk a hydration mismatch. The markup is set directly instead, sharing the href,
+ * label and class with `LoginLink` so the two cannot drift. `site-header.test.tsx` pins that.
+ */
+function NoScriptLoginLink() {
+  return (
+    <noscript
+      dangerouslySetInnerHTML={{
+        __html: `<a class="${navLink}" href="${loginHref}">${loginLabel}</a>`,
+      }}
+    />
+  );
+}
+
 async function AuthControl() {
   const session = await getSession();
 
-  if (!session) {
-    return (
-      <Link href="/login" className={navLink}>
-        Log in
-      </Link>
-    );
-  }
+  if (!session) return <LoginLink />;
 
   return (
     <div className="flex items-center gap-3">
