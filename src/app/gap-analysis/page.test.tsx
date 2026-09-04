@@ -9,19 +9,63 @@ import GapAnalysisPage from "@/app/gap-analysis/page";
 // Reading the session calls `headers()`, which needs a request scope this renderer does not
 // provide. Only the session is stubbed -- the page's own structure, which is what is under test,
 // runs for real. Null is the signed-out answer, and the one the acceptance criteria name.
-const session = vi.hoisted(() => ({ throws: false }));
+const session = vi.hoisted(() => ({
+  throws: false,
+  token: null as string | null,
+}));
 
 vi.mock("@/lib/session", () => ({
   getSession: async () => null,
   getGitHubToken: async () => {
     // What a missing DATABASE_URL, or an unreachable auth store, actually does.
     if (session.throws) throw new Error("DATABASE_URL is not set.");
-    return null;
+    return session.token;
+  },
+}));
+
+// Stubbed so the signed-in path can run without a network call. `analyze` itself is covered by
+// its own tests; what is under test here is that the page hands the token to `Result` and the
+// report comes back.
+const analysis = vi.hoisted(() => ({
+  repo: "facebook/react",
+  defaultBranch: "main",
+  stacks: [],
+  filesRead: ["package.json"],
+  categories: [
+    {
+      category: "Linting",
+      capabilities: [
+        {
+          id: "lint-style",
+          label: "Style linting",
+          satisfied: true,
+          present: [
+            {
+              id: "eslint",
+              name: "ESLint",
+              evidence: "package.json",
+              stackLabels: [],
+            },
+          ],
+          recommended: [],
+        },
+      ],
+    },
+  ],
+  satisfiedCount: 1,
+  gapCount: 0,
+}));
+
+vi.mock("@/lib/gap/run", () => ({
+  runAnalysis: async (_repo: string, token: string) => {
+    if (!token) throw new Error("Result was rendered without a token.");
+    return { ok: true, analysis };
   },
 }));
 
 afterEach(() => {
   session.throws = false;
+  session.token = null;
 });
 
 /**
@@ -114,6 +158,17 @@ describe("the gap-analysis page, for a client running no script", () => {
     // Scoped to the prompt's own heading. A bare `toContain` for the repository would pass on
     // the form's value attribute alone, with no prompt rendered at all.
     expect(markup).toMatch(/Log in to analyze[^<]*<[^>]*>facebook\/react</);
+  });
+
+  it("hands the token to the report for a signed-in reader", async () => {
+    // The page reads the token and passes it down, so this is the only coverage `Result`'s
+    // signature has -- nothing else in the suite renders the signed-in branch.
+    session.token = "gho_test";
+
+    const markup = await render(page("facebook/react"));
+
+    expect(markup).toContain("Style linting");
+    expect(markup).not.toContain("Log in to analyze");
   });
 
   it("still renders the form when the session store is unreachable", async () => {
