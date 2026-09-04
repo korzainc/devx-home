@@ -64,6 +64,9 @@ const navLink =
 function NavLinks() {
   return (
     <>
+      <Link href="/getting-started" className={navLink}>
+        Getting started
+      </Link>
       <Link href="/roadmap" className={navLink}>
         Roadmap
       </Link>
