@@ -1,14 +1,6 @@
 "use client";
 
-import {
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type ReactNode,
-} from "react";
+import { useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { FacetMenu } from "@/components/facet-menu";
 import {
   facetValues,
@@ -17,45 +9,8 @@ import {
 } from "@/lib/catalogue-entries";
 import { filterEntries } from "@/lib/filter";
 import { terms } from "@/lib/search";
-
-// WCAG 2.1.4 requires an unmodified single-character shortcut to be turnable off, remappable,
-// or focus-scoped; this is the "turn it off" escape, shared by both catalogues since they
-// render the same grid. The server has no localStorage, so `useSyncExternalStore`'s
-// `getServerSnapshot` renders "on" there and on first client paint, then hands off with no mismatch.
-const SLASH_SHORTCUT_KEY = "korza-devx:slash-shortcut-enabled";
-const slashShortcutListeners = new Set<() => void>();
-// Set only when a write fails (private browsing, storage disabled), so a read has something to
-// return instead of replaying the stale pre-write value from storage. Cleared on a write that
-// succeeds, so storage recovering mid-session is trusted again rather than shadowed forever.
-let slashShortcutOverride: boolean | null = null;
-
-function getSlashShortcutEnabled(): boolean {
-  if (slashShortcutOverride !== null) return slashShortcutOverride;
-  try {
-    return localStorage.getItem(SLASH_SHORTCUT_KEY) !== "false";
-  } catch {
-    return true;
-  }
-}
-
-function getSlashShortcutServerSnapshot(): boolean {
-  return true;
-}
-
-function subscribeSlashShortcut(onChange: () => void): () => void {
-  slashShortcutListeners.add(onChange);
-  return () => slashShortcutListeners.delete(onChange);
-}
-
-function setSlashShortcutEnabled(next: boolean): void {
-  try {
-    localStorage.setItem(SLASH_SHORTCUT_KEY, String(next));
-    slashShortcutOverride = null;
-  } catch {
-    slashShortcutOverride = next;
-  }
-  for (const listener of slashShortcutListeners) listener();
-}
+import { useSlashShortcut } from "@/lib/slash-shortcut";
+import { useDebouncedValue } from "@/lib/use-debounced-value";
 
 type CatalogueGridProps<T extends CatalogueEntry> = {
   entries: T[];
@@ -93,40 +48,8 @@ export function CatalogueGrid<T extends CatalogueEntry>({
   // count cannot disagree.
   const [pinned, setPinned] = useState<boolean | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
-  const slashEnabled = useSyncExternalStore(
-    subscribeSlashShortcut,
-    getSlashShortcutEnabled,
-    getSlashShortcutServerSnapshot,
-  );
-
-  function toggleSlashShortcut() {
-    setSlashShortcutEnabled(!slashEnabled);
-  }
-
-  // "/" focuses search, which is what the hint in the field promises. Ignored while typing, or
-  // the shortcut eats the character.
-  useEffect(() => {
-    if (!slashEnabled) return;
-    function onKey(event: KeyboardEvent) {
-      if (event.key !== "/" || event.metaKey || event.ctrlKey) return;
-      const target = event.target as HTMLElement | null;
-      // Also covers any expanded disclosure (a facet popup, the unclassified-rows toggle), not
-      // just the trigger itself: a facet popup doesn't close on a focus change alone, so
-      // stealing focus here would leave it open but no longer focused.
-      if (
-        target?.matches(
-          'input, textarea, [contenteditable], [aria-expanded="true"]',
-        )
-      )
-        return;
-      // Both tab panels stay mounted; only the visible one should take the key.
-      if (!searchRef.current?.offsetParent) return;
-      event.preventDefault();
-      searchRef.current.focus();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [slashEnabled]);
+  const { enabled: slashEnabled, toggle: toggleSlashShortcut } =
+    useSlashShortcut(searchRef);
 
   const facetOptions = useMemo(
     () =>
@@ -184,11 +107,7 @@ export function CatalogueGrid<T extends CatalogueEntry>({
 
   // The visible count updates every keystroke; the announcement waits for typing to settle, so
   // a screen reader isn't read ten results in a row while a word is still being typed.
-  const [announcedCount, setAnnouncedCount] = useState(onScreen);
-  useEffect(() => {
-    const timeout = setTimeout(() => setAnnouncedCount(onScreen), 500);
-    return () => clearTimeout(timeout);
-  }, [onScreen]);
+  const announcedCount = useDebouncedValue(onScreen);
   const total = entries.length + unclassified.length;
 
   function toggle(key: string, value: string) {
