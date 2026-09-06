@@ -17,20 +17,32 @@ const baseline: Baseline = {
       id: "javascript",
       label: "JavaScript",
       markers: ["package.json"],
-      expects: { lint: { recommended: "eslint", acceptable: [] } },
+      expects: {
+        lint: { recommended: "eslint", acceptable: [], required: true },
+      },
     },
     {
       id: "go",
       label: "Go",
       markers: ["go.mod"],
-      expects: { "unit-tests": { recommended: "go-test", acceptable: [] } },
+      expects: {
+        "unit-tests": {
+          recommended: "go-test",
+          acceptable: [],
+          required: true,
+        },
+      },
     },
     {
       id: "github-actions",
       label: "GitHub Actions",
       markers: [".github/workflows"],
       expects: {
-        "workflow-lint": { recommended: "actionlint", acceptable: [] },
+        "workflow-lint": {
+          recommended: "actionlint",
+          acceptable: [],
+          required: true,
+        },
       },
     },
   ],
