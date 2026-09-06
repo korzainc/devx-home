@@ -133,8 +133,20 @@ function suggestion(gap: Gap): string {
   );
 }
 
-export function buildFixPrompt(analysis: Analysis): string {
-  const expected = analysis.satisfiedCount + analysis.gapCount;
+export function buildFixPrompt(
+  analysis: Analysis,
+  { includeOptional }: { includeOptional: boolean },
+): string {
+  const satisfiedCount = includeOptional
+    ? analysis.satisfiedCount
+    : analysis.requiredSatisfiedCount;
+  const partialCount = includeOptional
+    ? analysis.partialCount
+    : analysis.requiredPartialCount;
+  const gapCount = includeOptional
+    ? analysis.gapCount
+    : analysis.requiredGapCount;
+  const expected = satisfiedCount + gapCount;
 
   const running = analysis.categories.flatMap((category) =>
     category.capabilities.filter((capability) => capability.present.length > 0),
@@ -143,6 +155,7 @@ export function buildFixPrompt(analysis: Analysis): string {
   const gaps: Gap[] = analysis.categories.flatMap((category) =>
     category.capabilities
       .filter((capability) => !capability.satisfied)
+      .filter((capability) => includeOptional || capability.required)
       .map((capability) => ({ ...capability, category: category.category })),
   );
 
@@ -188,7 +201,9 @@ export function buildFixPrompt(analysis: Analysis): string {
   const gapTable =
     gapRows.length > 0
       ? `| # | Check | Category | Tools that would cover it |\n| --- | --- | --- | --- |\n${gapRows.join("\n")}`
-      : "Nothing. Every check the baseline expects is already running.";
+      : includeOptional
+        ? "Nothing. Every check the baseline expects is already running."
+        : "Nothing required is missing. (Optional checks may still be uncovered - see the full report.)";
 
   // A git ref permits both backticks and pipes, which is why this goes through the same escape
   // as every repo-controlled string here rather than being trusted as GitHub API output.
@@ -215,10 +230,8 @@ You have the whole repo. Where the report and the repo disagree, the repo wins.
 Repo: ${analysis.repo}
 Default branch: \`${defaultBranch}\`
 Stacks detected: ${stacks}
-Score: ${analysis.satisfiedCount} of ${expected} recommended checks are running${
-    analysis.partialCount > 0
-      ? `, plus ${analysis.partialCount} partially covered`
-      : ""
+Score: ${satisfiedCount} of ${expected} recommended checks are running${
+    partialCount > 0 ? `, plus ${partialCount} partially covered` : ""
   }.
 
 ### Already running, do not duplicate
