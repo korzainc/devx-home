@@ -40,6 +40,7 @@ export type Baseline = {
 export type BaselineExpectation = {
   recommended: string;
   acceptable: string[];
+  required: boolean;
 };
 
 export type BaselineStack = {
@@ -129,6 +130,7 @@ export type RecommendedTool = {
 export type CapabilityReport = {
   id: string;
   label: string;
+  required: boolean;
   satisfied: boolean;
   /** Tools found in the repo that cover this capability. */
   present: PresentTool[];
@@ -152,4 +154,10 @@ export type Analysis = {
   /** Not satisfied, but some owning stack's requirement is covered. A subset of `gapCount`. */
   partialCount: number;
   gapCount: number;
+  /** `satisfiedCount`, scoped to capabilities where `required` is true. */
+  requiredSatisfiedCount: number;
+  /** `partialCount`, scoped to capabilities where `required` is true. */
+  requiredPartialCount: number;
+  /** `gapCount`, scoped to capabilities where `required` is true. */
+  requiredGapCount: number;
 };
