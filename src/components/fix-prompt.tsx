@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { GAP_OPTIONAL_TOGGLE_ID } from "@/lib/gap/optional-toggle";
 
 // The one interactive thing on the gap report. The prompt itself is built on the server and
 // arrives as a prop, so this component holds no report knowledge and the markdown never has to be
@@ -89,9 +90,13 @@ function CopyButton({ prompt }: { prompt: string }) {
 // crowd the header the prompt title sits in.
 function PromptOverlay({
   prompt,
+  requiredCount,
+  optionalIncluded,
   onClose,
 }: {
   prompt: string;
+  requiredCount: number;
+  optionalIncluded: number;
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -121,9 +126,16 @@ function PromptOverlay({
         <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3">
           <div className="flex items-center gap-2">
             <Sparkle className="h-3.5 w-3.5 text-positive" />
-            <h3 id="fix-prompt-title" className="text-sm font-medium text-ink">
-              Fix instructions for optimising CI pipeline
-            </h3>
+            <div>
+              <h3 id="fix-prompt-title" className="text-sm font-medium text-ink">
+                Fix instructions for optimising CI pipeline
+              </h3>
+              <p className="text-xs text-ink-faint">
+                {optionalIncluded > 0
+                  ? `${requiredCount + optionalIncluded} gaps, including ${optionalIncluded} optional`
+                  : `${requiredCount} required`}
+              </p>
+            </div>
           </div>
           <CopyButton prompt={prompt} />
         </div>
@@ -144,9 +156,23 @@ function PromptOverlay({
   );
 }
 
-export function FixPromptButton({ prompt }: { prompt: string }) {
+export function FixPromptButton({
+  requiredOnlyPrompt,
+  allGapsPrompt,
+  requiredCount,
+  optionalGapCount,
+}: {
+  requiredOnlyPrompt: string;
+  allGapsPrompt: string;
+  requiredCount: number;
+  optionalGapCount: number;
+}) {
   const [open, setOpen] = useState(false);
   const [charging, setCharging] = useState(false);
+  const [active, setActive] = useState<{
+    prompt: string;
+    optionalIncluded: number;
+  }>({ prompt: requiredOnlyPrompt, optionalIncluded: 0 });
 
   // Navigating away hides this route rather than unmounting it, so `open` survives the trip and
   // comes back true while the dialog has silently dropped out of the top layer: no backdrop, no
@@ -165,6 +191,15 @@ export function FixPromptButton({ prompt }: { prompt: string }) {
       <button
         type="button"
         onClick={() => {
+          const checkbox = document.getElementById(GAP_OPTIONAL_TOGGLE_ID);
+          const includeOptional =
+            checkbox instanceof HTMLInputElement && checkbox.checked;
+          setActive(
+            includeOptional
+              ? { prompt: allGapsPrompt, optionalIncluded: optionalGapCount }
+              : { prompt: requiredOnlyPrompt, optionalIncluded: 0 },
+          );
+
           // The lap is the whole point of the delay, so without it there is nothing to wait for.
           if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
             return setOpen(true);
@@ -186,7 +221,12 @@ export function FixPromptButton({ prompt }: { prompt: string }) {
       </button>
 
       {open ? (
-        <PromptOverlay prompt={prompt} onClose={() => setOpen(false)} />
+        <PromptOverlay
+          prompt={active.prompt}
+          requiredCount={requiredCount}
+          optionalIncluded={active.optionalIncluded}
+          onClose={() => setOpen(false)}
+        />
       ) : null}
     </>
   );
