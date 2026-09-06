@@ -169,7 +169,7 @@ export function ToolsCatalogue({
   const summary =
     droppedLabels.length === 0
       ? "All four sections have matches"
-      : `${bySection.length} of 4 sections · nothing in ${droppedLabels.join(", ")}`;
+      : `${bySection.length} of ${SECTIONS.length} sections · nothing in ${droppedLabels.join(", ")}`;
 
   const total = entries.length;
   // Counted from what bySection actually renders, not from `visible` directly, so the
