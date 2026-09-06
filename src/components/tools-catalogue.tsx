@@ -112,10 +112,13 @@ export function ToolsCatalogue({
       mounted.current = true;
       return;
     }
-    const next = new URLSearchParams();
-    if (pickedStacks.length) next.set("stack", pickedStacks.join(","));
-    if (pickedCaps.length) next.set("cap", pickedCaps.join(","));
-    const query = next.toString();
+    // Built by hand rather than via URLSearchParams: stack and capability values are known-safe
+    // slug characters that need no escaping, and URLSearchParams would percent-encode the comma
+    // separator, so the address bar would show %2C instead of a plain, readable list.
+    const parts: string[] = [];
+    if (pickedStacks.length) parts.push(`stack=${pickedStacks.join(",")}`);
+    if (pickedCaps.length) parts.push(`cap=${pickedCaps.join(",")}`);
+    const query = parts.join("&");
     router.replace(query ? `${pathname}?${query}` : pathname, {
       scroll: false,
     });
