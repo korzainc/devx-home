@@ -19,14 +19,14 @@ const baseline: Baseline = {
       label: "JavaScript",
       markers: ["package.json"],
       expects: {
-        lint: { recommended: "eslint", acceptable: [] },
-        "unit-tests": { recommended: "vitest", acceptable: [] },
-        coverage: { recommended: "vitest", acceptable: [] },
+        lint: { recommended: "eslint", acceptable: [], required: true },
+        "unit-tests": { recommended: "vitest", acceptable: [], required: true },
+        coverage: { recommended: "vitest", acceptable: [], required: true },
         // vitest resolves as a real tool id, but its own capabilities never include
         // e2e-tests, so this capability stays permanently unsatisfied regardless of what
         // any future snapshot detects.
-        "e2e-tests": { recommended: "vitest", acceptable: [] },
-        sast: { recommended: "semgrep", acceptable: ["codeql"] },
+        "e2e-tests": { recommended: "vitest", acceptable: [], required: true },
+        sast: { recommended: "semgrep", acceptable: ["codeql"], required: true },
       },
     },
     {
@@ -34,7 +34,7 @@ const baseline: Baseline = {
       label: "Java",
       markers: ["pom.xml"],
       expects: {
-        lint: { recommended: "spotbugs", acceptable: [] },
+        lint: { recommended: "spotbugs", acceptable: [], required: true },
       },
     },
   ],
@@ -198,6 +198,7 @@ describe("analyze", () => {
             "secret-scanning": {
               recommended: "ci-base-checks",
               acceptable: [],
+              required: true,
             },
           },
         },
@@ -209,7 +210,11 @@ describe("analyze", () => {
       ...merged.stacks[0],
       expects: {
         ...merged.stacks[0].expects,
-        "secret-scanning": { recommended: "ci-base-checks", acceptable: [] },
+        "secret-scanning": {
+          recommended: "ci-base-checks",
+          acceptable: [],
+          required: true,
+        },
       },
     };
 
@@ -320,7 +325,11 @@ describe("analyze", () => {
           label: "JavaScript",
           markers: ["package.json"],
           expects: {
-            "secret-scanning": { recommended: "gitleaks", acceptable: [] },
+            "secret-scanning": {
+              recommended: "gitleaks",
+              acceptable: [],
+              required: true,
+            },
           },
         },
         {
@@ -328,7 +337,11 @@ describe("analyze", () => {
           label: "Java",
           markers: ["pom.xml"],
           expects: {
-            "secret-scanning": { recommended: "gitleaks", acceptable: [] },
+            "secret-scanning": {
+              recommended: "gitleaks",
+              acceptable: [],
+              required: true,
+            },
           },
         },
       ],
@@ -367,7 +380,13 @@ describe("analyze", () => {
           id: "javascript",
           label: "JavaScript",
           markers: ["package.json"],
-          expects: { orphan: { recommended: "no-such-tool", acceptable: [] } },
+          expects: {
+            orphan: {
+              recommended: "no-such-tool",
+              acceptable: [],
+              required: true,
+            },
+          },
         },
       ],
     };
@@ -441,5 +460,216 @@ describe("analyze", () => {
       ".github/workflows/ci.yml",
       "package.json",
     ]);
+  });
+
+  it("computes required as true if any owning stack requires it, not just the first stack listed", () => {
+    // Mirrors the real cross-ecosystem conflict: javascript's format is optional, python's is
+    // required, and a repo can own both at once.
+    const formatBaseline: Baseline = {
+      categories: ["Formatting"],
+      capabilities: { format: { label: "Format", category: "Formatting" } },
+      universal: [],
+      stacks: [
+        {
+          id: "javascript",
+          label: "JavaScript",
+          markers: ["package.json"],
+          expects: {
+            format: { recommended: "prettier", acceptable: [], required: false },
+          },
+        },
+        {
+          id: "python",
+          label: "Python",
+          markers: ["pyproject.toml"],
+          expects: {
+            format: { recommended: "black", acceptable: [], required: true },
+          },
+        },
+      ],
+    };
+    const formatTools: AnalysisTool[] = [
+      {
+        id: "prettier",
+        name: "Prettier",
+        capabilities: ["format"],
+        stacks: ["javascript"],
+        detect: { configFiles: [".prettierrc"] },
+      },
+      {
+        id: "black",
+        name: "Black",
+        capabilities: ["format"],
+        stacks: ["python"],
+        detect: { configFiles: ["pyproject-black.toml"] },
+      },
+    ];
+
+    const report = analyze(snapshot(["package.json", "pyproject.toml"]), {
+      tools: formatTools,
+      baseline: formatBaseline,
+    });
+
+    expect(capability(report, "format").satisfied).toBe(false);
+    const format = report.categories
+      .flatMap((category) => category.capabilities)
+      .find((entry) => entry.id === "format")!;
+    expect(format.required).toBe(true);
+  });
+
+  it("computes required as true for a capability whose only owning stack requires it", () => {
+    const report = analyze(snapshot(["package.json"]), { tools, baseline });
+
+    // Only `javascript` is detected, and it's `lint` entry is `required: true`.
+    const lint = report.categories
+      .flatMap((category) => category.capabilities)
+      .find((entry) => entry.id === "lint")!;
+    expect(lint.required).toBe(true);
+  });
+
+  it("computes required as false for a capability whose only owning stack marks it optional", () => {
+    const optionalBaseline: Baseline = {
+      categories: ["Testing"],
+      capabilities: {
+        coverage: { label: "Coverage reporting", category: "Testing" },
+      },
+      universal: [],
+      stacks: [
+        {
+          id: "javascript",
+          label: "JavaScript",
+          markers: ["package.json"],
+          expects: {
+            coverage: { recommended: "vitest", acceptable: [], required: false },
+          },
+        },
+      ],
+    };
+
+    const report = analyze(snapshot(["package.json"]), {
+      tools,
+      baseline: optionalBaseline,
+    });
+
+    const coverage = report.categories
+      .flatMap((category) => category.capabilities)
+      .find((entry) => entry.id === "coverage")!;
+    expect(coverage.required).toBe(false);
+  });
+
+  it("adds required-scoped counts alongside the existing all-capability counts, without changing them", () => {
+    const mixedBaseline: Baseline = {
+      categories: ["Testing", "Linting"],
+      capabilities: {
+        "unit-tests": { label: "Unit tests", category: "Testing" },
+        "e2e-tests": { label: "End-to-end tests", category: "Testing" },
+        coverage: { label: "Coverage reporting", category: "Testing" },
+        sast: { label: "SAST", category: "Testing" },
+        lint: { label: "Linting", category: "Linting" },
+      },
+      universal: [],
+      stacks: [
+        {
+          id: "javascript",
+          label: "JavaScript",
+          markers: ["package.json"],
+          expects: {
+            "unit-tests": {
+              recommended: "jest",
+              acceptable: [],
+              required: true,
+            },
+            "e2e-tests": {
+              recommended: "playwright",
+              acceptable: [],
+              required: false,
+            },
+            coverage: {
+              recommended: "vitest",
+              acceptable: [],
+              required: false,
+            },
+            sast: { recommended: "semgrep", acceptable: [], required: true },
+            lint: { recommended: "eslint", acceptable: [], required: true },
+          },
+        },
+        {
+          id: "java",
+          label: "Java",
+          markers: ["pom.xml"],
+          expects: {
+            lint: { recommended: "spotbugs", acceptable: [], required: true },
+          },
+        },
+      ],
+    };
+    const mixedTools: AnalysisTool[] = [
+      {
+        id: "jest",
+        name: "Jest",
+        capabilities: ["unit-tests"],
+        stacks: ["javascript"],
+        detect: { configFiles: ["jest.config.js"] },
+      },
+      {
+        id: "playwright",
+        name: "Playwright",
+        capabilities: ["e2e-tests"],
+        stacks: ["javascript"],
+        detect: { configFiles: ["playwright.config.ts"] },
+      },
+      {
+        id: "vitest",
+        name: "Vitest",
+        capabilities: ["coverage"],
+        stacks: ["javascript"],
+        detect: { configFiles: ["vitest.config.ts"] },
+      },
+      {
+        id: "semgrep",
+        name: "Semgrep",
+        capabilities: ["sast"],
+        stacks: ["javascript"],
+        detect: { configFiles: [".semgrep.yml"] },
+      },
+      {
+        id: "eslint",
+        name: "ESLint",
+        capabilities: ["lint"],
+        stacks: ["javascript"],
+        detect: { configFiles: ["eslint.config.mjs"] },
+      },
+      {
+        id: "spotbugs",
+        name: "SpotBugs",
+        capabilities: ["lint"],
+        stacks: ["java"],
+        detect: { configFiles: ["spotbugs-exclude.xml"] },
+      },
+    ];
+
+    // Present: jest (required, satisfied), playwright (optional, satisfied), eslint (required,
+    // partial - java's own spotbugs is missing). Absent: vitest (optional, gap), semgrep
+    // (required, gap), spotbugs (required, only half of lint's partial coverage).
+    const report = analyze(
+      snapshot([
+        "package.json",
+        "pom.xml",
+        "jest.config.js",
+        "playwright.config.ts",
+        "eslint.config.mjs",
+      ]),
+      { tools: mixedTools, baseline: mixedBaseline },
+    );
+
+    // All-capability counts: unit-tests + e2e-tests satisfied, lint partial, coverage + sast gap.
+    expect(report.satisfiedCount).toBe(2);
+    expect(report.partialCount).toBe(1);
+    expect(report.gapCount).toBe(3);
+
+    // Required-scoped counts exclude e2e-tests and coverage, both `required: false`.
+    expect(report.requiredSatisfiedCount).toBe(1);
+    expect(report.requiredPartialCount).toBe(1);
+    expect(report.requiredGapCount).toBe(2);
   });
 });

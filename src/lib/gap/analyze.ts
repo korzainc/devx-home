@@ -163,9 +163,15 @@ export function analyze(
       }
     }
 
+    // Any owning stack requiring it wins, matching `satisfied`'s own "most demanding stack"
+    // posture: a repo with both a JavaScript and a Python stack can't let JavaScript's optional
+    // opinion silently downgrade Python's mandatory one.
+    const required = owningStacks.some((stack) => stack.expects[id]!.required);
+
     return {
       id,
       label: meta?.label ?? id,
+      required,
       satisfied,
       present,
       recommended,
@@ -213,5 +219,15 @@ export function analyze(
       (report) => !report.satisfied && report.present.length > 0,
     ).length,
     gapCount: reports.filter((report) => !report.satisfied).length,
+    requiredSatisfiedCount: reports.filter(
+      (report) => report.required && report.satisfied,
+    ).length,
+    requiredPartialCount: reports.filter(
+      (report) =>
+        report.required && !report.satisfied && report.present.length > 0,
+    ).length,
+    requiredGapCount: reports.filter(
+      (report) => report.required && !report.satisfied,
+    ).length,
   };
 }
