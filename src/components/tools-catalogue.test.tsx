@@ -7,15 +7,16 @@ import {
   fireEvent,
   render,
   screen,
+  within,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ToolsCatalogue } from "@/components/tools-catalogue";
-import { visibleTools } from "@/lib/catalogue";
+import { publicToolEntry, visibleTools } from "@/lib/catalogue";
 
 afterEach(cleanup);
 
 function renderPage() {
-  render(<ToolsCatalogue entries={visibleTools} />);
+  render(<ToolsCatalogue entries={visibleTools.map(publicToolEntry)} />);
 }
 
 function cardCount() {
@@ -32,6 +33,16 @@ function card(id: string) {
 
 function escape(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\-]/g, "\\$&");
+}
+
+function search(text: string) {
+  fireEvent.change(screen.getByLabelText(/filter tools/i), {
+    target: { value: text },
+  });
+}
+
+function toggleStack(name: string) {
+  fireEvent.click(screen.getByRole("button", { name }));
 }
 
 /** Values live inside a closed menu, so reaching one means opening its facet first. */
@@ -56,28 +67,50 @@ describe("the tools catalogue", () => {
     expect(cardCount()).toBe(visibleTools.length);
   });
 
-  it("draws the Category, Capability, and Stack facets, and no others", () => {
+  it("shows Capability as the only dropdown facet, with Stack as an always-visible chip row", () => {
     renderPage();
     const triggers = screen
       .getAllByRole("button")
       .filter((node) => /[▲▼]$/.test(node.textContent ?? ""));
     expect(
       triggers.map((node) => node.textContent?.replace(/[▲▼]$/, "")),
-    ).toEqual(["Category", "Capability", "Stack"]);
+    ).toEqual(["Capability"]);
+
+    const stackGroup = screen.getByRole("group", { name: "Stack" });
+    const stackChips = within(stackGroup).getAllByRole("button");
+    expect(stackChips.length).toBeGreaterThan(0);
+    for (const chip of stackChips) {
+      expect(chip.getAttribute("aria-pressed")).not.toBeNull();
+    }
   });
 
-  it("narrows to a stack, keeping only tools that apply to it", () => {
+  it("narrows to a stack via the chip row, keeping universal tools visible regardless", () => {
     renderPage();
-    pick("Stack", "go");
+    toggleStack("go");
 
-    const inStack = visibleTools.filter((tool) => tool.stacks.includes("go"));
+    const inStack = visibleTools.filter(
+      (tool) => tool.stacks.includes("go") || tool.stacks.includes("any"),
+    );
     expect(inStack.length).toBeGreaterThan(0);
     expect(cardCount()).toBe(inStack.length);
 
     for (const tool of inStack) {
       expect(card(tool.id), `${tool.id} should still be listed`).toBeTruthy();
     }
-    const outOfStack = visibleTools.find((tool) => !tool.stacks.includes("go"));
+
+    // Universal tools (stacks: ["any"]) always show, regardless of which stack chips are
+    // active - this is the opposite of exact-matching, deliberately: mandatory checks shouldn't
+    // silently drop out of a stack-filtered view.
+    const universal = visibleTools.find((tool) => tool.stacks.includes("any"));
+    expect(universal, "fixture must contain a universal tool").toBeTruthy();
+    expect(
+      card(universal!.id),
+      `${universal!.id} is universal and must stay visible while "go" is picked`,
+    ).toBeTruthy();
+
+    const outOfStack = visibleTools.find(
+      (tool) => !tool.stacks.includes("go") && !tool.stacks.includes("any"),
+    );
     expect(
       card(outOfStack!.id),
       `${outOfStack!.id} should be filtered out`,
@@ -87,9 +120,7 @@ describe("the tools catalogue", () => {
   it("filters by search text, matching a tool's problem and benefits too", () => {
     renderPage();
     const eslint = visibleTools.find((tool) => tool.id === "eslint")!;
-    fireEvent.change(screen.getByLabelText("Filter tools"), {
-      target: { value: eslint.name },
-    });
+    search(eslint.name);
 
     // Biome's own benefits text names ESLint as the tool it replaces, so searching "ESLint"
     // correctly surfaces both, now that the haystack covers problem/benefits, not just summary.
@@ -98,17 +129,56 @@ describe("the tools catalogue", () => {
     expect(card("biome")).toBeTruthy();
   });
 
+  it("removes a section entirely once nothing in it matches", () => {
+    renderPage();
+    // eslint/biome are the only two tools "ESLint" matches, and both are Code Quality - see
+    // Step 0's verification against the real catalogue.
+    search("ESLint");
+    expect(screen.queryByRole("heading", { name: "Testing" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Security" })).toBeNull();
+    expect(
+      screen.queryByRole("heading", { name: "Staying Current" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("heading", { name: "Code Quality" }),
+    ).toBeTruthy();
+  });
+
+  it("shows a summary line naming the dropped sections", () => {
+    renderPage();
+    search("ESLint");
+    // Only Code Quality has matches, so 3 of 4 sections are dropped, not 1 - the summary counts
+    // sections WITH matches ("N of 4 sections").
+    expect(screen.getByText(/1 of 4 sections/)).toBeTruthy();
+    expect(screen.getByText(/Testing/)).toBeTruthy();
+    expect(screen.getByText(/Security/)).toBeTruthy();
+    expect(screen.getByText(/Staying Current/)).toBeTruthy();
+  });
+
+  it("says all four sections match when nothing dropped", () => {
+    renderPage();
+    // No filter active at all - every section has at least one tool by construction (all 19
+    // visible tools are distributed across exactly these 4 categories today), so this holds
+    // with zero setup. The summary line only renders when a filter is active.
+    expect(screen.queryByText("All four sections have matches")).toBeNull();
+
+    // Re-assert the positive case under a real filter that still hits all four sections:
+    // picking "go" leaves golangci-lint (Code Quality) and go-test (Testing) directly, while
+    // the 5 universal tools (always shown regardless of the stack picked) cover Security and
+    // Staying Current - verified against the real catalogue in Step 0.
+    toggleStack("go");
+    expect(screen.getByText("All four sections have matches")).toBeTruthy();
+  });
+
   it("names the rows in the empty state", () => {
     renderPage();
-    fireEvent.change(screen.getByLabelText("Filter tools"), {
-      target: { value: "zzzznotathing" },
-    });
+    search("zzzznotathing");
     expect(screen.getByText("No tool matches those filters.")).toBeTruthy();
   });
 
   it("doesn't let the / shortcut steal focus from an open facet menu", () => {
     renderPage();
-    const trigger = screen.getByRole("button", { name: /^Stack/ });
+    const trigger = screen.getByRole("button", { name: /^Capability/ });
     fireEvent.click(trigger);
     trigger.focus();
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
@@ -156,57 +226,97 @@ describe("the tools catalogue", () => {
 
   it("clears the query on Escape instead of blurring the field", () => {
     renderPage();
-    const search = screen.getByLabelText("Filter tools") as HTMLInputElement;
-    fireEvent.change(search, { target: { value: "eslint" } });
-    search.focus();
+    const searchInput = screen.getByLabelText(
+      "Filter tools",
+    ) as HTMLInputElement;
+    fireEvent.change(searchInput, { target: { value: "eslint" } });
+    searchInput.focus();
     expect(cardCount()).toBeLessThan(visibleTools.length);
 
-    fireEvent.keyDown(search, { key: "Escape" });
+    fireEvent.keyDown(searchInput, { key: "Escape" });
 
     // Blurring here used to dump focus onto <body>, restarting the next Tab from the top of
     // the page instead of continuing past this field.
-    expect(search.value).toBe("");
+    expect(searchInput.value).toBe("");
     expect(cardCount()).toBe(visibleTools.length);
-    expect(document.activeElement).toBe(search);
+    expect(document.activeElement).toBe(searchInput);
   });
 
   it("blurs on Escape when the field is already empty, so the key still does something", () => {
     renderPage();
-    const search = screen.getByLabelText("Filter tools") as HTMLInputElement;
-    search.focus();
-    expect(document.activeElement).toBe(search);
+    const searchInput = screen.getByLabelText(
+      "Filter tools",
+    ) as HTMLInputElement;
+    searchInput.focus();
+    expect(document.activeElement).toBe(searchInput);
 
-    fireEvent.keyDown(search, { key: "Escape" });
+    fireEvent.keyDown(searchInput, { key: "Escape" });
 
-    expect(document.activeElement).not.toBe(search);
+    expect(document.activeElement).not.toBe(searchInput);
   });
 
-  it("announces the settled count for assistive tech, debounced and worded", () => {
+  it("announces the settled count and section summary for assistive tech, debounced", () => {
     vi.useFakeTimers();
     try {
       renderPage();
       const status = () => screen.getByRole("status");
       expect(status().textContent).toBe(
-        `${visibleTools.length} of ${visibleTools.length} tools shown`,
+        `${visibleTools.length} of ${visibleTools.length} tools shown. All four sections have matches`,
       );
 
-      fireEvent.change(screen.getByLabelText("Filter tools"), {
-        target: { value: "zzzznotathing" },
-      });
+      search("zzzznotathing");
       // The debounce hasn't fired yet - still announcing the pre-search count.
       expect(status().textContent).toBe(
-        `${visibleTools.length} of ${visibleTools.length} tools shown`,
+        `${visibleTools.length} of ${visibleTools.length} tools shown. All four sections have matches`,
       );
 
       act(() => {
         vi.advanceTimersByTime(500);
       });
       expect(status().textContent).toBe(
-        `0 of ${visibleTools.length} tools shown`,
+        `0 of ${visibleTools.length} tools shown. 0 of 4 sections · nothing in Code Quality, Testing, Security, Staying Current`,
       );
     } finally {
       // In a `finally` so a failed assertion above can't leak fake timers into later tests.
       vi.useRealTimers();
     }
+  });
+
+  it("no longer shows a category badge on the card", () => {
+    renderPage();
+    const eslint = visibleTools.find((tool) => tool.id === "eslint")!;
+    expect(within(card(eslint.id)!).queryByText(eslint.category)).toBeNull();
+  });
+
+  it("keeps the Capability facet's own filtering behavior unchanged", () => {
+    renderPage();
+    const capability = visibleTools[0].capabilities[0];
+    pick("Capability", capability);
+
+    const matching = visibleTools.filter((tool) =>
+      tool.capabilities.includes(capability),
+    );
+    expect(cardCount()).toBe(matching.length);
+  });
+
+  it("resets search, stack, and capability together on Clear all", () => {
+    renderPage();
+    // Both eslint and biome (the "eslint" query's two matches) carry the "javascript" stack, so
+    // this combination still leaves cards on screen rather than intersecting down to zero.
+    search("eslint");
+    toggleStack("javascript");
+    expect(cardCount()).toBe(2);
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear all" }));
+
+    expect(
+      (screen.getByLabelText("Filter tools") as HTMLInputElement).value,
+    ).toBe("");
+    expect(
+      screen
+        .getByRole("button", { name: "javascript" })
+        .getAttribute("aria-pressed"),
+    ).toBe("false");
+    expect(cardCount()).toBe(visibleTools.length);
   });
 });
