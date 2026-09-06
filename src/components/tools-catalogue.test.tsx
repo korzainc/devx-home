@@ -340,10 +340,19 @@ describe("the tools catalogue", () => {
   });
 
   it("seeds Stack and Capability from the initial props", () => {
-    renderWithInitial({ stacks: ["go"] });
+    const capability = visibleTools[0].capabilities[0];
+    renderWithInitial({ stacks: ["go"], capabilities: [capability] });
+
     expect(
       screen.getByRole("button", { name: "go" }).getAttribute("aria-pressed"),
     ).toBe("true");
+    // The active-filter chip is the observable proof the capability was actually picked, not
+    // just passed through as an unused prop.
+    expect(
+      screen.getByRole("button", {
+        name: `Remove Capability filter: ${capability}`,
+      }),
+    ).toBeTruthy();
   });
 
   it("shows a picked stack as a removable chip, and removing it un-picks and un-presses it", () => {
