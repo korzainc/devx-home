@@ -9,14 +9,33 @@ import {
   screen,
   within,
 } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToolsCatalogue } from "@/components/tools-catalogue";
 import { publicToolEntry, visibleTools } from "@/lib/catalogue";
 
+const replace = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace }),
+  usePathname: () => "/tools",
+}));
+
 afterEach(cleanup);
+beforeEach(() => replace.mockClear());
 
 function renderPage() {
   render(<ToolsCatalogue entries={visibleTools.map(publicToolEntry)} />);
+}
+
+function renderWithInitial(
+  props: { stacks?: string[]; capabilities?: string[] } = {},
+) {
+  render(
+    <ToolsCatalogue
+      entries={visibleTools.map(publicToolEntry)}
+      initialStacks={props.stacks ?? []}
+      initialCapabilities={props.capabilities ?? []}
+    />,
+  );
 }
 
 function cardCount() {
@@ -318,5 +337,41 @@ describe("the tools catalogue", () => {
         .getAttribute("aria-pressed"),
     ).toBe("false");
     expect(cardCount()).toBe(visibleTools.length);
+  });
+
+  it("seeds Stack and Capability from the initial props", () => {
+    renderWithInitial({ stacks: ["go"] });
+    expect(
+      screen.getByRole("button", { name: "go" }).getAttribute("aria-pressed"),
+    ).toBe("true");
+  });
+
+  it("updates the URL when a stack chip is toggled, but not on initial mount", () => {
+    renderWithInitial();
+    expect(replace).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "go" }));
+
+    expect(replace).toHaveBeenCalledWith(expect.stringContaining("stack=go"), {
+      scroll: false,
+    });
+  });
+
+  it("updates the URL when a capability is picked, comma-joining multiple values", () => {
+    renderWithInitial();
+    const capability = visibleTools[0].capabilities[0];
+    pick("Capability", capability);
+
+    expect(replace).toHaveBeenCalledWith(
+      expect.stringContaining(`cap=${capability}`),
+      { scroll: false },
+    );
+  });
+
+  it("clears the URL back to the bare path once every filter is removed", () => {
+    renderWithInitial({ stacks: ["go"] });
+    fireEvent.click(screen.getByRole("button", { name: "go" }));
+
+    expect(replace).toHaveBeenLastCalledWith("/tools", { scroll: false });
   });
 });

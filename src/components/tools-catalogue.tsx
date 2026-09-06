@@ -1,7 +1,15 @@
 "use client";
 
-import { useId, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { FacetMenu } from "@/components/facet-menu";
 import {
   facetValues,
@@ -92,6 +100,26 @@ export function ToolsCatalogue({
 
   const [pickedStacks, setPickedStacks] = useState(initialStacks);
   const [pickedCaps, setPickedCaps] = useState(initialCapabilities);
+
+  const router = useRouter();
+  const pathname = usePathname();
+  // Skip the first run: the URL already matches initialStacks/initialCapabilities (that's where
+  // they came from), so replacing on mount would be a same-value no-op navigation for no reason.
+  const mounted = useRef(false);
+
+  useEffect(() => {
+    if (!mounted.current) {
+      mounted.current = true;
+      return;
+    }
+    const next = new URLSearchParams();
+    if (pickedStacks.length) next.set("stack", pickedStacks.join(","));
+    if (pickedCaps.length) next.set("cap", pickedCaps.join(","));
+    const query = next.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, {
+      scroll: false,
+    });
+  }, [pickedStacks, pickedCaps, pathname, router]);
 
   const capOptions = useMemo(() => {
     const counts = new Map<string, number>();
