@@ -497,6 +497,10 @@ describe("GapReport", () => {
       <GapReport
         stacks={stacks}
         analysis={analysisWith({
+          // All three capabilities are gaps (unsatisfied), so gapCount must reflect that -
+          // otherwise `expected` stays 0 and the report reads as "no stack detected," hiding the
+          // very checkbox this test exists to check for.
+          gapCount: 3,
           categories: [
             {
               category: "Testing",
@@ -537,6 +541,17 @@ describe("GapReport", () => {
     expect(
       screen.getByText("Include 3 optional checks", { exact: false }),
     ).toBeTruthy();
+  });
+
+  it("hides the optional-coverage line and the reveal checkbox when no stack was detected", () => {
+    // No `categories` override at all means noStackDetected is true (analysisWith's defaults).
+    // Both the "Optional: ..." line and the checkbox would otherwise render nonsense - "Include 0
+    // optional checks" under a headline saying no stack was even found.
+    render(<GapReport stacks={stacks} analysis={analysisWith({})} />);
+
+    expect(screen.getByText("No recognized stack was detected.")).toBeTruthy();
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(screen.queryByText(/^Optional:/)).toBeNull();
   });
 
   it("marks every optional capability row and every all-optional category section with gap-optional-row", () => {

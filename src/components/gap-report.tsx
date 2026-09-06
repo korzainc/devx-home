@@ -295,13 +295,13 @@ export function GapReport({
               <div
                 className="bg-positive"
                 style={{
-                  width: `${(analysis.requiredSatisfiedCount / requiredExpected) * 100}%`,
+                  width: `${requiredExpected > 0 ? (analysis.requiredSatisfiedCount / requiredExpected) * 100 : 0}%`,
                 }}
               />
               <div
                 className="bg-partial"
                 style={{
-                  width: `${(analysis.requiredPartialCount / requiredExpected) * 100}%`,
+                  width: `${requiredExpected > 0 ? (analysis.requiredPartialCount / requiredExpected) * 100 : 0}%`,
                 }}
               />
               <div className="flex-1 bg-accent" />
@@ -344,25 +344,30 @@ export function GapReport({
           ) : null}
         </div>
 
-        <p className="text-sm text-ink-faint">
-          Optional: {optionalSatisfiedCount} in place, {optionalPartialCount}{" "}
-          partially covered, {optionalSkippedCount} skipped.
-        </p>
+        {noStackDetected ? null : (
+          <p className="text-sm text-ink-faint">
+            Optional: {optionalSatisfiedCount} in place,{" "}
+            {optionalPartialCount} partially covered, {optionalSkippedCount}{" "}
+            skipped.
+          </p>
+        )}
       </div>
 
-      <div className="flex items-center gap-2 py-4">
-        <input
-          type="checkbox"
-          id={GAP_OPTIONAL_TOGGLE_ID}
-          className="size-3.5 accent-accent cursor-pointer"
-        />
-        <label
-          htmlFor={GAP_OPTIONAL_TOGGLE_ID}
-          className="cursor-pointer text-sm text-ink-muted hover:text-ink"
-        >
-          Include {totalOptionalCount} optional checks
-        </label>
-      </div>
+      {noStackDetected ? null : (
+        <div className="flex items-center gap-2 py-4">
+          <input
+            type="checkbox"
+            id={GAP_OPTIONAL_TOGGLE_ID}
+            className="size-3.5 accent-accent cursor-pointer"
+          />
+          <label
+            htmlFor={GAP_OPTIONAL_TOGGLE_ID}
+            className="cursor-pointer text-sm text-ink-muted hover:text-ink"
+          >
+            Include {totalOptionalCount} optional checks
+          </label>
+        </div>
+      )}
 
       {analysis.categories.map((category) => (
         <section
