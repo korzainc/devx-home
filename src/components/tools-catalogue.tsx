@@ -322,9 +322,11 @@ export function ToolsCatalogue({
             <button
               type="button"
               aria-label={`Remove search filter: ${query}`}
-              onClick={() => {
+              onClick={(event) => {
                 setQuery("");
-                searchRef.current?.focus();
+                // Keyboard only: a text input always matches :focus-visible, so
+                // doing this on a mouse click paints an accent ring on the field.
+                if (event.detail === 0) searchRef.current?.focus();
               }}
               className="flex items-center gap-1.5 rounded-full border border-line-strong bg-accent-wash px-3 py-1 text-xs text-ink transition-colors hover:border-line"
             >
@@ -341,7 +343,31 @@ export function ToolsCatalogue({
                   key={value}
                   type="button"
                   aria-label={`Remove Capability filter: ${value}`}
-                  onClick={() => toggleCap(value)}
+                  onClick={(event) => {
+                    toggleCap(value);
+                    if (event.detail === 0) searchRef.current?.focus();
+                  }}
+                  className="flex items-center gap-1.5 rounded-full border border-line-strong bg-accent-wash px-3 py-1 text-xs text-ink transition-colors hover:border-line"
+                >
+                  {value}
+                  <span aria-hidden className="text-ink-faint">
+                    ✕
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+          {pickedStacks.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              {pickedStacks.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-label={`Remove Stack filter: ${value}`}
+                  onClick={(event) => {
+                    toggleStack(value);
+                    if (event.detail === 0) searchRef.current?.focus();
+                  }}
                   className="flex items-center gap-1.5 rounded-full border border-line-strong bg-accent-wash px-3 py-1 text-xs text-ink transition-colors hover:border-line"
                 >
                   {value}

@@ -346,6 +346,25 @@ describe("the tools catalogue", () => {
     ).toBe("true");
   });
 
+  it("shows a picked stack as a removable chip, and removing it un-picks and un-presses it", () => {
+    renderPage();
+    toggleStack("go");
+
+    const chip = screen.getByRole("button", {
+      name: "Remove Stack filter: go",
+    });
+    expect(chip).toBeTruthy();
+
+    fireEvent.click(chip);
+
+    expect(
+      screen.queryByRole("button", { name: "Remove Stack filter: go" }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "go" }).getAttribute("aria-pressed"),
+    ).toBe("false");
+  });
+
   it("updates the URL when a stack chip is toggled, but not on initial mount", () => {
     renderWithInitial();
     expect(replace).not.toHaveBeenCalled();
