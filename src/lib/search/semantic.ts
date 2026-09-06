@@ -5,6 +5,7 @@ import {
   fuse,
   hasResults,
   semanticRanking,
+  SIMILARITY_MARGIN_STRICT,
   type Ranked,
 } from "@/lib/search/rank";
 
@@ -109,6 +110,24 @@ const QUERY_FRAMES: RegExp[] = [
  */
 const EDGE_WORDS = /^(i|to|for|with|and|a|an|the|me|get)\b\s*/i;
 const TRAILING_EDGE_WORDS = /\s+(to|for|with|and|a|an|the|me|get)$/i;
+
+/**
+ * Splits a task into separate intents on `,`/`and`/`&`.
+ *
+ * "planning, CI setup and security" names three unrelated jobs, not one compound one. Embedded
+ * whole, the query vector sits between three clusters and drags in a wide, mediocre band of the
+ * corpus - every skill loosely adjacent to any of the three scores "close enough". Ranking each
+ * clause on its own and merging keeps each intent's own top matches instead of pooling three
+ * intents' worth of noise into one list.
+ *
+ * A single-clause task splits to one clause and behaves exactly as before.
+ */
+export function splitClauses(task: string): string[] {
+  return task
+    .split(/\s*,\s*|\s+(?:and|&)\s+/i)
+    .map((clause) => clause.trim())
+    .filter(Boolean);
+}
 
 /** The task inside a request. Falls back to the original when the frame is all there was. */
 export function taskOf(query: string): string {
@@ -227,29 +246,40 @@ export type SearchOutcome = {
   semantic: boolean;
 };
 
+/** One clause's ranking, before it is merged with any sibling clause. */
+type ClauseRanking = {
+  ranked: Ranked[];
+  semantic: boolean;
+};
+
 /**
- * Rank the corpus against a natural-language query.
+ * Rank a single clause - one intent, no `and`/`,` left in it.
  *
  * Lexical always runs; it is free and it is the only thing that reliably finds an exact name. The
  * embedding is what makes "make my commits better" reach /code-review, and if the model fails to
  * load the search degrades to lexical rather than erroring - a keyword result beats a 500.
+ *
+ * `strict` tightens the gate for a clause competing against siblings from the same query. A lone
+ * query's `hasResults` treats one lexical hit as enough, which is right when it is the only signal
+ * available - but "new project", stripped off the front of a longer request by `splitClauses`, is
+ * exactly the kind of generic fragment that picks up a loose fuzzy/prefix lexical hit on nothing
+ * in particular. Ungated, it wins an equal share of the merge against clauses that named a real
+ * job. Requiring the lexical hit to be a name match (not prose) keeps a real `/skill` or tool name
+ * typed verbatim, while dropping the fragment.
  */
-export async function search(
-  query: string,
-  { limit = 8 }: { limit?: number } = {},
-): Promise<SearchOutcome> {
-  const trimmed = query.trim();
-  if (!trimmed) return { results: [], semantic: true };
-
-  const { docs, byKey, vectors, lexical } = corpus();
-
-  // Both passes see the task, not the request. "skill", "tool" and "plugin" are words about the
-  // catalogue rather than about any job in it, so a query that names one - "help me get skills
-  // for planning" - otherwise ranks /writing-skills and the plugin rows above the planning
-  // skills it asked for. `taskOf` already removes them for the embedding; the lexical pass has
-  // the same problem and needs the same input.
-  const task = taskOf(trimmed);
-  const lexicalKeys = lexical.search(task).map((hit) => hit.id as string);
+async function rankClause(
+  clause: string,
+  { docs, byKey, vectors, lexical }: ReturnType<typeof corpus>,
+  depth: number,
+  strict: boolean,
+): Promise<ClauseRanking> {
+  const lexicalHits = lexical.search(clause);
+  const lexicalKeys = lexicalHits.map((hit) => hit.id as string);
+  // `match` maps each matched term to the fields it was found in - a hit only on `text` is prose
+  // overlap, which is exactly what a generic fragment like "new project" picks up.
+  const nameLexicalHits = lexicalHits.filter((hit) =>
+    Object.values(hit.match).some((fields) => fields.includes("name")),
+  ).length;
 
   let semanticKeys: string[] = [];
   let topSimilarity = 0;
@@ -257,7 +287,7 @@ export async function search(
   let semantic = true;
   try {
     const embed = await getEmbedder();
-    const ranking = semanticRanking(await embed(task), vectors, docs);
+    const ranking = semanticRanking(await embed(clause), vectors, docs);
     semanticKeys = ranking.map((row) => row.key);
     topSimilarity = ranking[0]?.similarity ?? 0;
     meanSimilarity =
@@ -278,14 +308,92 @@ export async function search(
     !hasResults({
       topSimilarity,
       meanSimilarity,
-      lexicalHits: lexicalKeys.length,
+      lexicalHits: strict ? nameLexicalHits : lexicalKeys.length,
+      margin: strict ? SIMILARITY_MARGIN_STRICT : undefined,
     })
   ) {
-    return { results: [], semantic };
+    return { ranked: [], semantic };
   }
 
   return {
-    results: fuse({ lexicalKeys, semanticKeys, byKey, limit }),
+    ranked: fuse({ lexicalKeys, semanticKeys, byKey, depth, limit: depth }),
     semantic,
   };
+}
+
+/**
+ * Merge each clause's own ranking round-robin: clause 1's best, clause 2's best, clause 3's
+ * best, then each one's second-best, and so on. A straight pool-and-resort by score would let
+ * one clause's shallow tail (a 6th-best security match) outrank another clause's genuine best
+ * (the one real planning skill), because RRF scores are not comparable across independently
+ * embedded clauses. Interleaving guarantees every intent is represented near the top instead of
+ * however its raw score happened to land against the others.
+ */
+export function mergeClauses(rankings: Ranked[][], limit: number): Ranked[] {
+  const merged: Ranked[] = [];
+  const seen = new Set<string>();
+  const depth = Math.max(0, ...rankings.map((r) => r.length));
+
+  for (let i = 0; i < depth && merged.length < limit; i++) {
+    for (const ranking of rankings) {
+      if (merged.length >= limit) break;
+      const candidate = ranking[i];
+      if (!candidate || seen.has(candidate.doc.key)) continue;
+      seen.add(candidate.doc.key);
+      merged.push(candidate);
+    }
+  }
+
+  return merged;
+}
+
+/**
+ * Rank the corpus against a natural-language query.
+ *
+ * A query naming several jobs at once - "planning, CI setup and security" - is several intents,
+ * not one blended one: see `splitClauses`. Each clause is ranked on its own and the results are
+ * interleaved, so a compound query surfaces this catalogue's answer to every clause instead of a
+ * wide, unsorted band of everything vaguely adjacent to any of them.
+ */
+export async function search(
+  query: string,
+  { limit = 8 }: { limit?: number } = {},
+): Promise<SearchOutcome> {
+  const trimmed = query.trim();
+  if (!trimmed) return { results: [], semantic: true };
+
+  const corpusData = corpus();
+
+  // Both passes see the task, not the request. "skill", "tool" and "plugin" are words about the
+  // catalogue rather than about any job in it, so a query that names one - "help me get skills
+  // for planning" - otherwise ranks /writing-skills and the plugin rows above the planning
+  // skills it asked for. `taskOf` already removes them for the embedding; the lexical pass has
+  // the same problem and needs the same input.
+  const task = taskOf(trimmed);
+  const clauses = splitClauses(task);
+
+  // Each clause gets its own top handful before merging, not the full `limit`: interleaving three
+  // clauses' worth of `limit`-deep lists would just recreate the wide union this replaces.
+  const perClauseDepth =
+    clauses.length > 1
+      ? Math.max(4, Math.ceil(limit / clauses.length) + 2)
+      : limit;
+
+  const strict = clauses.length > 1;
+  const clauseRankings = await Promise.all(
+    clauses.map((clause) =>
+      rankClause(clause, corpusData, perClauseDepth, strict),
+    ),
+  );
+
+  const semantic = clauseRankings.every((r) => r.semantic);
+  const results =
+    clauses.length > 1
+      ? mergeClauses(
+          clauseRankings.map((r) => r.ranked),
+          limit,
+        )
+      : (clauseRankings[0]?.ranked ?? []);
+
+  return { results, semantic };
 }
