@@ -172,7 +172,13 @@ export function ToolsCatalogue({
       : `${bySection.length} of 4 sections · nothing in ${droppedLabels.join(", ")}`;
 
   const total = entries.length;
-  const onScreen = visible.length;
+  // Counted from what bySection actually renders, not from `visible` directly, so the
+  // on-screen count can never name a tool that isn't in any of the four sections - mirroring
+  // the invariant CatalogueGrid states for its own onScreen/couldShow split.
+  const onScreen = bySection.reduce(
+    (sum, section) => sum + section.tools.length,
+    0,
+  );
   const anyFilterActive =
     query.length > 0 || pickedStacks.length > 0 || pickedCaps.length > 0;
 
