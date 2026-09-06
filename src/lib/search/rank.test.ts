@@ -7,6 +7,7 @@ import {
   semanticRanking,
   SIMILARITY_FLOOR,
   SIMILARITY_MARGIN,
+  SIMILARITY_MARGIN_STRICT,
 } from "@/lib/search/rank";
 
 function doc(key: string, name = key): SearchDoc {
@@ -151,5 +152,19 @@ describe("hasResults", () => {
     expect(
       hasResults({ topSimilarity: 0, meanSimilarity: 0, lexicalHits: 1 }),
     ).toBe(true);
+  });
+
+  it("accepts a margin between the default and the strict one only under the default", () => {
+    // Framing residue like "new project" clears SIMILARITY_MARGIN but not the strict margin a
+    // clause needs when it has siblings from the same compound query.
+    const middling = {
+      topSimilarity: SIMILARITY_FLOOR + 0.15,
+      meanSimilarity: SIMILARITY_FLOOR,
+      lexicalHits: 0,
+    };
+    expect(hasResults(middling)).toBe(true);
+    expect(hasResults({ ...middling, margin: SIMILARITY_MARGIN_STRICT })).toBe(
+      false,
+    );
   });
 });

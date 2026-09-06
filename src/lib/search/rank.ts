@@ -39,6 +39,19 @@ export const SIMILARITY_FLOOR = 0.3;
 /** How far the best match must sit above the mean similarity across the whole corpus. */
 export const SIMILARITY_MARGIN = 0.1;
 
+/**
+ * The margin a clause needs when it is competing against sibling clauses split out of the same
+ * query (see `splitClauses` in `semantic.ts`).
+ *
+ * A lone query only has to clear the corpus's background noise, so 0.1 is enough. A clause that
+ * is really just framing residue - "new project" left over after stripping "help me get started
+ * with a new project, ..." - clears 0.1 too: at 0.156 measured, it sits closer to a real query's
+ * margin than to nonsense's. It does not, however, clear a margin as wide as an actual intent in
+ * the same query typically does (0.29 for "planning" in that same request) - so a clause with
+ * siblings is held to the stronger of the two.
+ */
+export const SIMILARITY_MARGIN_STRICT = 0.2;
+
 export type Ranked = {
   doc: SearchDoc;
   score: number;
@@ -131,14 +144,16 @@ export function hasResults({
   topSimilarity,
   meanSimilarity,
   lexicalHits,
+  margin = SIMILARITY_MARGIN,
 }: {
   topSimilarity: number;
   meanSimilarity: number;
   lexicalHits: number;
+  margin?: number;
 }): boolean {
   if (lexicalHits > 0) return true;
   return (
     topSimilarity >= SIMILARITY_FLOOR &&
-    topSimilarity - meanSimilarity >= SIMILARITY_MARGIN
+    topSimilarity - meanSimilarity >= margin
   );
 }
