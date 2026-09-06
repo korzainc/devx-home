@@ -12,7 +12,11 @@ export const metadata: Metadata = {
 type Params = Pick<PageProps<"/tools">, "searchParams">;
 
 function parseList(value: string | string[] | undefined): string[] {
-  return typeof value === "string" ? value.split(",") : [];
+  if (typeof value !== "string" || value.length === 0) return [];
+  return value
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
 }
 
 // The promise is awaited here rather than in the page so that everything above it prerenders.

@@ -66,6 +66,58 @@ describe("the tools page", () => {
     });
   });
 
+  it("treats a present but empty param as no selection, not a phantom entry", async () => {
+    // "".split(",") is ["with an empty phantom entry"], not [] - a bare `?stack=` must not be
+    // read as "one picked stack that matches nothing".
+    const page = ToolsPage({
+      searchParams: Promise.resolve({ stack: "", cap: "" }),
+    }) as ReactElement;
+
+    const catalogueElement = findByName(page, "Catalogue")!;
+    const asyncCatalogue = catalogueElement.type as (
+      props: unknown,
+    ) => Promise<ReactElement>;
+    const rendered = await asyncCatalogue(catalogueElement.props);
+
+    expect(rendered.props).toMatchObject({
+      initialStacks: [],
+      initialCapabilities: [],
+    });
+  });
+
+  it("drops empty segments from a trailing or doubled comma", async () => {
+    const page = ToolsPage({
+      searchParams: Promise.resolve({ stack: "go,", cap: "sast,,sca" }),
+    }) as ReactElement;
+
+    const catalogueElement = findByName(page, "Catalogue")!;
+    const asyncCatalogue = catalogueElement.type as (
+      props: unknown,
+    ) => Promise<ReactElement>;
+    const rendered = await asyncCatalogue(catalogueElement.props);
+
+    expect(rendered.props).toMatchObject({
+      initialStacks: ["go"],
+      initialCapabilities: ["sast", "sca"],
+    });
+  });
+
+  it("trims whitespace around a comma-separated param", async () => {
+    const page = ToolsPage({
+      searchParams: Promise.resolve({ stack: "go, docker " }),
+    }) as ReactElement;
+
+    const catalogueElement = findByName(page, "Catalogue")!;
+    const asyncCatalogue = catalogueElement.type as (
+      props: unknown,
+    ) => Promise<ReactElement>;
+    const rendered = await asyncCatalogue(catalogueElement.props);
+
+    expect(rendered.props).toMatchObject({
+      initialStacks: ["go", "docker"],
+    });
+  });
+
   it("renders the fallback catalogue with no initial selection, for the prerendered shell", () => {
     const page = ToolsPage({
       searchParams: Promise.resolve({}),
