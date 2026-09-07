@@ -39,14 +39,9 @@ export function SiteHeader() {
         <nav className="ml-auto hidden items-center gap-5 sm:flex">
           <NavLinks />
           {/* Reading the session queries Postgres, so it stays behind its own boundary and the
-              rest of the header paints without waiting on it.
-
-              A boundary's content is streamed into a hidden div and moved into place by an inline
-              `$RC` call, so a client that runs no script at all never sees it and had no way to
-              reach /login (DX-100). The <noscript> beside it is what those clients get. The
-              fallback stays null deliberately: rendering the signed-out control there would show
-              every signed-in reader "Log in" until the session resolves, measured at 300-1900ms
-              on every page, and a wrong state reads worse than an empty one. */}
+              rest of the header paints without waiting on it. The fallback stays null: the
+              signed-out control there would show every signed-in reader "Log in" for the
+              300-1900ms the session takes. The <noscript> covers them instead (DX-100). */}
           <NoScriptLoginLink />
           <Suspense fallback={null}>
             <AuthControl />
@@ -92,15 +87,9 @@ function LoginLink() {
   );
 }
 
-/**
- * The auth control for a client that executes no script. `$RC` is inline rather than part of the
- * bundle, so a failed or blocked bundle still gets the real control -- this covers only scripts
- * disabled outright, inline script blocked by CSP, and non-executing fetchers.
- *
- * A browser with scripts on parses <noscript> content as text rather than elements, so element
- * children here risk a hydration mismatch. The markup is set directly instead, sharing the href,
- * label and class with `LoginLink` so the two cannot drift. `site-header.test.tsx` pins that.
- */
+// Boundary content is moved into place by an inline `$RC` call, so a client that runs no script
+// never sees it. Set as markup, not elements: a browser with scripts on parses <noscript> as
+// text, which would mismatch on hydration. Shares its constants with `LoginLink`.
 function NoScriptLoginLink() {
   return (
     <noscript

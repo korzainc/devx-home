@@ -19,11 +19,6 @@ export const metadata: Metadata = {
 // Signed out, the token is null and the read goes out anonymously, which GitHub serves for public
 // repositories. So an open source repo needs no account, and the sign-in prompt is kept for the
 // two failures where logging in is the actual remedy rather than a wall in front of everyone.
-//
-// The token is therefore read here and not by the page. DX-100 originally hoisted it so a
-// signed-out reader met the prompt in the shell; since #42 that reader gets a real report instead,
-// and whether the prompt shows at all depends on how the GitHub read fails. That cannot be known
-// before the round trip, so it cannot leave this boundary.
 async function Result({ repo }: { repo: string }) {
   const token = await getGitHubToken();
 
@@ -138,12 +133,8 @@ type Params = Pick<PageProps<"/gap-analysis">, "searchParams">;
 // The home page posts its field here as a plain GET, so arriving with `?repo=` runs the analysis
 // on the server before anything reaches the browser.
 //
-// `searchParams` is awaited in the page body rather than inside a boundary, which costs this route
-// its static shell -- hence `instant = false`, which opts the segment out of the static-shell
-// validation Cache Components runs. The trade is deliberate: a boundary's content is written into
-// a `<div hidden>` and moved into place by an inline `$RC` call, so behind one the repository just
-// typed never reaches a client that runs no script (DX-100). Nothing but the URL is read here, so
-// what TTFB pays is a parse, not a query.
+// `searchParams` is awaited in the page body, not inside a boundary, so the repository reaches the
+// form even without script (DX-100). That costs the static shell, hence `instant = false`.
 export const instant = false;
 
 export default async function GapAnalysisPage({ searchParams }: Params) {
@@ -167,11 +158,8 @@ export default async function GapAnalysisPage({ searchParams }: Params) {
 
       <RepoForm target={target} />
 
-      {/* Only the analysis stays behind a boundary. It is a GitHub round trip and belongs nowhere
-          near TTFB. A client that runs no script does not see the report, and since #42 does not
-          see the sign-in prompt either -- whether that shows depends on how the read fails, which
-          is not knowable before making it. What such a reader gets is the form above, carrying the
-          repository it was asked about. */}
+      {/* Only the analysis stays behind a boundary: it is a GitHub round trip, and which failure
+          it hits decides whether the prompt or a notice follows. */}
       {target ? (
         <Suspense key={target} fallback={<Pending repo={target} />}>
           <Result repo={target} />

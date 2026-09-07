@@ -5,20 +5,9 @@ import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { SiteHeader } from "@/components/site-header";
 
-/**
- * Runs in node rather than jsdom because the subject is the server-rendered document, not the
- * hydrated page. `AuthControl` reads the session and so suspends here, which is the state a
- * client running no script is left in permanently: a boundary's content is streamed into a
- * hidden div and moved into place by an inline `$RC` call that never runs for them.
- *
- * Necessary, not sufficient. This asserts the markup is present and outside the boundary; it
- * cannot assert it is *visible* in a browser with scripts disabled, which needs a real engine.
- * Do not read a pass here as coverage of DX-100's acceptance criteria.
- *
- * Nothing here pins the noscript markup against `LoginLink`: both read the same href, label and
- * class constants, so there is no second copy for a test to catch drifting.
- */
-
+// Node, not jsdom: the subject is the server-rendered document. `AuthControl` suspends here,
+// which is where a client running no script is left permanently. Necessary but not sufficient --
+// presence and position only, never visibility, which needs a real engine.
 const html = () => renderToString(<SiteHeader />);
 
 describe("the header, with the session boundary unresolved", () => {
@@ -29,9 +18,8 @@ describe("the header, with the session boundary unresolved", () => {
   });
 
   it("offers one at each viewport, since the two are mutually exclusive", () => {
-    // The wide nav is `hidden sm:flex` and the narrow menu is `sm:hidden`, so exactly one is
-    // ever on screen and each needs its own copy. Asserting only that some <noscript> exists
-    // let the narrow one be deleted with nothing failing -- found by mutating it away.
+    // `hidden sm:flex` against `sm:hidden`, so each viewport needs its own copy. Asserting only
+    // that some <noscript> exists let the narrow one be deleted with nothing failing.
     const blocks = [
       ...html().matchAll(/<noscript>([\s\S]*?)<\/noscript>/g),
     ].filter(([, inner]) => inner.includes('href="/login"'));
@@ -40,13 +28,12 @@ describe("the header, with the session boundary unresolved", () => {
   });
 
   it("leaves the boundary empty rather than claiming the reader is signed out", () => {
-    // Rendering the signed-out control as the fallback would show every signed-in reader
-    // "Log in" for the length of the session query, measured at 300-1900ms, on every page.
+    // The signed-out control as fallback would show every signed-in reader "Log in" for the
+    // 300-1900ms the session query takes, on every page.
     const markup = html();
     const at = markup.indexOf("<noscript>");
 
-    // Guarded, or an absent <noscript> makes the slice below the whole document and the
-    // assertion stops meaning anything.
+    // Guarded, or an absent <noscript> slices the whole document and asserts nothing.
     expect(at).toBeGreaterThan(-1);
     expect(markup.slice(0, at)).not.toContain('href="/login"');
   });
