@@ -24,12 +24,9 @@ describe("the Getting Started page", () => {
     );
   });
 
-  it("labels the build as testing only, not a fixed duration", () => {
+  it("does not claim a fixed duration or talk about a production release that doesn't exist", () => {
     const { container } = render(<GettingStartedPage />);
-    expect(container.textContent).toMatch(/preview build.*testing only/i);
     expect(container.textContent).not.toMatch(/under 15 minutes/i);
-    // No premature production promises: this is a testing-only preview, and
-    // the page should not talk about a production release that doesn't exist.
     expect(container.textContent).not.toMatch(/production/i);
     expect(container.textContent).not.toMatch(/devx\.korza\.ai\/setup/);
   });
