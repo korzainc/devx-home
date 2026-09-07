@@ -28,6 +28,17 @@ describe("the header, with the session boundary unresolved", () => {
     );
   });
 
+  it("offers one at each viewport, since the two are mutually exclusive", () => {
+    // The wide nav is `hidden sm:flex` and the narrow menu is `sm:hidden`, so exactly one is
+    // ever on screen and each needs its own copy. Asserting only that some <noscript> exists
+    // let the narrow one be deleted with nothing failing -- found by mutating it away.
+    const blocks = [
+      ...html().matchAll(/<noscript>([\s\S]*?)<\/noscript>/g),
+    ].filter(([, inner]) => inner.includes('href="/login"'));
+
+    expect(blocks).toHaveLength(2);
+  });
+
   it("leaves the boundary empty rather than claiming the reader is signed out", () => {
     // Rendering the signed-out control as the fallback would show every signed-in reader
     // "Log in" for the length of the session query, measured at 300-1900ms, on every page.

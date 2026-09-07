@@ -12,11 +12,13 @@ import GapAnalysisPage from "@/app/gap-analysis/page";
 const session = vi.hoisted(() => ({
   throws: false,
   token: null as string | null,
+  reads: 0,
 }));
 
 vi.mock("@/lib/session", () => ({
   getSession: async () => null,
   getGitHubToken: async () => {
+    session.reads++;
     // What a missing DATABASE_URL, or an unreachable auth store, actually does.
     if (session.throws) throw new Error("DATABASE_URL is not set.");
     return session.token;
@@ -66,6 +68,7 @@ vi.mock("@/lib/gap/run", () => ({
 afterEach(() => {
   session.throws = false;
   session.token = null;
+  session.reads = 0;
 });
 
 /**
@@ -141,8 +144,10 @@ function visible(markup: string): string {
   return out;
 }
 
-const page = (repo: string) => (
-  <GapAnalysisPage searchParams={Promise.resolve({ repo })} />
+const page = (repo?: string) => (
+  <GapAnalysisPage
+    searchParams={Promise.resolve(repo === undefined ? {} : { repo })}
+  />
 );
 
 describe("the gap-analysis page, for a client running no script", () => {
@@ -158,6 +163,16 @@ describe("the gap-analysis page, for a client running no script", () => {
     // Scoped to the prompt's own heading. A bare `toContain` for the repository would pass on
     // the form's value attribute alone, with no prompt rendered at all.
     expect(markup).toMatch(/Log in to analyze[^<]*<[^>]*>facebook\/react</);
+  });
+
+  it("renders the bare page without touching the session", async () => {
+    // Arriving with no ?repo= is the common case from the nav. The session read is now in the
+    // page body, so without this guard every such visit would pay for a query it cannot use.
+    const markup = visible(await render(page()));
+
+    expect(markup).toContain('id="repo"');
+    expect(markup).not.toContain("Log in to analyze");
+    expect(session.reads).toBe(0);
   });
 
   it("hands the token to the report for a signed-in reader", async () => {
