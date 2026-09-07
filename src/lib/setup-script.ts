@@ -1,10 +1,21 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 /**
- * The preview installer served at GET /setup.
+ * The installer served at GET /setup. This is devx-cli's own install.sh, vendored under
+ * public/devx/ and re-served verbatim behind one override line, rather than a second,
+ * hand-written implementation of the same download/verify/install logic. Two copies of that
+ * logic meant every future fix (a path bug, a security tightening) had to be remembered twice;
+ * this way there is exactly one script to fix.
  *
- * This is a standalone script for this Vercel preview, not a proxy for devx-cli's own
- * install.sh. It fetches the tarball and checksum from this same deployment's own
- * `/devx/` assets rather than a GitHub release or "latest" lookup, so a reviewer's
- * clean-VM run is pinned to exactly the build this PR shipped.
+ * The override is install.sh's own existing hook (see its own comment: "DEVX_DIST_URL points
+ * the installer at a local tarball, so the whole entry path can be rehearsed before anything is
+ * published") pointed at this deployment's own /devx/ assets, so a preview never reaches for a
+ * GitHub release or "latest". Production drops the override and gets the same script's default
+ * behavior unchanged.
+ *
+ * Keep public/devx/install.sh in sync with devx-cli/install.sh by hand, the same way the
+ * tarball under public/devx/ is kept in sync with a devx-cli build.
  */
 
 /** Bump this alongside the files committed under public/devx/. */
@@ -18,97 +29,29 @@ export function artifactPaths() {
   };
 }
 
-/** The POSIX shell installer, with every download URL pinned to `origin`. */
+function canonicalInstallScript(): string {
+  return readFileSync(
+    join(process.cwd(), "public", "devx", "install.sh"),
+    "utf8",
+  );
+}
+
+/** The canonical devx-cli installer, pinned to this deployment's own artifact via DEVX_DIST_URL. */
 export function setupScript(origin: string): string {
-  const { tarball, checksum } = artifactPaths();
-  const tarballUrl = `${origin}${tarball}`;
-  const checksumUrl = `${origin}${checksum}`;
+  const tarballUrl = `${origin}${artifactPaths().tarball}`;
+  const script = canonicalInstallScript();
+  const [shebang, ...rest] = script.split("\n");
 
-  return `#!/bin/sh
-# devx preview installer (${PREVIEW_ARTIFACT_VERSION}), testing only.
-#
-# Pinned to this Vercel preview's own build, not a GitHub release or "latest":
-#   ${tarballUrl}
-# Ad-hoc signed, not notarized.
-set -eu
+  const override = [
+    "",
+    `# Preview override: this deployment's own build, not a GitHub release or "latest".`,
+    `export DEVX_DIST_URL=${shellQuote(tarballUrl)}`,
+  ];
 
-case "$(uname -s)" in
-  Darwin) ;;
-  *) printf 'devx supports macOS only for now.\\n' >&2; exit 1 ;;
-esac
+  return [shebang, ...override, ...rest].join("\n");
+}
 
-BIN_DIR="\$HOME/.local/bin"
-TMP="\$(mktemp -d)"
-trap 'rm -rf "\$TMP"' EXIT
-
-printf 'Downloading devx (preview build)...\\n'
-if ! curl -fsSL '${tarballUrl}' -o "\$TMP/devx.tar.gz"; then
-  printf '\\nCould not download the preview build.\\n  ${tarballUrl}\\n' >&2
-  exit 1
-fi
-
-if ! curl -fsSL '${checksumUrl}' -o "\$TMP/devx.sha256"; then
-  printf '\\nCould not download the checksum file.\\n  ${checksumUrl}\\n' >&2
-  exit 1
-fi
-
-printf 'Verifying the download...\\n'
-WANT="\$(cut -d' ' -f1 < "\$TMP/devx.sha256")"
-GOT="\$(shasum -a 256 "\$TMP/devx.tar.gz" | cut -d' ' -f1)"
-if [ -z "\$WANT" ] || [ "\$WANT" != "\$GOT" ]; then
-  printf '\\nThe download does not match its published checksum.\\n  expected %s\\n  got      %s\\nNothing was installed.\\n' "\$WANT" "\$GOT" >&2
-  exit 1
-fi
-
-if ! tar -xzf "\$TMP/devx.tar.gz" -C "\$TMP"; then
-  printf '\\nCould not extract the downloaded archive.\\nNothing was installed.\\n' >&2
-  exit 1
-fi
-
-# tar happily creates a symlink named devx, and chmod follows symlinks, so an
-# archive could otherwise change the mode of any file the running user owns.
-if [ -L "\$TMP/devx" ] || [ ! -f "\$TMP/devx" ]; then
-  printf '\\nThe archive did not contain a devx executable.\\nNothing was installed.\\n' >&2
-  exit 1
-fi
-
-chmod 755 "\$TMP/devx"
-
-# Prove the staged binary actually runs before touching anything that exists
-# already: the current \$BIN_DIR/devx, if any, is untouched until this passes.
-if ! "\$TMP/devx" --version >/dev/null 2>&1; then
-  printf '\\nThe downloaded devx could not report its version.\\nNothing was installed.\\n' >&2
-  exit 1
-fi
-
-mkdir -p "\$BIN_DIR"
-if ! mv "\$TMP/devx" "\$BIN_DIR/devx"; then
-  printf '\\nCould not install devx to %s.\\nNothing was changed.\\n' "\$BIN_DIR" >&2
-  exit 1
-fi
-
-printf 'devx installed to %s\\n' "\$BIN_DIR/devx"
-
-# One managed block in ~/.zshrc, clearly marked, so \$BIN_DIR is on PATH. A repeat
-# run replaces the block rather than appending a second one.
-ZSHRC="\$HOME/.zshrc"
-BEGIN='# >>> devx >>>'
-END='# <<< devx <<<'
-touch "\$ZSHRC"
-if grep -qF "\$BEGIN" "\$ZSHRC" 2>/dev/null; then
-  awk -v b="\$BEGIN" -v e="\$END" '
-    \$0==b {skip=1}
-    skip==0 {print}
-    \$0==e {skip=0}
-  ' "\$ZSHRC" > "\$ZSHRC.devx-tmp" && mv "\$ZSHRC.devx-tmp" "\$ZSHRC"
-fi
-{
-  printf '%s\\n' "\$BEGIN"
-  printf 'export PATH="\$HOME/.local/bin:\$PATH"\\n'
-  printf '%s\\n' "\$END"
-} >> "\$ZSHRC"
-
-printf '\\nOpen a new terminal (or run: source ~/.zshrc) so %s stays on PATH next time.\\n\\n' "\$BIN_DIR" >&2
-exec "\$BIN_DIR/devx" setup
-`;
+/** Wraps a value so a POSIX shell reads it as one literal word. */
+function shellQuote(value: string): string {
+  return "'" + value.replaceAll("'", `'\\''`) + "'";
 }

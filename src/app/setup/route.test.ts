@@ -12,14 +12,47 @@ describe("GET /setup", () => {
     expect(body).toMatch(/^#!\/bin\/sh/);
   });
 
+  it("is devx-cli's own install.sh, not a second implementation", async () => {
+    const res = GET(new NextRequest("http://localhost:3000/setup"));
+    const body = await res.text();
+    // Lines lifted straight from the canonical script: its own R1 comment,
+    // its symlink guard, and its codesign fallback. A hand-rolled preview
+    // script would not carry these unless it duplicated them by hand.
+    expect(body).toMatch(/the one paste-able command \(PRD R1\)/);
+    expect(body).toMatch(/tar happily creates a symlink/);
+    expect(body).toMatch(/codesign --force --sign -/);
+  });
+
   it("pins the download URLs to the request's own origin, not a fixed host", async () => {
     const res = GET(
       new NextRequest("https://devx-home-git-pr-39.vercel.app/setup"),
     );
     const body = await res.text();
-    const { tarball, checksum } = artifactPaths();
-    expect(body).toContain(`https://devx-home-git-pr-39.vercel.app${tarball}`);
-    expect(body).toContain(`https://devx-home-git-pr-39.vercel.app${checksum}`);
+    const { tarball } = artifactPaths();
+    expect(body).toContain(
+      `DEVX_DIST_URL='https://devx-home-git-pr-39.vercel.app${tarball}'`,
+    );
+  });
+
+  it("trusts x-forwarded-host/proto over nextUrl behind a reverse proxy", async () => {
+    // Caught via a real ngrok tunnel: request.nextUrl.origin reported
+    // "https://localhost:3000" even with a correct, present
+    // x-forwarded-host/proto pair, since nextUrl reflects the server's own
+    // bind address rather than what a proxy actually forwarded. Vercel's
+    // edge sets the same two headers, so this is the real preview path too.
+    const res = GET(
+      new NextRequest("http://localhost:3000/setup", {
+        headers: {
+          host: "localhost:3000",
+          "x-forwarded-host": "abcd1234.ngrok-free.app",
+          "x-forwarded-proto": "https",
+        },
+      }),
+    );
+    const body = await res.text();
+    const { tarball } = artifactPaths();
+    expect(body).toContain(`https://abcd1234.ngrok-free.app${tarball}`);
+    expect(body).not.toContain("localhost:3000");
   });
 
   it("works the same way for a local dev origin", async () => {
@@ -28,12 +61,22 @@ describe("GET /setup", () => {
     expect(body).toContain("http://localhost:3000/devx/");
   });
 
-  it("never reaches for a GitHub release, a production domain, or 'latest'", async () => {
+  it("sets DEVX_DIST_URL before the script's own latest-release lookup, so preview never reaches it", async () => {
     const res = GET(new NextRequest("http://localhost:3000/setup"));
     const body = await res.text();
-    expect(body).not.toMatch(/github\.com/);
-    expect(body).not.toMatch(/devx\.korza\.ai/);
-    expect(body).not.toMatch(/releases\/latest/);
+    const overrideAt = body.indexOf("export DEVX_DIST_URL=");
+    const lookupAt = body.indexOf("releases/latest");
+    expect(overrideAt).toBeGreaterThan(-1);
+    expect(lookupAt).toBeGreaterThan(-1);
+    expect(overrideAt).toBeLessThan(lookupAt);
+  });
+
+  it("does not point at the production domain", async () => {
+    const res = GET(new NextRequest("http://localhost:3000/setup"));
+    const body = await res.text();
+    // The canonical script's own header comment names the production
+    // command as documentation; DEVX_DIST_URL is what actually runs.
+    expect(body).not.toMatch(/DEVX_DIST_URL=.*devx\.korza\.ai/);
   });
 
   it("verifies the checksum before extracting, and fails loudly on mismatch", async () => {
@@ -53,21 +96,13 @@ describe("GET /setup", () => {
     expect(move).toBeGreaterThan(versionCheck);
   });
 
-  it("manages PATH through one clearly marked ~/.zshrc block", async () => {
-    const res = GET(new NextRequest("http://localhost:3000/setup"));
-    const body = await res.text();
-    expect(body).toContain("# >>> devx >>>");
-    expect(body).toContain("# <<< devx <<<");
-    expect(body).toContain('export PATH="$HOME/.local/bin:$PATH"');
-  });
-
   it("hands off into the wizard, for an actual onboarding review", async () => {
     const res = GET(new NextRequest("http://localhost:3000/setup"));
     const body = await res.text();
     expect(body.trim().endsWith('exec "$BIN_DIR/devx" setup')).toBe(true);
   });
 
-  it("carries no em dashes or en dashes in its own comments", async () => {
+  it("carries no em dashes or en dashes", async () => {
     const res = GET(new NextRequest("http://localhost:3000/setup"));
     const body = await res.text();
     expect(body).not.toMatch(/[–—]/);
