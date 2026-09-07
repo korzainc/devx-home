@@ -5,8 +5,10 @@ import type { Baseline, RepoReader, RepoRef, RepoSnapshot } from "./types";
 // Reads a repo over the API rather than cloning it. A clone needs a writable disk and pulls the
 // whole history for the sake of a dozen files, neither of which suits a serverless function.
 //
-// The token is a parameter on every function here, never read from the environment. Swapping the
-// shared PAT for a per-user OAuth token then changes only the caller.
+// The token is a parameter on every function here, never read from the environment. A null one
+// means send no Authorization header at all, which GitHub answers for public repositories and
+// refuses for everything else. That is what lets a signed-out visitor analyze an open source repo
+// without this file ever holding a credential of its own to fall back on.
 
 const api = "https://api.github.com";
 
@@ -33,16 +35,26 @@ export function parseRepoRef(input: string): RepoRef | null {
   return { provider: "github", owner: match[1], repo: match[2] };
 }
 
-function headers(token: string): HeadersInit {
+function headers(token: string | null): HeadersInit {
   return {
     accept: "application/vnd.github+json",
-    authorization: `Bearer ${token}`,
+    ...(token ? { authorization: `Bearer ${token}` } : {}),
     "x-github-api-version": "2022-11-28",
     "user-agent": "korza-devx-home",
   };
 }
 
-async function request(url: string, token: string, accept?: string) {
+/**
+ * Whether GitHub turned this request down because the hourly quota is spent, as opposed to the
+ * other things it serves a 403 for. Only a spent primary quota reports zero remaining, so a repo
+ * blocked for some other reason, and a secondary limit on request rate, both fall through to the
+ * generic message rather than being reported as an hourly quota that has to wait for a reset.
+ */
+function limitExhausted(response: Response): boolean {
+  return response.headers.get("x-ratelimit-remaining") === "0";
+}
+
+async function request(url: string, token: string | null, accept?: string) {
   const response = await fetch(url, {
     headers: accept
       ? { ...headers(token), accept }
@@ -54,24 +66,41 @@ async function request(url: string, token: string, accept?: string) {
 
   if (response.ok) return response;
 
-  // GitHub returns 404 rather than 403 for a private repo the token cannot reach, so a missing
-  // repo and an unreachable one are indistinguishable and the message has to cover both. Public
-  // repos are readable without an installation; private ones need the App installed on them.
-  const reason =
-    response.status === 404
-      ? "Repository not found, or the Korza DevX app is not installed on it. Ask a korzainc owner to add it to the installation."
-      : response.status === 401
-        ? "GitHub rejected the token. Log in again."
-        : response.status === 403 || response.status === 429
-          ? "GitHub rate limit or access restriction hit. Try again shortly."
-          : `GitHub returned ${response.status}.`;
+  throw new RepoReadError(response.status, reasonFor(response, token));
+}
 
-  throw new RepoReadError(response.status, reason);
+// Every message here is read by whoever typed the repo name, so each one has to be true for the
+// credential that was actually used. The anonymous variants matter most: the quota is 60 requests
+// an hour for the whole deployment's IP, so a signed-out visitor meets a spent limit far sooner
+// than a signed-in one meets theirs, and the remedy is different too.
+function reasonFor(response: Response, token: string | null): string {
+  // GitHub returns 404 rather than 403 for a repo the caller cannot reach, so missing and
+  // unreadable are indistinguishable and the message has to cover both. Anonymously that means
+  // any private repo, which is the common case worth naming first.
+  if (response.status === 404) {
+    return token
+      ? "Repository not found, or the Korza DevX app is not installed on it. Ask a korzainc owner to add it to the installation."
+      : "No public repository by that name. If it is private, log in and it will be read with your own access.";
+  }
+
+  if (response.status === 401)
+    return "GitHub rejected the token. Log in again.";
+
+  if (response.status === 403 || response.status === 429) {
+    if (!limitExhausted(response)) {
+      return "GitHub declined the request. Try again shortly.";
+    }
+    return token
+      ? "You have used up your hourly GitHub API quota. Try again shortly."
+      : "Anonymous reads share one hourly GitHub quota for the whole site, and it is used up. Log in to analyze with your own, which is far larger.";
+  }
+
+  return `GitHub returned ${response.status}.`;
 }
 
 async function fetchDefaultBranch(
   ref: RepoRef,
-  token: string,
+  token: string | null,
 ): Promise<string> {
   const response = await request(
     `${api}/repos/${ref.owner}/${ref.repo}`,
@@ -87,7 +116,7 @@ async function fetchDefaultBranch(
 async function fetchPaths(
   ref: RepoRef,
   branch: string,
-  token: string,
+  token: string | null,
 ): Promise<string[]> {
   const response = await request(
     `${api}/repos/${ref.owner}/${ref.repo}/git/trees/${encodeURIComponent(branch)}?recursive=1`,
@@ -105,7 +134,7 @@ async function fetchFile(
   ref: RepoRef,
   branch: string,
   path: string,
-  token: string,
+  token: string | null,
 ): Promise<string> {
   const response = await request(
     `${api}/repos/${ref.owner}/${ref.repo}/contents/${path
@@ -124,7 +153,7 @@ async function fetchFile(
  */
 export async function loadSnapshot(
   ref: RepoRef,
-  token: string,
+  token: string | null,
   baseline: Baseline,
 ): Promise<RepoSnapshot> {
   const defaultBranch = await fetchDefaultBranch(ref, token);

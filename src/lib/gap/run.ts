@@ -31,10 +31,14 @@ function statusFor(error: RepoReadError) {
 /**
  * One parse, read and diff, shared by the page that renders a report and the route that returns
  * one as JSON. The token stays an argument: nothing in this directory reads the environment.
+ *
+ * A null token reads anonymously, so public repositories work with nobody signed in. Deciding
+ * what to offer someone whose anonymous read failed is the caller's job, not this function's: it
+ * reports the status and the reason, and the page turns 404 and 429 into a sign-in prompt.
  */
 export async function runAnalysis(
   repo: string,
-  token: string,
+  token: string | null,
   catalogue: { tools: AnalysisTool[]; baseline: Baseline },
 ): Promise<RunResult> {
   const resolved = resolve(repo);

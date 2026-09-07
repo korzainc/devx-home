@@ -86,9 +86,11 @@ export class CatalogueDataError extends Error {
 export type RepoReader = {
   /** Null when the input does not address this provider, which is how `run` picks a reader. */
   parseRef(input: string): RepoRef | null;
+  /** A null token reads anonymously. Every provider is expected to treat that as "public
+   * repositories only", never as a reason to substitute a credential of its own. */
   loadSnapshot(
     ref: RepoRef,
-    token: string,
+    token: string | null,
     baseline: Baseline,
   ): Promise<RepoSnapshot>;
 };
