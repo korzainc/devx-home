@@ -163,6 +163,11 @@ describe("the gap-analysis page, for a client running no script", () => {
     // Scoped to the prompt's own heading. A bare `toContain` for the repository would pass on
     // the form's value attribute alone, with no prompt rendered at all.
     expect(markup).toMatch(/Log in to analyze[^<]*<[^>]*>facebook\/react</);
+
+    // And the report boundary must not open at all. Without the token guard it does, so a
+    // signed-out reader gets an error notice next to the prompt inviting them to sign in.
+    // Found by mutation; `Pending` is what that boundary puts in the shell.
+    expect(markup).not.toContain("Reading");
   });
 
   it("renders the bare page without touching the session", async () => {
