@@ -30,11 +30,14 @@ function contrast(a: string, b: string) {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-// Every token the app renders as normal-sized text on the accent wash. --accent and
-// --accent-strong are the same hex today, so covering only one of them would pass on the
-// other's behalf and stop catching a change to either.
+// Every token the app renders as text on the accent wash, --ink-faint included: the filter
+// chip's dismiss glyph (catalogue-grid.tsx) is aria-hidden and the button carries its own
+// label, but it is still the visible affordance and clears AA by only 0.11.
+//
+// --accent and --accent-strong are the same hex today, so covering only one of them would
+// pass on the other's behalf and stop catching a change to either.
 describe("the accent wash", () => {
-  it.each(["accent", "accent-strong", "ink-muted", "ink"])(
+  it.each(["accent", "accent-strong", "ink-muted", "ink", "ink-faint"])(
     "clears AA for %s",
     (name) => {
       expect(
