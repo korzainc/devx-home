@@ -402,4 +402,39 @@ describe("the tools catalogue", () => {
 
     expect(replace).toHaveBeenLastCalledWith("/tools", { scroll: false });
   });
+
+  it("shows a visible Stack label, not just an accessible name on the group", () => {
+    renderPage();
+    // Distinct from the group's own accessible name (asserted elsewhere via getByRole("group",
+    // { name: "Stack" })) - this confirms real, visible text renders for sighted users too, not
+    // only an aria-label a screen reader would announce.
+    const label = screen.getByText("Stack");
+    expect(label.tagName).toBe("SPAN");
+    // The group's accessible name comes from this exact element via aria-labelledby, so the two
+    // can never drift out of sync the way a separate aria-label string could.
+    expect(
+      screen
+        .getByRole("group", { name: "Stack" })
+        .getAttribute("aria-labelledby"),
+    ).toBe(label.id);
+  });
+
+  it("orders a section's heading row as label, then note, then count", () => {
+    renderPage();
+    const heading = screen.getByRole("heading", { name: "Code Quality" });
+    const row = heading.parentElement!;
+    const children = [...row.children];
+
+    expect(children[0]).toBe(heading);
+    const codeQuality = visibleTools.filter(
+      (tool) => tool.category === "Code Quality",
+    );
+    // The note is whatever's rendered between the heading and the trailing count - checked by
+    // position, not by asserting the exact marketing copy, so this doesn't churn every time the
+    // copy is edited.
+    expect(children[1]?.textContent).not.toBe("");
+    expect(children[children.length - 1]?.textContent).toBe(
+      String(codeQuality.length),
+    );
+  });
 });
