@@ -24,17 +24,26 @@ function statusFor(error: RepoReadError) {
   // The token is now the caller's own, so a rejected one means their grant has lapsed rather
   // than the deployment being misconfigured.
   if (error.status === 401) return 401;
-  if (error.status === 403 || error.status === 429) return 429;
+  // Only a reader's own 429 counts as a rate limit. A 403 is deliberately not folded in here:
+  // GitHub declines requests with one for reasons that have nothing to do with quota, and the
+  // reader has already decided which is which from the remaining-quota header. Treating 403 as a
+  // limit here meant a blocked repo reached the page as 429 and was answered with a login prompt
+  // reading "GitHub declined the request. Try again shortly."
+  if (error.status === 429) return 429;
   return 502;
 }
 
 /**
  * One parse, read and diff, shared by the page that renders a report and the route that returns
  * one as JSON. The token stays an argument: nothing in this directory reads the environment.
+ *
+ * A null token reads anonymously, so public repositories work with nobody signed in. Deciding
+ * what to offer someone whose anonymous read failed is the caller's job, not this function's: it
+ * reports the status and the reason, and the page turns 404 and 429 into a sign-in prompt.
  */
 export async function runAnalysis(
   repo: string,
-  token: string,
+  token: string | null,
   catalogue: { tools: AnalysisTool[]; baseline: Baseline },
 ): Promise<RunResult> {
   const resolved = resolve(repo);
