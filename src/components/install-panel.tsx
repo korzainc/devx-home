@@ -32,7 +32,7 @@ export function CommandField({
         {label}
       </span>
       <div className="flex items-center gap-2 rounded-lg border border-line bg-canvas py-2.5 pr-2 pl-4">
-        <code className="flex-1 overflow-x-auto font-mono text-sm whitespace-nowrap text-ink select-all">
+        <code className="min-w-0 flex-1 overflow-x-auto font-mono text-sm whitespace-nowrap text-ink select-all">
           {value}
         </code>
         <button

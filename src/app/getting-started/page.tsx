@@ -189,17 +189,25 @@ export default function GettingStartedPage() {
         <h2 className="font-display text-2xl font-semibold tracking-tight">
           Questions
         </h2>
-        <dl className="flex flex-col pt-2">
+        {/* Same closed-by-default disclosure as the manual steps above, so seven
+            answers do not outweigh the one command this page leads with. */}
+        <div className="flex max-w-3xl flex-col pt-2">
           {faq.map((entry) => (
-            <div
+            <details
               key={entry.q}
-              className="flex max-w-3xl flex-col gap-1 border-b border-dashed border-line py-4 last:border-b-0"
+              className="group border-b border-dashed border-line py-3 last:border-b-0"
             >
-              <dt className="font-medium text-ink">{entry.q}</dt>
-              <dd className="text-sm text-ink-muted">{entry.a}</dd>
-            </div>
+              <summary className="flex cursor-pointer list-none items-center gap-3 text-ink [&::-webkit-details-marker]:hidden">
+                <span aria-hidden className="font-mono text-accent">
+                  <span className="group-open:hidden">+</span>
+                  <span className="hidden group-open:inline">−</span>
+                </span>
+                {entry.q}
+              </summary>
+              <p className="pt-2 pl-6 text-sm text-ink-muted">{entry.a}</p>
+            </details>
           ))}
-        </dl>
+        </div>
       </section>
     </div>
   );

@@ -34,10 +34,16 @@ export const manualTools: { tool: string; why: string }[] = [
   { tool: "git", why: "name and email, from your GitHub account" },
   { tool: "gh", why: "user-space install, sign in over HTTPS" },
   {
+    tool: "SSH access",
+    why: "creates or reuses a key, asks before each step",
+  },
+  {
     tool: "claude",
     why: "sign in, then the Korza marketplace (four plugins)",
   },
   { tool: "homebrew", why: "optional, nothing above needs it" },
+  { tool: "Python (uv)", why: "optional, a uv-managed Python" },
+  { tool: "Node (fnm)", why: "optional, an fnm-managed Node LTS" },
 ];
 
 /** The commands themselves, one disclosure per tool. Closed by default. */
@@ -68,6 +74,15 @@ export const manualCommands: {
     note: "HTTPS, not SSH: everything devx installs clones over HTTPS, so an SSH key would authorize git@github.com without unlocking anything here. Install gh itself from https://github.com/cli/cli#installation, whichever way you prefer, Homebrew included.",
   },
   {
+    title: "SSH access",
+    commands: [
+      "ssh-keygen -t ed25519 -C \"you@korza.ai\"",
+      'gh ssh-key add ~/.ssh/id_ed25519.pub --title "$(hostname)"',
+      "ssh -T git@github.com",
+    ],
+    note: "Only needed if you use git over SSH rather than the HTTPS setup above; the two are independent. Reuse an existing key instead of the first command if you already have one. The last command should print a fingerprint prompt the first time, then \"successfully authenticated\".",
+  },
+  {
     title: "Claude Code, and the Korza marketplace",
     commands: [
       "claude plugin marketplace add korzainc/marketplace",
@@ -84,6 +99,20 @@ export const manualCommands: {
       '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"',
     ],
     note: "Optional. Nothing above needs it, devx installs everything into your own user space.",
+  },
+  {
+    title: "Python, via uv",
+    commands: ["curl -LsSf https://astral.sh/uv/install.sh | sh", "uv python install"],
+    note: "Optional. A system or pyenv Python does not count here: this is specifically a uv-managed one, since that is what devx installs and verifies.",
+  },
+  {
+    title: "Node, via fnm",
+    commands: [
+      "curl -fsSL https://fnm.vercel.app/install | bash",
+      "fnm install --lts",
+      "fnm default lts-latest",
+    ],
+    note: "Optional. Same reasoning as Python: nvm or a system Node does not make this row true, since it is specifically an fnm-managed Node LTS.",
   },
 ];
 
@@ -105,6 +134,10 @@ export const faq: { q: string; a: string }[] = [
     a: "Not always. Some blockers are access, not software, for example not yet being in the Korza GitHub org. Ask in #devx rather than retrying.",
   },
   {
+    q: "Something is broken, or the CLI does not do this yet.",
+    a: "Post in #devx. That is the DevX team's support channel for exactly this: a broken step, a missing tool, a question about the setup itself.",
+  },
+  {
     q: "I already have some of these tools installed.",
     a: "They are skipped by default. Reinstalling one is an explicit choice, not automatic.",
   },
@@ -114,6 +147,6 @@ export const faq: { q: string; a: string }[] = [
   },
   {
     q: "When am I actually done?",
-    a: "Not when six tools show a checkmark. You are done when you can finish the first real task, for example installing the Korza Marketplace plugins.",
+    a: "Not when every tool shows a checkmark. You are done when you can finish the first real task, for example installing the Korza Marketplace plugins.",
   },
 ];

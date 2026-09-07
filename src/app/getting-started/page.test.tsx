@@ -43,6 +43,21 @@ describe("the Getting Started page", () => {
     expect(container.textContent).not.toMatch(/[–—]/);
   });
 
+  it("covers every tool the CLI's catalogue installs, not just the first five", () => {
+    // Regression: the manual path used to stop at git/gh/claude/homebrew and
+    // silently omit SSH access, Python (uv), and Node (fnm), even though the
+    // CLI catalogue has installed all three since before this page existed.
+    render(<GettingStartedPage />);
+    expect(screen.getAllByText(/ssh access/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/python \(uv\)/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/node \(fnm\)/i).length).toBeGreaterThan(0);
+  });
+
+  it("points questions about a broken step or missing tool at #devx", () => {
+    render(<GettingStartedPage />);
+    expect(screen.getAllByText(/#devx/).length).toBeGreaterThan(0);
+  });
+
   it("does not carry Docker in the default manual flow", () => {
     render(<GettingStartedPage />);
     expect(manualTools.some((entry) => /docker/i.test(entry.tool))).toBe(false);
@@ -54,8 +69,21 @@ describe("the Getting Started page", () => {
 
   it("keeps the manual commands closed, so the page still leads with one command", () => {
     const { container } = render(<GettingStartedPage />);
-    const disclosures = container.querySelectorAll("details");
+    const disclosures = [...container.querySelectorAll("details")].filter(
+      (node) => !node.closest("#questions"),
+    );
     expect(disclosures).toHaveLength(manualCommands.length);
+    for (const disclosure of disclosures) {
+      expect(disclosure.open).toBe(false);
+    }
+  });
+
+  it("keeps every question closed by default", () => {
+    const { container } = render(<GettingStartedPage />);
+    const disclosures = [...container.querySelectorAll("details")].filter(
+      (node) => node.closest("#questions"),
+    );
+    expect(disclosures).toHaveLength(faq.length);
     for (const disclosure of disclosures) {
       expect(disclosure.open).toBe(false);
     }
