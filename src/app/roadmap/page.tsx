@@ -36,12 +36,7 @@ export default function RoadmapPage() {
 
   return (
     <div className="flex flex-col gap-10">
-      {/* Same accent bloom the home page sections and the updates header open with. */}
-      <header className="relative isolate flex max-w-2xl flex-col gap-3">
-        <span
-          aria-hidden
-          className="absolute -top-10 -left-12 -z-10 h-36 w-96 rounded-full bg-accent/20 blur-3xl"
-        />
+      <header className="flex max-w-2xl flex-col gap-3">
         <h1 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
           Roadmap
         </h1>

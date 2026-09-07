@@ -45,7 +45,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="flex min-h-full flex-col bg-canvas font-sans text-ink">
         <SiteHeader />
-        <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-12">
+        <main className="relative isolate mx-auto w-full max-w-6xl flex-1 px-6 py-12">
+          {/* Accent bloom behind whatever heading a page opens with. `isolate` keeps the
+              negative z-index above the page background instead of behind it, and confines
+              page content to this stacking context so the sticky header always wins. */}
+          <span
+            aria-hidden
+            className="absolute top-2 -left-6 -z-10 h-36 w-96 rounded-full bg-accent/20 blur-3xl"
+          />
           {children}
         </main>
         <footer className="border-t border-line">

@@ -161,19 +161,12 @@ export function ToolsCatalogue({
     );
   }, [entries, pickedCaps, query, pickedStacks]);
 
+  // Every section renders whether or not it matched, so a filtered view keeps the same four
+  // headings in the same order and says so per section instead of dropping one silently.
   const bySection = SECTIONS.map((section) => ({
     ...section,
     tools: visible.filter((entry) => entry.category === section.category),
-  })).filter((section) => section.tools.length > 0);
-
-  const droppedLabels = SECTIONS.filter(
-    (section) => !bySection.some((s) => s.label === section.label),
-  ).map((section) => section.label);
-
-  const summary =
-    droppedLabels.length === 0
-      ? "All four sections have matches"
-      : `${bySection.length} of ${SECTIONS.length} sections · nothing in ${droppedLabels.join(", ")}`;
+  }));
 
   const total = entries.length;
   // Counted from what bySection actually renders, not from `visible` directly, so the
@@ -183,14 +176,9 @@ export function ToolsCatalogue({
     (sum, section) => sum + section.tools.length,
     0,
   );
-  const anyFilterActive =
-    query.length > 0 || pickedStacks.length > 0 || pickedCaps.length > 0;
-
   // The visible count updates every keystroke; the announcement waits for typing to settle, so
-  // a screen reader isn't read a new number and section summary on every keystroke.
-  const announced = useDebouncedValue(
-    `${onScreen} of ${total} tools shown. ${summary}`,
-  );
+  // a screen reader isn't read a new number on every keystroke.
+  const announced = useDebouncedValue(`${onScreen} of ${total} tools shown.`);
 
   function toggleStack(value: string) {
     setPickedStacks((previous) =>
@@ -206,12 +194,6 @@ export function ToolsCatalogue({
         ? previous.filter((entry) => entry !== value)
         : [...previous, value],
     );
-  }
-
-  function clearAll() {
-    setQuery("");
-    setPickedStacks([]);
-    setPickedCaps([]);
   }
 
   return (
@@ -334,113 +316,46 @@ export function ToolsCatalogue({
         </div>
       </div>
 
-      {anyFilterActive && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          {query && (
-            <button
-              type="button"
-              aria-label={`Remove search filter: ${query}`}
-              onClick={(event) => {
-                setQuery("");
-                // Keyboard only: a text input always matches :focus-visible, so
-                // doing this on a mouse click paints an accent ring on the field.
-                if (event.detail === 0) searchRef.current?.focus();
-              }}
-              className="flex items-center gap-1.5 rounded-full border border-line-strong bg-accent-wash px-3 py-1 text-xs text-ink transition-colors hover:border-line"
-            >
-              {query}
-              <span aria-hidden className="text-ink-faint">
-                ✕
-              </span>
-            </button>
-          )}
-          {pickedCaps.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              {pickedCaps.map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  aria-label={`Remove Capability filter: ${value}`}
-                  onClick={(event) => {
-                    toggleCap(value);
-                    if (event.detail === 0) searchRef.current?.focus();
-                  }}
-                  className="flex items-center gap-1.5 rounded-full border border-line-strong bg-accent-wash px-3 py-1 text-xs text-ink transition-colors hover:border-line"
-                >
-                  {value}
-                  <span aria-hidden className="text-ink-faint">
-                    ✕
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-          {pickedStacks.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              {pickedStacks.map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  aria-label={`Remove Stack filter: ${value}`}
-                  onClick={(event) => {
-                    toggleStack(value);
-                    if (event.detail === 0) searchRef.current?.focus();
-                  }}
-                  className="flex items-center gap-1.5 rounded-full border border-line-strong bg-accent-wash px-3 py-1 text-xs text-ink transition-colors hover:border-line"
-                >
-                  {value}
-                  <span aria-hidden className="text-ink-faint">
-                    ✕
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-          <span className="text-sm text-ink-muted">{summary}</span>
-          <button
-            type="button"
-            onClick={clearAll}
-            className="text-sm text-accent hover:underline"
-          >
-            Clear all
-          </button>
-        </div>
-      )}
-
-      {bySection.map((section) => (
-        <section key={section.label} className="flex flex-col gap-4">
-          <div className="flex items-baseline gap-x-3 border-b border-line pb-2">
-            <h2 className="shrink-0 font-display text-xl font-semibold text-ink">
-              {section.label}
-            </h2>
-            {/* Truncates instead of wrapping: the row stays one line and the count stays
-                pinned at the far right regardless of how long a section's note is - Security's
-                is noticeably longer than the other three. */}
-            <span
-              title={section.note}
-              className="min-w-0 flex-1 truncate text-xs text-ink-faint"
-            >
-              {section.note}
-            </span>
-            <span className="shrink-0 font-mono text-xs text-ink-faint">
-              {section.tools.length}
-            </span>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {section.tools.map((tool) => (
-              // Anchor target for gap-analysis links. Resolves in the unfiltered state.
-              <div key={tool.id} id={tool.id} className="scroll-mt-24">
-                <ToolCard tool={tool} />
-              </div>
-            ))}
-          </div>
-        </section>
-      ))}
-
-      {bySection.length === 0 && (
+      {onScreen === 0 ? (
         <p className="rounded-xl border border-dashed border-line px-6 py-16 text-center text-sm text-ink-muted">
           No tool matches those filters.
         </p>
+      ) : (
+        bySection.map((section) => (
+          <section key={section.label} className="flex flex-col gap-4">
+            <div className="flex items-baseline gap-x-3 border-b border-line pb-2">
+              <h2 className="shrink-0 font-display text-xl font-semibold text-ink">
+                {section.label}
+              </h2>
+              {/* Truncates instead of wrapping: the row stays one line and the count stays
+                  pinned at the far right regardless of how long a section's note is - Security's
+                  is noticeably longer than the other three. */}
+              <span
+                title={section.note}
+                className="min-w-0 flex-1 truncate text-xs text-ink-faint"
+              >
+                {section.note}
+              </span>
+              <span className="shrink-0 font-mono text-xs text-ink-faint">
+                {section.tools.length}
+              </span>
+            </div>
+            {section.tools.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-line px-6 py-8 text-center text-sm text-ink-muted">
+                Nothing in {section.label} matches those filters.
+              </p>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {section.tools.map((tool) => (
+                  // Anchor target for gap-analysis links. Resolves in the unfiltered state.
+                  <div key={tool.id} id={tool.id} className="scroll-mt-24">
+                    <ToolCard tool={tool} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        ))
       )}
     </div>
   );

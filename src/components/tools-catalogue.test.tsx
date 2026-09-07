@@ -66,7 +66,7 @@ function toggleStack(name: string) {
 
 /** Values live inside a closed menu, so reaching one means opening its facet first. */
 function pick(facet: string, value: string) {
-  // A chip for the same facet is named "Remove Category filter: …", so it cannot collide.
+  // Anchored: the trigger's own text carries a selection count and an arrow after the label.
   const trigger = screen.getByRole("button", {
     name: new RegExp(`^${escape(facet)}`),
   });
@@ -148,51 +148,51 @@ describe("the tools catalogue", () => {
     expect(card("biome")).toBeTruthy();
   });
 
-  it("removes a section entirely once nothing in it matches", () => {
+  it("keeps a section with no matches, showing an empty state under its heading", () => {
     renderPage();
     // eslint/biome are the only two tools "ESLint" matches, and both are Code Quality - see
     // Step 0's verification against the real catalogue.
     search("ESLint");
-    expect(screen.queryByRole("heading", { name: "Testing" })).toBeNull();
-    expect(screen.queryByRole("heading", { name: "Security" })).toBeNull();
+
+    // All four headings survive the filter, in the order SECTIONS declares them.
+    for (const label of [
+      "Code Quality",
+      "Testing",
+      "Security",
+      "Staying Current",
+    ]) {
+      expect(screen.getByRole("heading", { name: label })).toBeTruthy();
+    }
+
+    for (const label of ["Testing", "Security", "Staying Current"]) {
+      expect(
+        screen.getByText(`Nothing in ${label} matches those filters.`),
+      ).toBeTruthy();
+    }
+    // The section that did match shows cards, not an empty state.
     expect(
-      screen.queryByRole("heading", { name: "Staying Current" }),
+      screen.queryByText("Nothing in Code Quality matches those filters."),
     ).toBeNull();
-    expect(
-      screen.queryByRole("heading", { name: "Code Quality" }),
-    ).toBeTruthy();
+    expect(cardCount()).toBe(2);
   });
 
-  it("shows a summary line naming the dropped sections", () => {
+  it("shows no per-section empty state when every section matches", () => {
     renderPage();
-    search("ESLint");
-    // Only Code Quality has matches, so 3 of 4 sections are dropped, not 1 - the summary counts
-    // sections WITH matches ("N of 4 sections").
-    expect(screen.getByText(/1 of 4 sections/)).toBeTruthy();
-    expect(screen.getByText(/Testing/)).toBeTruthy();
-    expect(screen.getByText(/Security/)).toBeTruthy();
-    expect(screen.getByText(/Staying Current/)).toBeTruthy();
+    // Every section has at least one tool by construction (all 19 visible tools are distributed
+    // across exactly these 4 categories today), so this holds with zero setup.
+    expect(screen.queryByText(/matches those filters\./)).toBeNull();
   });
 
-  it("says all four sections match when nothing dropped", () => {
-    renderPage();
-    // No filter active at all - every section has at least one tool by construction (all 19
-    // visible tools are distributed across exactly these 4 categories today), so this holds
-    // with zero setup. The summary line only renders when a filter is active.
-    expect(screen.queryByText("All four sections have matches")).toBeNull();
-
-    // Re-assert the positive case under a real filter that still hits all four sections:
-    // picking "go" leaves golangci-lint (Code Quality) and go-test (Testing) directly, while
-    // the 5 universal tools (always shown regardless of the stack picked) cover Security and
-    // Staying Current - verified against the real catalogue in Step 0.
-    toggleStack("go");
-    expect(screen.getByText("All four sections have matches")).toBeTruthy();
-  });
-
-  it("names the rows in the empty state", () => {
+  it("shows one message rather than four empty sections when nothing matches at all", () => {
     renderPage();
     search("zzzznotathing");
     expect(screen.getByText("No tool matches those filters.")).toBeTruthy();
+    // Zero matches everywhere drops the headings too, so the page isn't four empty sections
+    // stacked above each other.
+    expect(screen.queryByRole("heading", { name: "Code Quality" })).toBeNull();
+    expect(
+      screen.queryByText(/Nothing in .* matches those filters\./),
+    ).toBeNull();
   });
 
   it("doesn't let the / shortcut steal focus from an open facet menu", () => {
@@ -274,26 +274,26 @@ describe("the tools catalogue", () => {
     expect(document.activeElement).not.toBe(searchInput);
   });
 
-  it("announces the settled count and section summary for assistive tech, debounced", () => {
+  it("announces the settled count for assistive tech, debounced", () => {
     vi.useFakeTimers();
     try {
       renderPage();
       const status = () => screen.getByRole("status");
       expect(status().textContent).toBe(
-        `${visibleTools.length} of ${visibleTools.length} tools shown. All four sections have matches`,
+        `${visibleTools.length} of ${visibleTools.length} tools shown.`,
       );
 
       search("zzzznotathing");
       // The debounce hasn't fired yet - still announcing the pre-search count.
       expect(status().textContent).toBe(
-        `${visibleTools.length} of ${visibleTools.length} tools shown. All four sections have matches`,
+        `${visibleTools.length} of ${visibleTools.length} tools shown.`,
       );
 
       act(() => {
         vi.advanceTimersByTime(500);
       });
       expect(status().textContent).toBe(
-        `0 of ${visibleTools.length} tools shown. 0 of 4 sections · nothing in Code Quality, Testing, Security, Staying Current`,
+        `0 of ${visibleTools.length} tools shown.`,
       );
     } finally {
       // In a `finally` so a failed assertion above can't leak fake timers into later tests.
@@ -318,27 +318,6 @@ describe("the tools catalogue", () => {
     expect(cardCount()).toBe(matching.length);
   });
 
-  it("resets search, stack, and capability together on Clear all", () => {
-    renderPage();
-    // Both eslint and biome (the "eslint" query's two matches) carry the "javascript" stack, so
-    // this combination still leaves cards on screen rather than intersecting down to zero.
-    search("eslint");
-    toggleStack("javascript");
-    expect(cardCount()).toBe(2);
-
-    fireEvent.click(screen.getByRole("button", { name: "Clear all" }));
-
-    expect(
-      (screen.getByLabelText("Filter tools") as HTMLInputElement).value,
-    ).toBe("");
-    expect(
-      screen
-        .getByRole("button", { name: "javascript" })
-        .getAttribute("aria-pressed"),
-    ).toBe("false");
-    expect(cardCount()).toBe(visibleTools.length);
-  });
-
   it("seeds Stack and Capability from the initial props", () => {
     const capability = visibleTools[0].capabilities[0];
     renderWithInitial({ stacks: ["go"], capabilities: [capability] });
@@ -346,32 +325,27 @@ describe("the tools catalogue", () => {
     expect(
       screen.getByRole("button", { name: "go" }).getAttribute("aria-pressed"),
     ).toBe("true");
-    // The active-filter chip is the observable proof the capability was actually picked, not
-    // just passed through as an unused prop.
-    expect(
-      screen.getByRole("button", {
-        name: `Remove Capability filter: ${capability}`,
-      }),
-    ).toBeTruthy();
+    // The ticked box inside the menu is the observable proof the capability was actually
+    // picked, not just passed through as an unused prop.
+    fireEvent.click(screen.getByRole("button", { name: /^Capability/ }));
+    const option = screen.getByRole("checkbox", {
+      name: new RegExp(`^${escape(capability)}, \\d`),
+    }) as HTMLInputElement;
+    expect(option.checked).toBe(true);
   });
 
-  it("shows a picked stack as a removable chip, and removing it un-picks and un-presses it", () => {
+  it("un-presses a stack chip when it is toggled back off", () => {
     renderPage();
     toggleStack("go");
-
-    const chip = screen.getByRole("button", {
-      name: "Remove Stack filter: go",
-    });
-    expect(chip).toBeTruthy();
-
-    fireEvent.click(chip);
-
     expect(
-      screen.queryByRole("button", { name: "Remove Stack filter: go" }),
-    ).toBeNull();
+      screen.getByRole("button", { name: "go" }).getAttribute("aria-pressed"),
+    ).toBe("true");
+
+    toggleStack("go");
     expect(
       screen.getByRole("button", { name: "go" }).getAttribute("aria-pressed"),
     ).toBe("false");
+    expect(cardCount()).toBe(visibleTools.length);
   });
 
   it("updates the URL when a stack chip is toggled, but not on initial mount", () => {
