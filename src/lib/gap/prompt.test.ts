@@ -502,12 +502,18 @@ describe("buildFixPrompt", () => {
       requiredGapCount: 1,
     });
 
-    expect(buildFixPrompt(analysis, { includeOptional: false })).toContain(
+    const requiredOnly = buildFixPrompt(analysis, { includeOptional: false });
+    expect(requiredOnly).toContain(
       "Score: 0 of 1 recommended checks are running.",
     );
-    expect(buildFixPrompt(analysis, { includeOptional: true })).toContain(
-      "Score: 1 of 2 recommended checks are running.",
-    );
+    // The "already running" table is scoped too: an optional, satisfied capability (Coverage via
+    // Codecov) has no business appearing under a score line that just narrowed itself to required
+    // checks only.
+    expect(requiredOnly).not.toContain("Codecov");
+
+    const all = buildFixPrompt(analysis, { includeOptional: true });
+    expect(all).toContain("Score: 1 of 2 recommended checks are running.");
+    expect(all).toContain("Codecov");
   });
 
   it("reads its missing-checks fallback as required-only when every required capability is satisfied but an optional one is not", () => {
