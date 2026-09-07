@@ -11,6 +11,9 @@ const empty: Analysis = {
   satisfiedCount: 0,
   partialCount: 0,
   gapCount: 0,
+  requiredSatisfiedCount: 0,
+  requiredPartialCount: 0,
+  requiredGapCount: 0,
 };
 
 function withGap(overrides: Partial<Analysis> = {}): Analysis {
@@ -32,6 +35,7 @@ function withGap(overrides: Partial<Analysis> = {}): Analysis {
           {
             id: "secret-scanning",
             label: "Secret scanning",
+            required: true,
             satisfied: false,
             present: [],
             recommended: [
@@ -42,6 +46,7 @@ function withGap(overrides: Partial<Analysis> = {}): Analysis {
       },
     ],
     gapCount: 1,
+    requiredGapCount: 1,
     ...overrides,
   };
 }
@@ -59,7 +64,7 @@ function hasEmptyTable(prompt: string): boolean {
 
 describe("buildFixPrompt", () => {
   it("emits no table when the report found nothing at all", () => {
-    const prompt = buildFixPrompt(empty);
+    const prompt = buildFixPrompt(empty, { includeOptional: true });
 
     expect(hasEmptyTable(prompt)).toBe(false);
     expect(prompt).toContain(
@@ -69,16 +74,16 @@ describe("buildFixPrompt", () => {
   });
 
   it("says so rather than listing nothing when no file was worth reading", () => {
-    expect(buildFixPrompt(empty)).toContain(
+    expect(buildFixPrompt(empty, { includeOptional: true })).toContain(
       "It found no manifest and no CI config",
     );
-    expect(buildFixPrompt(empty)).toContain(
+    expect(buildFixPrompt(empty, { includeOptional: true })).toContain(
       "no manifest was recognised at the repo root",
     );
   });
 
   it("numbers the gaps and names the tools the catalogue suggests", () => {
-    const prompt = buildFixPrompt(withGap());
+    const prompt = buildFixPrompt(withGap(), { includeOptional: true });
 
     expect(prompt).toContain("| 1 | Secret scanning | Security | Gitleaks |");
     expect(prompt).toContain("# Fix the CI pipeline in korzainc/bare");
@@ -91,7 +96,9 @@ describe("buildFixPrompt", () => {
       { id: "kingfisher", name: "Kingfisher", stackLabels: [] },
       { id: "gitleaks", name: "Gitleaks", stackLabels: [] },
     ];
-    expect(buildFixPrompt(two)).toContain("| Kingfisher or Gitleaks |");
+    expect(buildFixPrompt(two, { includeOptional: true })).toContain(
+      "| Kingfisher or Gitleaks |",
+    );
 
     const three = withGap();
     three.categories[0].capabilities[0].recommended = [
@@ -99,7 +106,9 @@ describe("buildFixPrompt", () => {
       { id: "codeql", name: "CodeQL", stackLabels: [] },
       { id: "trivy", name: "Trivy", stackLabels: [] },
     ];
-    expect(buildFixPrompt(three)).toContain("| Semgrep, CodeQL or Trivy |");
+    expect(buildFixPrompt(three, { includeOptional: true })).toContain(
+      "| Semgrep, CodeQL or Trivy |",
+    );
   });
 
   it("phrases a stack-attributed recommendation as required, not alternatives", () => {
@@ -109,7 +118,7 @@ describe("buildFixPrompt", () => {
       { id: "golangci-lint", name: "golangci-lint", stackLabels: ["Go"] },
     ];
 
-    const prompt = buildFixPrompt(analysis);
+    const prompt = buildFixPrompt(analysis, { includeOptional: true });
     expect(prompt).toContain(
       "| ESLint for JavaScript and golangci-lint for Go |",
     );
@@ -126,14 +135,14 @@ describe("buildFixPrompt", () => {
       { id: "npm-audit", name: "npm audit", stackLabels: ["JavaScript"] },
     ];
 
-    const prompt = buildFixPrompt(analysis);
+    const prompt = buildFixPrompt(analysis, { includeOptional: true });
     expect(prompt).toContain(
       "Korza CI Base Checks for Docker and Go; and npm audit for JavaScript",
     );
   });
 
   it("no longer claims every multi-tool row is alternatives", () => {
-    const prompt = buildFixPrompt(withGap());
+    const prompt = buildFixPrompt(withGap(), { includeOptional: true });
     expect(prompt).not.toContain("they are alternatives, so pick one");
     expect(prompt).not.toContain("(any one)");
   });
@@ -142,7 +151,7 @@ describe("buildFixPrompt", () => {
     const analysis = withGap();
     analysis.categories[0].capabilities[0].recommended = [];
 
-    expect(buildFixPrompt(analysis)).toContain(
+    expect(buildFixPrompt(analysis, { includeOptional: true })).toContain(
       "no tool in the catalogue for this stack",
     );
   });
@@ -157,6 +166,7 @@ describe("buildFixPrompt", () => {
             {
               id: "unit-tests",
               label: "Unit tests",
+              required: true,
               satisfied: true,
               present: [
                 {
@@ -174,7 +184,7 @@ describe("buildFixPrompt", () => {
       gapCount: 0,
     });
 
-    const row = buildFixPrompt(analysis)
+    const row = buildFixPrompt(analysis, { includeOptional: true })
       .split("\n")
       .find((line) => line.includes("Vitest"));
 
@@ -193,6 +203,7 @@ describe("buildFixPrompt", () => {
             {
               id: "unit-tests",
               label: "Unit tests",
+              required: true,
               satisfied: true,
               present: [
                 {
@@ -211,7 +222,9 @@ describe("buildFixPrompt", () => {
       gapCount: 0,
     });
 
-    const lines = buildFixPrompt(analysis).split("\n");
+    const lines = buildFixPrompt(analysis, { includeOptional: true }).split(
+      "\n",
+    );
     const row = lines.find((line) => line.includes("Vitest"));
 
     expect(row).toBe(
@@ -233,6 +246,7 @@ describe("buildFixPrompt", () => {
             {
               id: "unit-tests",
               label: "Unit tests",
+              required: true,
               satisfied: true,
               present: [
                 {
@@ -250,7 +264,7 @@ describe("buildFixPrompt", () => {
       gapCount: 0,
     });
 
-    const row = buildFixPrompt(analysis)
+    const row = buildFixPrompt(analysis, { includeOptional: true })
       .split("\n")
       .find((line) => line.includes("Vitest"));
 
@@ -260,6 +274,7 @@ describe("buildFixPrompt", () => {
   it("escapes a default branch name that carries a backtick or pipe", () => {
     const prompt = buildFixPrompt(
       withGap({ defaultBranch: "weird`branch|name" }),
+      { includeOptional: true },
     );
 
     expect(prompt).toContain("branch other than `weird'branch\\|name`");
@@ -271,6 +286,7 @@ describe("buildFixPrompt", () => {
     analysis.categories[0].capabilities[0] = {
       id: "unit-tests",
       label: "Unit tests",
+      required: true,
       satisfied: false,
       present: [
         {
@@ -283,7 +299,7 @@ describe("buildFixPrompt", () => {
       recommended: [{ id: "go-test", name: "go test", stackLabels: ["Go"] }],
     };
 
-    const prompt = buildFixPrompt(analysis);
+    const prompt = buildFixPrompt(analysis, { includeOptional: true });
     // Jest only covers the JavaScript side, so it's attributed the same as the gap table's
     // lone remaining tool below it - a bare "Jest" would read as if it covered the whole check.
     expect(prompt).toContain(
@@ -302,6 +318,7 @@ describe("buildFixPrompt", () => {
             {
               id: "unit-tests",
               label: "Unit tests",
+              required: true,
               satisfied: true,
               present: [
                 {
@@ -319,7 +336,7 @@ describe("buildFixPrompt", () => {
       gapCount: 0,
     });
 
-    expect(buildFixPrompt(analysis)).toContain(
+    expect(buildFixPrompt(analysis, { includeOptional: true })).toContain(
       "| Unit tests | Vitest | `vitest.config.ts` |",
     );
   });
@@ -334,6 +351,7 @@ describe("buildFixPrompt", () => {
             {
               id: "lint",
               label: "Style Linting",
+              required: true,
               satisfied: true,
               present: [
                 {
@@ -357,7 +375,7 @@ describe("buildFixPrompt", () => {
       gapCount: 0,
     });
 
-    const prompt = buildFixPrompt(analysis);
+    const prompt = buildFixPrompt(analysis, { includeOptional: true });
     expect(prompt).toContain("| Style Linting | ESLint for JavaScript |");
     expect(prompt).toContain(
       "| Style Linting | golangci-lint for Go | `.golangci.yml` |",
@@ -374,6 +392,7 @@ describe("buildFixPrompt", () => {
             {
               id: "sca",
               label: "Dependency Scanning (SCA)",
+              required: true,
               satisfied: true,
               present: [
                 {
@@ -391,8 +410,166 @@ describe("buildFixPrompt", () => {
       gapCount: 0,
     });
 
-    expect(buildFixPrompt(analysis)).toContain(
+    expect(buildFixPrompt(analysis, { includeOptional: true })).toContain(
       "| Korza CI Base Checks for Docker and Go |",
     );
+  });
+
+  it("filters the gap table to required capabilities only when includeOptional is false", () => {
+    const analysis = withGap({
+      categories: [
+        {
+          category: "Security",
+          capabilities: [
+            {
+              id: "secret-scanning",
+              label: "Secret scanning",
+              required: true,
+              satisfied: false,
+              present: [],
+              recommended: [
+                { id: "gitleaks", name: "Gitleaks", stackLabels: [] },
+              ],
+            },
+            {
+              id: "coverage",
+              label: "Coverage",
+              required: false,
+              satisfied: false,
+              present: [],
+              recommended: [
+                { id: "codecov", name: "Codecov", stackLabels: [] },
+              ],
+            },
+          ],
+        },
+      ],
+      gapCount: 2,
+      requiredGapCount: 1,
+    });
+
+    const requiredOnly = buildFixPrompt(analysis, { includeOptional: false });
+    expect(requiredOnly).toContain("Secret scanning");
+    expect(requiredOnly).not.toContain("Coverage");
+
+    const all = buildFixPrompt(analysis, { includeOptional: true });
+    expect(all).toContain("Secret scanning");
+    expect(all).toContain("Coverage");
+  });
+
+  it("scores against required-only counts when includeOptional is false, all counts when true", () => {
+    const analysis = withGap({
+      categories: [
+        {
+          category: "Security",
+          capabilities: [
+            {
+              id: "secret-scanning",
+              label: "Secret scanning",
+              required: true,
+              satisfied: false,
+              present: [],
+              recommended: [
+                { id: "gitleaks", name: "Gitleaks", stackLabels: [] },
+              ],
+            },
+          ],
+        },
+        {
+          category: "Testing",
+          capabilities: [
+            {
+              id: "coverage",
+              label: "Coverage",
+              required: false,
+              satisfied: true,
+              present: [
+                {
+                  id: "codecov",
+                  name: "Codecov",
+                  evidence: "codecov.yml",
+                  stackLabels: [],
+                },
+              ],
+              recommended: [],
+            },
+          ],
+        },
+      ],
+      satisfiedCount: 1,
+      gapCount: 1,
+      requiredSatisfiedCount: 0,
+      requiredGapCount: 1,
+    });
+
+    const requiredOnly = buildFixPrompt(analysis, { includeOptional: false });
+    expect(requiredOnly).toContain(
+      "Score: 0 of 1 recommended checks are running.",
+    );
+    // The "already running" table is scoped too: an optional, satisfied capability (Coverage via
+    // Codecov) has no business appearing under a score line that just narrowed itself to required
+    // checks only.
+    expect(requiredOnly).not.toContain("Codecov");
+
+    const all = buildFixPrompt(analysis, { includeOptional: true });
+    expect(all).toContain("Score: 1 of 2 recommended checks are running.");
+    expect(all).toContain("Codecov");
+  });
+
+  it("reads its missing-checks fallback as required-only when every required capability is satisfied but an optional one is not", () => {
+    const analysis = withGap({
+      categories: [
+        {
+          category: "Security",
+          capabilities: [
+            {
+              id: "secret-scanning",
+              label: "Secret scanning",
+              required: true,
+              satisfied: true,
+              present: [
+                {
+                  id: "gitleaks",
+                  name: "Gitleaks",
+                  evidence: "gitleaks.yml",
+                  stackLabels: [],
+                },
+              ],
+              recommended: [],
+            },
+          ],
+        },
+        {
+          category: "Testing",
+          capabilities: [
+            {
+              id: "coverage",
+              label: "Coverage",
+              required: false,
+              satisfied: false,
+              present: [],
+              recommended: [
+                { id: "codecov", name: "Codecov", stackLabels: [] },
+              ],
+            },
+          ],
+        },
+      ],
+      satisfiedCount: 1,
+      gapCount: 1,
+      requiredSatisfiedCount: 1,
+      requiredGapCount: 0,
+    });
+
+    const requiredOnly = buildFixPrompt(analysis, { includeOptional: false });
+    expect(requiredOnly).not.toContain(
+      "Every check the baseline expects is already running",
+    );
+    expect(requiredOnly).toContain("Nothing required is missing");
+    expect(hasEmptyTable(requiredOnly)).toBe(false);
+
+    const all = buildFixPrompt(analysis, { includeOptional: true });
+    expect(all).toContain("Coverage");
+    expect(hasEmptyTable(all)).toBe(false);
   });
 });

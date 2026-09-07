@@ -67,8 +67,11 @@ export function analyze(
 
   const stackIds = new Set(stacks.map((stack) => stack.id));
   const toolById = new Map(tools.map((tool) => [tool.id, tool]));
+  const universalRequired = new Map(
+    baseline.universal.map((entry) => [entry.id, entry.required]),
+  );
   const expected = new Set([
-    ...baseline.universal,
+    ...baseline.universal.map((entry) => entry.id),
     ...stacks.flatMap((stack) => Object.keys(stack.expects)),
   ]);
 
@@ -163,9 +166,18 @@ export function analyze(
       }
     }
 
+    // Any owning stack requiring it wins, the same "most demanding stack" rule `satisfied` uses:
+    // a repo with both JavaScript and Python can't let JavaScript's optional opinion downgrade
+    // Python's mandatory one. A universal entry has no owning stack to read `required` from, so
+    // it carries its own.
+    const required =
+      owningStacks.some((stack) => stack.expects[id]!.required) ||
+      (universalRequired.get(id) ?? false);
+
     return {
       id,
       label: meta?.label ?? id,
+      required,
       satisfied,
       present,
       recommended,
@@ -213,5 +225,15 @@ export function analyze(
       (report) => !report.satisfied && report.present.length > 0,
     ).length,
     gapCount: reports.filter((report) => !report.satisfied).length,
+    requiredSatisfiedCount: reports.filter(
+      (report) => report.required && report.satisfied,
+    ).length,
+    requiredPartialCount: reports.filter(
+      (report) =>
+        report.required && !report.satisfied && report.present.length > 0,
+    ).length,
+    requiredGapCount: reports.filter(
+      (report) => report.required && !report.satisfied,
+    ).length,
   };
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { GAP_OPTIONAL_TOGGLE_ID } from "@/lib/gap/optional-toggle";
 
 // The one interactive thing on the gap report. The prompt itself is built on the server and
 // arrives as a prop, so this component holds no report knowledge and the markdown never has to be
@@ -29,55 +30,61 @@ function CopyButton({ prompt }: { prompt: string }) {
   const [copied, setCopied] = useState(false);
 
   return (
-    <button
-      type="button"
-      onClick={() => {
-        // Clipboard access can be refused outright, and a button that says Copied when nothing
-        // was copied is worse than one that appears not to have registered the click.
-        navigator.clipboard.writeText(prompt).then(
-          () => {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1600);
-          },
-          () => {},
-        );
-      }}
-      className={`inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
-        copied
-          ? "text-positive"
-          : "text-ink-faint hover:bg-line/40 hover:text-ink"
-      }`}
-    >
-      {copied ? (
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden
-          className="h-3.5 w-3.5"
-        >
-          <path d="M20 6L9 17l-5-5" />
-        </svg>
-      ) : (
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden
-          className="h-3.5 w-3.5"
-        >
-          <rect x="9" y="9" width="11" height="11" rx="2" />
-          <path d="M5 15V5a2 2 0 012-2h8" />
-        </svg>
-      )}
-      {copied ? "Copied" : "Copy"}
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          // Clipboard access can be refused outright, and a button that says Copied when nothing
+          // was copied is worse than one that appears not to have registered the click.
+          navigator.clipboard.writeText(prompt).then(
+            () => {
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1600);
+            },
+            () => {},
+          );
+        }}
+        className={`inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+          copied
+            ? "text-positive"
+            : "text-ink-faint hover:bg-line/40 hover:text-ink"
+        }`}
+      >
+        {copied ? (
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+            className="h-3.5 w-3.5"
+          >
+            <path d="M20 6L9 17l-5-5" />
+          </svg>
+        ) : (
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+            className="h-3.5 w-3.5"
+          >
+            <rect x="9" y="9" width="11" height="11" rx="2" />
+            <path d="M5 15V5a2 2 0 012-2h8" />
+          </svg>
+        )}
+        {copied ? "Copied" : "Copy"}
+      </button>
+      {/* Outside the button, so the button's own accessible name doesn't have to carry it. */}
+      <span role="status" className="sr-only">
+        {copied ? "Copied to clipboard" : ""}
+      </span>
+    </>
   );
 }
 
@@ -89,15 +96,24 @@ function CopyButton({ prompt }: { prompt: string }) {
 // crowd the header the prompt title sits in.
 function PromptOverlay({
   prompt,
+  requiredCount,
+  optionalIncluded,
   onClose,
 }: {
   prompt: string;
+  requiredCount: number;
+  optionalIncluded: number;
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const preRef = useRef<HTMLPreElement>(null);
 
   useEffect(() => {
+    // `autoFocus` alone doesn't reach here: React applies it at mount, before `showModal` has
+    // made the dialog displayable, so the browser's own dialog-focusing algorithm finds nothing
+    // flagged and leaves focus on whatever triggered the open. Move it explicitly, after.
     ref.current?.showModal();
+    preRef.current?.focus();
   }, []);
 
   return (
@@ -121,15 +137,29 @@ function PromptOverlay({
         <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3">
           <div className="flex items-center gap-2">
             <Sparkle className="h-3.5 w-3.5 text-positive" />
-            <h3 id="fix-prompt-title" className="text-sm font-medium text-ink">
-              Fix instructions for optimising CI pipeline
-            </h3>
+            <div>
+              <h3
+                id="fix-prompt-title"
+                className="text-sm font-medium text-ink"
+              >
+                Fix instructions for optimising CI pipeline
+              </h3>
+              <p className="text-xs text-ink-faint">
+                {optionalIncluded > 0
+                  ? `${requiredCount + optionalIncluded} check${requiredCount + optionalIncluded === 1 ? "" : "s"}, including ${optionalIncluded} optional`
+                  : `${requiredCount} required check${requiredCount === 1 ? "" : "s"}`}
+              </p>
+            </div>
           </div>
           <CopyButton prompt={prompt} />
         </div>
 
-        {/* Focusable so the overflow can be reached by keyboard, not only by dragging a bar. */}
+        {/* Focusable so the overflow can be reached by keyboard, not only by dragging a bar, and
+            focused on open (see the effect above), since the dialog is read before it's copied.
+            Opening it should land keyboard and screen-reader users on the content, not on the
+            Copy button or the dialog chrome. */}
         <pre
+          ref={preRef}
           tabIndex={0}
           className="min-h-0 flex-1 overflow-auto px-5 py-4 font-mono text-xs leading-relaxed whitespace-pre-wrap text-ink-muted"
         >
@@ -144,9 +174,23 @@ function PromptOverlay({
   );
 }
 
-export function FixPromptButton({ prompt }: { prompt: string }) {
+export function FixPromptButton({
+  requiredOnlyPrompt,
+  allGapsPrompt,
+  requiredCount,
+  optionalGapCount,
+}: {
+  requiredOnlyPrompt: string;
+  allGapsPrompt: string;
+  requiredCount: number;
+  optionalGapCount: number;
+}) {
   const [open, setOpen] = useState(false);
   const [charging, setCharging] = useState(false);
+  const [active, setActive] = useState<{
+    prompt: string;
+    optionalIncluded: number;
+  }>({ prompt: requiredOnlyPrompt, optionalIncluded: 0 });
 
   // Navigating away hides this route rather than unmounting it, so `open` survives the trip and
   // comes back true while the dialog has silently dropped out of the top layer: no backdrop, no
@@ -165,6 +209,15 @@ export function FixPromptButton({ prompt }: { prompt: string }) {
       <button
         type="button"
         onClick={() => {
+          const checkbox = document.getElementById(GAP_OPTIONAL_TOGGLE_ID);
+          const includeOptional =
+            checkbox instanceof HTMLInputElement && checkbox.checked;
+          setActive(
+            includeOptional
+              ? { prompt: allGapsPrompt, optionalIncluded: optionalGapCount }
+              : { prompt: requiredOnlyPrompt, optionalIncluded: 0 },
+          );
+
           // The lap is the whole point of the delay, so without it there is nothing to wait for.
           if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
             return setOpen(true);
@@ -186,7 +239,12 @@ export function FixPromptButton({ prompt }: { prompt: string }) {
       </button>
 
       {open ? (
-        <PromptOverlay prompt={prompt} onClose={() => setOpen(false)} />
+        <PromptOverlay
+          prompt={active.prompt}
+          requiredCount={requiredCount}
+          optionalIncluded={active.optionalIncluded}
+          onClose={() => setOpen(false)}
+        />
       ) : null}
     </>
   );

@@ -184,12 +184,14 @@ function flattenBaseline(catalogue: RealCatalogue): Baseline {
       id: ecosystem.ecosystem,
       label: ecosystemLabel(ecosystem.ecosystem),
       markers: ecosystem.markers,
-      // recommended/acceptable pass through unchanged; required doesn't, since devx-home's
-      // report only distinguishes "satisfied" from "gap", not required vs optional.
       expects: Object.fromEntries(
         Object.entries(ecosystem.baseline).map(([id, entry]) => [
           id,
-          { recommended: entry.recommended, acceptable: entry.acceptable },
+          {
+            recommended: entry.recommended,
+            acceptable: entry.acceptable,
+            required: entry.required,
+          },
         ]),
       ),
     })),

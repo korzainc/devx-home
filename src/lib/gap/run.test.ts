@@ -32,7 +32,13 @@ describe("runAnalysis", () => {
           id: "javascript",
           label: "JavaScript",
           markers: ["package.json"],
-          expects: { orphan: { recommended: "no-such-tool", acceptable: [] } },
+          expects: {
+            orphan: {
+              recommended: "no-such-tool",
+              acceptable: [],
+              required: true,
+            },
+          },
         },
       ],
     };

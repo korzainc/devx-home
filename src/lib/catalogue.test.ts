@@ -66,7 +66,7 @@ describe("catalogue and baseline agree", () => {
 
   it("expects only capabilities the baseline defines", () => {
     const expected = [
-      ...baseline.universal,
+      ...baseline.universal.map((entry) => entry.id),
       ...baseline.stacks.flatMap((stack) => Object.keys(stack.expects)),
     ];
 
@@ -100,6 +100,17 @@ describe("catalogue and baseline agree", () => {
           candidates.length,
           `${stack.id} expects ${capability} and no tool provides it`,
         ).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("gives every stack's expectation an explicit required boolean, not an omitted field", () => {
+    for (const stack of baseline.stacks) {
+      for (const [capability, entry] of Object.entries(stack.expects)) {
+        expect(
+          typeof entry.required,
+          `${stack.id}'s ${capability} has no required flag`,
+        ).toBe("boolean");
       }
     }
   });
@@ -223,6 +234,14 @@ describe("flattenBaseline", () => {
 
   it("throws rather than shipping a raw id for an unpinned ecosystem", () => {
     expect(() => ecosystemLabel("rust")).toThrow(/rust/);
+  });
+
+  it("threads required through from the real catalogue JSON, not just recommended/acceptable", () => {
+    const javascript = baseline.stacks.find(
+      (stack) => stack.id === "javascript",
+    );
+    expect(javascript?.expects.secrets.required).toBe(true);
+    expect(javascript?.expects.coverage.required).toBe(false);
   });
 });
 
