@@ -4,7 +4,9 @@ import {
   cosine,
   fuse,
   hasResults,
+  LEXICAL_SCORE_RATIO,
   semanticRanking,
+  SIMILARITY_CUTOFF,
   SIMILARITY_FLOOR,
   SIMILARITY_MARGIN,
   SIMILARITY_MARGIN_STRICT,
@@ -166,5 +168,51 @@ describe("hasResults", () => {
     expect(hasResults({ ...middling, margin: SIMILARITY_MARGIN_STRICT })).toBe(
       false,
     );
+  });
+});
+
+describe("fuse depth", () => {
+  const byKey = new Map(
+    Array.from({ length: 50 }, (_, i) => doc(`d${i}`)).map((d) => [d.key, d]),
+  );
+  const keys = Array.from({ length: 50 }, (_, i) => `d${i}`);
+
+  it("admits no more candidates than depth, whatever limit asks for", () => {
+    // The /search regression: limit and depth were the same value, so asking for 40 rows let 40
+    // documents earn an RRF score on rank position alone and every query returned exactly 40.
+    const ranked = fuse({
+      lexicalKeys: [],
+      semanticKeys: keys,
+      byKey,
+      depth: 20,
+      limit: 40,
+    });
+    expect(ranked).toHaveLength(20);
+  });
+
+  it("still truncates to limit when limit is the smaller of the two", () => {
+    const ranked = fuse({
+      lexicalKeys: [],
+      semanticKeys: keys,
+      byKey,
+      depth: 20,
+      limit: 5,
+    });
+    expect(ranked).toHaveLength(5);
+  });
+});
+
+describe("relevance thresholds", () => {
+  it("SIMILARITY_CUTOFF sits above the measured nonsense peak", () => {
+    // "asdfghjkl" peaked at 0.224 on this corpus; a real match's worst kept row is well above.
+    expect(SIMILARITY_CUTOFF).toBeGreaterThan(0.224);
+    expect(SIMILARITY_CUTOFF).toBeLessThan(SIMILARITY_FLOOR);
+  });
+
+  it("LEXICAL_SCORE_RATIO drops the measured fuzzy tail and keeps real matches", () => {
+    // Ratios measured for "review a pull request": requesting-code-review 0.537 and
+    // receiving-code-review 0.164 are real; prettier 0.050 and junit 0.035 are token noise.
+    expect(0.164).toBeGreaterThan(LEXICAL_SCORE_RATIO);
+    expect(0.05).toBeLessThan(LEXICAL_SCORE_RATIO);
   });
 });

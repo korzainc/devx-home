@@ -40,6 +40,24 @@ export const SIMILARITY_FLOOR = 0.3;
 export const SIMILARITY_MARGIN = 0.1;
 
 /**
+ * The similarity a single document must reach to be worth showing at all.
+ *
+ * `SIMILARITY_FLOOR` and `SIMILARITY_MARGIN` decide whether a *query* found anything; neither
+ * says which documents qualify. `semanticRanking` returns the whole corpus - every document has
+ * some cosine similarity to every query - so without a per-document floor RRF scores whatever
+ * slice of that list `depth` admits, and a query for "scan for secrets" renders `pyright-lsp`
+ * purely because it placed 40th out of 79.
+ *
+ * Measured across this corpus and model: a real query's genuine matches sit at 0.30-0.60 and have
+ * decayed to 0.17-0.27 by rank 12-20, while the best nonsense query ("asdfghjkl") peaks at 0.224.
+ * 0.25 sits above that peak and below every real match worth a row.
+ *
+ * Same caveat as the constants above: a property of the (model, document text) pair. Recalibrate
+ * when either changes.
+ */
+export const SIMILARITY_CUTOFF = 0.25;
+
+/**
  * The margin a clause needs when it is competing against sibling clauses split out of the same
  * query (see `splitClauses` in `semantic.ts`).
  *
@@ -51,6 +69,20 @@ export const SIMILARITY_MARGIN = 0.1;
  * siblings is held to the stronger of the two.
  */
 export const SIMILARITY_MARGIN_STRICT = 0.2;
+
+/**
+ * How weak a lexical hit may be, relative to the query's best, and still vote.
+ *
+ * BM25 scores are not comparable across queries - the top hit is 86 for "review pull request" and
+ * 21 for "scan secrets" - so this is a ratio, not an absolute. The ratio *is* stable: measured on
+ * this corpus, genuine matches sit above 0.15 of the top score while the fuzzy/prefix tail that
+ * `combineWith: "OR"` admits falls far below (prettier at 0.050 and junit at 0.035 for "review
+ * pull request", jest at 0.022 for "type checking").
+ *
+ * 0.1 keeps every real match measured, including the deliberately generous ones a bundle or an
+ * alias produces, and drops the tail that only matched a common token in someone else's prose.
+ */
+export const LEXICAL_SCORE_RATIO = 0.1;
 
 export type Ranked = {
   doc: SearchDoc;
