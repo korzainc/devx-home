@@ -92,7 +92,7 @@ export function FacetMenu({
           style={offset === null ? undefined : { left: offset }}
           role="group"
           aria-label={label}
-          className={`absolute top-full z-20 mt-1.5 max-h-80 w-56 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-lg border border-line-strong bg-surface-raised p-1 shadow-lg ${offset === null ? "right-0" : ""}`}
+          className={`absolute top-full z-20 mt-1.5 max-h-80 w-64 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-lg border border-line-strong bg-surface-raised p-1 shadow-lg ${offset === null ? "right-0" : ""}`}
         >
           {options.map(([value, count]) => {
             const checked = selected.includes(value);
