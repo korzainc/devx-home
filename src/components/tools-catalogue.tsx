@@ -28,17 +28,17 @@ const SECTIONS: { label: string; category: string; note: string }[] = [
   {
     label: "Code Quality",
     category: "Code Quality",
-    note: "Linting, formatting, type checking",
+    note: "Catches messy code before your reviewers do",
   },
   {
     label: "Testing",
     category: "Testing",
-    note: "Unit, end-to-end, and coverage",
+    note: "Proof that your code works, not just compiles",
   },
   {
     label: "Security",
     category: "Security",
-    note: "Secrets, SAST, SCA, IaC and image scanning",
+    note: "Catches vulnerabilities and risky configs that shouldn't ship",
   },
   {
     label: "Staying Current",
@@ -94,6 +94,7 @@ export function ToolsCatalogue({
   // Both panels stay mounted across tests, so a fixed id would give the document two search
   // inputs.
   const searchId = useId();
+  const stackLabelId = useId();
   const searchRef = useRef<HTMLInputElement>(null);
   const { enabled: slashEnabled, toggle: toggleSlashShortcut } =
     useSlashShortcut(searchRef);
@@ -300,29 +301,37 @@ export function ToolsCatalogue({
         </div>
       </div>
 
-      <div
-        role="group"
-        aria-label="Stack"
-        className="flex flex-wrap items-center gap-2"
-      >
-        {stackOptions.map((value) => {
-          const on = pickedStacks.includes(value);
-          return (
-            <button
-              key={value}
-              type="button"
-              aria-pressed={on}
-              onClick={() => toggleStack(value)}
-              className={
-                on
-                  ? "rounded-full border border-line-strong bg-accent-wash px-3 py-1.5 text-sm text-ink transition-colors"
-                  : "rounded-full border border-line bg-surface px-3 py-1.5 text-sm text-ink-muted transition-colors hover:border-line-strong hover:text-ink"
-              }
-            >
-              {value}
-            </button>
-          );
-        })}
+      <div className="flex flex-wrap items-center gap-3">
+        <span
+          id={stackLabelId}
+          className="text-xs font-medium tracking-wide text-ink-faint uppercase"
+        >
+          Stack
+        </span>
+        <div
+          role="group"
+          aria-labelledby={stackLabelId}
+          className="flex flex-wrap items-center gap-2"
+        >
+          {stackOptions.map((value) => {
+            const on = pickedStacks.includes(value);
+            return (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={on}
+                onClick={() => toggleStack(value)}
+                className={
+                  on
+                    ? "rounded-full border border-line-strong bg-accent-wash px-3 py-1.5 text-sm text-ink transition-colors"
+                    : "rounded-full border border-line bg-surface px-3 py-1.5 text-sm text-ink-muted transition-colors hover:border-line-strong hover:text-ink"
+                }
+              >
+                {value}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {anyFilterActive && (
@@ -400,14 +409,22 @@ export function ToolsCatalogue({
 
       {bySection.map((section) => (
         <section key={section.label} className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h2 className="font-display text-xl font-semibold text-ink">
+          <div className="flex items-baseline gap-x-3 border-b border-line pb-2">
+            <h2 className="shrink-0 font-display text-xl font-semibold text-ink">
               {section.label}
             </h2>
-            <span className="font-mono text-xs text-ink-faint">
+            {/* Truncates instead of wrapping: the row stays one line and the count stays
+                pinned at the far right regardless of how long a section's note is - Security's
+                is noticeably longer than the other three. */}
+            <span
+              title={section.note}
+              className="min-w-0 flex-1 truncate text-xs text-ink-faint"
+            >
+              {section.note}
+            </span>
+            <span className="shrink-0 font-mono text-xs text-ink-faint">
               {section.tools.length}
             </span>
-            <span className="text-xs text-ink-faint">{section.note}</span>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {section.tools.map((tool) => (
