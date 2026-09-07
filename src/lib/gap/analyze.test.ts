@@ -12,7 +12,7 @@ const baseline: Baseline = {
     "secret-scanning": { label: "Secret scanning", category: "Security" },
     sast: { label: "SAST", category: "Security" },
   },
-  universal: ["secret-scanning"],
+  universal: [{ id: "secret-scanning", required: true }],
   stacks: [
     {
       id: "javascript",
@@ -105,12 +105,18 @@ function snapshot(paths: string[]): RepoSnapshot {
 function capability(
   report: ReturnType<typeof analyze>,
   id: string,
-): { satisfied: boolean; present: string[]; recommended: string[] } {
+): {
+  satisfied: boolean;
+  required: boolean;
+  present: string[];
+  recommended: string[];
+} {
   for (const category of report.categories) {
     for (const entry of category.capabilities) {
       if (entry.id === id) {
         return {
           satisfied: entry.satisfied,
+          required: entry.required,
           present: entry.present.map((tool) => tool.id),
           recommended: entry.recommended.map((tool) => tool.id),
         };
@@ -126,7 +132,25 @@ describe("analyze", () => {
 
     expect(report.stacks).toEqual([]);
     expect(capability(report, "secret-scanning").satisfied).toBe(false);
+    // A universal capability has no owning stack to read `required` from, so it carries its own.
+    expect(capability(report, "secret-scanning").required).toBe(true);
     expect(report.gapCount).toBe(1);
+    expect(report.requiredGapCount).toBe(1);
+  });
+
+  it("respects a universal capability marked optional, with no owning stack to override it", () => {
+    const optionalUniversal: Baseline = {
+      ...baseline,
+      universal: [{ id: "secret-scanning", required: false }],
+    };
+    const report = analyze(snapshot(["README.md"]), {
+      tools,
+      baseline: optionalUniversal,
+    });
+
+    expect(capability(report, "secret-scanning").required).toBe(false);
+    expect(report.gapCount).toBe(1);
+    expect(report.requiredGapCount).toBe(0);
   });
 
   it("marks a capability satisfied by the tool that covers it", () => {

@@ -66,7 +66,7 @@ describe("catalogue and baseline agree", () => {
 
   it("expects only capabilities the baseline defines", () => {
     const expected = [
-      ...baseline.universal,
+      ...baseline.universal.map((entry) => entry.id),
       ...baseline.stacks.flatMap((stack) => Object.keys(stack.expects)),
     ];
 
@@ -100,6 +100,17 @@ describe("catalogue and baseline agree", () => {
           candidates.length,
           `${stack.id} expects ${capability} and no tool provides it`,
         ).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("gives every stack's expectation an explicit required boolean, not an omitted field", () => {
+    for (const stack of baseline.stacks) {
+      for (const [capability, entry] of Object.entries(stack.expects)) {
+        expect(
+          typeof entry.required,
+          `${stack.id}'s ${capability} has no required flag`,
+        ).toBe("boolean");
       }
     }
   });

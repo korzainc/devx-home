@@ -30,8 +30,9 @@ export type Baseline = {
   /** Render order for the report. Categories outside this list sort to the end. */
   categories: string[];
   capabilities: Record<string, { label: string; category: string }>;
-  /** Expected regardless of stack. */
-  universal: string[];
+  /** Expected regardless of stack. Each carries its own `required`, since there is no owning
+   * stack's `expects` entry to read one from. */
+  universal: { id: string; required: boolean }[];
   stacks: BaselineStack[];
 };
 

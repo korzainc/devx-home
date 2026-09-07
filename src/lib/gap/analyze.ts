@@ -67,8 +67,11 @@ export function analyze(
 
   const stackIds = new Set(stacks.map((stack) => stack.id));
   const toolById = new Map(tools.map((tool) => [tool.id, tool]));
+  const universalRequired = new Map(
+    baseline.universal.map((entry) => [entry.id, entry.required]),
+  );
   const expected = new Set([
-    ...baseline.universal,
+    ...baseline.universal.map((entry) => entry.id),
     ...stacks.flatMap((stack) => Object.keys(stack.expects)),
   ]);
 
@@ -165,8 +168,11 @@ export function analyze(
 
     // Any owning stack requiring it wins, matching `satisfied`'s own "most demanding stack"
     // posture: a repo with both a JavaScript and a Python stack can't let JavaScript's optional
-    // opinion silently downgrade Python's mandatory one.
-    const required = owningStacks.some((stack) => stack.expects[id]!.required);
+    // opinion silently downgrade Python's mandatory one. A universal entry gets the same vote --
+    // it has no owning stack to read `required` from, so it carries its own.
+    const required =
+      owningStacks.some((stack) => stack.expects[id]!.required) ||
+      (universalRequired.get(id) ?? false);
 
     return {
       id,
