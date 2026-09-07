@@ -122,4 +122,9 @@ fi
 mv "$TMP/devx" "$BIN_DIR/devx"
 
 printf '\n  devx installed to %s\n\n' "$BIN_DIR/devx"
-exec "$BIN_DIR/devx" setup
+printf '  Start setup:\n'
+printf '    %s setup\n\n' "$BIN_DIR/devx"
+printf '  Or open a new terminal, then run:\n'
+printf '    devx setup\n\n'
+printf '  Help:\n'
+printf '    devx --help\n'

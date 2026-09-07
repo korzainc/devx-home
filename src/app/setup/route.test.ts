@@ -96,10 +96,12 @@ describe("GET /setup", () => {
     expect(move).toBeGreaterThan(versionCheck);
   });
 
-  it("hands off into the wizard, for an actual onboarding review", async () => {
+  it("prints the next setup command after installing", async () => {
     const res = GET(new NextRequest("http://localhost:3000/setup"));
     const body = await res.text();
-    expect(body.trim().endsWith('exec "$BIN_DIR/devx" setup')).toBe(true);
+    expect(body).toContain("Start setup:");
+    expect(body).toContain("devx setup");
+    expect(body).not.toContain('exec \"$BIN_DIR/devx\" setup');
   });
 
   it("carries no em dashes or en dashes", async () => {
