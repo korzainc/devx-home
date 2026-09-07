@@ -55,8 +55,8 @@ export default function GettingStartedPage() {
           </h1>
           <p className="max-w-lg text-lg leading-relaxed text-ink-muted">
             Then run <code className="font-mono text-base">devx setup</code> to
-            check this machine and install what is missing. macOS to start,
-            with the manual steps available if you prefer them.
+            check this machine and install what is missing. macOS to start, with
+            the manual steps available if you prefer them.
           </p>
         </div>
 
@@ -119,16 +119,37 @@ export default function GettingStartedPage() {
         id="manual"
         card={
           <>
-            <ul className="flex flex-col">
-              {manualTools.map((entry) => (
-                <li key={entry.tool} className={`${row} last:border-b-0`}>
-                  <span className="font-mono text-ink">{entry.tool}</span>
-                  <span className="ml-auto text-right text-xs text-ink-faint">
-                    {entry.why}
+            {manualCommands.map((entry, index) => (
+              <details
+                key={entry.title}
+                className="group border-b border-line last:border-b-0 open:bg-canvas"
+              >
+                <summary className="flex cursor-pointer list-none items-center gap-3 px-5 py-3 text-ink [&::-webkit-details-marker]:hidden">
+                  <span aria-hidden className="font-mono text-accent">
+                    <span className="group-open:hidden">+</span>
+                    <span className="hidden group-open:inline">−</span>
                   </span>
-                </li>
-              ))}
-            </ul>
+                  <span className="font-mono text-sm">
+                    {manualTools[index].tool}
+                  </span>
+                  <span className="ml-auto text-right text-xs text-ink-faint">
+                    {manualTools[index].why}
+                  </span>
+                </summary>
+                <div className="flex flex-col gap-2 border-t border-line px-5 py-4">
+                  {entry.commands.map((command) => (
+                    <CommandField
+                      key={command}
+                      label="Terminal"
+                      value={command}
+                    />
+                  ))}
+                  <p className="max-w-2xl pt-1 text-sm text-ink-muted">
+                    {entry.note}
+                  </p>
+                </div>
+              </details>
+            ))}
             <p className={caption}>
               Proposed order. This is what the binary above would handle for
               you.
@@ -150,37 +171,10 @@ export default function GettingStartedPage() {
           that file touched.
         </p>
         <p className="text-sm text-ink-faint">
-          Open any tool below for the exact commands. These are also where a
-          failed step in the installer sends you, so they have to exist either
-          way.
+          Open a tool for the exact commands. These are also where a failed step
+          in the installer sends you, so they have to exist either way.
         </p>
       </Pair>
-
-      {/* Closed by default, so the page still leads with one command rather than six. */}
-      <div className="flex flex-col pb-12">
-        {manualCommands.map((entry) => (
-          <details
-            key={entry.title}
-            className="group border-b border-line open:bg-surface"
-          >
-            <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3.5 text-ink [&::-webkit-details-marker]:hidden">
-              <span aria-hidden className="font-mono text-accent">
-                <span className="group-open:hidden">+</span>
-                <span className="hidden group-open:inline">−</span>
-              </span>
-              {entry.title}
-            </summary>
-            <div className="flex flex-col gap-2 px-4 pb-4">
-              {entry.commands.map((command) => (
-                <CommandField key={command} label="Terminal" value={command} />
-              ))}
-              <p className="max-w-2xl pt-1 text-sm text-ink-muted">
-                {entry.note}
-              </p>
-            </div>
-          </details>
-        ))}
-      </div>
 
       <section
         id="questions"

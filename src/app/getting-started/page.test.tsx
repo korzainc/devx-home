@@ -94,6 +94,15 @@ describe("the Getting Started page", () => {
     }
   });
 
+  it("keeps each manual command directly beneath its tool summary", () => {
+    const { container } = render(<GettingStartedPage />);
+    const manual = container.querySelector("#manual");
+    expect(manual).toBeTruthy();
+    expect(manual?.querySelectorAll("details")).toHaveLength(
+      manualCommands.length,
+    );
+  });
+
   it("keeps every question closed by default", () => {
     const { container } = render(<GettingStartedPage />);
     const disclosures = [...container.querySelectorAll("details")].filter(
