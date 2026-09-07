@@ -5,6 +5,8 @@ import { Writable } from "node:stream";
 import { renderToPipeableStream } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import GapAnalysisPage from "@/app/gap-analysis/page";
+import type { RunResult } from "@/lib/gap/run";
+import type { Analysis } from "@/lib/gap/types";
 
 // Stubbed because reading the session calls `headers()`, which has no request scope here.
 const session = vi.hoisted(() => ({
@@ -24,7 +26,7 @@ vi.mock("@/lib/session", () => ({
 
 // Stubbed to keep the network out. What matters here is which token reaches it; since #42 a null
 // one is legitimate, meaning an anonymous read.
-const analysis = vi.hoisted(() => ({
+const analysis: Analysis = vi.hoisted(() => ({
   repo: "facebook/react",
   defaultBranch: "main",
   stacks: [],
@@ -51,13 +53,17 @@ const analysis = vi.hoisted(() => ({
     },
   ],
   satisfiedCount: 1,
+  partialCount: 0,
   gapCount: 0,
 }));
 
 const analyses = vi.hoisted(() => ({ tokens: [] as (string | null)[] }));
 
 vi.mock("@/lib/gap/run", () => ({
-  runAnalysis: async (_repo: string, token: string | null) => {
+  runAnalysis: async (
+    _repo: string,
+    token: string | null,
+  ): Promise<RunResult> => {
     analyses.tokens.push(token);
     return { ok: true, analysis };
   },

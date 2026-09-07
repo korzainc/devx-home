@@ -13,10 +13,7 @@ vi.mock("@/lib/session", () => ({
   getSession: async () => ({ user: { name: "Ada Lovelace" } }),
 }));
 
-vi.mock("@/lib/auth-actions", () => ({
-  signOut: async () => {},
-  signInWithGitHub: async () => {},
-}));
+vi.mock("@/lib/auth-actions", () => ({ signOut: async () => {} }));
 
 async function render(node: React.ReactElement): Promise<string> {
   const chunks: Buffer[] = [];
