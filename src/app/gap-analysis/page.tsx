@@ -27,7 +27,6 @@ export const metadata: Metadata = {
 async function Result({ repo }: { repo: string }) {
   const token = await getGitHubToken();
 
-
   const baseline = getBaseline();
   const result = await runAnalysis(repo, token, { tools, baseline });
 

@@ -21,7 +21,8 @@ import type {
 // this component behind a Suspense boundary, whose content is written into a `<div hidden>` and
 // moved into place by an inline `$RC` call, so a client that runs no script never sees the report
 // at all. That is deliberate -- the analysis is a GitHub round trip and does not belong in the
-// shell -- and what such a reader does get is the form and the sign-in prompt (DX-100).
+// shell -- and what such a reader does get is the form, carrying the repository it was asked
+// about (DX-100).
 //
 // The fix prompt control is a further exception either way: it needs an overlay and the clipboard.
 

@@ -8,7 +8,7 @@ import GapAnalysisPage from "@/app/gap-analysis/page";
 
 // Reading the session calls `headers()`, which needs a request scope this renderer does not
 // provide. Only the session is stubbed -- the page's own structure, which is what is under test,
-// runs for real. Null is the signed-out answer, and the one the acceptance criteria name.
+// runs for real.
 const session = vi.hoisted(() => ({
   throws: false,
   token: null as string | null,
@@ -25,9 +25,9 @@ vi.mock("@/lib/session", () => ({
   },
 }));
 
-// Stubbed so the signed-in path can run without a network call. `analyze` itself is covered by
-// its own tests; what is under test here is that the page hands the token to `Result` and the
-// report comes back.
+// Stubbed so the analysis can run without a network call. `analyze` itself is covered by its own
+// tests; what matters here is which token reaches it. Since #42 a null one is legitimate -- it
+// means an anonymous read, which GitHub serves for public repositories.
 const analysis = vi.hoisted(() => ({
   repo: "facebook/react",
   defaultBranch: "main",
@@ -58,9 +58,11 @@ const analysis = vi.hoisted(() => ({
   gapCount: 0,
 }));
 
+const analyses = vi.hoisted(() => ({ tokens: [] as (string | null)[] }));
+
 vi.mock("@/lib/gap/run", () => ({
-  runAnalysis: async (_repo: string, token: string) => {
-    if (!token) throw new Error("Result was rendered without a token.");
+  runAnalysis: async (_repo: string, token: string | null) => {
+    analyses.tokens.push(token);
     return { ok: true, analysis };
   },
 }));
@@ -69,6 +71,7 @@ afterEach(() => {
   session.throws = false;
   session.token = null;
   session.reads = 0;
+  analyses.tokens.length = 0;
 });
 
 /**
@@ -152,53 +155,46 @@ const page = (repo?: string) => (
 
 describe("the gap-analysis page, for a client running no script", () => {
   it("shows the requested repository in the form", async () => {
+    // The surviving half of DX-100's second acceptance bullet. The other half named the sign-in
+    // prompt, which a signed-out reader no longer gets: since #42 they get a real report, and the
+    // prompt appears only once an anonymous read has failed. Which failure it was is not knowable
+    // before making the request, so it cannot be lifted out of the boundary.
     const markup = await render(page("facebook/react"));
 
     expect(visible(markup)).toContain('value="facebook/react"');
   });
 
-  it("shows a signed-out reader the sign-in prompt, naming the repository", async () => {
-    const markup = visible(await render(page("facebook/react")));
-
-    // Scoped to the prompt's own heading. A bare `toContain` for the repository would pass on
-    // the form's value attribute alone, with no prompt rendered at all.
-    expect(markup).toMatch(/Log in to analyze[^<]*<[^>]*>facebook\/react</);
-
-    // And the report boundary must not open at all. Without the token guard it does, so a
-    // signed-out reader gets an error notice next to the prompt inviting them to sign in.
-    // Found by mutation; `Pending` is what that boundary puts in the shell.
-    expect(markup).not.toContain("Reading");
-  });
-
   it("renders the bare page without touching the session", async () => {
-    // Arriving with no ?repo= is the common case from the nav. The session read is now in the
-    // page body, so without this guard every such visit would pay for a query it cannot use.
+    // Arriving with no ?repo= is the common case from the nav, and owes nobody a session query.
     const markup = visible(await render(page()));
 
     expect(markup).toContain('id="repo"');
-    expect(markup).not.toContain("Log in to analyze");
     expect(session.reads).toBe(0);
   });
 
-  it("hands the token to the report for a signed-in reader", async () => {
-    // The page reads the token and passes it down, so this is the only coverage `Result`'s
-    // signature has -- nothing else in the suite renders the signed-in branch.
+  it("analyses anonymously for a signed-out reader", async () => {
+    await render(page("facebook/react"));
+
+    expect(analyses.tokens).toEqual([null]);
+  });
+
+  it("threads a signed-in reader's token through to the analysis", async () => {
     session.token = "gho_test";
 
     const markup = await render(page("facebook/react"));
 
+    expect(analyses.tokens).toEqual(["gho_test"]);
     expect(markup).toContain("Style linting");
-    expect(markup).not.toContain("Log in to analyze");
   });
 
-  it("still renders the form when the session store is unreachable", async () => {
-    // The read is in the page body now, so an exception there takes the whole route down --
-    // including the form, which is the part DX-100 exists to keep reachable.
+  it("keeps the form when the session read throws", async () => {
+    // The read sits inside the report's boundary, so a throw there is contained and the shell
+    // still paints. Hoisting it into the page body -- which DX-100 briefly did -- turned the same
+    // throw into a 500 for the whole route, form included.
     session.throws = true;
 
     const markup = visible(await render(page("facebook/react")));
 
     expect(markup).toContain('value="facebook/react"');
-    expect(markup).toContain("Log in to analyze");
   });
 });
