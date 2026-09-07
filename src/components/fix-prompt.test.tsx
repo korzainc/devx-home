@@ -1,7 +1,13 @@
 /**
  * @vitest-environment jsdom
  */
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FixPromptButton } from "@/components/fix-prompt";
 import { GAP_OPTIONAL_TOGGLE_ID } from "@/lib/gap/optional-toggle";
@@ -30,9 +36,7 @@ beforeEach(() => {
   ) {
     this.setAttribute("open", "");
   });
-  HTMLDialogElement.prototype.close = vi.fn(function (
-    this: HTMLDialogElement,
-  ) {
+  HTMLDialogElement.prototype.close = vi.fn(function (this: HTMLDialogElement) {
     this.removeAttribute("open");
     this.dispatchEvent(new Event("close"));
   });

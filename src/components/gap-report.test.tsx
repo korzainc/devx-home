@@ -831,7 +831,9 @@ describe("GapReport", () => {
               required: false,
               satisfied: false,
               present: [],
-              recommended: [{ id: "codecov", name: "Codecov", stackLabels: [] }],
+              recommended: [
+                { id: "codecov", name: "Codecov", stackLabels: [] },
+              ],
             },
           ],
         },
@@ -856,7 +858,9 @@ describe("GapReport", () => {
       clickGenerate();
 
       const dialog = within(screen.getByRole("dialog"));
-      expect(dialog.getByText("1 required check", { exact: false })).toBeTruthy();
+      expect(
+        dialog.getByText("1 required check", { exact: false }),
+      ).toBeTruthy();
       expect(dialog.getByText(/Gitleaks/)).toBeTruthy();
       expect(dialog.queryByText(/Codecov/)).toBeNull();
     });

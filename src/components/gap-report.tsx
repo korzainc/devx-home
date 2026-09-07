@@ -335,8 +335,8 @@ export function GapReport({
           {noStackDetected ? (
             <>
               No manifest for a stack the catalogue covers (
-              {stacks.map((stack) => stack.label).join(", ")}) was found at
-              the repo root, so nothing could be compared.
+              {stacks.map((stack) => stack.label).join(", ")}) was found at the
+              repo root, so nothing could be compared.
             </>
           ) : (
             <>
@@ -351,9 +351,8 @@ export function GapReport({
 
         {noStackDetected ? null : (
           <p className="text-sm text-ink-faint">
-            Optional: {optionalSatisfiedCount} in place,{" "}
-            {optionalPartialCount} partially covered, {optionalSkippedCount}{" "}
-            skipped.
+            Optional: {optionalSatisfiedCount} in place, {optionalPartialCount}{" "}
+            partially covered, {optionalSkippedCount} skipped.
           </p>
         )}
       </div>

@@ -26,7 +26,11 @@ const baseline: Baseline = {
         // e2e-tests, so this capability stays permanently unsatisfied regardless of what
         // any future snapshot detects.
         "e2e-tests": { recommended: "vitest", acceptable: [], required: true },
-        sast: { recommended: "semgrep", acceptable: ["codeql"], required: true },
+        sast: {
+          recommended: "semgrep",
+          acceptable: ["codeql"],
+          required: true,
+        },
       },
     },
     {
@@ -499,7 +503,11 @@ describe("analyze", () => {
           label: "JavaScript",
           markers: ["package.json"],
           expects: {
-            format: { recommended: "prettier", acceptable: [], required: false },
+            format: {
+              recommended: "prettier",
+              acceptable: [],
+              required: false,
+            },
           },
         },
         {
@@ -564,7 +572,11 @@ describe("analyze", () => {
           label: "JavaScript",
           markers: ["package.json"],
           expects: {
-            coverage: { recommended: "vitest", acceptable: [], required: false },
+            coverage: {
+              recommended: "vitest",
+              acceptable: [],
+              required: false,
+            },
           },
         },
       ],

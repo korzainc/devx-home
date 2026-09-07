@@ -237,7 +237,9 @@ describe("flattenBaseline", () => {
   });
 
   it("threads required through from the real catalogue JSON, not just recommended/acceptable", () => {
-    const javascript = baseline.stacks.find((stack) => stack.id === "javascript");
+    const javascript = baseline.stacks.find(
+      (stack) => stack.id === "javascript",
+    );
     expect(javascript?.expects.secrets.required).toBe(true);
     expect(javascript?.expects.coverage.required).toBe(false);
   });
