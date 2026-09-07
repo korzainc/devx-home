@@ -72,7 +72,7 @@ describe("FixPromptButton", () => {
 
     expect(screen.getByText("REQUIRED")).toBeTruthy();
     expect(screen.queryByText("ALL")).toBeNull();
-    expect(screen.getByText(/2 required/)).toBeTruthy();
+    expect(screen.getByText(/2 required checks/)).toBeTruthy();
   });
 
   it("opens the all-gaps prompt when the reveal checkbox is checked", () => {
@@ -93,6 +93,53 @@ describe("FixPromptButton", () => {
 
     expect(screen.getByText("ALL")).toBeTruthy();
     expect(screen.queryByText("REQUIRED")).toBeNull();
-    expect(screen.getByText(/5 gaps, including 3 optional/)).toBeTruthy();
+    expect(screen.getByText(/5 checks, including 3 optional/)).toBeTruthy();
+  });
+
+  it("skips the charging sweep and opens immediately when reduced motion is requested", () => {
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: true,
+      media: query,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+
+    render(
+      <>
+        <input type="checkbox" id={GAP_OPTIONAL_TOGGLE_ID} />
+        <FixPromptButton
+          requiredOnlyPrompt="REQUIRED"
+          allGapsPrompt="ALL"
+          requiredCount={2}
+          optionalGapCount={3}
+        />
+      </>,
+    );
+
+    const button = screen.getByRole("button", { name: /generate fix prompt/i });
+    fireEvent.click(button);
+
+    // No `vi.advanceTimersByTime` call here: the dialog is already open, with no lap to wait out.
+    expect(screen.getByText("REQUIRED")).toBeTruthy();
+    expect(button.className).not.toContain("is-charging");
+  });
+
+  it("singularizes the dialog subtitle at a count of exactly one", () => {
+    render(
+      <>
+        <input type="checkbox" id={GAP_OPTIONAL_TOGGLE_ID} />
+        <FixPromptButton
+          requiredOnlyPrompt="REQUIRED"
+          allGapsPrompt="ALL"
+          requiredCount={1}
+          optionalGapCount={0}
+        />
+      </>,
+    );
+
+    clickAndAdvance();
+
+    expect(screen.getByText("1 required check", { exact: false })).toBeTruthy();
+    expect(screen.queryByText(/1 required checks/)).toBeNull();
   });
 });

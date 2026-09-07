@@ -30,55 +30,61 @@ function CopyButton({ prompt }: { prompt: string }) {
   const [copied, setCopied] = useState(false);
 
   return (
-    <button
-      type="button"
-      onClick={() => {
-        // Clipboard access can be refused outright, and a button that says Copied when nothing
-        // was copied is worse than one that appears not to have registered the click.
-        navigator.clipboard.writeText(prompt).then(
-          () => {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1600);
-          },
-          () => {},
-        );
-      }}
-      className={`inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
-        copied
-          ? "text-positive"
-          : "text-ink-faint hover:bg-line/40 hover:text-ink"
-      }`}
-    >
-      {copied ? (
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden
-          className="h-3.5 w-3.5"
-        >
-          <path d="M20 6L9 17l-5-5" />
-        </svg>
-      ) : (
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden
-          className="h-3.5 w-3.5"
-        >
-          <rect x="9" y="9" width="11" height="11" rx="2" />
-          <path d="M5 15V5a2 2 0 012-2h8" />
-        </svg>
-      )}
-      {copied ? "Copied" : "Copy"}
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          // Clipboard access can be refused outright, and a button that says Copied when nothing
+          // was copied is worse than one that appears not to have registered the click.
+          navigator.clipboard.writeText(prompt).then(
+            () => {
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1600);
+            },
+            () => {},
+          );
+        }}
+        className={`inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+          copied
+            ? "text-positive"
+            : "text-ink-faint hover:bg-line/40 hover:text-ink"
+        }`}
+      >
+        {copied ? (
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+            className="h-3.5 w-3.5"
+          >
+            <path d="M20 6L9 17l-5-5" />
+          </svg>
+        ) : (
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+            className="h-3.5 w-3.5"
+          >
+            <rect x="9" y="9" width="11" height="11" rx="2" />
+            <path d="M5 15V5a2 2 0 012-2h8" />
+          </svg>
+        )}
+        {copied ? "Copied" : "Copy"}
+      </button>
+      {/* Outside the button, so the button's own accessible name doesn't have to carry it. */}
+      <span role="status" className="sr-only">
+        {copied ? "Copied to clipboard" : ""}
+      </span>
+    </>
   );
 }
 
@@ -100,9 +106,14 @@ function PromptOverlay({
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const preRef = useRef<HTMLPreElement>(null);
 
   useEffect(() => {
+    // `autoFocus` alone doesn't reach here: React applies it at mount, before `showModal` has
+    // made the dialog displayable, so the browser's own dialog-focusing algorithm finds nothing
+    // flagged and leaves focus on whatever triggered the open. Move it explicitly, after.
     ref.current?.showModal();
+    preRef.current?.focus();
   }, []);
 
   return (
@@ -132,16 +143,20 @@ function PromptOverlay({
               </h3>
               <p className="text-xs text-ink-faint">
                 {optionalIncluded > 0
-                  ? `${requiredCount + optionalIncluded} gaps, including ${optionalIncluded} optional`
-                  : `${requiredCount} required`}
+                  ? `${requiredCount + optionalIncluded} check${requiredCount + optionalIncluded === 1 ? "" : "s"}, including ${optionalIncluded} optional`
+                  : `${requiredCount} required check${requiredCount === 1 ? "" : "s"}`}
               </p>
             </div>
           </div>
           <CopyButton prompt={prompt} />
         </div>
 
-        {/* Focusable so the overflow can be reached by keyboard, not only by dragging a bar. */}
+        {/* Focusable so the overflow can be reached by keyboard, not only by dragging a bar.
+            Focused on open too (see the effect above): this dialog is read before it's copied, so
+            opening it should land a keyboard or screen-reader user on the content, not on the
+            Copy button or the dialog chrome. */}
         <pre
+          ref={preRef}
           tabIndex={0}
           className="min-h-0 flex-1 overflow-auto px-5 py-4 font-mono text-xs leading-relaxed whitespace-pre-wrap text-ink-muted"
         >

@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { FixPromptButton } from "@/components/fix-prompt";
-import { GAP_OPTIONAL_TOGGLE_ID } from "@/lib/gap/optional-toggle";
+import {
+  GAP_OPTIONAL_TOGGLE_ID,
+  optionalRowId,
+  optionalSectionId,
+} from "@/lib/gap/optional-toggle";
 import {
   alternatives,
   attributionSuffix,
@@ -113,7 +117,10 @@ function Capability({ capability }: { capability: CapabilityReport }) {
     !capability.satisfied
   ) {
     return (
-      <div className="flex flex-col gap-2 py-4 gap-optional-row">
+      <div
+        id={optionalRowId(capability.id)}
+        className="flex flex-col gap-2 py-4 gap-optional-row"
+      >
         <div className="flex items-baseline justify-between gap-3">
           <h4 className="font-medium text-ink">
             {capability.label}{" "}
@@ -146,6 +153,7 @@ function Capability({ capability }: { capability: CapabilityReport }) {
 
   return (
     <div
+      id={capability.required ? undefined : optionalRowId(capability.id)}
       className={`flex flex-col gap-2 py-4${
         capability.required ? "" : " gap-optional-row"
       }`}
@@ -264,6 +272,20 @@ export function GapReport({
   // below.
   const totalOptionalCount = optionalReports.length;
 
+  // What the checkbox's aria-controls points at: one id per all-optional category (matching the
+  // section-level `gap-optional-row` class below) and one id per optional capability in a mixed
+  // category (matching Capability's own row-level class) -- never both for the same category, so
+  // the list doesn't repeat itself.
+  const optionalControlIds = analysis.categories
+    .flatMap((category) =>
+      category.capabilities.every((capability) => !capability.required)
+        ? [optionalSectionId(category.category)]
+        : category.capabilities
+            .filter((capability) => !capability.required)
+            .map((capability) => optionalRowId(capability.id)),
+    )
+    .join(" ");
+
   return (
     <div id="gap-report" className="flex flex-col gap-8">
       <div className="flex flex-col gap-3 border-b border-line pb-8">
@@ -309,27 +331,54 @@ export function GapReport({
           </>
         )}
 
-        {/* The control sits on the summary row rather than above the gaps, so it reads as part of
-            the report rather than an advert bolted onto it. Nothing to fix means nothing to
-            generate, so a clean repo does not get offered one. */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-ink-muted">
-            {noStackDetected ? (
-              <>
-                No manifest for a stack the catalogue covers (
-                {stacks.map((stack) => stack.label).join(", ")}) was found at
-                the repo root, so nothing could be compared.
-              </>
-            ) : (
-              <>
-                Compared against the baseline for{" "}
-                <span className="text-ink">
-                  {analysis.stacks.map((stack) => stack.label).join(", ")}
-                </span>
-                . {analysis.filesRead.length} files read.
-              </>
-            )}
+        <p className="text-sm text-ink-muted">
+          {noStackDetected ? (
+            <>
+              No manifest for a stack the catalogue covers (
+              {stacks.map((stack) => stack.label).join(", ")}) was found at
+              the repo root, so nothing could be compared.
+            </>
+          ) : (
+            <>
+              Compared against the baseline for{" "}
+              <span className="text-ink">
+                {analysis.stacks.map((stack) => stack.label).join(", ")}
+              </span>
+              . {analysis.filesRead.length} files read.
+            </>
+          )}
+        </p>
+
+        {noStackDetected ? null : (
+          <p className="text-sm text-ink-faint">
+            Optional: {optionalSatisfiedCount} in place,{" "}
+            {optionalPartialCount} partially covered, {optionalSkippedCount}{" "}
+            skipped.
           </p>
+        )}
+      </div>
+
+      {/* The checkbox and the fix-prompt button sit opposite each other: the button reads the
+          checkbox's live checked state at click time, so toggling scope and generating the
+          prompt are visually the same row. Nothing to fix means nothing to generate, so a clean
+          repo does not get offered one. */}
+      {noStackDetected ? null : (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id={GAP_OPTIONAL_TOGGLE_ID}
+              aria-controls={optionalControlIds}
+              className="size-3.5 accent-accent cursor-pointer"
+            />
+            <label
+              htmlFor={GAP_OPTIONAL_TOGGLE_ID}
+              className="cursor-pointer text-sm text-ink-muted hover:text-ink"
+            >
+              Include {totalOptionalCount} optional check
+              {totalOptionalCount === 1 ? "" : "s"}
+            </label>
+          </div>
           {analysis.gapCount > 0 ? (
             <FixPromptButton
               requiredOnlyPrompt={buildFixPrompt(analysis, {
@@ -343,35 +392,16 @@ export function GapReport({
             />
           ) : null}
         </div>
-
-        {noStackDetected ? null : (
-          <p className="text-sm text-ink-faint">
-            Optional: {optionalSatisfiedCount} in place,{" "}
-            {optionalPartialCount} partially covered, {optionalSkippedCount}{" "}
-            skipped.
-          </p>
-        )}
-      </div>
-
-      {noStackDetected ? null : (
-        <div className="flex items-center gap-2 py-4">
-          <input
-            type="checkbox"
-            id={GAP_OPTIONAL_TOGGLE_ID}
-            className="size-3.5 accent-accent cursor-pointer"
-          />
-          <label
-            htmlFor={GAP_OPTIONAL_TOGGLE_ID}
-            className="cursor-pointer text-sm text-ink-muted hover:text-ink"
-          >
-            Include {totalOptionalCount} optional checks
-          </label>
-        </div>
       )}
 
       {analysis.categories.map((category) => (
         <section
           key={category.category}
+          id={
+            category.capabilities.every((capability) => !capability.required)
+              ? optionalSectionId(category.category)
+              : undefined
+          }
           className={`flex flex-col gap-1${
             category.capabilities.every((capability) => !capability.required)
               ? " gap-optional-row"

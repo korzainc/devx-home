@@ -1,8 +1,15 @@
 /**
  * @vitest-environment jsdom
  */
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GapReport } from "@/components/gap-report";
 import { GAP_OPTIONAL_TOGGLE_ID } from "@/lib/gap/optional-toggle";
 import type { Analysis, BaselineStack } from "@/lib/gap/types";
@@ -543,6 +550,102 @@ describe("GapReport", () => {
     ).toBeTruthy();
   });
 
+  it("singularizes the checkbox label at a count of exactly one", () => {
+    render(
+      <GapReport
+        stacks={stacks}
+        analysis={analysisWith({
+          gapCount: 1,
+          categories: [
+            {
+              category: "Testing",
+              capabilities: [
+                {
+                  id: "coverage",
+                  label: "Coverage reporting",
+                  required: false,
+                  satisfied: false,
+                  present: [],
+                  recommended: [],
+                },
+              ],
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(
+      screen.getByText("Include 1 optional check", { exact: false }),
+    ).toBeTruthy();
+    expect(screen.queryByText(/1 optional checks/)).toBeNull();
+  });
+
+  it("points the checkbox's aria-controls at every optional row and all-optional section it reveals", () => {
+    render(
+      <GapReport
+        stacks={stacks}
+        analysis={analysisWith({
+          gapCount: 2,
+          categories: [
+            {
+              category: "Testing",
+              capabilities: [
+                {
+                  id: "unit-tests",
+                  label: "Unit tests",
+                  required: true,
+                  satisfied: true,
+                  present: [
+                    {
+                      id: "jest",
+                      name: "Jest",
+                      evidence: "package.json",
+                      stackLabels: [],
+                    },
+                  ],
+                  recommended: [],
+                },
+                {
+                  id: "coverage",
+                  label: "Coverage reporting",
+                  required: false,
+                  satisfied: false,
+                  present: [],
+                  recommended: [],
+                },
+              ],
+            },
+            {
+              category: "Dependencies",
+              capabilities: [
+                {
+                  id: "dependency-updates",
+                  label: "Dependency updates",
+                  required: false,
+                  satisfied: false,
+                  present: [],
+                  recommended: [],
+                },
+              ],
+            },
+          ],
+        })}
+      />,
+    );
+
+    const checkbox = screen.getByRole("checkbox");
+    const controls = checkbox.getAttribute("aria-controls")?.split(" ");
+    expect(controls).toContain("gap-optional-coverage");
+    expect(controls).toContain("gap-optional-section-dependencies");
+    // The required, satisfied capability in the mixed category is never a target.
+    expect(controls).not.toContain("gap-optional-unit-tests");
+
+    for (const id of controls ?? []) {
+      expect(document.getElementById(id)).not.toBeNull();
+    }
+  });
+
   it("hides the optional-coverage line and the reveal checkbox when no stack was detected", () => {
     // No `categories` override at all means noStackDetected is true (analysisWith's defaults).
     // Both the "Optional: ..." line and the checkbox would otherwise render nonsense - "Include 0
@@ -659,5 +762,117 @@ describe("GapReport", () => {
     expect(screen.getByText(/plus 1 partially covered/)).toBeTruthy();
     expect(screen.queryByText(/plus 2 partially covered/)).toBeNull();
     expect(screen.queryByText(/5 of 8/)).toBeNull();
+  });
+
+  // Everything above checks GapReport's own markup. These check what it hands to
+  // FixPromptButton -- that the two includeOptional flags aren't swapped and the counts passed
+  // down are the right fields -- by clicking through the real, rendered button rather than
+  // inspecting props, matching this file's existing render-and-query style.
+  describe("wiring into FixPromptButton", () => {
+    // Same jsdom gaps fix-prompt.test.tsx already documents: no matchMedia, no <dialog> behavior.
+    beforeEach(() => {
+      window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }));
+      HTMLDialogElement.prototype.showModal = vi.fn(function (
+        this: HTMLDialogElement,
+      ) {
+        this.setAttribute("open", "");
+      });
+      HTMLDialogElement.prototype.close = vi.fn(function (
+        this: HTMLDialogElement,
+      ) {
+        this.removeAttribute("open");
+        this.dispatchEvent(new Event("close"));
+      });
+      vi.useFakeTimers();
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    function clickGenerate() {
+      fireEvent.click(
+        screen.getByRole("button", { name: /generate fix prompt/i }),
+      );
+      act(() => {
+        vi.advanceTimersByTime(700);
+      });
+    }
+
+    const wiringAnalysis = analysisWith({
+      gapCount: 2,
+      requiredGapCount: 1,
+      categories: [
+        {
+          category: "Security",
+          capabilities: [
+            {
+              id: "secret-scanning",
+              label: "Secret scanning",
+              required: true,
+              satisfied: false,
+              present: [],
+              recommended: [
+                { id: "gitleaks", name: "Gitleaks", stackLabels: [] },
+              ],
+            },
+          ],
+        },
+        {
+          category: "Testing",
+          capabilities: [
+            {
+              id: "coverage",
+              label: "Coverage reporting",
+              required: false,
+              satisfied: false,
+              present: [],
+              recommended: [{ id: "codecov", name: "Codecov", stackLabels: [] }],
+            },
+          ],
+        },
+      ],
+    });
+
+    it("does not render a fix-prompt button when there is nothing to fix", () => {
+      render(
+        <GapReport
+          stacks={stacks}
+          analysis={analysisWith({ gapCount: 0, categories: [] })}
+        />,
+      );
+      expect(
+        screen.queryByRole("button", { name: /generate fix prompt/i }),
+      ).toBeNull();
+    });
+
+    it("excludes optional gaps from the prompt while the reveal checkbox is unchecked", () => {
+      render(<GapReport stacks={stacks} analysis={wiringAnalysis} />);
+
+      clickGenerate();
+
+      const dialog = within(screen.getByRole("dialog"));
+      expect(dialog.getByText("1 required check", { exact: false })).toBeTruthy();
+      expect(dialog.getByText(/Gitleaks/)).toBeTruthy();
+      expect(dialog.queryByText(/Codecov/)).toBeNull();
+    });
+
+    it("includes optional gaps once the reveal checkbox is checked, without swapping scope", () => {
+      render(<GapReport stacks={stacks} analysis={wiringAnalysis} />);
+
+      fireEvent.click(screen.getByRole("checkbox"));
+      clickGenerate();
+
+      const dialog = within(screen.getByRole("dialog"));
+      expect(
+        dialog.getByText("2 checks, including 1 optional", { exact: false }),
+      ).toBeTruthy();
+      expect(dialog.getByText(/Gitleaks/)).toBeTruthy();
+      expect(dialog.getByText(/Codecov/)).toBeTruthy();
+    });
   });
 });
