@@ -27,11 +27,17 @@ export const walkthrough: { does: string; detail: string }[] = [
 
 /** The manual path, as a list of what each tool is for. Same order as the commands below. */
 export const manualTools: { tool: string; why: string }[] = [
-  { tool: "Xcode tools", why: "required by Homebrew" },
-  { tool: "homebrew", why: "installs everything below" },
+  {
+    tool: "Xcode tools",
+    why: "ships Apple's own git, no install step needed after",
+  },
   { tool: "git", why: "name and email, from your GitHub account" },
-  { tool: "gh", why: "sign in, and an SSH key" },
-  { tool: "claude", why: "sign in, and the Korza marketplace" },
+  { tool: "gh", why: "user-space install, sign in over HTTPS" },
+  {
+    tool: "claude",
+    why: "sign in, then the Korza marketplace (four plugins)",
+  },
+  { tool: "homebrew", why: "optional, nothing above needs it" },
 ];
 
 /** The commands themselves, one disclosure per tool. Closed by default. */
@@ -43,37 +49,41 @@ export const manualCommands: {
   {
     title: "Xcode Command Line Tools",
     commands: ["xcode-select --install"],
-    note: "Homebrew will not install without these. On a new Mac this is always the first thing missing.",
-  },
-  {
-    title: "Homebrew",
-    commands: [
-      '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"',
-    ],
-    note: "Then follow the two lines it prints at the end, which put brew on your PATH.",
+    note: "This is the only step git needs. Apple ships its own git with these tools; there is no separate git install.",
   },
   {
     title: "Git",
     commands: [
-      "brew install git",
       'git config --global user.name "Your Name"',
       'git config --global user.email "you@korza.ai"',
     ],
     note: "If you sign in to GitHub first, both of those values are already on your account and you can copy them from there.",
   },
   {
-    title: "GitHub CLI, and an SSH key",
-    commands: ["brew install gh", "gh auth login", "gh auth status"],
-    note: "Choose SSH when it asks, and let it generate a key for you. The last command should say you are signed in.",
+    title: "GitHub CLI",
+    commands: [
+      "gh auth login --hostname github.com --git-protocol https --web",
+      "gh auth setup-git --hostname github.com",
+    ],
+    note: "HTTPS, not SSH: everything devx installs clones over HTTPS, so an SSH key would authorize git@github.com without unlocking anything here. Install gh itself from https://github.com/cli/cli#installation, whichever way you prefer, Homebrew included.",
   },
   {
     title: "Claude Code, and the Korza marketplace",
     commands: [
-      "brew install --cask claude-code",
       "claude plugin marketplace add korzainc/marketplace",
       "claude plugin install codezen@korza-marketplace",
+      "claude plugin install superpowers@korza-marketplace",
+      "claude plugin install mattpocock-skills@korza-marketplace",
+      "claude plugin install humanizer@korza-marketplace",
     ],
-    note: "Run claude once first to sign in. The marketplace repo is private, so the last two only work once your GitHub account is in the Korza org. If it fails there, that is an access request, not a broken machine.",
+    note: "Run claude once first to sign in. The marketplace repo is private, so the plugin installs only work once your GitHub account is in the Korza org. If it fails there, that is an access request, not a broken machine.",
+  },
+  {
+    title: "Homebrew",
+    commands: [
+      '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"',
+    ],
+    note: "Optional. Nothing above needs it, devx installs everything into your own user space.",
   },
 ];
 

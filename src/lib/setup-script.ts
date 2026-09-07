@@ -108,7 +108,7 @@ fi
   printf '%s\\n' "\$END"
 } >> "\$ZSHRC"
 
-printf '\\nOpen a new terminal (or run: source ~/.zshrc) so %s is on PATH.\\n\\n' "\$BIN_DIR" >&2
-"\$BIN_DIR/devx" version
+printf '\\nOpen a new terminal (or run: source ~/.zshrc) so %s stays on PATH next time.\\n\\n' "\$BIN_DIR" >&2
+exec "\$BIN_DIR/devx" setup
 `;
 }

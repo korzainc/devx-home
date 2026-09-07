@@ -61,10 +61,10 @@ describe("GET /setup", () => {
     expect(body).toContain('export PATH="$HOME/.local/bin:$PATH"');
   });
 
-  it("ends by proving the install worked", async () => {
+  it("hands off into the wizard, for an actual onboarding review", async () => {
     const res = GET(new NextRequest("http://localhost:3000/setup"));
     const body = await res.text();
-    expect(body.trim().endsWith('"$BIN_DIR/devx" version')).toBe(true);
+    expect(body.trim().endsWith('exec "$BIN_DIR/devx" setup')).toBe(true);
   });
 
   it("carries no em dashes or en dashes in its own comments", async () => {
