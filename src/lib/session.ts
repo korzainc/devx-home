@@ -9,9 +9,13 @@ import { getAuth } from "./auth";
 // on its own was not enough of a check: Vercel scopes the Neon variables to all three environments
 // while the auth secret was production-only, and that pairing broke every preview.
 //
-// The secret is only required here where Better Auth itself requires it. Outside production it
-// falls back to a built-in default and signs people in normally, so insisting on one everywhere
-// would turn `next dev` against a database into a permanently signed-out session, silently.
+// The secret is only required here where Better Auth itself requires it, which it keys off
+// `NODE_ENV` and nothing else. Below that check `NODE_ENV` is what to read, never `VERCEL_ENV`:
+// Vercel sets `NODE_ENV=production` on preview deployments too, so preview is exactly the case
+// this has to cover, and narrowing the check to `VERCEL_ENV === "production"` would let previews
+// back through to the rejection that broke them. Where Better Auth does not insist, it falls back
+// to a built-in default and signs people in normally, so insisting everywhere would turn
+// `next dev` against a database into a permanently signed-out session, silently.
 //
 // A malformed BETTER_AUTH_SECRETS still throws, and deliberately: anything but `<version>:<secret>`
 // is a typo worth failing loudly over rather than quietly signing everyone out.

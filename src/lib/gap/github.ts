@@ -66,36 +66,61 @@ async function request(url: string, token: string | null, accept?: string) {
 
   if (response.ok) return response;
 
-  throw new RepoReadError(response.status, reasonFor(response, token));
+  throw failureFor(response, token);
 }
 
-// Every message here is read by whoever typed the repo name, so each one has to be true for the
-// credential that was actually used. The anonymous variants matter most: the quota is 60 requests
-// an hour for the whole deployment's IP, so a signed-out visitor meets a spent limit far sooner
-// than a signed-in one meets theirs, and the remedy is different too.
-function reasonFor(response: Response, token: string | null): string {
+// Both halves of a refusal are decided here, together, because they are one judgement.
+//
+// The status is translated rather than passed through. GitHub answers a spent quota with 403 as
+// readily as 429, and uses 403 for refusals that have nothing to do with rate limiting, so the
+// status alone cannot tell a caller whether waiting or signing in would change the outcome. Only
+// the remaining-quota header can, and it is only readable here. A caller left to guess from a raw
+// 403 is how a repo blocked for some other reason ends up being offered a login.
+//
+// The message is read by whoever typed the repo name, so each one has to be true for the
+// credential actually used. The anonymous variants matter most: the quota is 60 requests an hour
+// for the whole deployment's IP, so a signed-out visitor meets a spent limit far sooner than a
+// signed-in one meets theirs, and the remedy differs too.
+function failureFor(response: Response, token: string | null): RepoReadError {
   // GitHub returns 404 rather than 403 for a repo the caller cannot reach, so missing and
   // unreadable are indistinguishable and the message has to cover both. Anonymously that means
-  // any private repo, which is the common case worth naming first.
+  // any private repo, which is the common case worth naming first. What to do about it is the
+  // caller's to say, since only the page knows it is about to offer a login anyway.
   if (response.status === 404) {
-    return token
-      ? "Repository not found, or the Korza DevX app is not installed on it. Ask a korzainc owner to add it to the installation."
-      : "No public repository by that name. If it is private, log in and it will be read with your own access.";
+    return new RepoReadError(
+      404,
+      token
+        ? "Repository not found, or the Korza DevX app is not installed on it. Ask a korzainc owner to add it to the installation."
+        : "No public repository by that name. It may also be private.",
+    );
   }
 
-  if (response.status === 401)
-    return "GitHub rejected the token. Log in again.";
+  if (response.status === 401) {
+    return new RepoReadError(401, "GitHub rejected the token. Log in again.");
+  }
 
   if (response.status === 403 || response.status === 429) {
+    // Reported as a rate limit only when the quota is genuinely spent, which is the one case a
+    // larger quota fixes. Anything else GitHub declines is an upstream refusal: real, but with no
+    // way around it to suggest, so it must not reach the page looking like a limit.
     if (!limitExhausted(response)) {
-      return "GitHub declined the request. Try again shortly.";
+      return new RepoReadError(
+        502,
+        "GitHub declined the request. Try again shortly.",
+      );
     }
-    return token
-      ? "You have used up your hourly GitHub API quota. Try again shortly."
-      : "Anonymous reads share one hourly GitHub quota for the whole site, and it is used up. Log in to analyze with your own, which is far larger.";
+    return new RepoReadError(
+      429,
+      token
+        ? "You have used up your hourly GitHub API quota. Try again shortly."
+        : "Anonymous reads share one hourly GitHub quota for the whole site, and it is used up. Your own is far larger.",
+    );
   }
 
-  return `GitHub returned ${response.status}.`;
+  return new RepoReadError(
+    response.status,
+    `GitHub returned ${response.status}.`,
+  );
 }
 
 async function fetchDefaultBranch(

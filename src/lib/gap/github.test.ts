@@ -166,13 +166,14 @@ describe("loadSnapshot failures", () => {
     throw new Error("expected loadSnapshot to throw");
   }
 
-  // Anonymously a 404 covers a private repo as well as one that does not exist, and the caller
-  // can act on that, so the message has to offer logging in rather than talk about an app
-  // installation nobody signed out can do anything about.
+  // Anonymously a 404 covers a private repo as well as one that does not exist, so the message
+  // names both rather than talking about an app installation nobody signed out can act on. It
+  // stops short of telling them to log in: the page already puts that in the heading, and saying
+  // it twice in one card is how the two paragraphs ended up repeating each other.
   it("explains a 404 differently with and without a token", async () => {
     const anonymous = await reasonFrom(null, refusal(404, null));
     expect(anonymous.status).toBe(404);
-    expect(anonymous.message).toContain("log in");
+    expect(anonymous.message).toContain("private");
 
     const signedIn = await reasonFrom("a-token", refusal(404, null));
     expect(signedIn.message).toContain("not installed");
@@ -180,27 +181,33 @@ describe("loadSnapshot failures", () => {
 
   // The fallback the whole feature rests on: 60 requests an hour is shared by every signed-out
   // visitor, so this is the failure they will actually meet, and the page turns it into the
-  // sign-in prompt.
-  it("names the shared quota when an anonymous read is rate limited", async () => {
+  // sign-in prompt. GitHub says 403 here, and 429 is what that means, so the translation happens
+  // in the reader where the header is still readable.
+  it("reports a spent anonymous quota as 429 and names it as shared", async () => {
     const error = await reasonFrom(null, refusal(403, "0"));
 
-    expect(error.status).toBe(403);
-    expect(error.message).toContain("Log in");
+    expect(error.status).toBe(429);
+    expect(error.message).toContain("share one hourly GitHub quota");
     expect(error.message).toContain("used up");
   });
 
-  it("points a signed-in reader at their own spent quota, not a login", async () => {
+  // Whose quota it was is the whole difference. A signed-in reader has nothing larger to move to,
+  // so telling them the shared pool is empty would be both wrong and useless.
+  it("points a signed-in reader at their own spent quota, not a shared one", async () => {
     const error = await reasonFrom("a-token", refusal(429, "0"));
 
+    expect(error.status).toBe(429);
     expect(error.message).toContain("your hourly GitHub API quota");
-    expect(error.message).not.toContain("Log in");
+    expect(error.message).not.toContain("share");
   });
 
-  // A 403 is not only a spent quota, and reporting one as a rate limit would send someone away
-  // to wait for a reset that was never the problem. Only `remaining: 0` means the quota.
+  // A 403 is not only a spent quota. Passing it on as one sent the page a status it answers with
+  // a login prompt, so a blocked repo produced a card headed "Log in to analyze X" over a body
+  // saying to try again shortly. The status is the part that has to differ, not just the message.
   it("does not report a 403 with quota left as a rate limit", async () => {
     const error = await reasonFrom(null, refusal(403, "57"));
 
+    expect(error.status).toBe(502);
     expect(error.message).toBe(
       "GitHub declined the request. Try again shortly.",
     );

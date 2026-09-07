@@ -24,7 +24,12 @@ function statusFor(error: RepoReadError) {
   // The token is now the caller's own, so a rejected one means their grant has lapsed rather
   // than the deployment being misconfigured.
   if (error.status === 401) return 401;
-  if (error.status === 403 || error.status === 429) return 429;
+  // Only a reader's own 429 counts as a rate limit. A 403 is deliberately not folded in here:
+  // GitHub declines requests with one for reasons that have nothing to do with quota, and the
+  // reader has already decided which is which from the remaining-quota header. Treating 403 as a
+  // limit here meant a blocked repo reached the page as 429 and was answered with a login prompt
+  // reading "GitHub declined the request. Try again shortly."
+  if (error.status === 429) return 429;
   return 502;
 }
 
