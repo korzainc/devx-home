@@ -35,7 +35,7 @@ export const manualTools: { tool: string; why: string }[] = [
   { tool: "gh", why: "user-space install, sign in over HTTPS" },
   {
     tool: "SSH access",
-    why: "creates or reuses a key, asks before each step",
+    why: "sets up SSH access by default; HTTPS remains independent",
   },
   {
     tool: "claude",
@@ -76,11 +76,11 @@ export const manualCommands: {
   {
     title: "SSH access",
     commands: [
-      "ssh-keygen -t ed25519 -C \"you@korza.ai\"",
+      'ssh-keygen -t ed25519 -C "you@korza.ai"',
       'gh ssh-key add ~/.ssh/id_ed25519.pub --title "$(hostname)"',
       "ssh -T git@github.com",
     ],
-    note: "Only needed if you use git over SSH rather than the HTTPS setup above; the two are independent. Reuse an existing key instead of the first command if you already have one. The last command should print a fingerprint prompt the first time, then \"successfully authenticated\".",
+    note: 'devx configures GitHub HTTPS credentials and sets up SSH access by default. HTTPS remains independent, while the SSH key enables git@github.com remotes. Reuse an existing key instead of the first command if you already have one. The last command should print a fingerprint prompt the first time, then "successfully authenticated".',
   },
   {
     title: "Claude Code, and the Korza marketplace",
@@ -102,7 +102,10 @@ export const manualCommands: {
   },
   {
     title: "Python, via uv",
-    commands: ["curl -LsSf https://astral.sh/uv/install.sh | sh", "uv python install"],
+    commands: [
+      "curl -LsSf https://astral.sh/uv/install.sh | sh",
+      "uv python install",
+    ],
     note: "Optional. A system or pyenv Python does not count here: this is specifically a uv-managed one, since that is what devx installs and verifies.",
   },
   {

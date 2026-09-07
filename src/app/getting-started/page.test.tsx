@@ -59,6 +59,16 @@ describe("the Getting Started page", () => {
     expect(screen.getAllByText(/node \(fnm\)/i).length).toBeGreaterThan(0);
   });
 
+  it("explains that devx sets up SSH access by default while HTTPS remains usable", () => {
+    render(<GettingStartedPage />);
+    expect(
+      screen.getAllByText(/sets up SSH access by default/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/HTTPS remains independent/i).length,
+    ).toBeGreaterThan(0);
+  });
+
   it("points questions about a broken step or missing tool at #devx", () => {
     render(<GettingStartedPage />);
     expect(screen.getAllByText(/#devx/).length).toBeGreaterThan(0);
