@@ -5,6 +5,8 @@ import {
   fuse,
   hasResults,
   semanticRanking,
+  LEXICAL_SCORE_RATIO,
+  SIMILARITY_CUTOFF,
   SIMILARITY_MARGIN_STRICT,
   type Ranked,
 } from "@/lib/search/rank";
@@ -246,6 +248,20 @@ export type SearchOutcome = {
   semantic: boolean;
 };
 
+/**
+ * How deep into each ranking RRF lets a document vote.
+ *
+ * Fixed, and deliberately not the caller's `limit`: how many rows a page renders is a layout
+ * decision, while how far down a list is still trustworthy is a property of the ranker. Tying
+ * them together is what made /search return exactly 40 rows for every query - it asked for 40,
+ * so 40 documents got an RRF score and all 40 came back.
+ *
+ * 20 is past where either list still discriminates on this corpus (a real query's semantic
+ * similarity has decayed into the noise band by rank 12-20), so it bounds the fusion without
+ * truncating anything the cutoff would have kept.
+ */
+const RETRIEVAL_DEPTH = 20;
+
 /** One clause's ranking, before it is merged with any sibling clause. */
 type ClauseRanking = {
   ranked: Ranked[];
@@ -274,9 +290,18 @@ async function rankClause(
   strict: boolean,
 ): Promise<ClauseRanking> {
   const lexicalHits = lexical.search(clause);
-  const lexicalKeys = lexicalHits.map((hit) => hit.id as string);
+  // Relative to this query's best hit, not an absolute score: see `LEXICAL_SCORE_RATIO`. Without
+  // it `combineWith: "OR"` puts every document sharing one common token into the results, so
+  // "review a pull request" returned Prettier, JUnit and pytest below the real answers.
+  const lexicalCeiling = lexicalHits[0]?.score ?? 0;
+  const lexicalKeys = lexicalHits
+    .filter((hit) => hit.score >= lexicalCeiling * LEXICAL_SCORE_RATIO)
+    .map((hit) => hit.id as string);
   // `match` maps each matched term to the fields it was found in - a hit only on `text` is prose
   // overlap, which is exactly what a generic fragment like "new project" picks up.
+  //
+  // Counted before the ratio filter: this is the gate's "did anything match at all" signal, and a
+  // verbatim name typed by a user should rescue the query even when BM25 scores it modestly.
   const nameLexicalHits = lexicalHits.filter((hit) =>
     Object.values(hit.match).some((fields) => fields.includes("name")),
   ).length;
@@ -288,11 +313,19 @@ async function rankClause(
   try {
     const embed = await getEmbedder();
     const ranking = semanticRanking(await embed(clause), vectors, docs);
-    semanticKeys = ranking.map((row) => row.key);
+    // Both gate statistics are corpus-wide on purpose: the margin measures the best match against
+    // the background noise of everything, so filtering before averaging would raise the mean and
+    // make the margin progressively harder to clear for the queries that deserve it most.
     topSimilarity = ranking[0]?.similarity ?? 0;
     meanSimilarity =
       ranking.reduce((total, row) => total + row.similarity, 0) /
       (ranking.length || 1);
+    // Only documents that are actually similar get to vote. `semanticRanking` returns all 79, and
+    // RRF scores on rank position alone - so without this the list's tail lands in the results at
+    // a plausible-looking score, having earned it by existing.
+    semanticKeys = ranking
+      .filter((row) => row.similarity >= SIMILARITY_CUTOFF)
+      .map((row) => row.key);
   } catch (error) {
     // A missing model or a failed load is not a failed search.
     console.error(
@@ -316,7 +349,13 @@ async function rankClause(
   }
 
   return {
-    ranked: fuse({ lexicalKeys, semanticKeys, byKey, depth, limit: depth }),
+    ranked: fuse({
+      lexicalKeys,
+      semanticKeys,
+      byKey,
+      depth: RETRIEVAL_DEPTH,
+      limit: depth,
+    }),
     semantic,
   };
 }
