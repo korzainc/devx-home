@@ -14,10 +14,10 @@ import { GAP_OPTIONAL_TOGGLE_ID } from "@/lib/gap/optional-toggle";
 
 afterEach(cleanup);
 
-// jsdom 30.0.1 does not implement matchMedia at all, and FixPromptButton's onClick calls it as
-// its first statement, so every click here would throw before any assertion ran without this
-// stub. `matches: false` means "reduced motion is NOT requested," so the charging-sweep
-// setTimeout path always runs and has to be cleared with fake timers instead.
+// jsdom 30.0.1 has no matchMedia, and FixPromptButton's onClick calls it as its first
+// statement, so every click here would throw before any assertion ran without this stub.
+// `matches: false` means reduced motion isn't requested, so the charging-sweep setTimeout
+// path always runs and has to be cleared with fake timers.
 beforeEach(() => {
   window.matchMedia = vi.fn().mockImplementation((query: string) => ({
     matches: false,
@@ -27,9 +27,9 @@ beforeEach(() => {
   }));
 });
 
-// jsdom 30.0.1 has no <dialog> behavior at all — showModal/close are absent, not stubs — and
-// PromptOverlay calls showModal unconditionally the moment it mounts, so the dialog needs a
-// bare-minimum polyfill to open/close without throwing.
+// jsdom 30.0.1 has no <dialog> behavior at all: showModal and close are simply absent, not
+// stubbed. PromptOverlay calls showModal unconditionally on mount, so the dialog needs a
+// bare-minimum polyfill to open and close without throwing.
 beforeEach(() => {
   HTMLDialogElement.prototype.showModal = vi.fn(function (
     this: HTMLDialogElement,

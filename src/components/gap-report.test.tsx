@@ -274,7 +274,7 @@ describe("GapReport", () => {
           satisfiedCount: 3,
           partialCount: 2,
           gapCount: 5,
-          // The headline now reads the required-scoped counts; this fixture has no optional
+          // The headline reads the required-scoped counts; this fixture has no optional
           // capabilities, so they match the all-capability ones above.
           requiredSatisfiedCount: 3,
           requiredPartialCount: 2,
@@ -765,9 +765,9 @@ describe("GapReport", () => {
   });
 
   // Everything above checks GapReport's own markup. These check what it hands to
-  // FixPromptButton -- that the two includeOptional flags aren't swapped and the counts passed
-  // down are the right fields -- by clicking through the real, rendered button rather than
-  // inspecting props, matching this file's existing render-and-query style.
+  // FixPromptButton: that the two includeOptional flags aren't swapped and the counts passed
+  // down are the right fields. Clicks through the real, rendered button rather than inspecting
+  // props, matching this file's render-and-query style.
   describe("wiring into FixPromptButton", () => {
     // Same jsdom gaps fix-prompt.test.tsx already documents: no matchMedia, no <dialog> behavior.
     beforeEach(() => {

@@ -115,11 +115,12 @@
   inherits: false;
 }
 
-/* Optional capabilities are hidden until the reveal checkbox is checked. Scoped to a stable
-   ancestor id, not a sibling combinator: a sibling rule would silently stop working the day the
-   category sections gain a wrapping element between them and the checkbox. The two ids below are
-   literal copies of GAP_OPTIONAL_TOGGLE_ID's value and #gap-report's own id in gap-report.tsx -
-   CSS can't import a TS constant, so if either ever changes, update this rule too. */
+/* Optional capabilities stay hidden until the reveal checkbox is checked. Scoped to a stable
+   ancestor id rather than a sibling combinator, so it keeps working if a wrapping element ever
+   lands between the category sections and the checkbox.
+
+   The two ids below are literal copies of GAP_OPTIONAL_TOGGLE_ID and #gap-report's id in
+   gap-report.tsx. CSS can't import a TS constant, so update this rule if either one changes. */
 .gap-optional-row {
   display: none;
 }

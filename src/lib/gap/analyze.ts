@@ -166,10 +166,10 @@ export function analyze(
       }
     }
 
-    // Any owning stack requiring it wins, matching `satisfied`'s own "most demanding stack"
-    // posture: a repo with both a JavaScript and a Python stack can't let JavaScript's optional
-    // opinion silently downgrade Python's mandatory one. A universal entry gets the same vote --
-    // it has no owning stack to read `required` from, so it carries its own.
+    // Any owning stack requiring it wins, the same "most demanding stack" rule `satisfied` uses:
+    // a repo with both JavaScript and Python can't let JavaScript's optional opinion downgrade
+    // Python's mandatory one. A universal entry has no owning stack to read `required` from, so
+    // it carries its own.
     const required =
       owningStacks.some((stack) => stack.expects[id]!.required) ||
       (universalRequired.get(id) ?? false);

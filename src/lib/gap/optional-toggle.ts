@@ -1,13 +1,12 @@
-// The one id both the checkbox (a plain server-rendered <input>, no JS attached) and the fix
-// prompt button (a client component, reading it back via document.getElementById at click time)
-// agree on, the same shape as skillCardId in skill-link.ts, minus the parameters, since there is
-// exactly one checkbox on this page rather than one per item.
+// The id the server-rendered checkbox and the client-side fix-prompt button both key off of:
+// the button reads it back via document.getElementById at click time. One shared id is enough
+// since this page has exactly one checkbox, unlike skillCardId in skill-link.ts which needs one
+// per item.
 export const GAP_OPTIONAL_TOGGLE_ID = "gap-optional-toggle";
 
-// Ids for the content the checkbox's aria-controls points at, stamped onto the same elements the
-// CSS reveal already targets via `.gap-optional-row`. Kept as functions, not a shared constant,
-// since there are many of these (one per optional row, one per all-optional section) rather than
-// one shared id.
+// Ids for the elements the checkbox's aria-controls points at, matching what the CSS reveal
+// already targets via `.gap-optional-row`. Functions instead of a shared constant, since there's
+// one of these per optional row and per all-optional section, not a single shared id.
 export function optionalRowId(capabilityId: string): string {
   return `gap-optional-${capabilityId}`;
 }

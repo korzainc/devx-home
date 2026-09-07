@@ -250,11 +250,10 @@ export function GapReport({
   const requiredExpected =
     analysis.requiredSatisfiedCount + analysis.requiredGapCount;
 
-  // Three distinct, mutually exclusive subcounts for the quiet "Optional: ..." line, using the
-  // same per-report predicates analyze.ts uses for its own counts so the numbers here can never
-  // silently disagree with those. `optionalSkippedCount` is deliberately narrower than "every
-  // optional gap": it counts only `present.length === 0`, the exact condition the "skipped" chip
-  // above renders for.
+  // Three mutually exclusive subcounts for the quiet "Optional: ..." line, built from the same
+  // per-report predicates analyze.ts uses for its own counts, so the two can never disagree.
+  // `optionalSkippedCount` counts only `present.length === 0`, matching exactly what the "skipped"
+  // chip above renders for.
   const optionalReports = analysis.categories
     .flatMap((category) => category.capabilities)
     .filter((capability) => !capability.required);
@@ -272,9 +271,9 @@ export function GapReport({
   // below.
   const totalOptionalCount = optionalReports.length;
 
-  // What the checkbox's aria-controls points at: one id per all-optional category (matching the
-  // section-level `gap-optional-row` class below) and one id per optional capability in a mixed
-  // category (matching Capability's own row-level class) -- never both for the same category, so
+  // What the checkbox's aria-controls points at: one id per all-optional category, matching the
+  // section-level `gap-optional-row` class below, or one id per optional capability in a mixed
+  // category, matching Capability's own row-level class. Never both for the same category, so
   // the list doesn't repeat itself.
   const optionalControlIds = analysis.categories
     .flatMap((category) =>
@@ -358,9 +357,9 @@ export function GapReport({
       </div>
 
       {/* The checkbox and the fix-prompt button sit opposite each other: the button reads the
-          checkbox's live checked state at click time, so toggling scope and generating the
-          prompt are visually the same row. Nothing to fix means nothing to generate, so a clean
-          repo does not get offered one. */}
+          checkbox's checked state at click time, so toggling scope and generating the prompt read
+          as one action. Hidden entirely when there's nothing to fix, since a clean repo has nothing
+          to generate a prompt for. */}
       {noStackDetected ? null : (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">

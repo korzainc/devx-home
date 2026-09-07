@@ -154,9 +154,9 @@ function PromptOverlay({
           <CopyButton prompt={prompt} />
         </div>
 
-        {/* Focusable so the overflow can be reached by keyboard, not only by dragging a bar.
-            Focused on open too (see the effect above): this dialog is read before it's copied, so
-            opening it should land a keyboard or screen-reader user on the content, not on the
+        {/* Focusable so the overflow can be reached by keyboard, not only by dragging a bar, and
+            focused on open (see the effect above), since the dialog is read before it's copied.
+            Opening it should land keyboard and screen-reader users on the content, not on the
             Copy button or the dialog chrome. */}
         <pre
           ref={preRef}
