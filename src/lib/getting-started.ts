@@ -6,16 +6,6 @@
  * manual path is what works today until the binary ships.
  */
 
-/** The six stages the installer runs, in order. Shared by the inert rail and the stage player. */
-export const stages = [
-  "Detect",
-  "Select",
-  "Confirm",
-  "Execute",
-  "Verify",
-  "Summary",
-] as const;
-
 /** What the installer does, in order. Five lines, not six stages: this is the promise, not the UI. */
 export const walkthrough: { does: string; detail: string }[] = [
   { does: "Checks your machine", detail: "Nothing changes yet." },

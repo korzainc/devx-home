@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
 import { CommandField } from "@/components/install-panel";
 import { PreviewInstallCommand } from "@/components/preview-install";
-import { SetupStages } from "@/components/setup-stages";
 import {
   faq,
   manualCommands,
   manualTools,
-  stages,
   walkthrough,
 } from "@/lib/getting-started";
 
@@ -63,38 +61,12 @@ export default function GettingStartedPage() {
         </div>
 
         <div className="flex flex-col gap-3">
-          {/* Inert twin of the stage rail below: the six stages as a picture, before the control. */}
-          <div aria-hidden className="flex flex-wrap gap-1.5">
-            {stages.map((stage) => (
-              <span
-                key={stage}
-                className="flex-1 rounded-lg border border-line bg-surface px-2 py-1.5 text-center font-mono text-[0.6rem] tracking-wide text-ink-faint uppercase"
-              >
-                {stage}
-              </span>
-            ))}
-          </div>
-
           <PreviewInstallCommand />
 
-          <a href="#preview" className={cta}>
-            Preview the walkthrough ↓
+          <a href="#manual" className={cta}>
+            Prefer to run each step yourself? ↓
           </a>
         </div>
-      </section>
-
-      {/* The one thing on this page that runs today. */}
-      <section id="preview" className="scroll-mt-20 border-t border-line py-12">
-        <div className="flex flex-col gap-2 pb-6">
-          <h2 className="font-display text-2xl font-semibold tracking-tight">
-            See it before you run it.
-          </h2>
-          <p className="max-w-2xl text-ink-muted">
-            The same six stages the binary will run. Click any stage, or play it
-            through.
-          </p>
-        </div>
-        <SetupStages />
       </section>
 
       <Pair
