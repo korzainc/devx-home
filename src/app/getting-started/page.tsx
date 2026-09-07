@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { CommandField } from "@/components/install-panel";
+import { PreviewInstallCommand } from "@/components/preview-install";
 import { SetupStages } from "@/components/setup-stages";
 import {
   faq,
@@ -74,17 +75,8 @@ export default function GettingStartedPage() {
             ))}
           </div>
 
-          <div className="overflow-x-auto rounded-xl border border-line-strong bg-[#050607] p-5 font-mono text-sm leading-relaxed whitespace-pre text-[#e8eaed]">
-            <span className="text-ink-faint">$</span>{" "}
-            {"curl -fsSL https://devx.korza.ai/setup | sh\n\n"}
-            <span className="text-ink-faint">korza ▸ devx</span>{" "}
-            <span className="text-amber-500">· under 15 minutes</span>
-          </div>
+          <PreviewInstallCommand />
 
-          <p className="text-sm text-ink-faint">
-            Download the binary directly
-            <span className="ml-2 text-ink-faint">not live yet</span>
-          </p>
           <a href="#preview" className={cta}>
             Preview the walkthrough ↓
           </a>
@@ -124,7 +116,8 @@ export default function GettingStartedPage() {
               ))}
             </ol>
             <p className={caption}>
-              Under 15 minutes end to end, and safe to run again anytime.
+              How long it takes depends on what is missing, your network, and
+              the two sign-ins. Safe to run again anytime.
             </p>
           </>
         }

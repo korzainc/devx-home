@@ -42,7 +42,6 @@ export const manualTools: { tool: string; why: string }[] = [
   { tool: "git", why: "name and email, from your GitHub account" },
   { tool: "gh", why: "sign in, and an SSH key" },
   { tool: "claude", why: "sign in, and the Korza marketplace" },
-  { tool: "docker", why: "needed by codezen's TDD skill" },
 ];
 
 /** The commands themselves, one disclosure per tool. Closed by default. */
@@ -85,11 +84,6 @@ export const manualCommands: {
       "claude plugin install codezen@korza-marketplace",
     ],
     note: "Run claude once first to sign in. The marketplace repo is private, so the last two only work once your GitHub account is in the Korza org. If it fails there, that is an access request, not a broken machine.",
-  },
-  {
-    title: "Docker",
-    commands: ["brew install --cask docker", "open -a Docker"],
-    note: "Docker takes a few seconds to come up, and asks for your password the first time. Once the menu bar icon settles, docker info should print without an error. Only needed for codezen's TDD skill, which will not run without it.",
   },
 ];
 

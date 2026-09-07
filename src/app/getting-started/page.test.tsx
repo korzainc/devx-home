@@ -4,18 +4,55 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import GettingStartedPage from "./page";
-import { faq, manualCommands, walkthrough } from "@/lib/getting-started";
+import {
+  faq,
+  manualCommands,
+  manualTools,
+  walkthrough,
+} from "@/lib/getting-started";
 
 afterEach(cleanup);
 
 describe("the Getting Started page", () => {
-  it("leads with the one command, and says the binary is not live yet", () => {
-    render(<GettingStartedPage />);
+  it("leads with the one command, built from this origin", () => {
+    const { container } = render(<GettingStartedPage />);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(
       /one command/i,
     );
-    expect(screen.getByText(/devx\.korza\.ai\/setup/)).toBeTruthy();
-    expect(screen.getByText("not live yet")).toBeTruthy();
+    expect(container.textContent).toMatch(
+      /curl -fsSL https?:\/\/[^/]+\/setup \| sh/,
+    );
+  });
+
+  it("labels the build as testing only, not a fixed duration", () => {
+    const { container } = render(<GettingStartedPage />);
+    expect(container.textContent).toMatch(/preview build.*testing only/i);
+    expect(container.textContent).not.toMatch(/under 15 minutes/i);
+    // No premature production promises: this is a testing-only preview, and
+    // the page should not talk about a production release that doesn't exist.
+    expect(container.textContent).not.toMatch(/production/i);
+    expect(container.textContent).not.toMatch(/devx\.korza\.ai\/setup/);
+  });
+
+  it("offers a copy control for the install command", () => {
+    render(<GettingStartedPage />);
+    expect(
+      screen.getByRole("button", { name: /copy install command/i }),
+    ).toBeTruthy();
+  });
+
+  it("carries no em dashes or en dashes in its own copy", () => {
+    const { container } = render(<GettingStartedPage />);
+    expect(container.textContent).not.toMatch(/[–—]/);
+  });
+
+  it("does not carry Docker in the default manual flow", () => {
+    render(<GettingStartedPage />);
+    expect(manualTools.some((entry) => /docker/i.test(entry.tool))).toBe(false);
+    expect(manualCommands.some((entry) => /docker/i.test(entry.title))).toBe(
+      false,
+    );
+    expect(screen.queryByText(/docker/i)).toBeNull();
   });
 
   it("keeps the manual commands closed, so the page still leads with one command", () => {
