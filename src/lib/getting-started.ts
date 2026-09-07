@@ -2,17 +2,17 @@
  * Content for the Getting Started page: the words and the commands, kept out of the markup so a
  * step changes here rather than in a component.
  *
- * The page follows the setup PRD: one command leads, the manual path sits below it, and the
- * manual path is what works today until the binary ships.
+ * The page follows the setup PRD: one command installs devx, then devx setup
+ * leads the guided flow. The manual path remains available below.
  */
 
 /** What the installer does, in order. Five lines, not six stages: this is the promise, not the UI. */
 export const walkthrough: { does: string; detail: string }[] = [
   { does: "Checks your machine", detail: "Nothing changes yet." },
   {
-    does: "Asks two things, once",
+    does: "Pauses when you are needed",
     detail:
-      "Permission to change your machine, and a browser sign in for GitHub and Claude.",
+      "For browser sign-in, an administrator password, or a secure SSH confirmation.",
   },
   {
     does: "Installs what is missing",

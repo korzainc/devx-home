@@ -24,6 +24,12 @@ describe("the Getting Started page", () => {
     );
   });
 
+  it("makes the bootstrap handoff explicit", () => {
+    const { container } = render(<GettingStartedPage />);
+    expect(container.textContent).toMatch(/then run devx setup/i);
+    expect(screen.queryByText(/two things, once/i)).toBeNull();
+  });
+
   it("does not claim a fixed duration or talk about a production release that doesn't exist", () => {
     const { container } = render(<GettingStartedPage />);
     expect(container.textContent).not.toMatch(/under 15 minutes/i);

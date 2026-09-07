@@ -11,7 +11,7 @@ import {
 export const metadata: Metadata = {
   title: "Getting started",
   description:
-    "From a new Mac to a working Korza toolchain in one command, with the manual steps for anyone who would rather run them.",
+    "Install devx in one command, then follow the guided Korza toolchain setup or run each step yourself.",
 };
 
 /* The two-column rhythm the home page uses: a data card beside the prose that explains it. */
@@ -51,12 +51,12 @@ export default function GettingStartedPage() {
             className="absolute -top-10 -left-12 -z-10 h-36 w-96 rounded-full bg-accent/20 blur-3xl"
           />
           <h1 className="font-display text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-            A working toolchain, in one command.
+            Install devx in one command.
           </h1>
           <p className="max-w-lg text-lg leading-relaxed text-ink-muted">
-            Checks this machine and installs what is missing. macOS to start,
-            and here is exactly what to expect, plus what to do if you would
-            rather run each step yourself.
+            Then run <code className="font-mono text-base">devx setup</code> to
+            check this machine and install what is missing. macOS to start,
+            with the manual steps available if you prefer them.
           </p>
         </div>
 
@@ -99,8 +99,8 @@ export default function GettingStartedPage() {
         </h2>
         <p className="text-ink-muted">
           You will not be asked to install anything by hand. The binary reads
-          your machine, tells you the plan, and pauses only for the two things
-          on the left.
+          your machine, tells you the plan, and pauses only when a sign-in or
+          secure terminal step needs you.
         </p>
         <p className="text-ink-muted">
           If a step cannot finish, for example because access needs someone
