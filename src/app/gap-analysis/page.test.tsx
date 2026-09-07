@@ -38,6 +38,7 @@ const analysis = vi.hoisted(() => ({
         {
           id: "lint-style",
           label: "Style linting",
+          required: true,
           satisfied: true,
           present: [
             {
@@ -53,7 +54,11 @@ const analysis = vi.hoisted(() => ({
     },
   ],
   satisfiedCount: 1,
+  partialCount: 0,
   gapCount: 0,
+  requiredSatisfiedCount: 1,
+  requiredPartialCount: 0,
+  requiredGapCount: 0,
 }));
 
 vi.mock("@/lib/gap/run", () => ({
