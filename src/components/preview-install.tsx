@@ -47,12 +47,18 @@ export function PreviewInstallCommand() {
   }
 
   return (
-    <div className="relative overflow-x-auto rounded-xl border border-line-strong bg-[#050607] p-5 font-mono text-sm leading-relaxed whitespace-pre text-[#e8eaed]">
+    <div className="flex items-start gap-2 rounded-xl border border-line-strong bg-[#050607] p-5 font-mono text-sm leading-relaxed text-[#e8eaed]">
+      {/* Its own scroll container, separate from the button below: a long
+          origin scrolling under an overlaid button used to collide with it. */}
+      <div className="min-w-0 flex-1 overflow-x-auto scrollbar-none whitespace-pre">
+        <span className="text-ink-faint">$</span>{" "}
+        {command ?? "curl -fsSL <this preview>/setup | sh"}
+      </div>
       <button
         type="button"
         onClick={copy}
         disabled={!command}
-        className="absolute top-3 right-3 rounded-md p-1.5 text-[#8b9099] transition-colors hover:bg-white/10 hover:text-[#e8eaed] disabled:pointer-events-none disabled:opacity-0"
+        className="shrink-0 rounded-md p-1.5 text-[#8b9099] transition-colors hover:bg-white/10 hover:text-[#e8eaed] disabled:pointer-events-none disabled:opacity-0"
       >
         <span className="sr-only">Copy install command</span>
         <svg aria-hidden width="15" height="15" viewBox="0 0 24 24" fill="none">
@@ -89,8 +95,6 @@ export function PreviewInstallCommand() {
       <span role="status" className="sr-only">
         {copied ? "Install command copied" : ""}
       </span>
-      <span className="text-ink-faint">$</span>{" "}
-      {command ?? "curl -fsSL <this preview>/setup | sh"}
     </div>
   );
 }
