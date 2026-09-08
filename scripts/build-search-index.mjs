@@ -9,6 +9,11 @@
  *   node --experimental-strip-types scripts/build-search-index.mjs         # write
  *   node --experimental-strip-types scripts/build-search-index.mjs --check # verify, exit 1 on drift
  *
+ * The committed index is built by CI on Linux x64, not locally. The same q8 weights run through
+ * different ONNX kernels per architecture: rebuilding on an arm64 Mac rewrites ~97% of the values
+ * and reorders real query results, so `--check` is expected to report stale there. Let the
+ * search-index job rebuild and commit it; do not commit a locally built index over CI's.
+ *
  * Node runs the TypeScript corpus module directly rather than through a bundler, so the adapter
  * has exactly one definition shared with the app.
  */
