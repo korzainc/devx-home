@@ -2,6 +2,7 @@ import "server-only";
 import pluginsData from "@/data/plugins.json";
 import skillsData from "@/data/skills.json";
 import realCatalogueData from "@/data/catalogue.json";
+import { toolCardSummaries } from "@/data/tool-card-summaries";
 import {
   isBundle,
   type BundleEntry,
@@ -126,6 +127,7 @@ function toolFromReal(tool: RealTool): ToolEntry {
     id: tool.id,
     name: tool.name,
     summary: tool.summary,
+    cardSummary: toolCardSummaries[tool.id] ?? tool.summary,
     problem: tool.problem ?? "",
     benefits: tool.benefits ?? [],
     category: realCategory(tool.capabilities),

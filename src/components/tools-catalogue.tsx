@@ -8,8 +8,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { CatalogueCard } from "@/components/catalogue-card";
 import { FacetMenu } from "@/components/facet-menu";
 import {
   facetValues,
@@ -55,29 +55,18 @@ const facets: Facet<PublicToolEntry>[] = [
 
 function ToolCard({ tool }: { tool: PublicToolEntry | PublicBundleEntry }) {
   return (
-    <Link
+    <CatalogueCard
       href={`/tools/${tool.id}`}
-      className="group flex h-full flex-col gap-3 rounded-xl border border-line bg-surface p-4 transition-colors hover:border-line-strong hover:bg-surface-raised"
-    >
-      <h3 className="font-medium text-ink group-hover:text-accent">
-        {tool.name}
-      </h3>
-
-      <p className="flex-1 text-sm leading-relaxed text-ink-muted">
-        {tool.summary}
-      </p>
-
-      <ul className="flex flex-wrap gap-1.5">
-        {tool.capabilities.map((capability) => (
-          <li
-            key={capability}
-            className="rounded bg-accent-wash px-1.5 py-0.5 font-mono text-[0.65rem] text-ink-muted"
-          >
-            {capability}
-          </li>
-        ))}
-      </ul>
-    </Link>
+      name={
+        <h3 className="truncate font-mono text-lg leading-snug font-medium text-ink group-hover:text-accent">
+          {tool.name}
+        </h3>
+      }
+      summary={tool.cardSummary}
+      footerLeft={
+        <span className="truncate">{tool.capabilities.join(" · ")}</span>
+      }
+    />
   );
 }
 
