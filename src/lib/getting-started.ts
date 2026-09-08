@@ -25,7 +25,11 @@ export const walkthrough: { does: string; detail: string }[] = [
   { does: "Shows you what changed", detail: "And what to try next." },
 ];
 
-/** The manual path, as a list of what each tool is for. Same order as the commands below. */
+/**
+ * The manual path, as a list of what each tool is for. The page pairs these with the commands
+ * below by index (`manualTools[i]` labels `manualCommands[i]`), so a row added to one and not
+ * the other would mislabel every row after it. A test asserts the two stay the same length.
+ */
 export const manualTools: { tool: string; why: string }[] = [
   {
     tool: "Xcode tools",
@@ -91,7 +95,7 @@ export const manualCommands: {
       "claude plugin install mattpocock-skills@korza-marketplace",
       "claude plugin install humanizer@korza-marketplace",
     ],
-    note: "Run claude once first to sign in. The marketplace repo is private, so the plugin installs only work once your GitHub account is in the Korza org. If it fails there, that is an access request, not a broken machine.",
+    note: "Nothing above installs Claude Code itself, so on a fresh Mac these commands have nothing to run yet: install it from its own documentation first, whichever route you prefer, then run claude once to sign in. The marketplace repo is private, so the plugin installs only work once your GitHub account is in the Korza org. If it fails there, that is an access request, not a broken machine.",
   },
   {
     title: "Homebrew",
@@ -106,7 +110,7 @@ export const manualCommands: {
       "curl -LsSf https://astral.sh/uv/install.sh | sh",
       "uv python install",
     ],
-    note: "Optional. A system or pyenv Python does not count here: this is specifically a uv-managed one, since that is what devx installs and verifies.",
+    note: "Optional. The installer writes PATH setup into your shell config rather than the current shell, so open a new terminal (or run source $HOME/.local/bin/env) before the second command, or uv will not be found. A system or pyenv Python does not count here: this is specifically a uv-managed one, since that is what devx installs and verifies.",
   },
   {
     title: "Node, via fnm",
@@ -115,7 +119,7 @@ export const manualCommands: {
       "fnm install --lts",
       "fnm default lts-latest",
     ],
-    note: "Optional. Same reasoning as Python: nvm or a system Node does not make this row true, since it is specifically an fnm-managed Node LTS.",
+    note: "Optional. Same shell-config caveat as uv: fnm is not on PATH until you open a new terminal, and node resolves only once fnm's shell hook has run, so the two commands after the installer need that new shell. nvm or a system Node does not make this row true, since it is specifically an fnm-managed Node LTS.",
   },
 ];
 

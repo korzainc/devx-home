@@ -94,6 +94,13 @@ describe("the Getting Started page", () => {
     }
   });
 
+  it("keeps manualTools and manualCommands aligned, since the page pairs them by index", () => {
+    // page.tsx maps manualCommands and reads manualTools[index] for the label,
+    // so a tool added to one list and not the other mislabels every row after
+    // it, or throws on undefined once the commands list is the longer one.
+    expect(manualTools).toHaveLength(manualCommands.length);
+  });
+
   it("keeps each manual command directly beneath its tool summary", () => {
     const { container } = render(<GettingStartedPage />);
     const manual = container.querySelector("#manual");
