@@ -43,7 +43,7 @@ export const manualTools: { tool: string; why: string }[] = [
   },
   {
     tool: "claude",
-    why: "sign in, then the Korza marketplace (four plugins)",
+    why: "install, sign in, then the Korza marketplace (four plugins)",
   },
   { tool: "homebrew", why: "optional, nothing above needs it" },
   { tool: "Python (uv)", why: "optional, a uv-managed Python" },
@@ -89,13 +89,14 @@ export const manualCommands: {
   {
     title: "Claude Code, and the Korza marketplace",
     commands: [
+      "curl -fsSL https://claude.ai/install.sh | bash",
       "claude plugin marketplace add korzainc/marketplace",
       "claude plugin install codezen@korza-marketplace",
       "claude plugin install superpowers@korza-marketplace",
       "claude plugin install mattpocock-skills@korza-marketplace",
       "claude plugin install humanizer@korza-marketplace",
     ],
-    note: "Nothing above installs Claude Code itself, so on a fresh Mac these commands have nothing to run yet: install it from its own documentation first, whichever route you prefer, then run claude once to sign in. The marketplace repo is private, so the plugin installs only work once your GitHub account is in the Korza org. If it fails there, that is an access request, not a broken machine.",
+    note: "The first line is the official installer, the same one devx runs. If you would rather go through npm, npm install -g @anthropic-ai/claude-code is devx's own fallback, and https://docs.claude.com/en/docs/claude-code/setup covers both routes. Run claude once after installing to sign in. The marketplace repo is private, so the plugin installs only work once your GitHub account is in the Korza org. If it fails there, that is an access request, not a broken machine.",
   },
   {
     title: "Homebrew",
