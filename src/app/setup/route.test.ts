@@ -1,9 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { GET } from "./route";
 import { artifactPaths } from "@/lib/setup-script";
 
 describe("GET /setup", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("serves a shell script, not HTML or JSON", async () => {
     const res = GET(new NextRequest("http://localhost:3000/setup"));
     expect(res.headers.get("Content-Type")).toMatch(/shellscript/);
@@ -102,6 +106,65 @@ describe("GET /setup", () => {
     expect(body).toContain("Start setup:");
     expect(body).toContain("devx setup");
     expect(body).not.toContain('exec \"$BIN_DIR/devx\" setup');
+  });
+
+  it("keeps http when an unproxied dev server sends host but no x-forwarded-proto", async () => {
+    // A real `next dev` server always sends a host header (HTTP/1.1 requires
+    // one) and never sends x-forwarded-proto, since nothing is proxying it.
+    // Defaulting to https there pins DEVX_DIST_URL to a scheme the dev server
+    // does not serve, so the script's own curl fails mid-rehearsal. A bare
+    // NextRequest carries no host header, which is why the other local-origin
+    // test above does not catch this.
+    const res = GET(
+      new NextRequest("http://localhost:3000/setup", {
+        headers: { host: "localhost:3000" },
+      }),
+    );
+    const body = await res.text();
+    const { tarball } = artifactPaths();
+    expect(body).toContain(`DEVX_DIST_URL='http://localhost:3000${tarball}'`);
+    expect(body).not.toContain("https://localhost:3000");
+  });
+
+  it("quotes a hostile forwarded host into a single literal shell word", async () => {
+    const res = GET(
+      new NextRequest("https://example.com/setup", {
+        headers: {
+          "x-forwarded-host": "evil.example'; echo pwned #",
+          "x-forwarded-proto": "https",
+        },
+      }),
+    );
+    const body = await res.text();
+    const line = body
+      .split("\n")
+      .find((l) => l.startsWith("export DEVX_DIST_URL="));
+    expect(line).toBeDefined();
+    const { tarball } = artifactPaths();
+    // Single-quoted, with the embedded quote closed and reopened as '\'' so a
+    // POSIX shell reads the whole value as one word rather than a command.
+    expect(line).toBe(
+      "export DEVX_DIST_URL='https://evil.example'\\''; echo pwned #" +
+        tarball +
+        "'",
+    );
+    // Exactly one assignment line, so nothing broke out onto its own.
+    expect(
+      body.split("\n").filter((l) => l.startsWith("export DEVX_DIST_URL=")),
+    ).toHaveLength(1);
+  });
+
+  it("pins production to its own committed artifact too, not to a release", async () => {
+    // Deliberate for now, not an oversight. devx-cli publishes no releases, so
+    // dropping the override in production would send every real install into
+    // the script's releases/latest lookup and fail with "Could not find a macOS
+    // build of devx". Pointing production at a verified release should be a
+    // conscious change, and one that breaks this test.
+    vi.stubEnv("VERCEL_ENV", "production");
+    const res = GET(new NextRequest("https://devx.korza.ai/setup"));
+    const body = await res.text();
+    const { tarball } = artifactPaths();
+    expect(body).toContain(`DEVX_DIST_URL='https://devx.korza.ai${tarball}'`);
   });
 
   it("carries no em dashes or en dashes", async () => {
