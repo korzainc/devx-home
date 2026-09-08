@@ -31,54 +31,6 @@ const OUT = join(root, "src/data/search-index.json");
 const MODEL = "Xenova/all-MiniLM-L6-v2";
 const DTYPE = "q8";
 
-/**
- * How far a committed index may drift from a fresh build before it counts as stale.
- *
- * The vectors cannot be compared byte-for-byte across machines: the same q8 weights run through
- * different ONNX kernels on arm64 and x64, and the last bits disagree. That is why a file built
- * on a maintainer's Mac failed this check on a Linux runner while being perfectly current.
- *
- * 1e-3 per component is two orders of magnitude above that hardware noise and an order of
- * magnitude below the ~1e-2 inter-rank gaps the ranker actually resolves, so a real corpus change
- * still trips it while a rebuild on another architecture does not.
- */
-const VECTOR_TOLERANCE = 1e-3;
-
-/**
- * Returns a human-readable reason the committed index is stale, or null when it is current.
- * Everything except the float vectors is compared exactly - a changed model, dtype, dimension,
- * schema version or corpus key list is a real difference, not numerical noise.
- */
-function indexDrift(existing, fresh) {
-  for (const field of ["schemaVersion", "model", "dtype", "dim"]) {
-    if (existing[field] !== fresh[field]) {
-      return `${field} is ${existing[field]}, expected ${fresh[field]}`;
-    }
-  }
-
-  if (existing.keys?.length !== fresh.keys.length) {
-    return `${existing.keys?.length ?? 0} documents, expected ${fresh.keys.length}`;
-  }
-  for (let i = 0; i < fresh.keys.length; i++) {
-    if (existing.keys[i] !== fresh.keys[i]) {
-      return `document ${i} is ${existing.keys[i]}, expected ${fresh.keys[i]}`;
-    }
-  }
-
-  if (existing.vectors?.length !== fresh.vectors.length) {
-    return `${existing.vectors?.length ?? 0} vector values, expected ${fresh.vectors.length}`;
-  }
-  for (let i = 0; i < fresh.vectors.length; i++) {
-    const delta = Math.abs(existing.vectors[i] - fresh.vectors[i]);
-    if (!(delta <= VECTOR_TOLERANCE)) {
-      const key = fresh.keys[Math.floor(i / fresh.dim)];
-      return `vector for ${key} differs by ${delta.toExponential(1)}`;
-    }
-  }
-
-  return null;
-}
-
 async function main() {
   const check = process.argv.includes("--check");
 
@@ -123,11 +75,9 @@ async function main() {
   const json = JSON.stringify(index, null, 2) + "\n";
 
   if (check) {
-    const existing = JSON.parse(readFileSync(OUT, "utf8"));
-    const drift = indexDrift(existing, index);
-    if (drift) {
-      console.error(`search-index.json is stale: ${drift}`);
-      console.error("Run: pnpm build:search-index");
+    const existing = readFileSync(OUT, "utf8");
+    if (existing !== json) {
+      console.error("search-index.json is stale. Run: pnpm build:search-index");
       process.exit(1);
     }
     console.log(`search-index.json is current (${docs.length} documents).`);
