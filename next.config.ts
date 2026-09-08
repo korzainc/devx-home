@@ -1,9 +1,12 @@
 import type { NextConfig } from "next";
+import { getSetupOrigin } from "./src/lib/setup-origin";
+
+const setupOrigin = getSetupOrigin();
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
-  // Allow client assets when next dev is reached through an ngrok tunnel.
-  allowedDevOrigins: ["*.ngrok-free.app", "*.ngrok.io", "*.ngrok.app"],
+  // Permit the explicitly configured development origin, including a local tunnel.
+  allowedDevOrigins: setupOrigin ? [new URL(setupOrigin).hostname] : [],
 };
 
 export default nextConfig;

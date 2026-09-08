@@ -2,13 +2,13 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { shellQuote } from "@/lib/shell-quote";
 
-// Serve the vendored installer with this deployment's bundled prerelease, including
-// in production. Moving to published releases requires an explicit distribution change.
+// Serve the vendored installer with this deployment's interim bundled distribution,
+// including in production. DX-161 replaces this distribution path.
 // Reconcile installer fixes with devx-cli when updating the script, archive and checksum.
 
 /** Bump this alongside the files committed under public/devx/. */
-export const PREVIEW_ARTIFACT_VERSION = "0.1.0";
-const TARBALL_NAME = `devx-${PREVIEW_ARTIFACT_VERSION}-macos.tar.gz`;
+export const BUNDLED_ARTIFACT_VERSION = "0.1.0";
+const TARBALL_NAME = `devx-${BUNDLED_ARTIFACT_VERSION}-macos.tar.gz`;
 
 export function artifactPaths() {
   return {
@@ -24,16 +24,35 @@ function canonicalInstallScript(): string {
   );
 }
 
+function bundledChecksum(): string {
+  const [digest, filename, ...extra] = readFileSync(
+    join(process.cwd(), "public", "devx", `${TARBALL_NAME}.sha256`),
+    "utf8",
+  )
+    .trim()
+    .split(/\s+/);
+  if (
+    !/^[0-9a-fA-F]{64}$/.test(digest) ||
+    filename !== TARBALL_NAME ||
+    extra.length !== 0
+  ) {
+    throw new Error("The bundled devx checksum is invalid.");
+  }
+  return digest.toLowerCase();
+}
+
 /** Pin the installer to this deployment's bundled artifact. */
 export function setupScript(origin: string): string {
   const script = canonicalInstallScript();
   const tarballUrl = `${origin}${artifactPaths().tarball}`;
+  const digest = bundledChecksum();
   const [shebang, ...rest] = script.split("\n");
 
   const override = [
     "",
     "# Use this deployment's bundled artifact.",
     `export DEVX_DIST_URL=${shellQuote(tarballUrl)}`,
+    `export DEVX_DIST_SHA256=${shellQuote(digest)}`,
   ];
 
   return [shebang, ...override, ...rest].join("\n");

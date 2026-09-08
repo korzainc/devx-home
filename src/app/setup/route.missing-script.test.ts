@@ -1,7 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-// The route reads public/devx/install.sh off disk per request. Next's
+// The route reads public/devx/install.sh from disk. Next's
 // "standalone" output requires public/ to be copied next to server.js by hand,
 // so a missed copy step makes that read throw at runtime. Direct shell consumers
 // should still receive a shell-safe failure instead of an HTML error page.
@@ -22,8 +22,11 @@ vi.mock("node:fs", async (importOriginal) => {
   };
 });
 
+afterEach(() => vi.unstubAllEnvs());
+
 describe("GET /setup when the vendored install.sh is missing", () => {
   it("answers with runnable shell that exits non-zero, not an HTML error page", async () => {
+    vi.stubEnv("DEVX_PUBLIC_ORIGIN", "https://setup.example");
     const { GET } = await import("./route");
     const res = GET(new NextRequest("http://localhost:3000/setup"));
 

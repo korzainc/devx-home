@@ -1,28 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { bootstrapCommand } from "@/lib/bootstrap-command";
+import { useEffect, useRef, useState } from "react";
 
-// The origin is fixed for this page load.
-function subscribe() {
-  return () => {};
-}
-function getSnapshot() {
-  return window.location.origin;
-}
-// Wait for the browser's origin to avoid a hydration mismatch.
-function getServerSnapshot() {
-  return null;
-}
-
-export function PreviewInstallCommand() {
-  const origin = useSyncExternalStore(
-    subscribe,
-    getSnapshot,
-    getServerSnapshot,
-  );
-  const command = origin ? bootstrapCommand(`${origin}/setup`) : null;
-
+export function PreviewInstallCommand({ command }: { command: string | null }) {
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -44,7 +24,9 @@ export function PreviewInstallCommand() {
       {/* Keep the copy control outside the scrolling command. */}
       <div className="min-w-0 flex-1 overflow-x-auto scrollbar-none whitespace-pre">
         <span className="text-ink-faint">$</span>{" "}
-        {command ?? "Loading install command..."}
+        <code className="select-all">
+          {command ?? "Installer unavailable. Use the manual steps below."}
+        </code>
       </div>
       <button
         type="button"

@@ -19,39 +19,24 @@ export const walkthrough: { does: string; detail: string }[] = [
   { does: "Shows you what changed", detail: "And what to try next." },
 ];
 
-/** Labels pair with manualCommands by index. Keep their order aligned. */
-export const manualTools: { tool: string; why: string }[] = [
-  {
-    tool: "Xcode tools",
-    why: "ships Apple's own git, no install step needed after",
-  },
-  { tool: "git", why: "your commit author name and email" },
-  { tool: "gh", why: "user-space install, sign in over HTTPS" },
-  {
-    tool: "SSH access",
-    why: "GitHub SSH access, separate from HTTPS",
-  },
-  {
-    tool: "claude",
-    why: "install, sign in, then the Korza marketplace (four plugins)",
-  },
-  { tool: "homebrew", why: "optional, nothing above needs it" },
-  { tool: "Python (uv)", why: "optional, a uv-managed Python" },
-  { tool: "Node (fnm)", why: "optional, an fnm-managed Node LTS" },
-];
-
 /** The commands themselves, one disclosure per tool. Closed by default. */
 export const manualCommands: {
+  tool: string;
+  why: string;
   title: string;
   commands: string[];
   note: string;
 }[] = [
   {
+    tool: "Xcode tools",
+    why: "ships Apple's own git, no install step needed after",
     title: "Xcode Command Line Tools",
     commands: ["xcode-select --install"],
     note: "This is the only step git needs. Apple ships its own git with these tools; there is no separate git install.",
   },
   {
+    tool: "git",
+    why: "your commit author name and email",
     title: "Git",
     commands: [
       'git config --global user.name "Your Name"',
@@ -60,6 +45,8 @@ export const manualCommands: {
     note: "Use the name and email you want recorded on your commits.",
   },
   {
+    tool: "gh",
+    why: "user-space install, sign in over HTTPS",
     title: "GitHub CLI",
     commands: [
       "gh auth login --hostname github.com --git-protocol https --web",
@@ -68,6 +55,8 @@ export const manualCommands: {
     note: "Install gh first from https://github.com/cli/cli#installation, then run these commands to sign in and configure Git's HTTPS credentials. SSH access is set up separately below.",
   },
   {
+    tool: "SSH access",
+    why: "GitHub SSH access, separate from HTTPS",
     title: "SSH access",
     commands: [
       'ssh-keygen -t ed25519 -C "you@korza.ai"',
@@ -79,6 +68,8 @@ export const manualCommands: {
     note: 'Skip key creation when reusing an existing key, and adjust the public and private key paths above. ssh-add loads the key so Claude can clone without a passphrase prompt; run it again if the agent forgets the key. The permission step authorizes uploading the public key. Check GitHub\'s published fingerprint before accepting the first SSH connection. A successful check prints "successfully authenticated"; GitHub returns exit code 1 because it does not provide shell access.',
   },
   {
+    tool: "claude",
+    why: "install, sign in, then the Korza marketplace (four plugins)",
     title: "Claude Code, and the Korza marketplace",
     commands: [
       "curl -fsSL https://claude.ai/install.sh | bash",
@@ -91,6 +82,8 @@ export const manualCommands: {
     note: "After the official installer finishes, follow its PATH instructions and run claude once to sign in before adding the marketplace. GitHub shorthand uses SSH by default, so complete the SSH access steps first. If access fails, check the loaded key and your Korza GitHub membership. See https://code.claude.com/docs/en/setup for installation help.",
   },
   {
+    tool: "homebrew",
+    why: "optional, nothing above needs it",
     title: "Homebrew",
     commands: [
       '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"',
@@ -98,6 +91,8 @@ export const manualCommands: {
     note: "Optional. The other tools can be installed without Homebrew.",
   },
   {
+    tool: "Python (uv)",
+    why: "optional, a uv-managed Python",
     title: "Python, via uv",
     commands: [
       "curl -LsSf https://astral.sh/uv/install.sh | sh",
@@ -106,6 +101,8 @@ export const manualCommands: {
     note: "Optional. The installer writes PATH setup into your shell config rather than the current shell, so open a new terminal (or run source $HOME/.local/bin/env) before the second command, or uv will not be found. A system or pyenv Python does not count here: this is specifically a uv-managed one, since that is what devx installs and verifies.",
   },
   {
+    tool: "Node (fnm)",
+    why: "optional, an fnm-managed Node LTS",
     title: "Node, via fnm",
     commands: [
       "curl -fsSL https://fnm.vercel.app/install | bash -s -- --force-install",

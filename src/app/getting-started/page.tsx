@@ -1,12 +1,9 @@
 import type { Metadata } from "next";
 import { CommandField } from "@/components/install-panel";
 import { PreviewInstallCommand } from "@/components/preview-install";
-import {
-  faq,
-  manualCommands,
-  manualTools,
-  walkthrough,
-} from "@/lib/getting-started";
+import { bootstrapCommand } from "@/lib/bootstrap-command";
+import { getSetupOrigin } from "@/lib/setup-origin";
+import { faq, manualCommands, walkthrough } from "@/lib/getting-started";
 
 export const metadata: Metadata = {
   title: "Getting started",
@@ -40,13 +37,15 @@ const caption = "px-5 pt-3 pb-4 text-xs text-ink-faint";
 const cta = "text-sm font-medium text-accent hover:underline";
 
 export default function GettingStartedPage() {
+  const origin = getSetupOrigin();
+  const command = origin ? bootstrapCommand(`${origin}/setup`) : null;
   return (
     <div className="flex flex-col">
-      <section className="grid items-center gap-8 pb-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-14">
+      <section className="grid grid-cols-1 items-center gap-8 pb-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-14">
         <div className="relative isolate flex flex-col gap-4">
           <span
             aria-hidden
-            className="absolute -top-10 -left-12 -z-10 h-36 w-96 rounded-full bg-accent/20 blur-3xl"
+            className="absolute -top-10 -left-12 -z-10 h-36 w-96 max-w-full rounded-full bg-accent/20 blur-3xl"
           />
           <h1 className="font-display text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
             Install devx in one command.
@@ -59,12 +58,8 @@ export default function GettingStartedPage() {
         </div>
 
         <div className="flex flex-col gap-3">
-          <PreviewInstallCommand />
+          <PreviewInstallCommand key={command} command={command} />
           <p className="text-xs text-ink-faint">Pre-release macOS build.</p>
-          <noscript>
-            Enable JavaScript to load the install command, or use the manual
-            steps below.
-          </noscript>
 
           <a href="#manual" className={cta}>
             Prefer to run each step yourself? ↓
@@ -122,7 +117,7 @@ export default function GettingStartedPage() {
         id="manual"
         card={
           <>
-            {manualCommands.map((entry, index) => (
+            {manualCommands.map((entry) => (
               <details
                 key={entry.title}
                 className="group border-b border-line last:border-b-0 open:bg-canvas"
@@ -132,11 +127,9 @@ export default function GettingStartedPage() {
                     <span className="group-open:hidden">+</span>
                     <span className="hidden group-open:inline">−</span>
                   </span>
-                  <span className="font-mono text-sm">
-                    {manualTools[index].tool}
-                  </span>
+                  <span className="font-mono text-sm">{entry.tool}</span>
                   <span className="ml-auto text-right text-xs text-ink-faint">
-                    {manualTools[index].why}
+                    {entry.why}
                   </span>
                 </summary>
                 <div className="flex flex-col gap-2 border-t border-line px-5 py-4">

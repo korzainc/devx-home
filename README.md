@@ -20,6 +20,36 @@ pnpm typecheck
 pnpm build
 ```
 
+## Installer distribution
+
+`/getting-started` renders its install command on the server. `/setup` uses the
+same configured origin and pins the expected checksum from the committed sidecar.
+Request `Host` and forwarded headers cannot select a download host.
+
+Set `DEVX_PUBLIC_ORIGIN` to the public HTTPS origin when building and deploying
+outside Vercel, or when overriding its defaults. On Vercel, production uses
+`VERCEL_PROJECT_PRODUCTION_URL`; previews use `VERCEL_URL`. Enable Vercel's system
+environment variables, or provide the explicit origin. An invalid or missing
+production origin disables the install command and returns 503 from `/setup`.
+
+Local development defaults to `http://localhost:3000` (or `PORT`). For another
+port or a tunnel, set the origin explicitly before starting Next:
+
+```bash
+DEVX_PUBLIC_ORIGIN=https://your-tunnel.example pnpm dev
+```
+
+Only that configured host is added to Next's development-origin allowlist.
+HTTP origins are accepted only for local loopback during development or tests.
+Changes to deployment origins require a rebuild.
+
+The selected host must serve `/setup`, the archive and its checksum without browser
+authentication. The bootstrap rejects unexpected responses such as login HTML;
+the shebang check detects a wrong response format, not an untrusted script.
+The pinned digest detects altered downloads but does not authenticate a compromised
+script server. DX-161 replaces this bundled prerelease with verified release
+distribution; update the installer, archive and checksum together at that transition.
+
 ## Gotchas worth knowing before you touch the toolchain
 
 **`typecheck` runs `next typegen` first, deliberately.** `tsc` alone fails on a clean checkout

@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   existsSync,
   mkdirSync,
@@ -12,11 +13,17 @@ import { describe, expect, it } from "vitest";
 
 type Scenario = {
   checksum?: "missing" | "mismatch";
+  expectedDigest?: string;
   signature?: "unsigned" | "invalid" | "sign-fails";
   versionFails?: boolean;
   destination?: "directory" | "directory-link";
   fresh?: boolean;
 };
+
+const ARCHIVE_PAYLOAD = "inert archive fixture";
+const ARCHIVE_DIGEST = createHash("sha256")
+  .update(ARCHIVE_PAYLOAD)
+  .digest("hex");
 
 // Run only installer control flow, never the bundled binary or a network client.
 // PATH contains fixtures and a small explicit utility allowlist. HOME and all
@@ -59,6 +66,7 @@ exit ${scenario.versionFails ? 7 : 0}
 `;
   writeFileSync(join(root, "fixture"), fixture);
   writeFileSync(join(root, "events"), "");
+  writeFileSync(join(root, "downloads"), "");
 
   const stub = String.raw`#!${process.execPath}
 const fs = require("node:fs");
@@ -80,9 +88,10 @@ switch (name) {
     const checksum = args[1] === "https://fixture.invalid/devx.sha256";
     check(checksum || args[1] === "https://fixture.invalid/devx");
     check(args[3] === path.join(stage, checksum ? "devx.sha256" : "devx.tar.gz"));
+    fs.appendFileSync(path.join(root, "downloads"), args[1] + "\n");
     if (checksum && scenario.checksum === "missing") process.exit(22);
-    const payload = "inert archive fixture";
-    const digest = scenario.checksum === "mismatch" ? "wrong" : crypto.createHash("sha256").update(payload).digest("hex");
+    const payload = ${JSON.stringify(ARCHIVE_PAYLOAD)};
+    const digest = scenario.checksum === "mismatch" ? "0".repeat(64) : crypto.createHash("sha256").update(payload).digest("hex");
     fs.writeFileSync(args[3], checksum ? digest + "  devx.tar.gz\n" : payload);
     break;
   }
@@ -131,6 +140,7 @@ switch (name) {
     mv: "/bin/mv",
     cut: "/usr/bin/cut",
     grep: "/usr/bin/grep",
+    tr: "/usr/bin/tr",
   })) {
     symlinkSync(systemPath, join(bin, name));
   }
@@ -145,6 +155,9 @@ switch (name) {
         TMPDIR: stage,
         DEVX_BIN_DIR: destination,
         DEVX_DIST_URL: "https://fixture.invalid/devx",
+        ...(scenario.expectedDigest !== undefined
+          ? { DEVX_DIST_SHA256: scenario.expectedDigest }
+          : {}),
         FIXTURE_ROOT: root,
       },
       encoding: "utf8",
@@ -160,6 +173,7 @@ switch (name) {
     target,
     fixture,
     events: readFileSync(join(root, "events"), "utf8").trim().split("\n"),
+    downloads: readFileSync(join(root, "downloads"), "utf8").trim().split("\n"),
   };
 }
 
@@ -167,6 +181,48 @@ describe(
   "the vendored installer with inert local fixtures",
   { timeout: 20_000 },
   () => {
+    it.each([ARCHIVE_DIGEST, ARCHIVE_DIGEST.toUpperCase()])(
+      "installs against the supplied digest %s without fetching a sidecar",
+      (expectedDigest) => {
+        const result = install({ expectedDigest, checksum: "missing" });
+        expect(result.status, result.stderr).toBe(0);
+        expect(result.downloads).toEqual(["https://fixture.invalid/devx"]);
+        expect(readFileSync(result.target, "utf8")).toBe(result.fixture);
+      },
+    );
+
+    it("rejects a mismatched pin even when the hosted sidecar would match", () => {
+      const result = install({ expectedDigest: "0".repeat(64) });
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("does not match");
+      expect(result.downloads).toEqual(["https://fixture.invalid/devx"]);
+      expect(result.events).toEqual(["cleanup-retained"]);
+      expect(readFileSync(result.target, "utf8")).toBe("previous installation");
+    });
+
+    it.each(["", "0".repeat(63), "0".repeat(65), "g".repeat(64)])(
+      "fails closed for malformed supplied digest %j",
+      (expectedDigest) => {
+        const result = install({ expectedDigest });
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain("exactly 64 hexadecimal characters");
+        expect(result.downloads).toEqual(["https://fixture.invalid/devx"]);
+        expect(result.events).toEqual(["cleanup-retained"]);
+        expect(readFileSync(result.target, "utf8")).toBe(
+          "previous installation",
+        );
+      },
+    );
+
+    it("uses the published sidecar when no expected digest is supplied", () => {
+      const result = install();
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.downloads).toEqual([
+        "https://fixture.invalid/devx",
+        "https://fixture.invalid/devx.sha256",
+      ]);
+    });
+
     it.each(["missing", "mismatch"] as const)(
       "preserves the old install when the checksum is %s",
       (checksum) => {

@@ -56,15 +56,25 @@ fi
 printf '  Downloading devx…\n'
 curl -fsSL "$URL" -o "$TMP/devx.tar.gz"
 
-# The same-origin digest detects corruption, not a compromised release host.
-# It also applies to DEVX_DIST_URL. shasum ships with macOS.
+# /setup embeds the committed digest. Direct installs use the published sidecar.
+# Neither protects against a compromised script server. shasum ships with macOS.
 printf '  Verifying the download…\n'
-if ! curl -fsSL "$URL.sha256" -o "$TMP/devx.sha256"; then
-  printf '\n  This release publishes no checksum, so devx will not install it.\n' >&2
-  printf '  See https://github.com/%s/releases\n' "$REPO" >&2
+if [ "${DEVX_DIST_SHA256+x}" = x ]; then
+  WANT="$DEVX_DIST_SHA256"
+else
+  if ! curl -fsSL "$URL.sha256" -o "$TMP/devx.sha256"; then
+    printf '\n  This release publishes no checksum, so devx will not install it.\n' >&2
+    printf '  See https://github.com/%s/releases\n' "$REPO" >&2
+    exit 1
+  fi
+  WANT="$(cut -d" " -f1 < "$TMP/devx.sha256")"
+fi
+if [ "${#WANT}" -ne 64 ] || ! printf '%s\n' "$WANT" | grep -Eq '^[0-9a-fA-F]{64}$'; then
+  printf '\n  The expected checksum must be exactly 64 hexadecimal characters.\n' >&2
+  printf '  Nothing was installed.\n' >&2
   exit 1
 fi
-WANT="$(cut -d" " -f1 < "$TMP/devx.sha256")"
+WANT="$(printf '%s' "$WANT" | tr 'A-F' 'a-f')"
 GOT="$(shasum -a 256 "$TMP/devx.tar.gz" | cut -d" " -f1)"
 if [ "$WANT" != "$GOT" ]; then
   printf '\n  The download does not match its published checksum.\n' >&2

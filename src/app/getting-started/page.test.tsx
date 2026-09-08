@@ -2,21 +2,43 @@
  * @vitest-environment jsdom
  */
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { renderToString } from "react-dom/server";
 import GettingStartedPage from "./page";
 import { bootstrapCommand } from "@/lib/bootstrap-command";
-import { faq, manualCommands, manualTools } from "@/lib/getting-started";
+import { faq, manualCommands } from "@/lib/getting-started";
 
-afterEach(cleanup);
+beforeEach(() => vi.stubEnv("DEVX_PUBLIC_ORIGIN", "https://setup.example"));
+afterEach(() => {
+  cleanup();
+  vi.unstubAllEnvs();
+});
 
 describe("the Getting Started page", () => {
-  it("leads with the one command, built from this origin", () => {
+  it("includes the configured install command in server HTML", () => {
+    const container = document.createElement("div");
+    container.innerHTML = renderToString(<GettingStartedPage />);
+    expect(container.querySelector("code")?.textContent).toBe(
+      bootstrapCommand("https://setup.example/setup"),
+    );
+    expect(container.textContent).not.toContain("Loading install command");
+  });
+
+  it("keeps manual setup available when the origin is invalid", () => {
+    vi.stubEnv("DEVX_PUBLIC_ORIGIN", "http://untrusted.example");
+    render(<GettingStartedPage />);
+    expect(screen.getByText(/Installer unavailable/)).toBeDefined();
+    expect(
+      screen.getAllByRole("button", { name: /copy terminal command/i }).length,
+    ).toBeGreaterThan(0);
+  });
+  it("leads with the one command, built from the configured origin", () => {
     const { container } = render(<GettingStartedPage />);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(
       /one command/i,
     );
     expect(container.textContent).toContain(
-      bootstrapCommand(`${window.location.origin}/setup`),
+      bootstrapCommand("https://setup.example/setup"),
     );
   });
 
@@ -38,7 +60,6 @@ describe("the Getting Started page", () => {
 
   it("does not carry Docker in the default manual flow", () => {
     render(<GettingStartedPage />);
-    expect(manualTools.some((entry) => /docker/i.test(entry.tool))).toBe(false);
     expect(manualCommands.some((entry) => /docker/i.test(entry.title))).toBe(
       false,
     );
@@ -56,7 +77,7 @@ describe("the Getting Started page", () => {
     }
   });
 
-  it("pairs each tool label with its own commands, even when both lists have the same length", () => {
+  it("renders each tool with its own manual commands", () => {
     const { container } = render(<GettingStartedPage />);
     const disclosures = [...container.querySelectorAll("#manual details")];
     const expected = [

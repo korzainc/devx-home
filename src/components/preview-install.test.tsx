@@ -18,12 +18,13 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+const command = bootstrapCommand("https://setup.example/setup");
+
 describe("install command", () => {
   it("copies the command displayed for this deployment and announces success", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal("navigator", { clipboard: { writeText } });
-    render(<PreviewInstallCommand />);
-    const command = bootstrapCommand(`${window.location.origin}/setup`);
+    render(<PreviewInstallCommand command={command} />);
     expect(screen.getByText(command, { exact: false })).toBeDefined();
     await act(async () => {
       fireEvent.click(
@@ -41,7 +42,7 @@ describe("install command", () => {
       .fn()
       .mockRejectedValue(new Error("Clipboard unavailable"));
     vi.stubGlobal("navigator", { clipboard: { writeText } });
-    render(<PreviewInstallCommand />);
+    render(<PreviewInstallCommand command={command} />);
     await act(async () => {
       fireEvent.click(
         screen.getByRole("button", { name: "Copy install command" }),
@@ -49,16 +50,26 @@ describe("install command", () => {
     });
     expect(screen.getByRole("status").textContent).toBe("");
     expect(
-      screen.getByText(bootstrapCommand(`${window.location.origin}/setup`), {
+      screen.getByText(command, {
         exact: false,
       }),
     ).toBeDefined();
   });
 
-  it("does not expose a runnable placeholder or enabled copy control in server HTML", () => {
+  it("renders the complete command in server HTML without waiting for JavaScript", () => {
     const container = document.createElement("div");
-    container.innerHTML = renderToString(<PreviewInstallCommand />);
-    expect(container.querySelector("button")?.disabled).toBe(true);
-    expect(container.textContent).not.toContain("curl");
+    container.innerHTML = renderToString(
+      <PreviewInstallCommand command={command} />,
+    );
+    expect(container.querySelector("code")?.textContent).toBe(command);
+    expect(container.textContent).not.toContain("Loading");
+  });
+  it("shows a manual fallback without a copyable command when setup is unavailable", () => {
+    render(<PreviewInstallCommand command={null} />);
+    const button = screen.getByRole("button", {
+      name: "Copy install command",
+    }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(screen.getByText(/Installer unavailable/)).toBeDefined();
   });
 });
