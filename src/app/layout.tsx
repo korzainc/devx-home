@@ -55,12 +55,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           />
           {children}
         </main>
-        <footer className="border-t border-line">
-          <div className="mx-auto max-w-6xl px-6 py-6 text-xs text-ink-faint">
-            Internal tool. Plugins come from korzainc/marketplace; the tools
-            catalogue comes from korzainc/shared-workflows.
-          </div>
-        </footer>
         {/* Renders no markup. It is a client component that appends the script from an effect,
             so the served HTML is unchanged and nothing blocks the prerender. On Vercel the
             script is same-origin at /_vercel/insights/script.js, which the platform serves and
