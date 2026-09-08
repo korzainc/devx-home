@@ -73,20 +73,6 @@ vi.mock("@/lib/gap/run", () => ({
   },
 }));
 
-afterEach(() => {
-  session.throws = false;
-  session.token = null;
-  session.reads = 0;
-  analyses.calls.length = 0;
-  analyses.result = null;
-  // Any boundary error no test claimed is a crash that would otherwise pass unnoticed: the form
-  // and the recorded token survive it, so the assertions elsewhere stay green regardless.
-  expect(boundaryErrors).toEqual([]);
-  boundaryErrors.length = 0;
-});
-
-// Streamed, not `renderToString`: the defect lives in the streaming behaviour. Necessary but not
-// sufficient -- it cannot assert visibility with scripts disabled.
 const boundaryErrors: Error[] = [];
 
 /** Drains what the render caught, for a test that expects a boundary to fail. */
@@ -96,6 +82,8 @@ function takeErrors(): string[] {
   return messages;
 }
 
+// Streamed rather than `renderToString`, because the behaviour under test is the streaming.
+// Necessary but not sufficient: it cannot assert visibility with scripts disabled.
 const render = (node: React.ReactElement) =>
   renderStream(node, {
     ready: "shell",
@@ -128,6 +116,18 @@ function visible(markup: string): string {
 
   return out;
 }
+
+afterEach(() => {
+  session.throws = false;
+  session.token = null;
+  session.reads = 0;
+  analyses.calls.length = 0;
+  analyses.result = null;
+  // Drained before asserting, or a failure here leaves the array full and every later test
+  // fails with the first test's error. Any boundary error no test claimed is a crash that would
+  // otherwise pass unnoticed: the form and the recorded token survive it.
+  expect(takeErrors()).toEqual([]);
+});
 
 const page = (repo?: string) => (
   <GapAnalysisPage

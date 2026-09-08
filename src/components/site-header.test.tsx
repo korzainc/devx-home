@@ -4,6 +4,7 @@
 import { renderToString } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { SiteHeader } from "@/components/site-header";
+import { unscriptedLogins } from "@/test-utils/noscript";
 
 // A session that never settles, so the boundary is genuinely pending -- which is where a client
 // running no script is left permanently. Left unmocked it would throw instead, for want of a
@@ -19,19 +20,13 @@ const html = () => renderToString(<SiteHeader />);
 
 describe("the header, with the session boundary unresolved", () => {
   it("offers a way to log in that needs no script", () => {
-    expect(html()).toMatch(
-      /<noscript>[\s\S]*href="\/login"[\s\S]*<\/noscript>/,
-    );
+    expect(unscriptedLogins(html()).length).toBeGreaterThan(0);
   });
 
   it("offers one at each viewport, since the two are mutually exclusive", () => {
     // `hidden sm:flex` against `sm:hidden`, so each viewport needs its own copy. Asserting only
     // that some <noscript> exists let the narrow one be deleted with nothing failing.
-    const blocks = [
-      ...html().matchAll(/<noscript>([\s\S]*?)<\/noscript>/g),
-    ].filter(([, inner]) => inner.includes('href="/login"'));
-
-    expect(blocks).toHaveLength(2);
+    expect(unscriptedLogins(html())).toHaveLength(2);
   });
 
   it("leaves the boundary empty rather than claiming the reader is signed out", () => {
