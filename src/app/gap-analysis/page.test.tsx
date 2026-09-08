@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import GapAnalysisPage from "@/app/gap-analysis/page";
 import type { RunResult } from "@/lib/gap/run";
 import type { Analysis } from "@/lib/gap/types";
+import { noscriptBlocks } from "@/test-utils/noscript";
 import { renderStream } from "@/test-utils/render-stream";
 
 // Stubbed because reading the session calls `headers()`, which has no request scope here.
@@ -185,7 +186,11 @@ describe("the gap-analysis page, for a client running no script", () => {
     // `Pending` alone reads as work in progress and never finishes for this reader.
     const markup = visible(await render(page("facebook/react")));
 
-    expect(markup).toMatch(/<noscript>[\s\S]*JavaScript[\s\S]*<\/noscript>/);
+    // Per block: the greedy form this replaced would also match the word sitting between two
+    // <noscript> blocks, which is the trap `noscriptBlocks` exists to close.
+    expect(
+      noscriptBlocks(markup).filter((block) => block.includes("JavaScript")),
+    ).toHaveLength(1);
   });
 
   it("keeps the form when the session read throws", async () => {

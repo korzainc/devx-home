@@ -88,18 +88,21 @@ function Notice({ children }: { children: React.ReactNode }) {
 }
 
 // The boundary's fallback, so it is also the last thing a client running no script ever paints:
-// `$RC` never swaps the report in for them. Left alone it animates forever, claiming work is in
-// progress. The <noscript> says otherwise. Markup, not elements, or hydration mismatches.
+// `$RC` never swaps the report in for them. The <noscript> replaces it rather than adding to it --
+// the ellipsis animates from CSS, which runs regardless of script, so left in place it would go on
+// implying progress directly above a line saying nothing will load. Scoped to this one class, or
+// it would also still the header's breathing X. Markup, not elements, or hydration mismatches.
 function Pending({ repo }: { repo: string }) {
   return (
     <>
-      <p className="font-mono text-sm text-ink-faint">
+      <p className="pending-progress font-mono text-sm text-ink-faint">
         Reading {repo}
         <span className="animate-breathe">...</span>
       </p>
       <noscript
         dangerouslySetInnerHTML={{
           __html:
+            "<style>.pending-progress{display:none}</style>" +
             '<p class="text-sm text-ink-muted">The report needs JavaScript. Nothing further will load here.</p>',
         }}
       />

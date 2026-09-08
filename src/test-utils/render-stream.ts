@@ -31,17 +31,24 @@ export async function renderStream(
   });
 
   await new Promise<void>((resolve, reject) => {
+    // Rejecting alone only settles this promise: React carries on rendering into a sink nothing
+    // is reading, so a failing boundary in one test can still be doing work during the next.
+    const fail = (error: unknown) => {
+      stream.abort();
+      sink.destroy();
+      reject(error);
+    };
     const flush = () => stream.pipe(sink);
     const stream = renderToPipeableStream(node, {
       onShellReady: ready === "shell" ? flush : undefined,
       onAllReady: ready === "all" ? flush : undefined,
       // Surfaced as itself, or a failing shell just hangs the render to a timeout.
-      onShellError: reject,
+      onShellError: fail,
       onError(error) {
         const boundaryError =
           error instanceof Error ? error : new Error(String(error));
         if (onBoundaryError) onBoundaryError(boundaryError);
-        else reject(boundaryError);
+        else fail(boundaryError);
       },
     });
     sink.on("finish", resolve);
