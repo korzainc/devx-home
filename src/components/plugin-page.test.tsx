@@ -9,7 +9,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { InstallPanel } from "@/components/install-panel";
+import { PluginInstall } from "@/components/plugin-install";
 import { PluginSkills } from "@/components/plugin-skills";
 import { getPlugin, installCommands, skillsForPlugin } from "@/lib/catalogue";
 
@@ -29,7 +29,7 @@ const mattpocock = getPlugin("mattpocock-skills")!;
 
 describe("the install panel", () => {
   it("shows the command for the agent that is selected", () => {
-    render(<InstallPanel commands={installCommands(codezen)} />);
+    render(<PluginInstall commands={installCommands(codezen)} />);
     const [claude, codex] = installCommands(codezen);
     expect(claude.agent).toBe("Claude Code");
 
@@ -44,7 +44,7 @@ describe("the install panel", () => {
   it("shows the register command alongside, and switches it too", () => {
     // Register and install are different commands per agent; showing one agent's install beside
     // another's register would be copied without anyone noticing.
-    render(<InstallPanel commands={installCommands(codezen)} />);
+    render(<PluginInstall commands={installCommands(codezen)} />);
     const [claude, codex] = installCommands(codezen);
 
     expect(screen.getByText(claude.register)).toBeTruthy();
@@ -60,7 +60,7 @@ describe("the install panel", () => {
       ...navigator,
       clipboard: { writeText: async (v: string) => void written.push(v) },
     });
-    render(<InstallPanel commands={installCommands(codezen)} />);
+    render(<PluginInstall commands={installCommands(codezen)} />);
     const [claude] = installCommands(codezen);
 
     fireEvent.click(screen.getByRole("button", { name: /^Copy install/ }));
@@ -76,7 +76,7 @@ describe("the install panel", () => {
       ...navigator,
       clipboard: { writeText: async (v: string) => void written.push(v) },
     });
-    render(<InstallPanel commands={installCommands(codezen)} />);
+    render(<PluginInstall commands={installCommands(codezen)} />);
     const button = screen.getByRole("button", { name: /^Copy install/ });
     const label = button.textContent;
 
@@ -92,11 +92,14 @@ describe("the install panel", () => {
     ).toContain("Install command copied");
   });
 
-  it("offers no control for an agent the plugin does not ship for", () => {
+  it("names a single agent without offering a tab that switches nothing", () => {
     expect(mattpocock.agents).toEqual(["Claude Code"]);
-    render(<InstallPanel commands={installCommands(mattpocock)} />);
+    render(<PluginInstall commands={installCommands(mattpocock)} />);
 
-    expect(screen.getByRole("button", { name: "Claude Code" })).toBeTruthy();
+    // Still named, so the reader knows which agent the commands are for, but not as a control:
+    // a lone tab is pressable and changes nothing.
+    expect(screen.getByText("Claude Code")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Claude Code" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Codex CLI" })).toBeNull();
     expect(screen.queryByText(/^codex plugin add/)).toBeNull();
   });

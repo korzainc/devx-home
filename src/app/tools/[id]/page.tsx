@@ -3,10 +3,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CollapsibleGrid } from "@/components/collapsible-grid";
 import { MetaRow } from "@/components/meta-row";
+import { ToolInstall } from "@/components/tool-install";
 import {
   bundles,
   capabilityLabel,
   isBundle,
+  toolInstallMethods,
   tools,
   type CapabilityId,
 } from "@/lib/catalogue";
@@ -134,6 +136,8 @@ export default async function ToolPage({ params }: PageProps<"/tools/[id]">) {
           </MetaRow>
         </div>
       </div>
+
+      <ToolInstall methods={toolInstallMethods(entry.id)} />
 
       {isBundle(entry) && (
         <CollapsibleGrid

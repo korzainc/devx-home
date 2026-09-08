@@ -3,6 +3,7 @@ import pluginsData from "@/data/plugins.json";
 import skillsData from "@/data/skills.json";
 import realCatalogueData from "@/data/catalogue.json";
 import { capabilityLabelOverrides } from "@/data/capability-labels";
+import { installConfigs } from "@/data/install-configs";
 import { toolCardSummaries } from "@/data/tool-card-summaries";
 import {
   isBundle,
@@ -12,6 +13,11 @@ import {
   type SkillEntry,
   type ToolEntry,
 } from "@/lib/catalogue-entries";
+import {
+  installMethods,
+  type InstallMethod,
+  type RawInstall,
+} from "@/lib/install-commands";
 import type { Baseline, DetectSignals } from "@/lib/gap/types";
 
 // Only the bindings a server file actually imports through this path - facetValues and
@@ -45,6 +51,7 @@ type RealTool = {
   // Only `languages` is read (see `realStacks`). `buildSystems` exists on every real tool
   // entry too, but nothing here derives anything from it yet.
   applicability: { languages: string[] };
+  install?: RawInstall[];
   docsUrl: string;
   detection?: {
     github?: { ciUses?: string[]; commands?: string[] };
@@ -221,6 +228,48 @@ const wrappedToolIds = new Set(
 export const visibleTools: ToolEntry[] = tools.filter(
   (tool) => !wrappedToolIds.has(tool.id),
 );
+
+/** Looked up by id rather than hung off `ToolEntry`, so the raw install data stays out of
+ * `PublicToolEntry` and off the wire to the `/tools` grid, which has no use for it. Bundles
+ * carry an `install` too, hence the fallback to the bundle table.
+ *
+ * `docs` methods are dropped here rather than in `installMethods`, which is a pure reading of
+ * the catalogue and should stay one: this is the only caller that knows the tool page already
+ * renders the same link in its Docs row, so it is the only place that can call it a duplicate.
+ * Where a real config file exists for the tool, it takes the dropped method's place. Where one
+ * does not, the tool has nothing to install and renders no panel, which is the honest answer
+ * for go-test: `go test` ships with the Go toolchain. */
+export function toolInstallMethods(id: string): InstallMethod[] {
+  // `hasOwn` throughout, not plain indexing: `id` is a route segment, and "constructor" or
+  // "toString" would otherwise reach into Object.prototype and build a panel out of a function.
+  const entry = Object.hasOwn(realCatalogue.tools, id)
+    ? realCatalogue.tools[id]
+    : Object.hasOwn(realCatalogue.bundles, id)
+      ? realCatalogue.bundles[id]
+      : undefined;
+  // "Korza's CI image, which already bundles this check" is worth saying on Trivy's page, where
+  // the reader may be running the check already without knowing. On the bundle's own page it is
+  // circular: that page is the image. Only this function knows whose page it is building.
+  const ownsTheImage = Object.hasOwn(realCatalogue.bundles, id);
+  const runnable = installMethods(entry?.install)
+    .filter((method) => method.kind !== "docs")
+    .map((method) =>
+      ownsTheImage && method.note ? { ...method, note: undefined } : method,
+    );
+  if (!Object.hasOwn(installConfigs, id)) return runnable;
+  const config = installConfigs[id];
+  return [
+    ...runnable,
+    {
+      id: `config-${id}`,
+      label: config.label,
+      kind: "snippet",
+      command: config.content,
+      target: config.target,
+      note: config.note,
+    },
+  ];
+}
 
 export const plugins: PluginEntry[] = pluginsData;
 
