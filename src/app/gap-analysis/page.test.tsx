@@ -1,12 +1,11 @@
 /**
  * @vitest-environment node
  */
-import { Writable } from "node:stream";
-import { renderToPipeableStream } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import GapAnalysisPage from "@/app/gap-analysis/page";
 import type { RunResult } from "@/lib/gap/run";
 import type { Analysis } from "@/lib/gap/types";
+import { renderStream } from "@/test-utils/render-stream";
 
 // Stubbed because reading the session calls `headers()`, which has no request scope here.
 const session = vi.hoisted(() => ({
@@ -57,15 +56,20 @@ const analysis: Analysis = vi.hoisted(() => ({
   gapCount: 0,
 }));
 
-const analyses = vi.hoisted(() => ({ tokens: [] as (string | null)[] }));
+// The whole invocation, not just the token: the form's value comes from `target` independently,
+// so a mock that ignored the repo would be satisfied by `runAnalysis("wrong/repo", token)`.
+const analyses = vi.hoisted(() => ({
+  calls: [] as { repo: string; token: string | null }[],
+  result: null as RunResult | null,
+}));
 
 vi.mock("@/lib/gap/run", () => ({
   runAnalysis: async (
-    _repo: string,
+    repo: string,
     token: string | null,
   ): Promise<RunResult> => {
-    analyses.tokens.push(token);
-    return { ok: true, analysis };
+    analyses.calls.push({ repo, token });
+    return analyses.result ?? { ok: true, analysis };
   },
 }));
 
@@ -73,40 +77,30 @@ afterEach(() => {
   session.throws = false;
   session.token = null;
   session.reads = 0;
-  analyses.tokens.length = 0;
+  analyses.calls.length = 0;
+  analyses.result = null;
+  // Any boundary error no test claimed is a crash that would otherwise pass unnoticed: the form
+  // and the recorded token survive it, so the assertions elsewhere stay green regardless.
+  expect(boundaryErrors).toEqual([]);
+  boundaryErrors.length = 0;
 });
 
 // Streamed, not `renderToString`: the defect lives in the streaming behaviour. Necessary but not
 // sufficient -- it cannot assert visibility with scripts disabled.
-async function render(node: React.ReactElement): Promise<string> {
-  const chunks: Buffer[] = [];
-  const sink = new Writable({
-    write(chunk, _encoding, callback) {
-      chunks.push(Buffer.from(chunk));
-      callback();
-    },
-  });
+const boundaryErrors: Error[] = [];
 
-  await new Promise<void>((resolve, reject) => {
-    // onShellReady, not onAllReady: flushing once everything resolves lets React inline the lot,
-    // and the hidden-div path is never taken.
-    const stream = renderToPipeableStream(node, {
-      onShellReady() {
-        stream.pipe(sink);
-      },
-      // Surfaced as itself, or a failing shell just hangs the render to a timeout.
-      onShellError: reject,
-      onError(error) {
-        // Boundary errors are expected; a failure to render at all is not.
-        if (!(error instanceof Error)) reject(error);
-      },
-    });
-    sink.on("finish", resolve);
-    sink.on("error", reject);
-  });
-
-  return Buffer.concat(chunks).toString("utf8");
+/** Drains what the render caught, for a test that expects a boundary to fail. */
+function takeErrors(): string[] {
+  const messages = boundaryErrors.map((error) => error.message);
+  boundaryErrors.length = 0;
+  return messages;
 }
+
+const render = (node: React.ReactElement) =>
+  renderStream(node, {
+    ready: "shell",
+    onBoundaryError: (error) => boundaryErrors.push(error),
+  });
 
 /** What a client running no script paints: the document minus every `$RC`-filled hidden container.
  * Depth-counted, since those hold nested divs and a non-greedy match stops at the first close. */
@@ -161,16 +155,37 @@ describe("the gap-analysis page, for a client running no script", () => {
   it("analyses anonymously for a signed-out reader", async () => {
     await render(page("facebook/react"));
 
-    expect(analyses.tokens).toEqual([null]);
+    expect(analyses.calls).toEqual([{ repo: "facebook/react", token: null }]);
   });
 
   it("threads a signed-in reader's token through to the analysis", async () => {
     session.token = "gho_test";
 
-    const markup = await render(page("facebook/react"));
+    // A different repo from the fixture, so a mock that ignored it could not carry this.
+    const markup = await render(page("vercel/next.js"));
 
-    expect(analyses.tokens).toEqual(["gho_test"]);
+    expect(analyses.calls).toEqual([
+      { repo: "vercel/next.js", token: "gho_test" },
+    ]);
     expect(markup).toContain("Style linting");
+  });
+
+  it("does not render the report", async () => {
+    // The analysis is a GitHub round trip and stays behind its boundary. Pinning its absence is
+    // what stops the boundary being moved either way without a test failing.
+    const raw = await render(page("facebook/react"));
+
+    // Without this, a change to React's streaming detail makes `visible` return the document
+    // unchanged, every assertion here still passes, and the simulation quietly becomes a no-op.
+    expect(raw).toContain("<div hidden");
+    expect(visible(raw)).not.toContain("Style linting");
+  });
+
+  it("says the report needs a script rather than leaving a pending state", async () => {
+    // `Pending` alone reads as work in progress and never finishes for this reader.
+    const markup = visible(await render(page("facebook/react")));
+
+    expect(markup).toMatch(/<noscript>[\s\S]*JavaScript[\s\S]*<\/noscript>/);
   });
 
   it("keeps the form when the session read throws", async () => {
@@ -181,5 +196,30 @@ describe("the gap-analysis page, for a client running no script", () => {
     const markup = visible(await render(page("facebook/react")));
 
     expect(markup).toContain('value="facebook/react"');
+    expect(takeErrors()).toEqual(["DATABASE_URL is not set."]);
+  });
+
+  it("offers a login when an anonymous read fails in a way that a login would fix", async () => {
+    // `signingInWouldHelp` in the page: only a signed-out 404 or 429 earns the prompt. Subtle
+    // enough to have produced a live bug already, per its own comment on 403.
+    analyses.result = {
+      ok: false,
+      status: 404,
+      error: "No such public repository.",
+    };
+
+    const markup = await render(page("facebook/react"));
+
+    expect(markup).toContain("Log in to analyze");
+  });
+
+  it("shows a plain notice when a login would not help", async () => {
+    session.token = "gho_test";
+    analyses.result = { ok: false, status: 404, error: "No such repository." };
+
+    const markup = await render(page("facebook/react"));
+
+    expect(markup).toContain("No such repository.");
+    expect(markup).not.toContain("Log in to analyze");
   });
 });

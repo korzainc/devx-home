@@ -1,43 +1,24 @@
 /**
  * @vitest-environment node
  */
-import { Writable } from "node:stream";
-import { renderToPipeableStream } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { SiteHeader } from "@/components/site-header";
+import { renderStream } from "@/test-utils/render-stream";
 
 // The signed-in branch, which `site-header.test.tsx` cannot reach: there the boundary never
 // resolves. Its own file because `vi.mock` is per-file. `onAllReady` so the async component
 // settles; nothing else in the suite executes this branch.
+// Both exports, not just the one the header happens to use today: a partial module mock leaves
+// the other undefined, so anything reaching for it later gets a TypeError rather than a stub.
 vi.mock("@/lib/session", () => ({
   getSession: async () => ({ user: { name: "Ada Lovelace" } }),
+  getGitHubToken: async () => null,
 }));
 
 vi.mock("@/lib/auth-actions", () => ({ signOut: async () => {} }));
 
-async function render(node: React.ReactElement): Promise<string> {
-  const chunks: Buffer[] = [];
-  const sink = new Writable({
-    write(chunk, _encoding, callback) {
-      chunks.push(Buffer.from(chunk));
-      callback();
-    },
-  });
-
-  await new Promise<void>((resolve, reject) => {
-    const stream = renderToPipeableStream(node, {
-      onAllReady() {
-        stream.pipe(sink);
-      },
-      onShellError: reject,
-      onError: reject,
-    });
-    sink.on("finish", resolve);
-    sink.on("error", reject);
-  });
-
-  return Buffer.concat(chunks).toString("utf8");
-}
+const render = (node: React.ReactElement) =>
+  renderStream(node, { ready: "all" });
 
 describe("the header, for a signed-in reader", () => {
   it("names them and offers a way out", async () => {

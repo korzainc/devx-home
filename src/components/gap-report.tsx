@@ -18,8 +18,9 @@ import type {
 
 // Renders on the server, and the disclosure at the bottom is a native `details`. But the page
 // keeps this behind a Suspense boundary, so a client that runs no script never reaches it --
-// deliberate, since the analysis is a GitHub round trip (DX-100). The fix prompt control is a
-// further exception either way: it needs an overlay and the clipboard.
+// deliberate, since the analysis is a GitHub round trip, and `Pending` says so in a <noscript>
+// rather than animating forever (DX-100). The fix prompt control is a further exception either
+// way: it needs an overlay and the clipboard.
 
 function StatusChip({
   status,

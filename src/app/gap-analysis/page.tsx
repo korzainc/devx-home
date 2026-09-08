@@ -87,12 +87,23 @@ function Notice({ children }: { children: React.ReactNode }) {
   );
 }
 
+// The boundary's fallback, so it is also the last thing a client running no script ever paints:
+// `$RC` never swaps the report in for them. Left alone it animates forever, claiming work is in
+// progress. The <noscript> says otherwise. Markup, not elements, or hydration mismatches.
 function Pending({ repo }: { repo: string }) {
   return (
-    <p className="font-mono text-sm text-ink-faint">
-      Reading {repo}
-      <span className="animate-breathe">...</span>
-    </p>
+    <>
+      <p className="font-mono text-sm text-ink-faint">
+        Reading {repo}
+        <span className="animate-breathe">...</span>
+      </p>
+      <noscript
+        dangerouslySetInnerHTML={{
+          __html:
+            '<p class="text-sm text-ink-muted">The report needs JavaScript. Nothing further will load here.</p>',
+        }}
+      />
+    </>
   );
 }
 
@@ -134,7 +145,9 @@ type Params = Pick<PageProps<"/gap-analysis">, "searchParams">;
 // on the server before anything reaches the browser.
 //
 // `searchParams` is awaited in the page body, not inside a boundary, so the repository reaches the
-// form even without script (DX-100). That costs the static shell, hence `instant = false`.
+// form even without script (DX-100). Awaiting it there is what costs the static shell, and costs
+// it for every visit including a bare nav click; `instant = false` only stops Next reporting that,
+// it does not cause it.
 export const instant = false;
 
 export default async function GapAnalysisPage({ searchParams }: Params) {
