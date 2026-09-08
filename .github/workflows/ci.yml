@@ -224,11 +224,11 @@ jobs:
   # false) so this never gates a PR on top of the `dependencies` job above, which already does
   # that with tuning specific to this repo (TRIVY_INCLUDE_DEV_DEPS, the ignore-unfixed floor).
   # This job's own value is the source SBOM it publishes on push to main - see
-  # korzainc/shared-workflows#76 (DX-122): the SBOM artifacts only start appearing once that
-  # merges and a new @v4 is cut. SCA scanning itself already works against the current @v4.
+  # korzainc/shared-workflows#76 (DX-122). TEMP: pinned to the dx-122 temp-wiring branch until
+  # #76 merges and a real 0.2.0 is cut, then revert to @v4.
   sbom:
     name: dependencies (source SBOM)
-    uses: korzainc/shared-workflows/.github/workflows/security-sca.yml@v4
+    uses: korzainc/shared-workflows/.github/workflows/security-sca.yml@vinaypolisetti/dx-122-devxhome-temp-wiring
     permissions:
       contents: read
       id-token: write
