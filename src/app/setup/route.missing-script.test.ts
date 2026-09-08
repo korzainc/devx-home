@@ -3,8 +3,8 @@ import { NextRequest } from "next/server";
 
 // The route reads public/devx/install.sh off disk per request. Next's
 // "standalone" output requires public/ to be copied next to server.js by hand,
-// so a missed copy step makes that read throw at runtime. The response is piped
-// into sh, so an HTML error page would surface as shell syntax errors.
+// so a missed copy step makes that read throw at runtime. Direct shell consumers
+// should still receive a shell-safe failure instead of an HTML error page.
 vi.mock("node:fs", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:fs")>();
   return {

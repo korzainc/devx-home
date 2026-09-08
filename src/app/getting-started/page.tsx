@@ -62,6 +62,11 @@ export default function GettingStartedPage() {
 
         <div className="flex flex-col gap-3">
           <PreviewInstallCommand />
+          <p className="text-xs text-ink-faint">Pre-release macOS build.</p>
+          <noscript>
+            Enable JavaScript to load the install command, or use the manual
+            steps below.
+          </noscript>
 
           <a href="#manual" className={cta}>
             Prefer to run each step yourself? ↓
@@ -162,13 +167,12 @@ export default function GettingStartedPage() {
         </h2>
         <p className="text-ink-muted">
           Every step the binary performs is a normal command you can run on its
-          own. Nothing here needs the binary to work, and this is today&apos;s
-          actual path until it ships.
+          own. You can use these steps independently of devx.
         </p>
         <p className="text-ink-muted">
-          The result is the same either way, one managed block in{" "}
-          <code className="font-mono text-sm">~/.zshrc</code>, nothing else in
-          that file touched.
+          The manual installers manage their own shell configuration. Follow
+          each tool&apos;s instructions to update your PATH and open a new
+          terminal when needed.
         </p>
         <p className="text-sm text-ink-faint">
           Open a tool for the exact commands. These are also where a failed step

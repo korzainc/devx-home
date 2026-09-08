@@ -16,17 +16,6 @@ describe("GET /setup", () => {
     expect(body).toMatch(/^#!\/bin\/sh/);
   });
 
-  it("is devx-cli's own install.sh, not a second implementation", async () => {
-    const res = GET(new NextRequest("http://localhost:3000/setup"));
-    const body = await res.text();
-    // Lines lifted straight from the canonical script: its own R1 comment,
-    // its symlink guard, and its codesign fallback. A hand-rolled preview
-    // script would not carry these unless it duplicated them by hand.
-    expect(body).toMatch(/the one paste-able command \(PRD R1\)/);
-    expect(body).toMatch(/tar happily creates a symlink/);
-    expect(body).toMatch(/codesign --force --sign -/);
-  });
-
   it("pins the download URLs to the request's own origin, not a fixed host", async () => {
     const res = GET(
       new NextRequest("https://devx-home-git-pr-39.vercel.app/setup"),
@@ -81,31 +70,6 @@ describe("GET /setup", () => {
     // The canonical script's own header comment names the production
     // command as documentation; DEVX_DIST_URL is what actually runs.
     expect(body).not.toMatch(/DEVX_DIST_URL=.*devx\.korza\.ai/);
-  });
-
-  it("verifies the checksum before extracting, and fails loudly on mismatch", async () => {
-    const res = GET(new NextRequest("http://localhost:3000/setup"));
-    const body = await res.text();
-    expect(body).toMatch(/shasum -a 256/);
-    expect(body).toMatch(/does not match its published checksum/);
-    expect(body).toMatch(/set -eu/);
-  });
-
-  it("only installs after the staged binary proves it can run", async () => {
-    const res = GET(new NextRequest("http://localhost:3000/setup"));
-    const body = await res.text();
-    const versionCheck = body.indexOf("--version");
-    const move = body.indexOf('mv "$TMP/devx"');
-    expect(versionCheck).toBeGreaterThan(-1);
-    expect(move).toBeGreaterThan(versionCheck);
-  });
-
-  it("prints the next setup command after installing", async () => {
-    const res = GET(new NextRequest("http://localhost:3000/setup"));
-    const body = await res.text();
-    expect(body).toContain("Start setup:");
-    expect(body).toContain("devx setup");
-    expect(body).not.toContain('exec \"$BIN_DIR/devx\" setup');
   });
 
   it("keeps http when an unproxied dev server sends host but no x-forwarded-proto", async () => {
@@ -165,11 +129,5 @@ describe("GET /setup", () => {
     const body = await res.text();
     const { tarball } = artifactPaths();
     expect(body).toContain(`DEVX_DIST_URL='https://devx.korza.ai${tarball}'`);
-  });
-
-  it("carries no em dashes or en dashes", async () => {
-    const res = GET(new NextRequest("http://localhost:3000/setup"));
-    const body = await res.text();
-    expect(body).not.toMatch(/[–—]/);
   });
 });

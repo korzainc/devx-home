@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { bootstrapCommand } from "@/lib/bootstrap-command";
 
 // The origin never changes after load, so there is nothing to subscribe to;
 // this only exists to give useSyncExternalStore a subscribe function.
@@ -28,7 +29,7 @@ export function PreviewInstallCommand() {
     getSnapshot,
     getServerSnapshot,
   );
-  const command = origin ? `curl -fsSL ${origin}/setup | sh` : null;
+  const command = origin ? bootstrapCommand(`${origin}/setup`) : null;
 
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -52,7 +53,7 @@ export function PreviewInstallCommand() {
           origin scrolling under an overlaid button used to collide with it. */}
       <div className="min-w-0 flex-1 overflow-x-auto scrollbar-none whitespace-pre">
         <span className="text-ink-faint">$</span>{" "}
-        {command ?? "curl -fsSL <this preview>/setup | sh"}
+        {command ?? "Loading install command..."}
       </div>
       <button
         type="button"

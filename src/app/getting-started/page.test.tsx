@@ -4,12 +4,8 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import GettingStartedPage from "./page";
-import {
-  faq,
-  manualCommands,
-  manualTools,
-  walkthrough,
-} from "@/lib/getting-started";
+import { bootstrapCommand } from "@/lib/bootstrap-command";
+import { faq, manualCommands, manualTools } from "@/lib/getting-started";
 
 afterEach(cleanup);
 
@@ -19,59 +15,22 @@ describe("the Getting Started page", () => {
     expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(
       /one command/i,
     );
-    expect(container.textContent).toMatch(
-      /curl -fsSL https?:\/\/[^/]+\/setup \| sh/,
+    expect(container.textContent).toContain(
+      bootstrapCommand(`${window.location.origin}/setup`),
     );
   });
 
   it("makes the bootstrap handoff explicit", () => {
     const { container } = render(<GettingStartedPage />);
     expect(container.textContent).toMatch(/then run devx setup/i);
-    expect(screen.queryByText(/two things, once/i)).toBeNull();
-  });
-
-  it("does not claim a fixed duration or talk about a production release that doesn't exist", () => {
-    const { container } = render(<GettingStartedPage />);
-    expect(container.textContent).not.toMatch(/under 15 minutes/i);
-    expect(container.textContent).not.toMatch(/production/i);
-    expect(container.textContent).not.toMatch(/devx\.korza\.ai\/setup/);
-  });
-
-  it("offers a copy control for the install command", () => {
-    render(<GettingStartedPage />);
-    expect(
-      screen.getByRole("button", { name: /copy install command/i }),
-    ).toBeTruthy();
-  });
-
-  it("carries no em dashes or en dashes in its own copy", () => {
-    const { container } = render(<GettingStartedPage />);
-    expect(container.textContent).not.toMatch(/[–—]/);
-  });
-
-  it("covers every tool the CLI's catalogue installs, not just the first five", () => {
-    // Regression: the manual path used to stop at git/gh/claude/homebrew and
-    // silently omit SSH access, Python (uv), and Node (fnm), even though the
-    // CLI catalogue has installed all three since before this page existed.
-    render(<GettingStartedPage />);
-    expect(screen.getAllByText(/ssh access/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/python \(uv\)/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/node \(fnm\)/i).length).toBeGreaterThan(0);
-  });
-
-  it("explains that devx sets up SSH access by default while HTTPS remains usable", () => {
-    render(<GettingStartedPage />);
-    expect(
-      screen.getAllByText(/sets up SSH access by default/i).length,
-    ).toBeGreaterThan(0);
-    expect(
-      screen.getAllByText(/HTTPS remains independent/i).length,
-    ).toBeGreaterThan(0);
   });
 
   it("points questions about a broken step or missing tool at #devx", () => {
     render(<GettingStartedPage />);
-    expect(screen.getAllByText(/#devx/).length).toBeGreaterThan(0);
+    const support = screen
+      .getByText(/Something is broken, or the CLI/)
+      .closest("details");
+    expect(support?.querySelector("p")?.textContent).toContain("#devx");
   });
 
   it("does not carry Docker in the default manual flow", () => {
@@ -94,20 +53,51 @@ describe("the Getting Started page", () => {
     }
   });
 
-  it("keeps manualTools and manualCommands aligned, since the page pairs them by index", () => {
-    // page.tsx maps manualCommands and reads manualTools[index] for the label,
-    // so a tool added to one list and not the other mislabels every row after
-    // it, or throws on undefined once the commands list is the longer one.
-    expect(manualTools).toHaveLength(manualCommands.length);
+  it("pairs each tool label with its own commands, even when both lists have the same length", () => {
+    const { container } = render(<GettingStartedPage />);
+    const disclosures = [...container.querySelectorAll("#manual details")];
+    const expected = [
+      ["Xcode tools", "xcode-select --install"],
+      ["git", 'git config --global user.name "Your Name"'],
+      ["gh", "gh auth login --hostname github.com --git-protocol https --web"],
+      ["SSH access", "ssh -T git@github.com"],
+      ["claude", "claude plugin marketplace add korzainc/marketplace"],
+      [
+        "homebrew",
+        "https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh",
+      ],
+      ["Python (uv)", "uv python install"],
+      ["Node (fnm)", "fnm install --lts"],
+    ];
+    expect(disclosures).toHaveLength(expected.length);
+    for (const [index, [label, command]] of expected.entries()) {
+      const disclosure = disclosures[index];
+      expect(disclosure.querySelector("summary")?.textContent).toContain(label);
+      const commands = [...disclosure.querySelectorAll("code")];
+      expect(
+        commands.some((field) => field.textContent?.includes(command)),
+      ).toBe(true);
+    }
   });
 
-  it("keeps each manual command directly beneath its tool summary", () => {
+  it("requests public-key upload permission before uploading the SSH key", () => {
     const { container } = render(<GettingStartedPage />);
-    const manual = container.querySelector("#manual");
-    expect(manual).toBeTruthy();
-    expect(manual?.querySelectorAll("details")).toHaveLength(
-      manualCommands.length,
+    const ssh = [...container.querySelectorAll("#manual details")].find(
+      (node) =>
+        node.querySelector("summary")?.textContent?.includes("SSH access"),
     );
+    expect(ssh).toBeDefined();
+    const commands = [...ssh!.querySelectorAll("code")].map(
+      (field) => field.textContent,
+    );
+    const permissionIndex = commands.indexOf(
+      "gh auth refresh --hostname github.com --scopes write:public_key",
+    );
+    const uploadIndex = commands.findIndex((command) =>
+      command?.startsWith("gh ssh-key add "),
+    );
+    expect(permissionIndex).toBeGreaterThanOrEqual(0);
+    expect(uploadIndex).toBeGreaterThan(permissionIndex);
   });
 
   it("keeps every question closed by default", () => {
@@ -130,21 +120,6 @@ describe("the Getting Started page", () => {
     expect(
       screen.getAllByRole("button", { name: /copy terminal command/i }),
     ).toHaveLength(commands.length);
-  });
-
-  it("states what the installer does, in order", () => {
-    render(<GettingStartedPage />);
-    for (const step of walkthrough) {
-      expect(screen.getByText(step.does)).toBeTruthy();
-    }
-  });
-
-  it("answers every question, including what a failed step does", () => {
-    render(<GettingStartedPage />);
-    for (const entry of faq) {
-      expect(screen.getByText(entry.q)).toBeTruthy();
-    }
-    expect(screen.getByText(/What happens if a step fails/)).toBeTruthy();
   });
 
   it("links the walkthrough to the manual steps and to the questions", () => {

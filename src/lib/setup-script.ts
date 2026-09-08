@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { shellQuote } from "@/lib/shell-quote";
 
 /**
  * The installer served at GET /setup. This is devx-cli's own install.sh, vendored under
@@ -57,9 +58,4 @@ export function setupScript(origin: string): string {
   ];
 
   return [shebang, ...override, ...rest].join("\n");
-}
-
-/** Wraps a value so a POSIX shell reads it as one literal word. */
-function shellQuote(value: string): string {
-  return "'" + value.replaceAll("'", `'\\''`) + "'";
 }

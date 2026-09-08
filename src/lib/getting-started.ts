@@ -28,7 +28,7 @@ export const walkthrough: { does: string; detail: string }[] = [
 /**
  * The manual path, as a list of what each tool is for. The page pairs these with the commands
  * below by index (`manualTools[i]` labels `manualCommands[i]`), so a row added to one and not
- * the other would mislabel every row after it. A test asserts the two stay the same length.
+ * the other would mislabel every row after it. A test checks each rendered label's commands.
  */
 export const manualTools: { tool: string; why: string }[] = [
   {
@@ -81,10 +81,11 @@ export const manualCommands: {
     title: "SSH access",
     commands: [
       'ssh-keygen -t ed25519 -C "you@korza.ai"',
+      "gh auth refresh --hostname github.com --scopes write:public_key",
       'gh ssh-key add ~/.ssh/id_ed25519.pub --title "$(hostname)"',
       "ssh -T git@github.com",
     ],
-    note: 'devx configures GitHub HTTPS credentials and sets up SSH access by default. HTTPS remains independent, while the SSH key enables git@github.com remotes. Reuse an existing key instead of the first command if you already have one. The last command should print a fingerprint prompt the first time, then "successfully authenticated".',
+    note: 'devx configures GitHub HTTPS credentials and sets up SSH access by default. HTTPS remains independent, while the SSH key enables git@github.com remotes. Reuse an existing key instead of the first command if you already have one. The permission step opens GitHub to authorize uploading your public key. The last command should print a fingerprint prompt the first time, then "successfully authenticated".',
   },
   {
     title: "Claude Code, and the Korza marketplace",
@@ -127,11 +128,11 @@ export const manualCommands: {
 export const faq: { q: string; a: string }[] = [
   {
     q: "What does it change on my machine?",
-    a: "One block in ~/.zshrc, clearly marked. Nothing else in that file is touched, and devx setup --remove deletes it.",
+    a: "devx setup installs missing tools and configures Git and GitHub access. It keeps its shell configuration in one marked block in ~/.zshrc. devx setup --remove removes that block. The manual installers manage their own shell configuration separately.",
   },
   {
     q: "Can I run it more than once?",
-    a: "Yes. On a machine that is already set up it reports there is nothing to do, and changes nothing.",
+    a: "Yes. Tools that are already configured start unselected. You can choose additional tools or explicitly select a tool to reinstall it.",
   },
   {
     q: "What happens if a step fails?",

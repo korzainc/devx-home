@@ -31,9 +31,8 @@ export function GET(request: NextRequest) {
   try {
     script = setupScript(resolveOrigin(request));
   } catch {
-    // This body is piped straight into sh, so Next's HTML error page would
-    // reach the user as a run of shell syntax errors. Answer with something a
-    // shell can actually execute: a comment and a non-zero exit.
+    // Preserve a shell-safe error for direct consumers of this endpoint.
+    // The site's bootstrap command stops on the HTTP error before execution.
     return new Response(
       "# The devx installer is temporarily unavailable.\n" +
         "# Nothing was installed. Please report this in #devx.\n" +

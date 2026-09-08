@@ -1,7 +1,8 @@
 #!/bin/sh
 # devx installer: the one paste-able command (PRD R1).
 #
-#   curl -fsSL https://devx.korza.ai/setup | sh
+# Deployment must provide a verified public HTTPS /setup URL.
+# No production installer hostname is configured in this repository.
 #
 # It must work on a Mac with no developer tools, so it uses only what
 # macOS ships: sh, curl, tar, mktemp. No Homebrew, no Xcode, no sudo.
