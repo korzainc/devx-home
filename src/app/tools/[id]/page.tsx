@@ -3,7 +3,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CollapsibleGrid } from "@/components/collapsible-grid";
 import { MetaRow } from "@/components/meta-row";
-import { bundles, isBundle, tools } from "@/lib/catalogue";
+import {
+  bundles,
+  capabilityLabel,
+  isBundle,
+  tools,
+  type CapabilityId,
+} from "@/lib/catalogue";
 import { docsLabel } from "@/lib/docs-label";
 
 // The catalogue is a static JSON file, so every tool/bundle page is prerendered at build time.
@@ -92,14 +98,14 @@ export default async function ToolPage({ params }: PageProps<"/tools/[id]">) {
             </MetaRow>
           )}
           <MetaRow label="Category">{entry.category}</MetaRow>
-          <MetaRow label="Capabilities">
+          <MetaRow label="Checks">
             <span className="flex flex-wrap justify-end gap-1.5">
               {entry.capabilities.map((capability) => (
                 <span
                   key={capability}
-                  className="rounded bg-accent-wash px-1.5 py-0.5 font-mono text-[0.65rem] text-ink-muted"
+                  className="rounded bg-accent-wash px-1.5 py-0.5 text-[0.7rem] text-ink-muted"
                 >
-                  {capability}
+                  {capabilityLabel(capability as CapabilityId)}
                 </span>
               ))}
             </span>
@@ -157,9 +163,9 @@ export default async function ToolPage({ params }: PageProps<"/tools/[id]">) {
                       {wrap.capabilities.map((capability) => (
                         <span
                           key={capability}
-                          className="rounded bg-accent-wash px-1.5 py-0.5 font-mono text-[0.65rem] text-ink-muted"
+                          className="rounded bg-accent-wash px-1.5 py-0.5 text-[0.7rem] text-ink-muted"
                         >
-                          {capability}
+                          {capabilityLabel(capability as CapabilityId)}
                         </span>
                       ))}
                     </div>

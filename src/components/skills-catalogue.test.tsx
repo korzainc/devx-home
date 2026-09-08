@@ -1,8 +1,14 @@
 /**
  * @vitest-environment jsdom
  */
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { CatalogueTabs } from "@/components/catalogue-tabs";
 import { PluginsCatalogue } from "@/components/plugins-catalogue";
 import { SkillsCatalogue } from "@/components/skills-catalogue";
@@ -66,6 +72,17 @@ function option(facet: string, value: string) {
 
 function pick(facet: string, value: string) {
   fireEvent.click(option(facet, value));
+}
+
+/**
+ * The result count has no visible copy: it is announced to assistive tech only, and debounced so
+ * a screen reader isn't read a new number on every keystroke. Callers must hold fake timers.
+ */
+function settledCount() {
+  act(() => {
+    vi.advanceTimersByTime(500);
+  });
+  return screen.getByRole("status").textContent;
 }
 
 /** Collapsed by default, so counting its cards means opening it. */
@@ -355,44 +372,47 @@ describe("a search that only the toolchain matches", () => {
   // "teach" is a toolchain row and matches nothing classified, so the counts stay unambiguous.
   it("says on screen what is on screen", () => {
     // The count, the chevron and the empty state each used to read a different set: a search
-    // could reveal toolchain rows while the chevron said closed and the count said none.
-    renderPage();
-    const toggle = screen.getByRole("button", { name: /^Setup and toolchain/ });
-    // The visible count is aria-hidden (a debounced, worded sibling carries this for assistive
-    // tech instead), so it's found by content, not role.
-    const count = () =>
-      screen.getByText(
-        (_, element) =>
-          element?.getAttribute("aria-hidden") === "true" &&
-          /^\d+ of \d+$/.test(element.textContent ?? ""),
-      ).textContent;
+    // could reveal toolchain rows while the chevron said closed and the count said none. The
+    // count carries no visible copy now, so the status region is the only place it is stated,
+    // and the only place that disagreement can still be caught.
+    vi.useFakeTimers();
+    try {
+      renderPage();
+      const toggle = screen.getByRole("button", {
+        name: /^Setup and toolchain/,
+      });
 
-    expect(count()).toBe(`${browsableSkills.length} of ${skills.length}`);
+      expect(settledCount()).toBe(
+        `${browsableSkills.length} of ${skills.length} skills shown`,
+      );
 
-    fireEvent.change(search(), { target: { value: "teach" } });
-    expect(toggle.getAttribute("aria-expanded")).toBe("true");
-    expect(cardCount()).toBe(1);
-    expect(count()).toBe(`1 of ${skills.length}`);
-    expect(screen.queryByText("No skill matches those filters.")).toBeNull();
+      fireEvent.change(search(), { target: { value: "teach" } });
+      expect(toggle.getAttribute("aria-expanded")).toBe("true");
+      expect(cardCount()).toBe(1);
+      expect(settledCount()).toBe(`1 of ${skills.length} skills shown`);
+      expect(screen.queryByText("No skill matches those filters.")).toBeNull();
+    } finally {
+      // In a `finally` so a failed assertion above can't leak fake timers into later tests.
+      vi.useRealTimers();
+    }
   });
 
   it("does not put the empty state above a visible card", () => {
     // Facets do not reach the toolchain rows, but with the section held open they are on
     // screen, and an empty state above them told the reader the opposite of what they saw.
-    renderPage();
-    expandToolchain();
-    fireEvent.change(search(), { target: { value: "teach" } });
-    pick("Category", "Discover");
+    vi.useFakeTimers();
+    try {
+      renderPage();
+      expandToolchain();
+      fireEvent.change(search(), { target: { value: "teach" } });
+      pick("Category", "Discover");
 
-    expect(cardCount()).toBe(1);
-    expect(screen.queryByText("No skill matches those filters.")).toBeNull();
-    expect(
-      screen.getByText(
-        (_, element) =>
-          element?.getAttribute("aria-hidden") === "true" &&
-          /^\d+ of \d+$/.test(element.textContent ?? ""),
-      ).textContent,
-    ).toBe(`1 of ${skills.length}`);
+      expect(cardCount()).toBe(1);
+      expect(screen.queryByText("No skill matches those filters.")).toBeNull();
+      expect(settledCount()).toBe(`1 of ${skills.length} skills shown`);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("keeps the toggle working while a search has opened the section", () => {

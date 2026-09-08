@@ -2,6 +2,8 @@ import "server-only";
 import pluginsData from "@/data/plugins.json";
 import skillsData from "@/data/skills.json";
 import realCatalogueData from "@/data/catalogue.json";
+import { capabilityLabelOverrides } from "@/data/capability-labels";
+import { toolCardSummaries } from "@/data/tool-card-summaries";
 import {
   isBundle,
   type BundleEntry,
@@ -126,6 +128,7 @@ function toolFromReal(tool: RealTool): ToolEntry {
     id: tool.id,
     name: tool.name,
     summary: tool.summary,
+    cardSummary: toolCardSummaries[tool.id] ?? tool.summary,
     problem: tool.problem ?? "",
     benefits: tool.benefits ?? [],
     category: realCategory(tool.capabilities),
@@ -169,12 +172,15 @@ function flattenBaseline(catalogue: RealCatalogue): Baseline {
       (category) => category.label,
     ),
     capabilities: Object.fromEntries(
-      Object.entries(catalogue.taxonomy.capabilities).map(
-        ([id, capability]) => [
-          id,
-          { label: capability.label, category: categoryLabel(id) },
-        ],
-      ),
+      // Through `capabilityLabel`, not `capability.label` directly, so a gap report and the
+      // /tools filter can never name the same capability two different ways.
+      Object.keys(catalogue.taxonomy.capabilities).map((id) => [
+        id,
+        {
+          label: capabilityLabel(id as CapabilityId),
+          category: categoryLabel(id),
+        },
+      ]),
     ),
     // The real schema has no "universal" concept: every ecosystem lists its own security and
     // dependency-update capabilities directly (see java.json) rather than through a shared
@@ -248,16 +254,30 @@ export function getBaseline(): Baseline {
   return (cachedBaseline ??= flattenBaseline(realCatalogue));
 }
 
-/** A single capability's label, straight from the taxonomy - never touches ecosystems, so it
- * can't fail for an unrelated reason. Throws with the id rather than letting a caller read
- * `.label` off `undefined`, the same as `ecosystemLabel`. */
+/** A single capability's label: the local override if there is one, else the taxonomy's own -
+ * never touches ecosystems, so it can't fail for an unrelated reason. Throws with the id rather
+ * than letting a caller read `.label` off `undefined`, the same as `ecosystemLabel`. */
 export function capabilityLabel(id: CapabilityId): string {
-  const label = realCatalogue.taxonomy.capabilities[id]?.label;
+  const label =
+    capabilityLabelOverrides[id] ??
+    realCatalogue.taxonomy.capabilities[id]?.label;
   if (!label) {
     throw new Error(`No capability "${id}" in the catalogue taxonomy.`);
   }
   return label;
 }
+
+/**
+ * Every capability's label, for the client components that cannot call `capabilityLabel` because
+ * this module is server-only. Fourteen entries, so it costs nothing to hand the whole map over
+ * rather than thread a lookup down through the card.
+ */
+export const capabilityLabels: Record<string, string> = Object.fromEntries(
+  Object.keys(realCatalogue.taxonomy.capabilities).map((id) => [
+    id,
+    capabilityLabel(id as CapabilityId),
+  ]),
+);
 
 export const marketplaceName = "korza-marketplace";
 
