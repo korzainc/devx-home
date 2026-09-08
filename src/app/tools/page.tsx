@@ -15,6 +15,10 @@ export const metadata: Metadata = {
 
 type Params = Pick<PageProps<"/tools">, "searchParams">;
 
+// Splits only. Whether a value names a real stack or check is decided in ToolsCatalogue, which is
+// the side that holds both lists; anything else is dropped there rather than filtered on.
+// A repeated key arrives as an array and is ignored, so `?stack=go&stack=java` reads as no pick
+// at all instead of silently honouring one of the two.
 function parseList(value: string | string[] | undefined): string[] {
   if (typeof value !== "string" || value.length === 0) return [];
   return value
@@ -56,7 +60,7 @@ export default function ToolsPage({ searchParams }: Params) {
         </p>
       </header>
       {/* The fallback is the same catalogue with no initial selection, so the prerendered shell
-          already shows a usable control and only the initial Stack/Capability picks stream in. */}
+          already shows a usable control and only the initial check and language picks stream in. */}
       <Suspense
         fallback={
           <ToolsCatalogue

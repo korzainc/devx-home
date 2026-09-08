@@ -53,8 +53,6 @@ const SECTIONS: { label: string; category: string; note: string }[] = [
   },
 ];
 
-// Module scope, not inline: `visible`'s useMemo lists this as a dependency, and a
-// component-scoped array literal is a new reference every render, defeating that memo silently.
 // The facet is keyed by `capabilities` but reads "Check": the page's own lede already calls these
 // "what a tool does", and "Capability" is the one word on screen that nothing else on the site
 // uses.
@@ -188,8 +186,42 @@ export function ToolsCatalogue({
   const { enabled: slashEnabled, toggle: toggleSlashShortcut } =
     useSlashShortcut(searchRef);
 
-  const [pickedStacks, setPickedStacks] = useState(initialStacks);
-  const [pickedChecks, setPickedChecks] = useState(initialChecks);
+  // Everything below counts, filters and renders from this rather than from `entries`. A tool
+  // whose category no section claims (a resynced taxonomy adding one, or `realCategory` falling
+  // through to "Other") can never reach the grid, so counting it would give the Check row a
+  // number that picking only ever turns into "No tool matches those filters".
+  const shown = useMemo(
+    () =>
+      entries.filter((entry) =>
+        SECTIONS.some((section) => section.category === entry.category),
+      ),
+    [entries],
+  );
+
+  // Derived from the visible entries at render time, never hardcoded, so a language with zero
+  // tools behind it never appears as a chip. `any` is pulled to the end: it names a kind of repo,
+  // not a language, and alphabetical order would otherwise open the row with it.
+  const stackOptions = useMemo(() => {
+    const all = [...new Set(shown.flatMap((entry) => entry.stacks))];
+    const languages = all
+      .filter((value) => value !== ANY)
+      .sort((a, b) => stackLabel(a).localeCompare(stackLabel(b)));
+    return all.includes(ANY) ? [...languages, ANY] : languages;
+  }, [shown]);
+
+  // The initial picks come off the query string, so unlike every later change they are not
+  // values this component produced. Anything that isn't a real id is dropped here rather than
+  // filtered on: a typo would otherwise narrow the grid to the universal tools while lighting up
+  // no chip to explain why, and a value carrying an `&` would round-trip out of the effect below
+  // as a second, forged query key.
+  const [pickedStacks, setPickedStacks] = useState(() =>
+    initialStacks.filter((value) => stackOptions.includes(value)),
+  );
+  const [pickedChecks, setPickedChecks] = useState(() =>
+    initialChecks.filter((value) =>
+      CHECK_GROUPS.some((group) => group.id === value),
+    ),
+  );
 
   const router = useRouter();
   const pathname = usePathname();
@@ -202,14 +234,24 @@ export function ToolsCatalogue({
       mounted.current = true;
       return;
     }
-    // Built by hand rather than via URLSearchParams: stack and check values are known-safe slug
-    // characters that need no escaping, and URLSearchParams would percent-encode the comma
-    // separator, so the address bar would show %2C instead of a plain, readable list.
+    // Only the two keys this component owns are rewritten. Anything else already on the URL (a
+    // utm tag, whatever a shared link carried) is carried through, since a filter click should
+    // not quietly strip the rest of someone's address bar. Read off `location` rather than
+    // useSearchParams: this same component renders as the Suspense fallback on /tools, where
+    // that hook would opt the prerendered shell out of static rendering.
+    const others = new URLSearchParams(window.location.search);
+    others.delete("stack");
+    others.delete("check");
+    // Our two are built by hand rather than through URLSearchParams, which would percent-encode
+    // the comma separator and show %2C in the address bar instead of a readable list. Safe to
+    // concatenate because both hold ids validated against the real ones at mount.
     const parts: string[] = [];
     if (pickedStacks.length) parts.push(`stack=${pickedStacks.join(",")}`);
     if (pickedChecks.length) parts.push(`check=${pickedChecks.join(",")}`);
-    const query = parts.join("&");
-    router.replace(query ? `${pathname}?${query}` : pathname, {
+    const rest = others.toString();
+    if (rest) parts.push(rest);
+    const search = parts.join("&");
+    router.replace(search ? `${pathname}?${search}` : pathname, {
       scroll: false,
     });
   }, [pickedStacks, pickedChecks, pathname, router]);
@@ -221,25 +263,14 @@ export function ToolsCatalogue({
     (): [string, number][] =>
       CHECK_GROUPS.map((group) => [
         group.id,
-        entries.filter((entry) =>
+        shown.filter((entry) =>
           facetValues(entry, "capabilities").some((value) =>
             group.capabilities.includes(value),
           ),
         ).length,
       ]),
-    [entries],
+    [shown],
   );
-
-  // Derived from the visible entries at render time, never hardcoded, so a language with zero
-  // tools behind it never appears as a chip. `any` is pulled to the end: it names a kind of repo,
-  // not a language, and alphabetical order would otherwise open the row with it.
-  const stackOptions = useMemo(() => {
-    const all = [...new Set(entries.flatMap((entry) => entry.stacks))];
-    const languages = all
-      .filter((value) => value !== ANY)
-      .sort((a, b) => stackLabel(a).localeCompare(stackLabel(b)));
-    return all.includes(ANY) ? [...languages, ANY] : languages;
-  }, [entries]);
 
   const visible = useMemo(() => {
     // Groups are expanded to the capability ids behind them and handed to the shared rule, so
@@ -248,22 +279,25 @@ export function ToolsCatalogue({
       pickedChecks.includes(group.id),
     ).flatMap((group) => group.capabilities);
     const byCapAndQuery = filterEntries({
-      entries,
+      entries: shown,
       facets,
       selected: { capabilities: wanted },
       query,
     });
-    // Stack is handled separately, not through filterEntries's generic facet path, since it
-    // needs the "universal tools always shown" exception a plain intersection doesn't have: 3
-    // of the 5 universal tools tie to a `required: true` capability in every stack's baseline,
-    // so exact-matching would silently drop mandatory checks from a stack-filtered view.
+    // Stack is a union, not an intersection, and is handled here rather than through
+    // filterEntries's generic facet path because of it: 3 of the 5 universal tools carry a
+    // `required: true` capability in the docker, go, java, javascript and python baselines, so
+    // exact-matching would drop mandatory checks out of a stack-filtered view. The one baseline
+    // that would survive it is typescript, which pins only `typecheck`.
+    // One `.filter` over one list, so a tool that matches two of the picked languages is still
+    // returned once.
     return byCapAndQuery.filter(
       (entry) =>
         pickedStacks.length === 0 ||
         entry.stacks.some((stack) => pickedStacks.includes(stack)) ||
-        entry.stacks.includes("any"),
+        entry.stacks.includes(ANY),
     );
-  }, [entries, pickedChecks, query, pickedStacks]);
+  }, [shown, pickedChecks, query, pickedStacks]);
 
   // An empty section is never announced, only dropped. Unfiltered that can only happen if the
   // synced taxonomy stops covering a category, where "nothing matches your filters" would be a
@@ -281,7 +315,9 @@ export function ToolsCatalogue({
     pickedStacks.length > 0 ||
     query.trim().length > 0;
 
-  const total = entries.length;
+  // Both halves of the announcement come from the same pool, so "n of N" cannot name a total
+  // the page has no way to reach.
+  const total = shown.length;
   // Counted from what bySection actually renders, not from `visible` directly, so the
   // on-screen count can never name a tool that isn't in any of the four sections - mirroring
   // the invariant CatalogueGrid states for its own onScreen/couldShow split.

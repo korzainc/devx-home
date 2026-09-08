@@ -24,7 +24,12 @@ vi.mock("next/navigation", () => ({
 }));
 
 afterEach(cleanup);
-beforeEach(() => replace.mockClear());
+beforeEach(() => {
+  replace.mockClear();
+  // The URL writer reads the live location for the params it does not own, and jsdom carries one
+  // document across the file, so a test that seeds a query string would leak into the next.
+  window.history.replaceState({}, "", "/tools");
+});
 
 function renderPage() {
   render(
@@ -49,12 +54,7 @@ function renderWithInitial(
 }
 
 /** The order SECTIONS declares them in, which is the order the unfiltered page renders. */
-const SECTION_LABELS = [
-  "Code Quality",
-  "Testing",
-  "Security",
-  "Dependencies",
-];
+const SECTION_LABELS = ["Code Quality", "Testing", "Security", "Dependencies"];
 
 function cardCount() {
   return screen
@@ -519,6 +519,93 @@ describe("the tools catalogue", () => {
     fireEvent.click(screen.getByRole("button", { name: "Go" }));
 
     expect(replace).toHaveBeenLastCalledWith("/tools", { scroll: false });
+  });
+
+  it("ignores a seeded stack the catalogue has no chip for", () => {
+    renderWithInitial({ stacks: ["dcoker"] });
+
+    // Not merely unpressed: an unvalidated value would still narrow the grid, since no tool
+    // claims it and only the language-agnostic ones would survive the union.
+    expect(cardCount()).toBe(visibleTools.length);
+    expect(screen.queryByRole("button", { name: "dcoker" })).toBeNull();
+  });
+
+  it("ignores a seeded check group id no group declares", () => {
+    renderWithInitial({ checks: ["linitng"] });
+    expect(cardCount()).toBe(visibleTools.length);
+
+    // Dropped rather than carried: it filters nothing either way, since no group expands it to a
+    // capability, but held in state it would be written straight back out on the next click.
+    fireEvent.click(screen.getByRole("button", { name: "Go" }));
+    expect(replace).toHaveBeenLastCalledWith("/tools?stack=go", {
+      scroll: false,
+    });
+  });
+
+  it("cannot be made to write a second query key through a seeded value", () => {
+    renderWithInitial({ stacks: [`go&check=${CHECK_GROUPS[0].id}`] });
+    fireEvent.click(screen.getByRole("button", { name: "Go" }));
+
+    // The forged value never reaches state, so the URL the effect writes carries the one chip
+    // that was actually clicked and nothing the query string smuggled in.
+    expect(replace).toHaveBeenLastCalledWith("/tools?stack=go", {
+      scroll: false,
+    });
+  });
+
+  it("keeps a query param it does not own when a filter changes", () => {
+    window.history.replaceState({}, "", "/tools?utm_source=slack");
+    renderWithInitial();
+    fireEvent.click(screen.getByRole("button", { name: "Go" }));
+
+    expect(replace).toHaveBeenLastCalledWith(
+      "/tools?stack=go&utm_source=slack",
+      {
+        scroll: false,
+      },
+    );
+  });
+
+  it("replaces its own keys rather than appending to the ones already there", () => {
+    window.history.replaceState({}, "", "/tools?stack=java&utm_source=slack");
+    renderWithInitial({ stacks: ["java"] });
+    fireEvent.click(screen.getByRole("button", { name: "Go" }));
+
+    expect(replace).toHaveBeenLastCalledWith(
+      "/tools?stack=java,go&utm_source=slack",
+      { scroll: false },
+    );
+  });
+
+  it("neither counts nor offers a tool whose category no section claims", () => {
+    const stray = {
+      ...publicToolEntry(visibleTools[0]),
+      id: "stray",
+      name: "Stray",
+      category: "Other",
+      capabilities: ["lint-style"],
+      stacks: ["go"],
+    };
+    render(
+      <ToolsCatalogue
+        entries={[...visibleTools.map(publicToolEntry), stray]}
+        capabilityLabels={capabilityLabels}
+      />,
+    );
+
+    // It has a capability the Code Linting group covers, so an unguarded count would offer it
+    // in the facet and in the announced total while the grid, which renders section by section,
+    // could never show it.
+    expect(card("stray")).toBeUndefined();
+    expect(cardCount()).toBe(visibleTools.length);
+    fireEvent.click(screen.getByRole("button", { name: /^Check/ }));
+    const option = screen.getByRole("checkbox", {
+      name: new RegExp(`^${escape("Code Linting")}, \\d`),
+    });
+    fireEvent.click(option);
+    expect(cardCount()).toBe(
+      Number(/(\d+)/.exec(option.getAttribute("aria-label") ?? "")?.[1]),
+    );
   });
 
   it("shows a visible Applies to label, not just an accessible name on the group", () => {
