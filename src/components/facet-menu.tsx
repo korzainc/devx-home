@@ -11,11 +11,19 @@ export function FacetMenu({
   options,
   selected,
   onToggle,
+  labelFor = (value) => value,
 }: {
   label: string;
   options: [string, number][];
   selected: string[];
   onToggle: (value: string) => void;
+  /**
+   * Display text for an option. Only the text changes: the value still travels to `onToggle`,
+   * the URL and the filter, so a capability can read "Code Security (SAST)" while `sast` stays
+   * the id the gap-analysis baselines are keyed by. Defaults to showing the value itself, which
+   * is what the skills facets want - their values are already words.
+   */
+  labelFor?: (value: string) => string;
 }) {
   const [open, setOpen] = useState(false);
   // Offset from the trigger, clamped into the viewport. A left/right flip cannot express the
@@ -107,10 +115,10 @@ export function FacetMenu({
                   onChange={() => onToggle(value)}
                   // Without this, the accessible name is the label's own text: value and count
                   // run together with no separator a screen reader can use, e.g. "codezen 12".
-                  aria-label={`${value}, ${count} matching`}
+                  aria-label={`${labelFor(value)}, ${count} matching`}
                   className="size-3.5 accent-accent"
                 />
-                <span className="truncate">{value}</span>
+                <span className="truncate">{labelFor(value)}</span>
                 <span className="ml-auto shrink-0 font-mono text-[0.65rem] text-ink-faint">
                   {count}
                 </span>

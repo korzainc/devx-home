@@ -10,8 +10,12 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ToolsCatalogue } from "@/components/tools-catalogue";
-import { publicToolEntry, visibleTools } from "@/lib/catalogue";
+import { CHECK_GROUPS, ToolsCatalogue } from "@/components/tools-catalogue";
+import {
+  capabilityLabels,
+  publicToolEntry,
+  visibleTools,
+} from "@/lib/catalogue";
 
 const replace = vi.fn();
 vi.mock("next/navigation", () => ({
@@ -23,20 +27,34 @@ afterEach(cleanup);
 beforeEach(() => replace.mockClear());
 
 function renderPage() {
-  render(<ToolsCatalogue entries={visibleTools.map(publicToolEntry)} />);
+  render(
+    <ToolsCatalogue
+      entries={visibleTools.map(publicToolEntry)}
+      capabilityLabels={capabilityLabels}
+    />,
+  );
 }
 
 function renderWithInitial(
-  props: { stacks?: string[]; capabilities?: string[] } = {},
+  props: { stacks?: string[]; checks?: string[] } = {},
 ) {
   render(
     <ToolsCatalogue
       entries={visibleTools.map(publicToolEntry)}
+      capabilityLabels={capabilityLabels}
       initialStacks={props.stacks ?? []}
-      initialCapabilities={props.capabilities ?? []}
+      initialChecks={props.checks ?? []}
     />,
   );
 }
+
+/** The order SECTIONS declares them in, which is the order the unfiltered page renders. */
+const SECTION_LABELS = [
+  "Code Quality",
+  "Testing",
+  "Security",
+  "Staying Current",
+];
 
 function cardCount() {
   return screen
@@ -86,16 +104,16 @@ describe("the tools catalogue", () => {
     expect(cardCount()).toBe(visibleTools.length);
   });
 
-  it("shows Capability as the only dropdown facet, with Stack as an always-visible chip row", () => {
+  it("shows Check as the only dropdown facet, with Applies to as an always-visible chip row", () => {
     renderPage();
     const triggers = screen
       .getAllByRole("button")
       .filter((node) => /[▲▼]$/.test(node.textContent ?? ""));
     expect(
       triggers.map((node) => node.textContent?.replace(/[▲▼]$/, "")),
-    ).toEqual(["Capability"]);
+    ).toEqual(["Check"]);
 
-    const stackGroup = screen.getByRole("group", { name: "Stack" });
+    const stackGroup = screen.getByRole("group", { name: "Applies to" });
     const stackChips = within(stackGroup).getAllByRole("button");
     expect(stackChips.length).toBeGreaterThan(0);
     for (const chip of stackChips) {
@@ -105,7 +123,7 @@ describe("the tools catalogue", () => {
 
   it("narrows to a stack via the chip row, keeping universal tools visible regardless", () => {
     renderPage();
-    toggleStack("go");
+    toggleStack("Go");
 
     const inStack = visibleTools.filter(
       (tool) => tool.stacks.includes("go") || tool.stacks.includes("any"),
@@ -136,6 +154,72 @@ describe("the tools catalogue", () => {
     ).toBeUndefined();
   });
 
+  it("spells each language its own way and keeps the language-agnostic chip last", () => {
+    renderPage();
+    const chips = within(screen.getByRole("group", { name: "Applies to" }))
+      .getAllByRole("button")
+      .map((node) => node.textContent ?? "");
+
+    // Last, not sorted into place: it names a kind of repo, not a language, and alphabetical
+    // order on the raw id ("any") would otherwise open the row with it.
+    expect(chips.at(-1)).toBe("Language-agnostic");
+    // No chip renders a raw taxonomy id. "javascript" is an id; "JavaScript" is the language.
+    expect(chips.filter((chip) => /^[a-z]/.test(chip))).toEqual([]);
+  });
+
+  it("shows only the language-agnostic tools when that chip is picked alone", () => {
+    renderPage();
+    toggleStack("Language-agnostic");
+
+    const universal = visibleTools.filter((tool) =>
+      tool.stacks.includes("any"),
+    );
+    expect(universal.length).toBeGreaterThan(0);
+    expect(universal.length).toBeLessThan(visibleTools.length);
+    expect(cardCount()).toBe(universal.length);
+  });
+
+  it("adds nothing when the language-agnostic chip joins a language, since those tools were already in", () => {
+    renderPage();
+    toggleStack("Go");
+    const withGo = cardCount();
+
+    toggleStack("Language-agnostic");
+
+    expect(cardCount()).toBe(withGo);
+  });
+
+  it("lists a tool once when it applies to two of the picked languages", () => {
+    renderPage();
+    // Derived, not hardcoded: a resync that moves these ids around still exercises the overlap
+    // rather than quietly passing on a pair that no longer shares a tool.
+    const shared = visibleTools.filter(
+      (tool) =>
+        tool.stacks.includes("javascript") &&
+        tool.stacks.includes("typescript"),
+    );
+    expect(shared.length).toBeGreaterThan(0);
+
+    toggleStack("JavaScript");
+    toggleStack("TypeScript");
+
+    for (const tool of shared) {
+      expect(
+        screen
+          .queryAllByRole("link")
+          .filter((node) => node.getAttribute("href") === `/tools/${tool.id}`),
+      ).toHaveLength(1);
+    }
+    // The union of both languages, counted once each - not the sum of the two filters.
+    const union = visibleTools.filter(
+      (tool) =>
+        tool.stacks.includes("javascript") ||
+        tool.stacks.includes("typescript") ||
+        tool.stacks.includes("any"),
+    );
+    expect(cardCount()).toBe(union.length);
+  });
+
   it("filters by search text, matching a tool's problem and benefits too", () => {
     renderPage();
     const eslint = visibleTools.find((tool) => tool.id === "eslint")!;
@@ -148,39 +232,54 @@ describe("the tools catalogue", () => {
     expect(card("biome")).toBeTruthy();
   });
 
-  it("keeps a section with no matches, showing an empty state under its heading", () => {
+  it("collapses to one flat grid while filtering, with no section headings", () => {
     renderPage();
     // eslint/biome are the only two tools "ESLint" matches, and both are Code Quality - see
     // Step 0's verification against the real catalogue.
     search("ESLint");
 
-    // All four headings survive the filter, in the order SECTIONS declares them.
-    for (const label of [
-      "Code Quality",
-      "Testing",
-      "Security",
-      "Staying Current",
-    ]) {
-      expect(screen.getByRole("heading", { name: label })).toBeTruthy();
+    // The sections are the capability categories, so grouping a filtered view puts every match
+    // under one heading and leaves the rest with nothing to show. None render while filtering.
+    for (const label of SECTION_LABELS) {
+      expect(screen.queryByRole("heading", { name: label })).toBeNull();
     }
-
-    for (const label of ["Testing", "Security", "Staying Current"]) {
-      expect(
-        screen.getByText(`Nothing in ${label} matches those filters.`),
-      ).toBeTruthy();
-    }
-    // The section that did match shows cards, not an empty state.
-    expect(
-      screen.queryByText("Nothing in Code Quality matches those filters."),
-    ).toBeNull();
+    expect(screen.queryByText(/^Nothing in /)).toBeNull();
     expect(cardCount()).toBe(2);
   });
 
-  it("shows no per-section empty state when every section matches", () => {
+  it("restores the section headings once the filter is cleared", () => {
     renderPage();
-    // Every section has at least one tool by construction (all 19 visible tools are distributed
-    // across exactly these 4 categories today), so this holds with zero setup.
+    search("ESLint");
+    search("");
+
+    for (const label of SECTION_LABELS) {
+      expect(screen.getByRole("heading", { name: label })).toBeTruthy();
+    }
+    expect(cardCount()).toBe(visibleTools.length);
+  });
+
+  it("groups every tool under a heading when nothing is filtering", () => {
+    renderPage();
+    // All 19 visible tools fall in exactly these 4 categories today, so an unfiltered page shows
+    // four headings and no empty state at all.
     expect(screen.queryByText(/matches those filters\./)).toBeNull();
+    const headed = SECTION_LABELS.reduce((sum, label) => {
+      const heading = screen.getByRole("heading", { name: label });
+      const section = heading.closest("section");
+      return (
+        sum +
+        (section
+          ? within(section)
+              .getAllByRole("link")
+              .filter((node) =>
+                node.getAttribute("href")?.startsWith("/tools/"),
+              ).length
+          : 0)
+      );
+    }, 0);
+    // No tool renders outside a section, which is what lets the filtered grid flatten the
+    // sections instead of using the unsectioned list.
+    expect(headed).toBe(cardCount());
   });
 
   it("shows one message rather than four empty sections when nothing matches at all", () => {
@@ -197,7 +296,7 @@ describe("the tools catalogue", () => {
 
   it("doesn't let the / shortcut steal focus from an open facet menu", () => {
     renderPage();
-    const trigger = screen.getByRole("button", { name: /^Capability/ });
+    const trigger = screen.getByRole("button", { name: /^Check/ });
     fireEvent.click(trigger);
     trigger.focus();
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
@@ -307,43 +406,87 @@ describe("the tools catalogue", () => {
     expect(within(card(eslint.id)!).queryByText(eslint.category)).toBeNull();
   });
 
-  it("keeps the Capability facet's own filtering behavior unchanged", () => {
+  it("offers the Check groups rather than the raw capabilities behind them", () => {
     renderPage();
-    const capability = visibleTools[0].capabilities[0];
-    pick("Capability", capability);
+    fireEvent.click(screen.getByRole("button", { name: /^Check/ }));
+
+    const options = screen
+      .getAllByRole("checkbox")
+      .map((node) => node.getAttribute("aria-label")?.replace(/, \d+.*$/, ""));
+    expect(options).toEqual(CHECK_GROUPS.map((group) => group.label));
+  });
+
+  it("filters by the whole group, matching every capability it covers", () => {
+    renderPage();
+    const group = CHECK_GROUPS.find((entry) => entry.id === "linting")!;
+    pick("Check", group.label);
 
     const matching = visibleTools.filter((tool) =>
-      tool.capabilities.includes(capability),
+      tool.capabilities.some((capability) =>
+        group.capabilities.includes(capability),
+      ),
     );
+    // Strictly wider than any single capability in the group, which is the whole reason the
+    // group exists: picking it must not behave like picking its most popular member.
+    const widest = Math.max(
+      ...group.capabilities.map(
+        (capability) =>
+          visibleTools.filter((tool) => tool.capabilities.includes(capability))
+            .length,
+      ),
+    );
+    expect(matching.length).toBeGreaterThan(widest);
     expect(cardCount()).toBe(matching.length);
   });
 
-  it("seeds Stack and Capability from the initial props", () => {
-    const capability = visibleTools[0].capabilities[0];
-    renderWithInitial({ stacks: ["go"], capabilities: [capability] });
+  it("counts a tool once against a group it matches twice", () => {
+    renderPage();
+    // Biome carries lint-style and format, both in Code Linting. Counting values instead of
+    // entries would list it twice and put a number on the menu no click can reproduce.
+    const biome = visibleTools.find((tool) => tool.id === "biome")!;
+    expect(
+      biome.capabilities.filter((capability) =>
+        ["lint-style", "format"].includes(capability),
+      ).length,
+    ).toBe(2);
+
+    fireEvent.click(screen.getByRole("button", { name: /^Check/ }));
+    const option = screen.getByRole("checkbox", {
+      name: new RegExp(`^${escape("Code Linting")}, \\d`),
+    });
+    const shown = Number(
+      /(\d+)/.exec(option.getAttribute("aria-label") ?? "")?.[1],
+    );
+
+    fireEvent.click(option);
+    expect(cardCount()).toBe(shown);
+  });
+
+  it("seeds Applies to and Check from the initial props", () => {
+    renderWithInitial({ stacks: ["go"], checks: ["linting"] });
 
     expect(
-      screen.getByRole("button", { name: "go" }).getAttribute("aria-pressed"),
+      screen.getByRole("button", { name: "Go" }).getAttribute("aria-pressed"),
     ).toBe("true");
-    // The ticked box inside the menu is the observable proof the capability was actually
-    // picked, not just passed through as an unused prop.
-    fireEvent.click(screen.getByRole("button", { name: /^Capability/ }));
+    // The ticked box inside the menu is the observable proof the group was actually picked, not
+    // just passed through as an unused prop.
+    fireEvent.click(screen.getByRole("button", { name: /^Check/ }));
     const option = screen.getByRole("checkbox", {
-      name: new RegExp(`^${escape(capability)}, \\d`),
+      name: new RegExp(`^${escape("Code Linting")}, \\d`),
     }) as HTMLInputElement;
     expect(option.checked).toBe(true);
   });
 
   it("un-presses a stack chip when it is toggled back off", () => {
     renderPage();
-    toggleStack("go");
+    toggleStack("Go");
     expect(
-      screen.getByRole("button", { name: "go" }).getAttribute("aria-pressed"),
+      screen.getByRole("button", { name: "Go" }).getAttribute("aria-pressed"),
     ).toBe("true");
 
-    toggleStack("go");
+    toggleStack("Go");
     expect(
-      screen.getByRole("button", { name: "go" }).getAttribute("aria-pressed"),
+      screen.getByRole("button", { name: "Go" }).getAttribute("aria-pressed"),
     ).toBe("false");
     expect(cardCount()).toBe(visibleTools.length);
   });
@@ -352,43 +495,44 @@ describe("the tools catalogue", () => {
     renderWithInitial();
     expect(replace).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: "go" }));
+    fireEvent.click(screen.getByRole("button", { name: "Go" }));
 
     expect(replace).toHaveBeenCalledWith(expect.stringContaining("stack=go"), {
       scroll: false,
     });
   });
 
-  it("updates the URL when a capability is picked, comma-joining multiple values", () => {
+  it("puts the picked Check group's id in the URL, not the capabilities behind it", () => {
     renderWithInitial();
-    const capability = visibleTools[0].capabilities[0];
-    pick("Capability", capability);
+    pick("Check", "Code Linting");
 
+    // One short slug rather than the four capability ids it expands to, so a shared link reads
+    // as the thing the sender actually clicked.
     expect(replace).toHaveBeenCalledWith(
-      expect.stringContaining(`cap=${capability}`),
+      expect.stringContaining("check=linting"),
       { scroll: false },
     );
   });
 
   it("clears the URL back to the bare path once every filter is removed", () => {
     renderWithInitial({ stacks: ["go"] });
-    fireEvent.click(screen.getByRole("button", { name: "go" }));
+    fireEvent.click(screen.getByRole("button", { name: "Go" }));
 
     expect(replace).toHaveBeenLastCalledWith("/tools", { scroll: false });
   });
 
-  it("shows a visible Stack label, not just an accessible name on the group", () => {
+  it("shows a visible Applies to label, not just an accessible name on the group", () => {
     renderPage();
     // Distinct from the group's own accessible name (asserted elsewhere via getByRole("group",
-    // { name: "Stack" })) - this confirms real, visible text renders for sighted users too, not
-    // only an aria-label a screen reader would announce.
-    const label = screen.getByText("Stack");
+    // { name: "Applies to" })) - this confirms real, visible text renders for sighted users too,
+    // not only an aria-label a screen reader would announce.
+    const label = screen.getByText("Applies to");
     expect(label.tagName).toBe("SPAN");
     // The group's accessible name comes from this exact element via aria-labelledby, so the two
     // can never drift out of sync the way a separate aria-label string could.
     expect(
       screen
-        .getByRole("group", { name: "Stack" })
+        .getByRole("group", { name: "Applies to" })
         .getAttribute("aria-labelledby"),
     ).toBe(label.id);
   });

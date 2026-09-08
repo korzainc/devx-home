@@ -30,9 +30,9 @@ function findByName(
 }
 
 describe("the tools page", () => {
-  it("parses ?stack=/?cap= into comma-separated initial props for the catalogue", async () => {
+  it("parses ?stack=/?check= into comma-separated initial props for the catalogue", async () => {
     const page = ToolsPage({
-      searchParams: Promise.resolve({ stack: "go,docker", cap: "sast" }),
+      searchParams: Promise.resolve({ stack: "go,docker", check: "linting" }),
     }) as ReactElement;
 
     const catalogueElement = findByName(page, "Catalogue")!;
@@ -45,7 +45,7 @@ describe("the tools page", () => {
 
     expect(rendered.props).toMatchObject({
       initialStacks: ["go", "docker"],
-      initialCapabilities: ["sast"],
+      initialChecks: ["linting"],
     });
   });
 
@@ -62,7 +62,7 @@ describe("the tools page", () => {
 
     expect(rendered.props).toMatchObject({
       initialStacks: [],
-      initialCapabilities: [],
+      initialChecks: [],
     });
   });
 
@@ -70,7 +70,7 @@ describe("the tools page", () => {
     // "".split(",") is ["with an empty phantom entry"], not [] - a bare `?stack=` must not be
     // read as "one picked stack that matches nothing".
     const page = ToolsPage({
-      searchParams: Promise.resolve({ stack: "", cap: "" }),
+      searchParams: Promise.resolve({ stack: "", check: "" }),
     }) as ReactElement;
 
     const catalogueElement = findByName(page, "Catalogue")!;
@@ -81,13 +81,16 @@ describe("the tools page", () => {
 
     expect(rendered.props).toMatchObject({
       initialStacks: [],
-      initialCapabilities: [],
+      initialChecks: [],
     });
   });
 
   it("drops empty segments from a trailing or doubled comma", async () => {
     const page = ToolsPage({
-      searchParams: Promise.resolve({ stack: "go,", cap: "sast,,sca" }),
+      searchParams: Promise.resolve({
+        stack: "go,",
+        check: "linting,,testing",
+      }),
     }) as ReactElement;
 
     const catalogueElement = findByName(page, "Catalogue")!;
@@ -98,7 +101,7 @@ describe("the tools page", () => {
 
     expect(rendered.props).toMatchObject({
       initialStacks: ["go"],
-      initialCapabilities: ["sast", "sca"],
+      initialChecks: ["linting", "testing"],
     });
   });
 

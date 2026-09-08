@@ -49,11 +49,97 @@ const SECTIONS: { label: string; category: string; note: string }[] = [
 
 // Module scope, not inline: `visible`'s useMemo lists this as a dependency, and a
 // component-scoped array literal is a new reference every render, defeating that memo silently.
+// The facet is keyed by `capabilities` but reads "Check": the page's own lede already calls these
+// "what a tool does", and "Capability" is the one word on screen that nothing else on the site
+// uses.
 const facets: Facet<PublicToolEntry>[] = [
-  { key: "capabilities", label: "Capability" },
+  { key: "capabilities", label: "Check" },
 ];
 
-function ToolCard({ tool }: { tool: PublicToolEntry | PublicBundleEntry }) {
+// The 14 upstream capabilities are a taxonomy, not a filter row: picking between "Style Linting"
+// and "Formatting" asks the reader to know which tool upstream filed where. These 7 group them
+// into the questions someone actually arrives with. `check-groups.test.ts` fails if a resync adds
+// a capability none of them claims, so the filter can't silently stop reaching a tool.
+// `iac-dockerfile-lint` sits here only under Infrastructure: it is legal to list it under Code
+// Linting too, but that pulls the Docker bundle in beside Prettier and TypeScript.
+export const CHECK_GROUPS: {
+  id: string;
+  label: string;
+  capabilities: string[];
+}[] = [
+  {
+    id: "linting",
+    label: "Code Linting",
+    capabilities: ["lint-style", "format", "lint-bugs", "typecheck"],
+  },
+  {
+    id: "testing",
+    label: "Testing and Code Coverage",
+    capabilities: ["unit-tests", "coverage", "e2e-tests"],
+  },
+  { id: "sast", label: "Code Security (SAST)", capabilities: ["sast"] },
+  { id: "secrets", label: "Secret Scanning", capabilities: ["secrets"] },
+  {
+    id: "dependencies",
+    label: "Dependencies",
+    capabilities: ["dependency-updates", "sca"],
+  },
+  {
+    id: "containers",
+    label: "Container Scanning",
+    capabilities: ["image-scan"],
+  },
+  {
+    id: "infrastructure",
+    label: "Infrastructure",
+    capabilities: ["iac-config", "iac-dockerfile-lint"],
+  },
+];
+
+/** Each language spelled the way its own docs spell it, and `any` named for what it means to a
+ *  reader picking a filter. An id with no entry falls back to itself, so a language the taxonomy
+ *  adds later still gets a chip. */
+const STACK_LABELS: Record<string, string> = {
+  go: "Go",
+  java: "Java",
+  javascript: "JavaScript",
+  python: "Python",
+  typescript: "TypeScript",
+  any: "Language-agnostic",
+};
+
+const ANY = "any";
+
+function stackLabel(value: string): string {
+  return STACK_LABELS[value] ?? value;
+}
+
+function ToolGrid({
+  tools,
+  labels,
+}: {
+  tools: (PublicToolEntry | PublicBundleEntry)[];
+  labels: Record<string, string>;
+}) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {tools.map((tool) => (
+        // Anchor target for gap-analysis links. Resolves in the unfiltered state.
+        <div key={tool.id} id={tool.id} className="scroll-mt-24">
+          <ToolCard tool={tool} labels={labels} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ToolCard({
+  tool,
+  labels,
+}: {
+  tool: PublicToolEntry | PublicBundleEntry;
+  labels: Record<string, string>;
+}) {
   return (
     <CatalogueCard
       href={`/tools/${tool.id}`}
@@ -64,7 +150,11 @@ function ToolCard({ tool }: { tool: PublicToolEntry | PublicBundleEntry }) {
       }
       summary={tool.cardSummary}
       footerLeft={
-        <span className="truncate">{tool.capabilities.join(" · ")}</span>
+        <span className="truncate">
+          {tool.capabilities
+            .map((capability) => labels[capability] ?? capability)
+            .join(" · ")}
+        </span>
       }
     />
   );
@@ -72,12 +162,16 @@ function ToolCard({ tool }: { tool: PublicToolEntry | PublicBundleEntry }) {
 
 export function ToolsCatalogue({
   entries,
+  capabilityLabels = {},
   initialStacks = [],
-  initialCapabilities = [],
+  initialChecks = [],
 }: {
   entries: (PublicToolEntry | PublicBundleEntry)[];
+  /** Handed down from the server: `@/lib/catalogue` is server-only, so this cannot be looked up
+   *  here. An id with no entry falls back to showing itself. */
+  capabilityLabels?: Record<string, string>;
   initialStacks?: string[];
-  initialCapabilities?: string[];
+  initialChecks?: string[];
 }): ReactNode {
   const [query, setQuery] = useState("");
   // Both panels stay mounted across tests, so a fixed id would give the document two search
@@ -89,11 +183,11 @@ export function ToolsCatalogue({
     useSlashShortcut(searchRef);
 
   const [pickedStacks, setPickedStacks] = useState(initialStacks);
-  const [pickedCaps, setPickedCaps] = useState(initialCapabilities);
+  const [pickedChecks, setPickedChecks] = useState(initialChecks);
 
   const router = useRouter();
   const pathname = usePathname();
-  // Skip the first run: the URL already matches initialStacks/initialCapabilities (that's where
+  // Skip the first run: the URL already matches initialStacks/initialChecks (that's where
   // they came from), so replacing on mount would be a same-value no-op navigation for no reason.
   const mounted = useRef(false);
 
@@ -102,40 +196,55 @@ export function ToolsCatalogue({
       mounted.current = true;
       return;
     }
-    // Built by hand rather than via URLSearchParams: stack and capability values are known-safe
-    // slug characters that need no escaping, and URLSearchParams would percent-encode the comma
+    // Built by hand rather than via URLSearchParams: stack and check values are known-safe slug
+    // characters that need no escaping, and URLSearchParams would percent-encode the comma
     // separator, so the address bar would show %2C instead of a plain, readable list.
     const parts: string[] = [];
     if (pickedStacks.length) parts.push(`stack=${pickedStacks.join(",")}`);
-    if (pickedCaps.length) parts.push(`cap=${pickedCaps.join(",")}`);
+    if (pickedChecks.length) parts.push(`check=${pickedChecks.join(",")}`);
     const query = parts.join("&");
     router.replace(query ? `${pathname}?${query}` : pathname, {
       scroll: false,
     });
-  }, [pickedStacks, pickedCaps, pathname, router]);
+  }, [pickedStacks, pickedChecks, pathname, router]);
 
-  const capOptions = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const entry of entries) {
-      for (const value of facetValues(entry, "capabilities")) {
-        counts.set(value, (counts.get(value) ?? 0) + 1);
-      }
-    }
-    return [...counts].sort((a, b) => a[0].localeCompare(b[0]));
-  }, [entries]);
-
-  // Derived from the visible entries at render time, never hardcoded, so a stack with zero
-  // tools behind it (docker today) never appears as a chip.
-  const stackOptions = useMemo(
-    () => [...new Set(entries.flatMap((entry) => entry.stacks))].sort(),
+  // A tool with two capabilities in one group counts once, so the number beside a group is the
+  // number of cards picking it produces. Left in CHECK_GROUPS order rather than sorted: the row
+  // runs write-time checks first, then security, then the slower supply-chain ones.
+  const checkOptions = useMemo(
+    (): [string, number][] =>
+      CHECK_GROUPS.map((group) => [
+        group.id,
+        entries.filter((entry) =>
+          facetValues(entry, "capabilities").some((value) =>
+            group.capabilities.includes(value),
+          ),
+        ).length,
+      ]),
     [entries],
   );
 
+  // Derived from the visible entries at render time, never hardcoded, so a language with zero
+  // tools behind it never appears as a chip. `any` is pulled to the end: it names a kind of repo,
+  // not a language, and alphabetical order would otherwise open the row with it.
+  const stackOptions = useMemo(() => {
+    const all = [...new Set(entries.flatMap((entry) => entry.stacks))];
+    const languages = all
+      .filter((value) => value !== ANY)
+      .sort((a, b) => stackLabel(a).localeCompare(stackLabel(b)));
+    return all.includes(ANY) ? [...languages, ANY] : languages;
+  }, [entries]);
+
   const visible = useMemo(() => {
+    // Groups are expanded to the capability ids behind them and handed to the shared rule, so
+    // grouping stays a presentation choice and the match itself is still the one in `filterEntries`.
+    const wanted = CHECK_GROUPS.filter((group) =>
+      pickedChecks.includes(group.id),
+    ).flatMap((group) => group.capabilities);
     const byCapAndQuery = filterEntries({
       entries,
       facets,
-      selected: { capabilities: pickedCaps },
+      selected: { capabilities: wanted },
       query,
     });
     // Stack is handled separately, not through filterEntries's generic facet path, since it
@@ -148,14 +257,23 @@ export function ToolsCatalogue({
         entry.stacks.some((stack) => pickedStacks.includes(stack)) ||
         entry.stacks.includes("any"),
     );
-  }, [entries, pickedCaps, query, pickedStacks]);
+  }, [entries, pickedChecks, query, pickedStacks]);
 
-  // Every section renders whether or not it matched, so a filtered view keeps the same four
-  // headings in the same order and says so per section instead of dropping one silently.
+  // An empty section is never announced, only dropped. Unfiltered that can only happen if the
+  // synced taxonomy stops covering a category, where "nothing matches your filters" would be a
+  // lie; filtered, the flat grid below means no section renders at all.
   const bySection = SECTIONS.map((section) => ({
     ...section,
     tools: visible.filter((entry) => entry.category === section.category),
-  }));
+  })).filter((section) => section.tools.length > 0);
+
+  // The dividers are the capability categories (see `realCategory`), so picking a Check narrows
+  // to one section and guarantees the other three are empty. Once any filter is on, the grouping
+  // repeats what the filter row already says, so the results collapse into a single grid.
+  const filtering =
+    pickedChecks.length > 0 ||
+    pickedStacks.length > 0 ||
+    query.trim().length > 0;
 
   const total = entries.length;
   // Counted from what bySection actually renders, not from `visible` directly, so the
@@ -177,8 +295,8 @@ export function ToolsCatalogue({
     );
   }
 
-  function toggleCap(value: string) {
-    setPickedCaps((previous) =>
+  function toggleCheck(value: string) {
+    setPickedChecks((previous) =>
       previous.includes(value)
         ? previous.filter((entry) => entry !== value)
         : [...previous, value],
@@ -255,10 +373,13 @@ export function ToolsCatalogue({
 
         <div className="flex flex-wrap items-center gap-2">
           <FacetMenu
-            label="Capability"
-            options={capOptions}
-            selected={pickedCaps}
-            onToggle={toggleCap}
+            label="Check"
+            options={checkOptions}
+            selected={pickedChecks}
+            onToggle={toggleCheck}
+            labelFor={(value) =>
+              CHECK_GROUPS.find((group) => group.id === value)?.label ?? value
+            }
           />
           {/* Deliberately has no visible counterpart: a sighted user reads the result count off
               the rows themselves, but a screen reader user has no other way to tell how much the
@@ -274,7 +395,7 @@ export function ToolsCatalogue({
           id={stackLabelId}
           className="text-xs font-medium tracking-wide text-ink-faint uppercase"
         >
-          Stack
+          Applies to
         </span>
         <div
           role="group"
@@ -289,13 +410,15 @@ export function ToolsCatalogue({
                 type="button"
                 aria-pressed={on}
                 onClick={() => toggleStack(value)}
-                className={
+                // Dashed only for `any`: it sits in the same row and toggles the same way, but a
+                // reader scanning five language names needs to see that the sixth is not one.
+                className={`${value === ANY ? "ml-1 border-dashed" : ""} ${
                   on
                     ? "rounded-full border border-line-strong bg-accent-wash px-3 py-1.5 text-sm text-ink transition-colors"
                     : "rounded-full border border-line bg-surface px-3 py-1.5 text-sm text-ink-muted transition-colors hover:border-line-strong hover:text-ink"
-                }
+                }`}
               >
-                {value}
+                {stackLabel(value)}
               </button>
             );
           })}
@@ -306,6 +429,13 @@ export function ToolsCatalogue({
         <p className="rounded-xl border border-dashed border-line px-6 py-16 text-center text-sm text-ink-muted">
           No tool matches those filters.
         </p>
+      ) : filtering ? (
+        // Flattened from `bySection`, not from `visible`, so the filtered view can never surface
+        // a tool the grouped view drops for sitting in no section.
+        <ToolGrid
+          tools={bySection.flatMap((section) => section.tools)}
+          labels={capabilityLabels}
+        />
       ) : (
         bySection.map((section) => (
           <section key={section.label} className="flex flex-col gap-4">
@@ -322,20 +452,7 @@ export function ToolsCatalogue({
                 {section.note}
               </span>
             </div>
-            {section.tools.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-line px-6 py-8 text-center text-sm text-ink-muted">
-                Nothing in {section.label} matches those filters.
-              </p>
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {section.tools.map((tool) => (
-                  // Anchor target for gap-analysis links. Resolves in the unfiltered state.
-                  <div key={tool.id} id={tool.id} className="scroll-mt-24">
-                    <ToolCard tool={tool} />
-                  </div>
-                ))}
-              </div>
-            )}
+            <ToolGrid tools={section.tools} labels={capabilityLabels} />
           </section>
         ))
       )}

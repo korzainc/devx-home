@@ -2,11 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { ToolsCatalogue } from "@/components/tools-catalogue";
-import { publicToolEntry, visibleTools } from "@/lib/catalogue";
+import {
+  capabilityLabels,
+  publicToolEntry,
+  visibleTools,
+} from "@/lib/catalogue";
 
 export const metadata: Metadata = {
   title: "CI Tools",
-  description: "CI tools Korza recommends, by capability and stack.",
+  description: "CI tools Korza recommends, by check and language.",
 };
 
 type Params = Pick<PageProps<"/tools">, "searchParams">;
@@ -26,8 +30,9 @@ async function Catalogue({ searchParams }: Params) {
   return (
     <ToolsCatalogue
       entries={visibleTools.map(publicToolEntry)}
+      capabilityLabels={capabilityLabels}
       initialStacks={parseList(params.stack)}
-      initialCapabilities={parseList(params.cap)}
+      initialChecks={parseList(params.check)}
     />
   );
 }
@@ -46,15 +51,18 @@ export default function ToolsPage({ searchParams }: Params) {
           CI Tools
         </h1>
         <p className="leading-relaxed text-ink-muted">
-          Checks worth having in a pipeline. Filter by what a tool does, or by
-          the stack it applies to.
+          Checks worth having in a pipeline. Filter by the check a tool runs, or
+          by the language it applies to.
         </p>
       </header>
       {/* The fallback is the same catalogue with no initial selection, so the prerendered shell
           already shows a usable control and only the initial Stack/Capability picks stream in. */}
       <Suspense
         fallback={
-          <ToolsCatalogue entries={visibleTools.map(publicToolEntry)} />
+          <ToolsCatalogue
+            entries={visibleTools.map(publicToolEntry)}
+            capabilityLabels={capabilityLabels}
+          />
         }
       >
         <Catalogue searchParams={searchParams} />
