@@ -8,6 +8,12 @@
 set -eu
 
 REPO="${DEVX_REPO:-korzainc/devx-cli}"
+# $HOME is only needed for the default. Under `set -u` a bare $HOME would abort
+# with a raw "parameter not set" instead of one of this script's own messages.
+if [ -z "${DEVX_BIN_DIR:-}" ] && [ -z "${HOME:-}" ]; then
+  printf '  Set DEVX_BIN_DIR or HOME to choose where devx is installed.\n' >&2
+  exit 1
+fi
 BIN_DIR="${DEVX_BIN_DIR:-$HOME/.local/bin}"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
@@ -23,8 +29,20 @@ if [ -n "${DEVX_DIST_URL:-}" ]; then
   URL="$DEVX_DIST_URL"
 else
   printf '  Finding the latest devx release…\n'
-  URL="$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" \
-    | grep -o '"browser_download_url": *"[^"]*macos\.tar\.gz"' \
+  # POSIX sh has no pipefail, so a pipeline's status comes from its last stage:
+  # a failed curl here would read as an empty URL and be reported below as "no
+  # macOS build", which is wrong and sends people to look at the releases page.
+  # Capture the response and its status separately so a rate limit says so.
+  STATUS="$(curl -fsSL -o "$TMP/release.json" -w '%{http_code}' \
+    "https://api.github.com/repos/$REPO/releases/latest" || true)"
+  case "$STATUS" in
+    403|429)
+      printf '\n  GitHub is rate-limiting this network (HTTP %s).\n' "$STATUS" >&2
+      printf '  Wait a few minutes and run this again, or ask in #devx.\n' >&2
+      exit 1
+      ;;
+  esac
+  URL="$(grep -o '"browser_download_url": *"[^"]*macos\.tar\.gz"' "$TMP/release.json" 2>/dev/null \
     | grep -v -e 'arm64' -e 'amd64' \
     | grep -v '\.sha256' \
     | head -1 \
@@ -70,7 +88,7 @@ WANT="$(cut -d" " -f1 < "$TMP/devx.sha256")"
 GOT="$(shasum -a 256 "$TMP/devx.tar.gz" | cut -d" " -f1)"
 if [ "$WANT" != "$GOT" ]; then
   printf '\n  The download does not match its published checksum.\n' >&2
-  printf '  expected %s\n  got      %s\n' "$WANT" "$GOT" >&2
+  printf '  Expected %s\n  Received %s\n' "$WANT" "$GOT" >&2
   printf '  Nothing was installed.\n' >&2
   exit 1
 fi
@@ -92,20 +110,15 @@ if [ -L "$TMP/devx" ] || [ ! -f "$TMP/devx" ]; then
 fi
 
 chmod 755 "$TMP/devx"
-# Prove the staged program is a devx executable before changing the command
-# already on PATH. A checksum proves transport integrity; this catches a
-# mispackaged release or an archive whose `devx` entry cannot actually run.
-if ! "$TMP/devx" --version >/dev/null 2>&1; then
-  printf '\n  The downloaded devx could not report its version.\n' >&2
-  printf '  Nothing was installed.\n' >&2
-  exit 1
-fi
-
-mkdir -p "$BIN_DIR"
 
 # The kernel refuses to launch an unsigned arm64 binary, so a signature is
 # required. An invalid Developer ID signature is a release error, not a
 # reason to overwrite it with an ad-hoc one and falsely make it look valid.
+#
+# This has to run before the --version probe below. On Apple Silicon an
+# unsigned binary is killed on exec, so probing first would fail exactly the
+# release this ad-hoc signing exists to rescue, and would exit before ever
+# reaching it.
 if ! codesign --verify --strict "$TMP/devx" 2>/dev/null; then
   if codesign -dvv "$TMP/devx" 2>&1 | grep -q 'Authority=Developer ID'; then
     printf '\n  The release has an invalid Developer ID signature.\n' >&2
@@ -117,6 +130,27 @@ if ! codesign --verify --strict "$TMP/devx" 2>/dev/null; then
     printf '  Nothing was installed.\n' >&2
     exit 1
   fi
+fi
+
+# Prove the staged program is a devx executable before changing the command
+# already on PATH. A checksum proves transport integrity; this catches a
+# mispackaged release or an archive whose `devx` entry cannot actually run.
+if ! "$TMP/devx" --version >/dev/null 2>&1; then
+  printf '\n  The downloaded devx could not report its version.\n' >&2
+  printf '  Nothing was installed.\n' >&2
+  exit 1
+fi
+
+mkdir -p "$BIN_DIR"
+
+# mv moves its source into a directory destination instead of replacing it, so
+# an existing directory at $BIN_DIR/devx would leave $BIN_DIR/devx/devx behind
+# and still exit 0. Every other failure here installs nothing and says so; this
+# path must not be the one that claims success having installed nothing.
+if [ -e "$BIN_DIR/devx" ] && [ ! -f "$BIN_DIR/devx" ]; then
+  printf '\n  %s exists and is not a regular file.\n' "$BIN_DIR/devx" >&2
+  printf '  Remove it, then run this again. Nothing was installed.\n' >&2
+  exit 1
 fi
 
 mv "$TMP/devx" "$BIN_DIR/devx"
