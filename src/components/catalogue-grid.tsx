@@ -200,15 +200,14 @@ export function CatalogueGrid<T extends CatalogueEntry>({
               onToggle={(value) => toggle(facet.key, value)}
             />
           ))}
-          {/* The debounced, worded version below carries this for assistive tech, so a screen
-              reader doesn't read the count twice. */}
-          <span aria-hidden className="ml-1 shrink-0 text-sm text-ink-muted">
-            <span className="font-mono text-ink">{onScreen}</span> of{" "}
-            <span className="font-mono">{total}</span>
-          </span>
+          {/* Deliberately has no visible counterpart: a sighted user reads the result count off
+              the rows themselves, but a screen reader user has no other way to tell how much the
+              filters just removed. */}
           <span role="status" className="sr-only">
+            {/* Agrees with `total`, the noun it actually sits beside: keying the plural off the
+                filtered count read "1 of 51 skill shown". */}
             {announcedCount} of {total} {noun}
-            {announcedCount === 1 ? "" : "s"} shown
+            {total === 1 ? "" : "s"} shown
           </span>
         </div>
       </div>

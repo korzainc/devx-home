@@ -260,12 +260,9 @@ export function ToolsCatalogue({
             selected={pickedCaps}
             onToggle={toggleCap}
           />
-          {/* The debounced, worded version below carries this for assistive tech, so a screen
-              reader doesn't read the count twice. */}
-          <span aria-hidden className="ml-1 shrink-0 text-sm text-ink-muted">
-            <span className="font-mono text-ink">{onScreen}</span> of{" "}
-            <span className="font-mono">{total}</span>
-          </span>
+          {/* Deliberately has no visible counterpart: a sighted user reads the result count off
+              the rows themselves, but a screen reader user has no other way to tell how much the
+              filters just removed. */}
           <span role="status" className="sr-only">
             {announced}
           </span>
@@ -316,17 +313,13 @@ export function ToolsCatalogue({
               <h2 className="shrink-0 font-display text-xl font-semibold text-ink">
                 {section.label}
               </h2>
-              {/* Truncates instead of wrapping: the row stays one line and the count stays
-                  pinned at the far right regardless of how long a section's note is - Security's
-                  is noticeably longer than the other three. */}
+              {/* Truncates instead of wrapping, so the heading row stays one line however long a
+                  section's note is - Security's is noticeably longer than the other three. */}
               <span
                 title={section.note}
                 className="min-w-0 flex-1 truncate text-xs text-ink-faint"
               >
                 {section.note}
-              </span>
-              <span className="shrink-0 font-mono text-xs text-ink-faint">
-                {section.tools.length}
               </span>
             </div>
             {section.tools.length === 0 ? (

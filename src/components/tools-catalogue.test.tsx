@@ -393,22 +393,29 @@ describe("the tools catalogue", () => {
     ).toBe(label.id);
   });
 
-  it("orders a section's heading row as label, then note, then count", () => {
+  it("orders a section's heading row as label, then note", () => {
     renderPage();
     const heading = screen.getByRole("heading", { name: "Code Quality" });
     const row = heading.parentElement!;
     const children = [...row.children];
 
+    // Two elements, not three: the trailing per-section count is gone, so anything that puts a
+    // number back on the heading row fails here rather than only showing up in a screenshot.
+    expect(children.length).toBe(2);
     expect(children[0]).toBe(heading);
-    const codeQuality = visibleTools.filter(
-      (tool) => tool.category === "Code Quality",
-    );
-    // The note is whatever's rendered between the heading and the trailing count - checked by
-    // position, not by asserting the exact marketing copy, so this doesn't churn every time the
-    // copy is edited.
+    // The note is whatever's rendered after the heading - checked by position, not by asserting
+    // the exact marketing copy, so this doesn't churn every time the copy is edited.
     expect(children[1]?.textContent).not.toBe("");
-    expect(children[children.length - 1]?.textContent).toBe(
-      String(codeQuality.length),
+  });
+
+  it("states the result count only in the status region, never on screen", () => {
+    renderPage();
+    const status = screen.getByRole("status");
+    const onScreen = [...document.querySelectorAll("span, div, p")].filter(
+      (node) =>
+        !status.contains(node) && /^\d+ of \d+\b/.test(node.textContent ?? ""),
     );
+
+    expect(onScreen.map((node) => node.textContent)).toEqual([]);
   });
 });
