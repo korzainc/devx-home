@@ -10,7 +10,7 @@ export const walkthrough: { does: string; detail: string }[] = [
   },
   {
     does: "Installs what is missing",
-    detail: "Skips anything already there.",
+    detail: "Reuses configured tools; finishes setup where needed.",
   },
   {
     does: "Proves each tool works",
@@ -25,11 +25,11 @@ export const manualTools: { tool: string; why: string }[] = [
     tool: "Xcode tools",
     why: "ships Apple's own git, no install step needed after",
   },
-  { tool: "git", why: "name and email, from your GitHub account" },
+  { tool: "git", why: "your commit author name and email" },
   { tool: "gh", why: "user-space install, sign in over HTTPS" },
   {
     tool: "SSH access",
-    why: "sets up SSH access by default; HTTPS remains independent",
+    why: "GitHub SSH access, separate from HTTPS",
   },
   {
     tool: "claude",
@@ -57,7 +57,7 @@ export const manualCommands: {
       'git config --global user.name "Your Name"',
       'git config --global user.email "you@korza.ai"',
     ],
-    note: "If you sign in to GitHub first, both of those values are already on your account and you can copy them from there.",
+    note: "Use the name and email you want recorded on your commits.",
   },
   {
     title: "GitHub CLI",
@@ -95,7 +95,7 @@ export const manualCommands: {
     commands: [
       '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"',
     ],
-    note: "Optional. Nothing above needs it, devx installs everything into your own user space.",
+    note: "Optional. The other tools can be installed without Homebrew.",
   },
   {
     title: "Python, via uv",
@@ -139,11 +139,11 @@ export const faq: { q: string; a: string }[] = [
   },
   {
     q: "I already have some of these tools installed.",
-    a: "They are skipped by default. Reinstalling one is an explicit choice, not automatic.",
+    a: "Configured tools are skipped by default. An installed tool may still need sign-in or configuration. Reinstalling it is an explicit choice.",
   },
   {
     q: "My laptop is managed and I do not have admin rights.",
-    a: "Different from an access block, this one is the device itself. Steps that need elevation are named as blocked and skipped. The ones that do not need it still run.",
+    a: "Some steps need administrator approval. You can defer them and continue with independent tools. Ask your IT team about the steps your device policy blocks.",
   },
   {
     q: "When am I actually done?",

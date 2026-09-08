@@ -92,18 +92,18 @@ export default function GettingStartedPage() {
             </ol>
             <p className={caption}>
               How long it takes depends on what is missing, your network, and
-              the two sign-ins. Safe to run again anytime.
+              the required sign-ins. You choose which tools to set up.
             </p>
           </>
         }
       >
         <h2 className="font-display text-2xl font-semibold tracking-tight">
-          Handled for you, in order.
+          Guided setup.
         </h2>
         <p className="text-ink-muted">
-          You will not be asked to install anything by hand. The binary reads
-          your machine, tells you the plan, and pauses only when a sign-in or
-          secure terminal step needs you.
+          devx checks your machine and helps install and configure the tools you
+          choose. Sign-ins and administrator prompts stay in your terminal or
+          browser.
         </p>
         <p className="text-ink-muted">
           If a step cannot finish, for example because access needs someone
@@ -154,8 +154,7 @@ export default function GettingStartedPage() {
               </details>
             ))}
             <p className={caption}>
-              Proposed order. This is what the binary above would handle for
-              you.
+              Manual alternatives for the tools available in devx setup.
             </p>
           </>
         }
@@ -164,8 +163,7 @@ export default function GettingStartedPage() {
           Prefer to run each step yourself?
         </h2>
         <p className="text-ink-muted">
-          Every step the binary performs is a normal command you can run on its
-          own. You can use these steps independently of devx.
+          Use these commands to set up the tools independently of devx.
         </p>
         <p className="text-ink-muted">
           The manual installers manage their own shell configuration. Follow
@@ -173,8 +171,7 @@ export default function GettingStartedPage() {
           terminal when needed.
         </p>
         <p className="text-sm text-ink-faint">
-          Open a tool for the exact commands. These are also where a failed step
-          in the installer sends you, so they have to exist either way.
+          Open a tool for its commands and prerequisites.
         </p>
       </Pair>
 
