@@ -46,7 +46,18 @@ async function main() {
   if (docs.length === 0) throw new Error("Corpus is empty; refusing to build.");
 
   const { pipeline } = await import("@huggingface/transformers");
-  const embed = await pipeline("feature-extraction", MODEL, { dtype: DTYPE });
+  // Single-threaded, deterministic execution. ONNX splits a matmul across intra-op threads and
+  // sums the partials in completion order, so a runner with a different core count produces
+  // different last bits - two runs on the same GitHub image disagreed on 1.6% of values. Pinning
+  // to one thread fixes the reduction order, at a few seconds on a corpus this size.
+  const embed = await pipeline("feature-extraction", MODEL, {
+    dtype: DTYPE,
+    session_options: {
+      intraOpNumThreads: 1,
+      interOpNumThreads: 1,
+      executionMode: "sequential",
+    },
+  });
 
   const output = await embed(
     docs.map((doc) => doc.text),
