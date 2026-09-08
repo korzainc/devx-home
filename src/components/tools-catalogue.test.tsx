@@ -53,7 +53,7 @@ const SECTION_LABELS = [
   "Code Quality",
   "Testing",
   "Security",
-  "Staying Current",
+  "Dependencies",
 ];
 
 function cardCount() {

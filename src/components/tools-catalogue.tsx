@@ -22,28 +22,34 @@ import { useSlashShortcut } from "@/lib/slash-shortcut";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
 
 // Fixed order: the two sections an engineer touches on every PR come first. Never derived,
-// sorted, or reordered by count. `category` matches `ToolEntry.category`'s real value -
-// `label`/`note` are display-only, so "Staying Current" never touches the taxonomy itself.
+// sorted, or reordered by count. `category` matches `ToolEntry.category`'s real value, and
+// `label`/`note` are display-only, so neither can perturb the taxonomy.
+// Each note names checks the section's tools really declare, and all four are verb-first so they
+// read as one set.
 const SECTIONS: { label: string; category: string; note: string }[] = [
   {
     label: "Code Quality",
     category: "Code Quality",
-    note: "Catches messy code before your reviewers do",
+    note: "Lints style, formatting, types and bug patterns",
   },
   {
     label: "Testing",
     category: "Testing",
-    note: "Proof that your code works, not just compiles",
+    note: "Runs unit and end-to-end tests, and measures coverage",
   },
   {
     label: "Security",
     category: "Security",
-    note: "Catches vulnerabilities and risky configs that shouldn't ship",
+    note: "Scans source and git history for vulnerabilities and secrets",
   },
   {
-    label: "Staying Current",
+    // Names vulnerabilities even though neither tool here declares `sca`: the taxonomy files that
+    // capability under security, but Dependabot reads the dependency graph against GitHub's
+    // advisory database, so this section really is where a vulnerable package surfaces and gets
+    // fixed. Don't "correct" this against the capability list.
+    label: "Dependencies",
     category: "Dependencies",
-    note: "Keeping dependencies up to date",
+    note: "Flags outdated and vulnerable packages, and opens the pull request",
   },
 ];
 
