@@ -1958,8 +1958,8 @@
       "state": "no-releases"
     },
     "humanizer": {
-      "behind": 2,
-      "latest": "v2.11.1",
+      "behind": 3,
+      "latest": "v3.0.0",
       "pinned": "v2.9.1",
       "state": "behind"
     },
