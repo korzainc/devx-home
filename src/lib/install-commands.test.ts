@@ -205,9 +205,9 @@ describe("install commands", () => {
       expect(installMethods([{ type: "npm", package: "x" }])).toEqual([]);
       expect(installMethods([{ type: "docker", image: "x/y" }])).toEqual([]);
       expect(installMethods([{ type: "jar", version: "1" }])).toEqual([]);
-      expect(installMethods([{ type: "github-action", version: "v1" }])).toEqual(
-        [],
-      );
+      expect(
+        installMethods([{ type: "github-action", version: "v1" }]),
+      ).toEqual([]);
     });
 
     it("keeps one bad entry from taking the good ones with it", () => {
