@@ -87,12 +87,21 @@ jobs:
           path: ~/.cache/huggingface
           key: hf-${{ hashFiles('scripts/build-search-index.mjs') }}
 
+      # Tolerance-based, so the residual same-runner wobble does not count as stale. Passing here
+      # means the committed index is good as it stands and nothing needs rebuilding.
+      - name: Check the index
+        id: check
+        continue-on-error: true
+        run: pnpm check:search-index
+
       - name: Rebuild the index
+        if: steps.check.outcome == 'failure'
         run: pnpm build:search-index
 
-      # On a PR, commit any change back so the branch carries x64 vectors. On main there is
-      # nothing to push to, so a difference is a hard failure instead.
+      # Only reached when the check actually failed. On a PR, commit the rebuild back so the
+      # branch carries x64 vectors; on main there is nothing to push to, so it stays a failure.
       - name: Commit the rebuilt index
+        if: steps.check.outcome == 'failure'
         run: |
           if git diff --quiet src/data/search-index.json; then
             echo "search-index.json is current."
