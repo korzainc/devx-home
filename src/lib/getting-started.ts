@@ -65,7 +65,7 @@ export const manualCommands: {
       "gh auth login --hostname github.com --git-protocol https --web",
       "gh auth setup-git --hostname github.com",
     ],
-    note: "HTTPS, not SSH: everything devx installs clones over HTTPS, so an SSH key would authorize git@github.com without unlocking anything here. Install gh itself from https://github.com/cli/cli#installation, whichever way you prefer, Homebrew included.",
+    note: "Install gh first from https://github.com/cli/cli#installation, then run these commands to sign in and configure Git's HTTPS credentials. SSH access is set up separately below.",
   },
   {
     title: "SSH access",
@@ -73,9 +73,10 @@ export const manualCommands: {
       'ssh-keygen -t ed25519 -C "you@korza.ai"',
       "gh auth refresh --hostname github.com --scopes write:public_key",
       'gh ssh-key add ~/.ssh/id_ed25519.pub --title "$(hostname)"',
+      "ssh-add ~/.ssh/id_ed25519",
       "ssh -T git@github.com",
     ],
-    note: 'devx configures GitHub HTTPS credentials and sets up SSH access by default. HTTPS remains independent, while the SSH key enables git@github.com remotes. Reuse an existing key instead of the first command if you already have one. The permission step opens GitHub to authorize uploading your public key. The last command should print a fingerprint prompt the first time, then "successfully authenticated".',
+    note: 'Skip key creation when reusing an existing key, and adjust the public and private key paths above. ssh-add loads the key so Claude can clone without a passphrase prompt; run it again if the agent forgets the key. The permission step authorizes uploading the public key. Check GitHub\'s published fingerprint before accepting the first SSH connection. A successful check prints "successfully authenticated"; GitHub returns exit code 1 because it does not provide shell access.',
   },
   {
     title: "Claude Code, and the Korza marketplace",
@@ -87,7 +88,7 @@ export const manualCommands: {
       "claude plugin install mattpocock-skills@korza-marketplace",
       "claude plugin install humanizer@korza-marketplace",
     ],
-    note: "The first line is the official installer, the same one devx runs. If you would rather go through npm, npm install -g @anthropic-ai/claude-code is devx's own fallback, and https://docs.claude.com/en/docs/claude-code/setup covers both routes. Run claude once after installing to sign in. The marketplace repo is private, so the plugin installs only work once your GitHub account is in the Korza org. If it fails there, that is an access request, not a broken machine.",
+    note: "After the official installer finishes, follow its PATH instructions and run claude once to sign in before adding the marketplace. GitHub shorthand uses SSH by default, so complete the SSH access steps first. If access fails, check the loaded key and your Korza GitHub membership. See https://code.claude.com/docs/en/setup for installation help.",
   },
   {
     title: "Homebrew",
@@ -107,11 +108,11 @@ export const manualCommands: {
   {
     title: "Node, via fnm",
     commands: [
-      "curl -fsSL https://fnm.vercel.app/install | bash",
+      "curl -fsSL https://fnm.vercel.app/install | bash -s -- --force-install",
       "fnm install --lts",
       "fnm default lts-latest",
     ],
-    note: "Optional. Same shell-config caveat as uv: fnm is not on PATH until you open a new terminal, and node resolves only once fnm's shell hook has run, so the two commands after the installer need that new shell. nvm or a system Node does not make this row true, since it is specifically an fnm-managed Node LTS.",
+    note: "Optional. --force-install downloads fnm directly, so Homebrew is not required. Open a new terminal after the installer, then run the remaining commands so fnm's PATH and shell hook are loaded. This installs an fnm-managed Node LTS independently of nvm or a system Node.",
   },
 ];
 

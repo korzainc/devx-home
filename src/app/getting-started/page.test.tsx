@@ -70,7 +70,10 @@ describe("the Getting Started page", () => {
         "https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh",
       ],
       ["Python (uv)", "uv python install"],
-      ["Node (fnm)", "fnm install --lts"],
+      [
+        "Node (fnm)",
+        "curl -fsSL https://fnm.vercel.app/install | bash -s -- --force-install",
+      ],
     ];
     expect(disclosures).toHaveLength(expected.length);
     for (const [index, [label, command]] of expected.entries()) {
@@ -83,7 +86,7 @@ describe("the Getting Started page", () => {
     }
   });
 
-  it("requests public-key upload permission before uploading the SSH key", () => {
+  it("authorizes the SSH upload and loads the key before checking access", () => {
     const { container } = render(<GettingStartedPage />);
     const ssh = [...container.querySelectorAll("#manual details")].find(
       (node) =>
@@ -101,6 +104,11 @@ describe("the Getting Started page", () => {
     );
     expect(permissionIndex).toBeGreaterThanOrEqual(0);
     expect(uploadIndex).toBeGreaterThan(permissionIndex);
+    const loadIndex = commands.indexOf("ssh-add ~/.ssh/id_ed25519");
+    expect(loadIndex).toBeGreaterThan(uploadIndex);
+    expect(commands.indexOf("ssh -T git@github.com")).toBeGreaterThan(
+      loadIndex,
+    );
   });
 
   it("keeps every question closed by default", () => {
