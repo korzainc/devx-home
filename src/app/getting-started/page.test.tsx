@@ -20,9 +20,12 @@ describe("the Getting Started page", () => {
     );
   });
 
-  it("makes the bootstrap handoff explicit", () => {
-    const { container } = render(<GettingStartedPage />);
-    expect(container.textContent).toMatch(/then run devx setup/i);
+  it("directs first-time users to the setup command printed by the installer", () => {
+    render(<GettingStartedPage />);
+    const hero = screen.getByRole("heading", { level: 1 }).closest("section");
+    expect(hero?.textContent).toMatch(
+      /run the exact setup command printed by the installer/i,
+    );
   });
 
   it("points questions about a broken step or missing tool at #devx", () => {

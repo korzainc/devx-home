@@ -14,7 +14,6 @@ export const metadata: Metadata = {
     "Install devx in one command, then follow the guided Korza toolchain setup or run each step yourself.",
 };
 
-/* The two-column rhythm the home page uses: a data card beside the prose that explains it. */
 function Pair({
   id,
   card,
@@ -43,7 +42,6 @@ const cta = "text-sm font-medium text-accent hover:underline";
 export default function GettingStartedPage() {
   return (
     <div className="flex flex-col">
-      {/* The command sits beside the headline rather than under it, so it is on screen on load. */}
       <section className="grid items-center gap-8 pb-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-14">
         <div className="relative isolate flex flex-col gap-4">
           <span
@@ -54,9 +52,9 @@ export default function GettingStartedPage() {
             Install devx in one command.
           </h1>
           <p className="max-w-lg text-lg leading-relaxed text-ink-muted">
-            Then run <code className="font-mono text-base">devx setup</code> to
-            check this machine and install what is missing. macOS to start, with
-            the manual steps available if you prefer them.
+            Then run the exact setup command printed by the installer to check
+            this machine and install what is missing. macOS to start, with the
+            manual steps available if you prefer them.
           </p>
         </div>
 
@@ -187,8 +185,6 @@ export default function GettingStartedPage() {
         <h2 className="font-display text-2xl font-semibold tracking-tight">
           Questions
         </h2>
-        {/* Same closed-by-default disclosure as the manual steps above, so seven
-            answers do not outweigh the one command this page leads with. */}
         <div className="flex max-w-3xl flex-col pt-2">
           {faq.map((entry) => (
             <details

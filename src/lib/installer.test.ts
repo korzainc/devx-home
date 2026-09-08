@@ -15,6 +15,7 @@ type Scenario = {
   signature?: "unsigned" | "invalid" | "sign-fails";
   versionFails?: boolean;
   destination?: "directory" | "directory-link";
+  fresh?: boolean;
 };
 
 // Run only installer control flow, never the bundled binary or a network client.
@@ -27,7 +28,10 @@ function install(scenario: Scenario = {}) {
   const root = mkdtempSync(join(parent, "case-"));
   const bin = join(root, "commands");
   const stage = join(root, "stage");
-  const destination = join(root, "destination");
+  const destination = join(
+    root,
+    scenario.fresh ? "new tools' bin" : "destination",
+  );
   for (const path of [bin, stage, destination]) mkdirSync(path);
   const target = join(destination, "devx");
   const directory = join(root, "existing-directory");
@@ -40,10 +44,14 @@ function install(scenario: Scenario = {}) {
       mkdirSync(target);
       writeFileSync(join(target, "keep"), "existing contents");
     }
-  } else {
+  } else if (!scenario.fresh) {
     writeFileSync(target, "previous installation");
   }
   const fixture = `#!/bin/sh
+if [ "$1" = "setup" ]; then
+  printf 'setup reached\\n'
+  exit 0
+fi
 printf 'probe\n' >> "$FIXTURE_ROOT/events"
 [ "$1" = "--version" ] || exit 91
 [ -f "$FIXTURE_ROOT/signed" ] || exit 92
@@ -147,6 +155,8 @@ switch (name) {
   if (result.error) throw result.error;
   return {
     ...result,
+    root,
+    commandPath: bin,
     target,
     fixture,
     events: readFileSync(join(root, "events"), "utf8").trim().split("\n"),
@@ -179,7 +189,24 @@ describe(
         "cleanup-retained",
       ]);
       expect(readFileSync(result.target, "utf8")).toBe(result.fixture);
-      expect(result.stdout).toContain(`${result.target} setup`);
+      expect(result.stdout).toContain(`'${result.target}' setup`);
+    });
+
+    it("prints a working first-setup command before the install directory is on PATH", () => {
+      const result = install({ fresh: true });
+      expect(result.status, result.stderr).toBe(0);
+      const command = result.stdout.match(/Start setup:\n {4}([^\n]+)/)?.[1];
+      expect(command).toBeDefined();
+      // Execute only the inert fixture, using the exact command a new user copies.
+      const setup = spawnSync("/bin/sh", ["-c", command!], {
+        cwd: result.root,
+        env: { NODE_ENV: "test", PATH: result.commandPath },
+        encoding: "utf8",
+        timeout: 5000,
+      });
+      expect(setup.error).toBeUndefined();
+      expect(setup.status, setup.stderr).toBe(0);
+      expect(setup.stdout).toBe("setup reached\n");
     });
 
     it.each(["invalid", "sign-fails"] as const)(

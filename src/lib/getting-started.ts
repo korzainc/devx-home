@@ -1,12 +1,6 @@
-/**
- * Content for the Getting Started page: the words and the commands, kept out of the markup so a
- * step changes here rather than in a component.
- *
- * The page follows the setup PRD: one command installs devx, then devx setup
- * leads the guided flow. The manual path remains available below.
- */
+/** Setup overview and manual commands for the Getting started page. */
 
-/** What the installer does, in order. Five lines, not six stages: this is the promise, not the UI. */
+/** Guided setup overview. */
 export const walkthrough: { does: string; detail: string }[] = [
   { does: "Checks your machine", detail: "Nothing changes yet." },
   {
@@ -25,11 +19,7 @@ export const walkthrough: { does: string; detail: string }[] = [
   { does: "Shows you what changed", detail: "And what to try next." },
 ];
 
-/**
- * The manual path, as a list of what each tool is for. The page pairs these with the commands
- * below by index (`manualTools[i]` labels `manualCommands[i]`), so a row added to one and not
- * the other would mislabel every row after it. A test checks each rendered label's commands.
- */
+/** Labels pair with manualCommands by index. Keep their order aligned. */
 export const manualTools: { tool: string; why: string }[] = [
   {
     tool: "Xcode tools",

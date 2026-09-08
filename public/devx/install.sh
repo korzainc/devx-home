@@ -30,10 +30,7 @@ if [ -n "${DEVX_DIST_URL:-}" ]; then
   URL="$DEVX_DIST_URL"
 else
   printf '  Finding the latest devx release…\n'
-  # POSIX sh has no pipefail, so a pipeline's status comes from its last stage:
-  # a failed curl here would read as an empty URL and be reported below as "no
-  # macOS build", which is wrong and sends people to look at the releases page.
-  # Capture the response and its status separately so a rate limit says so.
+  # Capture HTTP status separately so a rate limit is not reported as a missing release.
   STATUS="$(curl -fsSL -o "$TMP/release.json" -w '%{http_code}' \
     "https://api.github.com/repos/$REPO/releases/latest" || true)"
   case "$STATUS" in
@@ -59,26 +56,8 @@ fi
 printf '  Downloading devx…\n'
 curl -fsSL "$URL" -o "$TMP/devx.tar.gz"
 
-# Verify the download against the digest published beside it.
-#
-# Be clear about what this does and does not buy. The digest comes from the
-# same origin as the payload, so anyone who can serve you a hostile tarball
-# can serve a matching .sha256 with it. This is NOT protection against
-# someone who controls the connection or the release host.
-#
-# What it does catch: a truncated or corrupted download, a CDN edge that
-# serves a stale or partial object, and a release asset replaced without
-# its digest being regenerated. Those are the failures that actually happen.
-#
-# Real protection needs a signature made with a key that never touches the
-# release host. Until signed releases are available, this script should not
-# pretend to provide that stronger guarantee.
-#
-# shasum is part of macOS, so this needs no developer tools (R1).
-#
-# This applies to DEVX_DIST_URL too. A rehearsal that skips the check is
-# not a rehearsal of this script, and build.sh writes a .sha256 next to
-# every tarball it produces, so there is nothing to exempt.
+# The same-origin digest detects corruption, not a compromised release host.
+# It also applies to DEVX_DIST_URL. shasum ships with macOS.
 printf '  Verifying the download…\n'
 if ! curl -fsSL "$URL.sha256" -o "$TMP/devx.sha256"; then
   printf '\n  This release publishes no checksum, so devx will not install it.\n' >&2
@@ -112,14 +91,8 @@ fi
 
 chmod 755 "$TMP/devx"
 
-# The kernel refuses to launch an unsigned arm64 binary, so a signature is
-# required. An invalid Developer ID signature is a release error, not a
-# reason to overwrite it with an ad-hoc one and falsely make it look valid.
-#
-# This has to run before the --version probe below. On Apple Silicon an
-# unsigned binary is killed on exec, so probing first would fail exactly the
-# release this ad-hoc signing exists to rescue, and would exit before ever
-# reaching it.
+# Sign unsigned arm64 binaries before probing; the kernel refuses to run them.
+# Never replace an invalid Developer ID signature with an ad-hoc one.
 if ! codesign --verify --strict "$TMP/devx" 2>/dev/null; then
   if codesign -dvv "$TMP/devx" 2>&1 | grep -q 'Authority=Developer ID'; then
     printf '\n  The release has an invalid Developer ID signature.\n' >&2
@@ -133,9 +106,7 @@ if ! codesign --verify --strict "$TMP/devx" 2>/dev/null; then
   fi
 fi
 
-# Prove the staged program is a devx executable before changing the command
-# already on PATH. A checksum proves transport integrity; this catches a
-# mispackaged release or an archive whose `devx` entry cannot actually run.
+# Verify the staged executable can run before replacing an existing install.
 if ! "$TMP/devx" --version >/dev/null 2>&1; then
   printf '\n  The downloaded devx could not report its version.\n' >&2
   printf '  Nothing was installed.\n' >&2
@@ -144,10 +115,7 @@ fi
 
 mkdir -p "$BIN_DIR"
 
-# mv moves its source into a directory destination instead of replacing it, so
-# an existing directory at $BIN_DIR/devx would leave $BIN_DIR/devx/devx behind
-# and still exit 0. Every other failure here installs nothing and says so; this
-# path must not be the one that claims success having installed nothing.
+# Reject directories because mv would nest the executable inside and still exit 0.
 if [ -e "$BIN_DIR/devx" ] && [ ! -f "$BIN_DIR/devx" ]; then
   printf '\n  %s exists and is not a regular file.\n' "$BIN_DIR/devx" >&2
   printf '  Remove it, then run this again. Nothing was installed.\n' >&2
@@ -156,10 +124,28 @@ fi
 
 mv "$TMP/devx" "$BIN_DIR/devx"
 
+# Print a literal shell word, including paths with spaces or apostrophes.
+print_shell_word() {
+  quote_rest=$1
+  printf '%s' "'"
+  while :; do
+    case "$quote_rest" in
+      *"'"*)
+        printf '%s%s' "${quote_rest%%"'"*}" "'\\''"
+        quote_rest=${quote_rest#*"'"}
+        ;;
+      *)
+        printf '%s%s' "$quote_rest" "'"
+        break
+        ;;
+    esac
+  done
+}
+
 printf '\n  devx installed to %s\n\n' "$BIN_DIR/devx"
-printf '  Start setup:\n'
-printf '    %s setup\n\n' "$BIN_DIR/devx"
-printf '  Or open a new terminal, then run:\n'
-printf '    devx setup\n\n'
-printf '  Help:\n'
-printf '    devx --help\n'
+printf '  Start setup:\n    '
+print_shell_word "$BIN_DIR/devx"
+printf ' setup\n\n'
+printf '  Help:\n    '
+print_shell_word "$BIN_DIR/devx"
+printf ' --help\n'

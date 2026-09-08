@@ -28,11 +28,7 @@ describe("GET /setup", () => {
   });
 
   it("trusts x-forwarded-host/proto over nextUrl behind a reverse proxy", async () => {
-    // Caught via a real ngrok tunnel: request.nextUrl.origin reported
-    // "https://localhost:3000" even with a correct, present
-    // x-forwarded-host/proto pair, since nextUrl reflects the server's own
-    // bind address rather than what a proxy actually forwarded. Vercel's
-    // edge sets the same two headers, so this is the real preview path too.
+    // A proxy can expose HTTPS while Next sees the local HTTP bind address.
     const res = GET(
       new NextRequest("http://localhost:3000/setup", {
         headers: {
@@ -67,8 +63,7 @@ describe("GET /setup", () => {
   it("does not point at the production domain", async () => {
     const res = GET(new NextRequest("http://localhost:3000/setup"));
     const body = await res.text();
-    // The canonical script's own header comment names the production
-    // command as documentation; DEVX_DIST_URL is what actually runs.
+    // Local rehearsal must not fetch the production artifact.
     expect(body).not.toMatch(/DEVX_DIST_URL=.*devx\.korza\.ai/);
   });
 
@@ -119,11 +114,7 @@ describe("GET /setup", () => {
   });
 
   it("pins production to its own committed artifact too, not to a release", async () => {
-    // Deliberate for now, not an oversight. devx-cli publishes no releases, so
-    // dropping the override in production would send every real install into
-    // the script's releases/latest lookup and fail with "Could not find a macOS
-    // build of devx". Pointing production at a verified release should be a
-    // conscious change, and one that breaks this test.
+    // Production uses the bundled prerelease until distribution changes explicitly.
     vi.stubEnv("VERCEL_ENV", "production");
     const res = GET(new NextRequest("https://devx.korza.ai/setup"));
     const body = await res.text();
