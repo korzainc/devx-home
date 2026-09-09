@@ -2,7 +2,10 @@
 // before it renders. These are the two fields where a bad value does more than look wrong:
 // `name` is pasted into a terminal as part of an install command, and `homepage` becomes an href.
 
-// Lowercase, digits and hyphens only, so the install command a user copies is a single word.
+import { AGENTS } from "@/lib/catalogue-entries";
+
+// Lowercase, digits and hyphens only, so the install command a user copies is a single word and
+// `id` is a usable URL segment.
 const PLUGIN_NAME = /^[a-z0-9][a-z0-9-]*$/;
 
 const REQUIRED = [
@@ -71,6 +74,26 @@ export function problemsWithPlugin(plugin: Record<string, unknown>): string[] {
     problems.push(
       `${id}: name ${JSON.stringify(plugin.name)} reaches a shell in the install command, so it must match ${PLUGIN_NAME}`,
     );
+  }
+
+  // `id` is a route segment: `generateStaticParams` returns it and the card links to it.
+  if (isFilled(plugin.id) && !PLUGIN_NAME.test(plugin.id as string)) {
+    problems.push(
+      `${id}: id ${JSON.stringify(plugin.id)} is a URL segment, so it must match ${PLUGIN_NAME}`,
+    );
+  }
+
+  // Membership, not just non-empty: `installCommands` filters on these names, so a typo drops
+  // that agent's command at render with nothing failing.
+  if (Array.isArray(plugin.agents)) {
+    const unknown = plugin.agents.filter(
+      (agent) => !(AGENTS as readonly string[]).includes(agent as string),
+    );
+    if (unknown.length > 0) {
+      problems.push(
+        `${id}: agents ${JSON.stringify(unknown)} render no install command; expected ${JSON.stringify(AGENTS)}`,
+      );
+    }
   }
 
   // Optional, but a blank one is worse than none: the card renders it in place of the skill

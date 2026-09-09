@@ -79,6 +79,41 @@ describe("a plugin row", () => {
   });
 });
 
+// `generateStaticParams` returns the id and the card links to it, so a bad one breaks a route
+// rather than looking odd.
+describe("an id that is also a URL segment", () => {
+  it.each([
+    "code zen",
+    "codezen/../secret",
+    "Codezen",
+    "-codezen",
+    "code%20zen",
+  ])("is rejected when id is %j", (badId) => {
+    expect(problemsWithPlugin({ ...valid, id: badId }).join(" ")).toContain(
+      "URL segment",
+    );
+  });
+});
+
+// installCommands filters on these exact names; the existing cross-check in skills.test.ts
+// iterates over skills, so it never sees a plugin that ships none.
+describe("agent names", () => {
+  it.each([["Claude code"], ["claude-code"], ["Codex"], ["Claude Code CLI"]])(
+    "is rejected when agents contains %j",
+    (agent) => {
+      expect(
+        problemsWithPlugin({ ...valid, agents: [agent] }).join(" "),
+      ).toContain("no install command");
+    },
+  );
+
+  it("accepts the names install commands are rendered for", () => {
+    expect(
+      problemsWithPlugin({ ...valid, agents: ["Claude Code", "Codex CLI"] }),
+    ).toEqual([]);
+  });
+});
+
 describe("an optional payload", () => {
   it("is accepted when absent", () => {
     expect(problemsWithPlugin(valid)).toEqual([]);
