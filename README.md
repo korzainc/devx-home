@@ -27,7 +27,7 @@ same configured origin and pins the expected checksum from the committed sidecar
 Request `Host` and forwarded headers cannot select a download host.
 
 The current bundle is Korza CLI (`korza`, with `kz` as its short alias), built
-from local `devx-cli` main commit `e27f8ca`, pending push. Its archive under
+from `devx-cli` main commit `e27f8ca`, now pushed to origin/main. Its archive under
 `public/korza/` matches `devx-cli/dist/korza-0.1.0-macos.tar.gz` byte-for-byte.
 Refresh the archive and checksum together when the CLI changes. Production
 builds omit demo/sandbox entry points; setup flags are documented by
