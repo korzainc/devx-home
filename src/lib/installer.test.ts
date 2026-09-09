@@ -10,6 +10,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { shellQuote } from "./shell-quote";
 
 type Scenario = {
   env?: Record<string, string>;
@@ -21,6 +22,18 @@ type Scenario = {
   fresh?: boolean;
   path?: "installed" | "shadowed";
 };
+
+// A shebang cannot quote its interpreter, and this machine's Node path contains a space, so each
+// fixture command is a wrapper that execs one shared script and names itself in the environment.
+function commandWrapper(name: string, interpreter: string, script: string) {
+  return [
+    "#!/bin/sh",
+    `FIXTURE_COMMAND=${name}`,
+    "export FIXTURE_COMMAND",
+    `exec ${shellQuote(interpreter)} ${shellQuote(script)} "$@"`,
+    "",
+  ].join("\n");
+}
 
 const ARCHIVE_PAYLOAD = "inert archive fixture";
 const ARCHIVE_DIGEST = createHash("sha256")
@@ -70,14 +83,13 @@ exit ${scenario.versionFails ? 7 : 0}
   writeFileSync(join(root, "events"), "");
   writeFileSync(join(root, "downloads"), "");
 
-  const stub = String.raw`#!${process.execPath}
-const fs = require("node:fs");
+  const stub = String.raw`const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const root = process.env.FIXTURE_ROOT;
 const stage = path.join(root, "stage");
 const args = process.argv.slice(2);
-const name = path.basename(process.argv[1]);
+const name = process.env.FIXTURE_COMMAND;
 const scenario = ${JSON.stringify(scenario)};
 const event = value => fs.appendFileSync(path.join(root, "events"), value + "\n");
 const check = condition => { if (!condition) throw new Error("Unexpected fixture command: " + name); };
@@ -133,6 +145,8 @@ switch (name) {
   default: throw new Error("Unknown fixture command");
 }
 `;
+  const stubPath = join(root, "fixture-command.cjs");
+  writeFileSync(stubPath, stub);
   for (const name of [
     "uname",
     "mktemp",
@@ -142,7 +156,11 @@ switch (name) {
     "tar",
     "codesign",
   ]) {
-    writeFileSync(join(bin, name), stub, { mode: 0o755 });
+    writeFileSync(
+      join(bin, name),
+      commandWrapper(name, process.execPath, stubPath),
+      { mode: 0o755 },
+    );
   }
   for (const [name, systemPath] of Object.entries({
     chmod: "/bin/chmod",
@@ -201,6 +219,36 @@ switch (name) {
     downloads: readFileSync(join(root, "downloads"), "utf8").trim().split("\n"),
   };
 }
+
+describe("the fixture command wrapper", () => {
+  // This machine's Node path happens to contain a space; a CI runner's may not, which would let
+  // the quoting regress unnoticed and prevent the cases below from exercising their command
+  // paths.
+  it("executes when the interpreter path contains a space", () => {
+    const parent = join(process.cwd(), ".claude", "installer-tests");
+    mkdirSync(parent, { recursive: true });
+    const root = mkdtempSync(join(parent, "interpreter-"));
+    const nested = join(root, "node dir");
+    mkdirSync(nested);
+    const interpreter = join(nested, "node");
+    symlinkSync(process.execPath, interpreter);
+    const script = join(root, "report.cjs");
+    writeFileSync(
+      script,
+      'process.stdout.write([process.env.FIXTURE_COMMAND, ...process.argv.slice(2)].join("|"));',
+    );
+    const command = join(root, "uname");
+    writeFileSync(command, commandWrapper("uname", interpreter, script), {
+      mode: 0o755,
+    });
+
+    const result = spawnSync(command, ["-s", "an argument"], {
+      encoding: "utf8",
+    });
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toBe("uname|-s|an argument");
+  });
+});
 
 describe(
   "the vendored installer with inert local fixtures",
