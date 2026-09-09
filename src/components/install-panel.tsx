@@ -137,15 +137,34 @@ function Block({ block }: { block: InstallBlock }) {
  * a plugin's agents and a tool's install methods can share it without either page knowing about
  * the other.
  */
-export function InstallPanel({ tabs }: { tabs: InstallTab[] }) {
+export function InstallPanel({
+  tabs,
+  heading = "Install",
+  intro,
+  footer,
+}: {
+  tabs: InstallTab[];
+  /** The onboarding demo names this "Get it on your machine"; the detail pages say "Install". */
+  heading?: string;
+  /** Between the heading and the blocks, for context a reader needs before running them. */
+  intro?: React.ReactNode;
+  /** Under the blocks. Used for the getting-started prompt on the onboarding demo. */
+  footer?: React.ReactNode;
+}) {
   const [picked, setPicked] = useState(tabs[0]?.id);
   const active = tabs.find((tab) => tab.id === picked) ?? tabs[0];
   if (!active) return null;
 
   return (
     <section className="flex flex-col gap-4 rounded-xl border border-line bg-surface p-5">
-      <div className="flex flex-wrap items-center gap-3">
-        <h2 className="text-sm font-medium text-ink">Install</h2>
+      {/* Heading and intro are one group with the tab control beside them, not sharing a
+          flex row with it: sharing made the row as tall as the control and pushed the intro
+          away from the heading it belongs to. */}
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+        <div className="flex flex-col gap-0.5">
+          <h2 className="text-sm font-medium text-ink">{heading}</h2>
+          {intro ? <div className="text-sm text-ink-faint">{intro}</div> : null}
+        </div>
         {/* A lone tab offers a choice that isn't there, but leaving one unnamed means a reader
             cannot tell a workflow step from a shell command without reading the payload. */}
         {tabs.length === 1 ? (
@@ -177,6 +196,11 @@ export function InstallPanel({ tabs }: { tabs: InstallTab[] }) {
         <Block key={block.content} block={block} />
       ))}
       {active.extra}
+      {footer ? (
+        <div className="border-t border-line pt-4 text-sm text-ink-faint">
+          {footer}
+        </div>
+      ) : null}
     </section>
   );
 }

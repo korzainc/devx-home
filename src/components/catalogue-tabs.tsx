@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useRef, useState } from "react";
 import { PluginsCatalogue } from "@/components/plugins-catalogue";
+import { SkillsGlossaryLine } from "@/components/skills-glossary-line";
 import { SkillsCatalogue } from "@/components/skills-catalogue";
 import {
   skillCountByPlugin,
@@ -103,11 +105,25 @@ export function CatalogueTabs({
           </div>
         </div>
 
-        <p className="max-w-2xl leading-relaxed text-ink-muted">
-          {view === "plugins"
-            ? "Skills ship as plugins, so a plugin is what you install. Open one to see what it solves and how to install it in Claude Code or Codex. Sources live in their own repos; this is a catalogue, not an installer."
-            : "Find a skill by the job it does. Each one ships inside a plugin — open the plugin to install it in Claude Code or Codex."}
-        </p>
+        {/* Static across both tabs, deliberately: both terms hold on either tab, and the
+            paragraph that used to swap here re-flowed the heading block on every tab change,
+            which moved the grid underneath it. */}
+        <SkillsGlossaryLine
+          className="text-sm text-ink-muted"
+          terms={[
+            ["plugin", "what you install"],
+            ["skill", "what does the work"],
+          ]}
+        />
+
+        {/* Sits with the definitions rather than in the header: someone who reads those two
+            lines and wants more is already looking here. */}
+        <Link
+          href="/skills-intro"
+          className="w-fit text-xs text-accent underline decoration-accent/40 underline-offset-4 transition-colors hover:text-ink hover:decoration-line-strong"
+        >
+          Introduction to skills
+        </Link>
       </div>
 
       {/* Both panels stay mounted, with the inactive one hidden. Mounting on selection was
