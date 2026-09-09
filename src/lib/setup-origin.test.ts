@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getSetupOrigin } from "./setup-origin";
 
 beforeEach(() => {
+  vi.stubEnv("KORZA_PUBLIC_ORIGIN", undefined);
   vi.stubEnv("DEVX_PUBLIC_ORIGIN", undefined);
   vi.stubEnv("VERCEL_URL", undefined);
   vi.stubEnv("VERCEL_PROJECT_PRODUCTION_URL", undefined);
@@ -12,6 +13,17 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("installer origin", () => {
+  it("prefers the Korza name over the legacy override", () => {
+    vi.stubEnv("KORZA_PUBLIC_ORIGIN", "https://korza.example");
+    vi.stubEnv("DEVX_PUBLIC_ORIGIN", "https://legacy.example");
+    expect(getSetupOrigin()).toBe("https://korza.example");
+  });
+
+  it("does not fall back when the Korza override is explicitly empty", () => {
+    vi.stubEnv("KORZA_PUBLIC_ORIGIN", "");
+    vi.stubEnv("DEVX_PUBLIC_ORIGIN", "https://legacy.example");
+    expect(getSetupOrigin()).toBeNull();
+  });
   it("prefers an explicit public origin over deployment defaults", () => {
     vi.stubEnv("DEVX_PUBLIC_ORIGIN", "https://setup.example/");
     vi.stubEnv("VERCEL_URL", "deployment.vercel.app");

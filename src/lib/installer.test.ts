@@ -12,6 +12,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 type Scenario = {
+  env?: Record<string, string>;
   checksum?: "missing" | "mismatch";
   expectedDigest?: string;
   signature?: "unsigned" | "invalid" | "sign-fails";
@@ -87,7 +88,7 @@ switch (name) {
   case "curl": {
     check(args.length === 4 && args[0] === "-fsSL" && args[2] === "-o");
     const checksum = args[1] === "https://fixture.invalid/korza.sha256";
-    check(checksum || args[1] === "https://fixture.invalid/korza");
+    check(checksum || args[1] === "https://fixture.invalid/korza" || args[1] === "https://fixture.invalid/korza-new");
     check(args[3] === path.join(stage, checksum ? "korza.sha256" : "korza.tar.gz"));
     fs.appendFileSync(path.join(root, "downloads"), args[1] + "\n");
     if (checksum && scenario.checksum === "missing") process.exit(22);
@@ -172,6 +173,7 @@ switch (name) {
           ? { DEVX_DIST_SHA256: scenario.expectedDigest }
           : {}),
         FIXTURE_ROOT: root,
+        ...scenario.env,
       },
       encoding: "utf8",
       timeout: 15_000,
@@ -203,6 +205,33 @@ describe(
         expect(readFileSync(result.target, "utf8")).toBe(result.fixture);
       },
     );
+
+    it("prefers Korza overrides and keeps an empty pin fail-closed", () => {
+      const result = install({
+        expectedDigest: ARCHIVE_DIGEST,
+        env: {
+          KORZA_DIST_SHA256: "",
+          KORZA_DIST_URL: "https://fixture.invalid/korza-new",
+        },
+      });
+      expect(result.status).toBe(1);
+      expect(result.downloads).toEqual(["https://fixture.invalid/korza-new"]);
+      expect(result.events).toEqual(["cleanup-retained"]);
+      expect(readFileSync(result.target, "utf8")).toBe("previous installation");
+    });
+
+    it("accepts Korza URL and digest while retaining legacy bin-directory fallback", () => {
+      const result = install({
+        checksum: "missing",
+        env: {
+          KORZA_DIST_SHA256: ARCHIVE_DIGEST,
+          KORZA_DIST_URL: "https://fixture.invalid/korza-new",
+        },
+      });
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.downloads).toEqual(["https://fixture.invalid/korza-new"]);
+      expect(readFileSync(result.target, "utf8")).toBe(result.fixture);
+    });
 
     it("rejects a mismatched pin even when the hosted sidecar would match", () => {
       const result = install({ expectedDigest: "0".repeat(64) });

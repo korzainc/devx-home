@@ -21,7 +21,7 @@ describe("GET /setup", () => {
     const body = await res.text();
     expect(body).toMatch(/^#!\/bin\/sh\n/);
     expect(body).toContain(
-      `DEVX_DIST_URL='https://setup.example${artifactPaths().tarball}'`,
+      `KORZA_DIST_URL='https://setup.example${artifactPaths().tarball}'`,
     );
   });
 
@@ -36,7 +36,7 @@ describe("GET /setup", () => {
       }),
     ).text();
     expect(body).toContain(
-      `DEVX_DIST_URL='https://setup.example${artifactPaths().tarball}'`,
+      `KORZA_DIST_URL='https://setup.example${artifactPaths().tarball}'`,
     );
     expect(body).not.toContain("untrusted.example");
     expect(body).not.toContain("another.example");
@@ -47,7 +47,7 @@ describe("GET /setup", () => {
       new NextRequest("https://setup.example/setup"),
     ).text();
     const lookup = body.indexOf("releases/latest");
-    for (const name of ["DEVX_DIST_URL", "DEVX_DIST_SHA256"]) {
+    for (const name of ["KORZA_DIST_URL", "KORZA_DIST_SHA256"]) {
       const assignment = body.indexOf(`export ${name}=`);
       expect(assignment).toBeGreaterThan(-1);
       expect(assignment).toBeLessThan(lookup);
@@ -61,7 +61,7 @@ describe("GET /setup", () => {
       new NextRequest("http://localhost:4000/setup"),
     ).text();
     expect(body).toContain(
-      `DEVX_DIST_URL='http://localhost:4000${artifactPaths().tarball}'`,
+      `KORZA_DIST_URL='http://localhost:4000${artifactPaths().tarball}'`,
     );
   });
 
@@ -75,6 +75,6 @@ describe("GET /setup", () => {
     expect(res.headers.get("Cache-Control")).toBe("no-store");
     const body = await res.text();
     expect(body).toContain("exit 1");
-    expect(body).not.toContain("DEVX_DIST_URL=");
+    expect(body).not.toContain("KORZA_DIST_URL=");
   });
 });

@@ -8,14 +8,28 @@
 # macOS ships: sh, curl, tar, mktemp. No Homebrew, no Xcode, no sudo.
 set -eu
 
-REPO="${DEVX_REPO:-korzainc/devx-cli}"
+# Legacy names are accepted only when the Korza name is unset.
+if [ "${KORZA_REPO+x}" != x ] && [ "${DEVX_REPO+x}" = x ]; then
+  KORZA_REPO=$DEVX_REPO
+fi
+if [ "${KORZA_BIN_DIR+x}" != x ] && [ "${DEVX_BIN_DIR+x}" = x ]; then
+  KORZA_BIN_DIR=$DEVX_BIN_DIR
+fi
+if [ "${KORZA_DIST_URL+x}" != x ] && [ "${DEVX_DIST_URL+x}" = x ]; then
+  KORZA_DIST_URL=$DEVX_DIST_URL
+fi
+if [ "${KORZA_DIST_SHA256+x}" != x ] && [ "${DEVX_DIST_SHA256+x}" = x ]; then
+  KORZA_DIST_SHA256=$DEVX_DIST_SHA256
+fi
+
+REPO="${KORZA_REPO:-korzainc/devx-cli}"
 # $HOME is only needed for the default. Under `set -u` a bare $HOME would abort
 # with a raw "parameter not set" instead of one of this script's own messages.
-if [ -z "${DEVX_BIN_DIR:-}" ] && [ -z "${HOME:-}" ]; then
-  printf '  Set DEVX_BIN_DIR or HOME to choose where korza is installed.\n' >&2
+if [ -z "${KORZA_BIN_DIR:-}" ] && [ -z "${HOME:-}" ]; then
+  printf '  Set KORZA_BIN_DIR or HOME to choose where korza is installed.\n' >&2
   exit 1
 fi
-BIN_DIR="${DEVX_BIN_DIR:-$HOME/.local/bin}"
+BIN_DIR="${KORZA_BIN_DIR:-$HOME/.local/bin}"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
@@ -24,10 +38,10 @@ case "$(uname -s)" in
   *) printf '  korza supports macOS only for now.\n' >&2; exit 1 ;;
 esac
 
-# DEVX_DIST_URL points the installer at a local tarball, so the whole
+# KORZA_DIST_URL points the installer at a local tarball, so the whole
 # entry path can be rehearsed before anything is published.
-if [ -n "${DEVX_DIST_URL:-}" ]; then
-  URL="$DEVX_DIST_URL"
+if [ -n "${KORZA_DIST_URL:-}" ]; then
+  URL="$KORZA_DIST_URL"
 else
   printf '  Finding the latest korza release…\n'
   # Capture HTTP status separately so a rate limit is not reported as a missing release.
@@ -59,8 +73,8 @@ curl -fsSL "$URL" -o "$TMP/korza.tar.gz"
 # /setup embeds the committed digest. Direct installs use the published sidecar.
 # Neither protects against a compromised script server. shasum ships with macOS.
 printf '  Verifying the download…\n'
-if [ "${DEVX_DIST_SHA256+x}" = x ]; then
-  WANT="$DEVX_DIST_SHA256"
+if [ "${KORZA_DIST_SHA256+x}" = x ]; then
+  WANT="$KORZA_DIST_SHA256"
 else
   if ! curl -fsSL "$URL.sha256" -o "$TMP/korza.sha256"; then
     printf '\n  This release publishes no checksum, so korza will not install it.\n' >&2
@@ -156,11 +170,11 @@ print_shell_word() {
 # Use the short command only when PATH selects the executable just installed.
 # Otherwise keep a quoted path so first installs and older PATH entries work.
 if [ "$(command -v korza || true)" = "$BIN_DIR/korza" ]; then
-  DEVX_COMMAND=korza
+  KORZA_COMMAND=korza
 else
-  DEVX_COMMAND=$(print_shell_word "$BIN_DIR/korza")
+  KORZA_COMMAND=$(print_shell_word "$BIN_DIR/korza")
 fi
 
 printf '\n  korza installed to %s\n\n' "$BIN_DIR/korza"
-printf '  Start setup:\n    %s setup\n\n' "$DEVX_COMMAND"
-printf '  Help:\n    %s --help\n' "$DEVX_COMMAND"
+printf '  Start setup:\n    %s setup\n\n' "$KORZA_COMMAND"
+printf '  Help:\n    %s --help\n' "$KORZA_COMMAND"

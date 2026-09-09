@@ -51,8 +51,8 @@ export function setupScript(origin: string): string {
   const override = [
     "",
     "# Use this deployment's bundled artifact.",
-    `export DEVX_DIST_URL=${shellQuote(tarballUrl)}`,
-    `export DEVX_DIST_SHA256=${shellQuote(digest)}`,
+    `export KORZA_DIST_URL=${shellQuote(tarballUrl)}`,
+    `export KORZA_DIST_SHA256=${shellQuote(digest)}`,
   ];
 
   return [shebang, ...override, ...rest].join("\n");

@@ -46,10 +46,10 @@ describe("bundled setup artifact", () => {
 
     const script = setupScript("https://preview.example");
     expect(script).toContain(
-      `export DEVX_DIST_URL='https://preview.example${paths.tarball}'`,
+      `export KORZA_DIST_URL='https://preview.example${paths.tarball}'`,
     );
-    expect(script).toContain(`export DEVX_DIST_SHA256='${digest}'`);
-    expect(script.indexOf("export DEVX_DIST_SHA256=")).toBeLessThan(
+    expect(script).toContain(`export KORZA_DIST_SHA256='${digest}'`);
+    expect(script.indexOf("export KORZA_DIST_SHA256=")).toBeLessThan(
       script.indexOf("set -eu"),
     );
   });
