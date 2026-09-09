@@ -22,6 +22,8 @@
 
 # The installer uses the archive and checksum, not a loose executable.
 /public/devx/devx
+/public/korza/korza
+/public/korza/kz
 
 # misc
 .DS_Store

@@ -31,8 +31,9 @@ from `devx-cli` main commit `e27f8ca`, now pushed to origin/main. Its archive un
 `public/korza/` matches `devx-cli/dist/korza-0.1.0-macos.tar.gz` byte-for-byte.
 Refresh the archive and checksum together when the CLI changes. Production
 builds omit demo/sandbox entry points; setup flags are documented by
-`korza setup --help`. The `DEVX_*` environment names and existing `/devx/`
-artifact URLs remain for compatibility; the repository and support channel
+`korza setup --help`. The `DEVX_*` environment names remain for compatibility;
+old `/devx/` installer and artifact URLs redirect to the current Korza assets.
+The repository and support channel
 are still named `devx-home` and `#devx`.
 
 Set `DEVX_PUBLIC_ORIGIN` to the public HTTPS origin when building and deploying
