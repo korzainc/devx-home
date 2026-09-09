@@ -42,7 +42,7 @@ replacing an existing binary, then prints a setup command. It uses `korza setup`
 when PATH selects that binary, otherwise a safely quoted full path. It creates
 `kz` only when that name is available.
 
-The committed bundle is built from `devx-cli` source commit `412fe82`. The
+The committed bundle is built from `devx-cli` source commit `a62a38b`. The
 archive and its checksum live under [public/korza/](public/korza/); this bundle
 was matched byte-for-byte to the CLI distribution at that commit. Later CLI
 changes do not update it automatically. Production builds reject demo/sandbox
@@ -50,8 +50,7 @@ entry points; `korza setup --help` lists the supported setup flags.
 
 The old `/devx/install.sh` URL redirects to `/setup`. The old versioned `/devx/`
 archive and checksum URLs redirect to the matching `/korza/` assets. Actual
-repository names, the support channel and legacy configuration fallbacks retain
-their DevX names.
+repository names and the support channel retain their DevX names.
 
 The rename does not delete an old `~/.local/bin/devx` installation. Locate it
 with `command -v devx`; after `korza --version` succeeds and you confirm it is
@@ -64,8 +63,8 @@ The page FAQ includes this migration and removal guidance.
 
 **Normally, none.** Vercel supplies deployment domains, `/setup` generates the
 bundle URL and checksum pin, and the installer has directory and repository
-defaults. Use the `KORZA_*` names only when an override is needed. `DEVX_*` names
-remain compatibility fallbacks when the corresponding Korza name is unset.
+defaults. Use the `KORZA_*` names only when an override is needed. These are
+the only supported configuration names.
 
 | Setting               | What happens without a manual value                                                                                                                                        | Reason to retain it                                                                                                                    |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
@@ -96,14 +95,13 @@ manually populate them. Its production-domain value selects the shortest custom
 domain, or a `vercel.app` domain if there is no custom domain.
 See [Vercel's system-variable reference](https://vercel.com/docs/environment-variables/system-environment-variables).
 
-Leave `KORZA_PUBLIC_ORIGIN` and its legacy fallback unset if the inferred domain
+Leave `KORZA_PUBLIC_ORIGIN` unset if the inferred domain
 is correct. If a specific public host is needed, set `KORZA_PUBLIC_ORIGIN` to
 an HTTPS origin such as `https://your-domain.example`, with no path, credentials,
 query or fragment. Scope a production override to **Production**. Normally leave
-**Preview** unset so each preview installs its own bundle. Check for an older
-`DEVX_PUBLIC_ORIGIN` value before assuming defaults are active.
+**Preview** unset so each preview installs its own bundle.
 
-Precedence is the Korza override, the legacy override, then the deployment or
+Precedence is the Korza override, then the deployment or
 local-development default. An explicitly empty or invalid override fails closed;
 remove it to restore inference. If no valid origin is available, the page offers
 manual setup and `/setup` returns HTTP 503. Request `Host` and forwarded headers

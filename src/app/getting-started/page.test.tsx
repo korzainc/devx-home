@@ -8,7 +8,7 @@ import GettingStartedPage from "./page";
 import { bootstrapCommand } from "@/lib/bootstrap-command";
 import { faq, manualCommands } from "@/lib/getting-started";
 
-beforeEach(() => vi.stubEnv("DEVX_PUBLIC_ORIGIN", "https://setup.example"));
+beforeEach(() => vi.stubEnv("KORZA_PUBLIC_ORIGIN", "https://setup.example"));
 afterEach(() => {
   cleanup();
   vi.unstubAllEnvs();
@@ -25,7 +25,7 @@ describe("the Getting Started page", () => {
   });
 
   it("keeps manual setup available when the origin is invalid", () => {
-    vi.stubEnv("DEVX_PUBLIC_ORIGIN", "http://untrusted.example");
+    vi.stubEnv("KORZA_PUBLIC_ORIGIN", "http://untrusted.example");
     render(<GettingStartedPage />);
     expect(screen.getByText(/Installer unavailable/)).toBeDefined();
     expect(

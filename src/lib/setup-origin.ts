@@ -6,7 +6,6 @@ export function getSetupOrigin(): string | null {
       : process.env.VERCEL_URL;
   const configured =
     process.env.KORZA_PUBLIC_ORIGIN ??
-    process.env.DEVX_PUBLIC_ORIGIN ??
     (deployedHost
       ? `https://${deployedHost}`
       : process.env.NODE_ENV === "development"

@@ -8,20 +8,6 @@
 # macOS ships: sh, curl, tar, mktemp. No Homebrew, no Xcode, no sudo.
 set -eu
 
-# Legacy names are accepted only when the Korza name is unset.
-if [ "${KORZA_REPO+x}" != x ] && [ "${DEVX_REPO+x}" = x ]; then
-  KORZA_REPO=$DEVX_REPO
-fi
-if [ "${KORZA_BIN_DIR+x}" != x ] && [ "${DEVX_BIN_DIR+x}" = x ]; then
-  KORZA_BIN_DIR=$DEVX_BIN_DIR
-fi
-if [ "${KORZA_DIST_URL+x}" != x ] && [ "${DEVX_DIST_URL+x}" = x ]; then
-  KORZA_DIST_URL=$DEVX_DIST_URL
-fi
-if [ "${KORZA_DIST_SHA256+x}" != x ] && [ "${DEVX_DIST_SHA256+x}" = x ]; then
-  KORZA_DIST_SHA256=$DEVX_DIST_SHA256
-fi
-
 REPO="${KORZA_REPO:-korzainc/devx-cli}"
 # $HOME is only needed for the default. Under `set -u` a bare $HOME would abort
 # with a raw "parameter not set" instead of one of this script's own messages.

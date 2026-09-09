@@ -167,10 +167,10 @@ switch (name) {
         NODE_ENV: "test",
         PATH: commandPath,
         TMPDIR: stage,
-        DEVX_BIN_DIR: destination,
-        DEVX_DIST_URL: "https://fixture.invalid/korza",
+        KORZA_BIN_DIR: destination,
+        KORZA_DIST_URL: "https://fixture.invalid/korza",
         ...(scenario.expectedDigest !== undefined
-          ? { DEVX_DIST_SHA256: scenario.expectedDigest }
+          ? { KORZA_DIST_SHA256: scenario.expectedDigest }
           : {}),
         FIXTURE_ROOT: root,
         ...scenario.env,
@@ -220,7 +220,7 @@ describe(
       expect(readFileSync(result.target, "utf8")).toBe("previous installation");
     });
 
-    it("accepts Korza URL and digest while retaining legacy bin-directory fallback", () => {
+    it("accepts Korza URL, digest and bin-directory settings", () => {
       const result = install({
         checksum: "missing",
         env: {
@@ -230,6 +230,16 @@ describe(
       });
       expect(result.status, result.stderr).toBe(0);
       expect(result.downloads).toEqual(["https://fixture.invalid/korza-new"]);
+      expect(readFileSync(result.target, "utf8")).toBe(result.fixture);
+    });
+
+    it("ignores a retired DevX checksum override", () => {
+      const result = install({ env: { DEVX_DIST_SHA256: "invalid" } });
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.downloads).toEqual([
+        "https://fixture.invalid/korza",
+        "https://fixture.invalid/korza.sha256",
+      ]);
       expect(readFileSync(result.target, "utf8")).toBe(result.fixture);
     });
 

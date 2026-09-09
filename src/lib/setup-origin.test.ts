@@ -13,19 +13,19 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("installer origin", () => {
-  it("prefers the Korza name over the legacy override", () => {
-    vi.stubEnv("KORZA_PUBLIC_ORIGIN", "https://korza.example");
+  it("ignores the retired DevX override and uses the deployment URL", () => {
     vi.stubEnv("DEVX_PUBLIC_ORIGIN", "https://legacy.example");
-    expect(getSetupOrigin()).toBe("https://korza.example");
+    vi.stubEnv("VERCEL_URL", "deployment.vercel.app");
+    expect(getSetupOrigin()).toBe("https://deployment.vercel.app");
   });
 
   it("does not fall back when the Korza override is explicitly empty", () => {
     vi.stubEnv("KORZA_PUBLIC_ORIGIN", "");
-    vi.stubEnv("DEVX_PUBLIC_ORIGIN", "https://legacy.example");
+    vi.stubEnv("VERCEL_URL", "deployment.vercel.app");
     expect(getSetupOrigin()).toBeNull();
   });
   it("prefers an explicit public origin over deployment defaults", () => {
-    vi.stubEnv("DEVX_PUBLIC_ORIGIN", "https://setup.example/");
+    vi.stubEnv("KORZA_PUBLIC_ORIGIN", "https://setup.example/");
     vi.stubEnv("VERCEL_URL", "deployment.vercel.app");
     expect(getSetupOrigin()).toBe("https://setup.example");
   });
@@ -67,7 +67,7 @@ describe("installer origin", () => {
   ])(
     "rejects invalid production configuration %s without falling back",
     (origin) => {
-      vi.stubEnv("DEVX_PUBLIC_ORIGIN", origin);
+      vi.stubEnv("KORZA_PUBLIC_ORIGIN", origin);
       vi.stubEnv("VERCEL_URL", "valid.vercel.app");
       expect(getSetupOrigin()).toBeNull();
     },
@@ -77,7 +77,7 @@ describe("installer origin", () => {
     "permits explicit HTTP loopback %s for local development",
     (host) => {
       vi.stubEnv("NODE_ENV", "development");
-      vi.stubEnv("DEVX_PUBLIC_ORIGIN", `http://${host}:4000`);
+      vi.stubEnv("KORZA_PUBLIC_ORIGIN", `http://${host}:4000`);
       expect(getSetupOrigin()).toBe(`http://${host}:4000`);
     },
   );
