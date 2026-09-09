@@ -11,11 +11,19 @@ export function FacetMenu({
   options,
   selected,
   onToggle,
+  labelFor = (value) => value,
 }: {
   label: string;
   options: [string, number][];
   selected: string[];
   onToggle: (value: string) => void;
+  /**
+   * Display text for an option. Only the text changes: the value still travels to `onToggle`,
+   * the URL and the filter, so a capability can read "Code Security (SAST)" while `sast` stays
+   * the id the gap-analysis baselines are keyed by. Defaults to showing the value itself, which
+   * is what the skills facets want - their values are already words.
+   */
+  labelFor?: (value: string) => string;
 }) {
   const [open, setOpen] = useState(false);
   // Offset from the trigger, clamped into the viewport. A left/right flip cannot express the
@@ -71,7 +79,7 @@ export function FacetMenu({
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((was) => !was)}
-        className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition-colors ${
+        className={`flex items-center gap-1.5 rounded-lg border px-3 py-2.5 text-sm transition-colors ${
           on
             ? "border-line-strong bg-accent-wash text-ink"
             : "border-line bg-surface text-ink-muted hover:border-line-strong hover:text-ink"
@@ -92,7 +100,7 @@ export function FacetMenu({
           style={offset === null ? undefined : { left: offset }}
           role="group"
           aria-label={label}
-          className={`absolute top-full z-20 mt-1.5 max-h-80 w-56 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-lg border border-line-strong bg-surface-raised p-1 shadow-lg ${offset === null ? "right-0" : ""}`}
+          className={`absolute top-full z-20 mt-1.5 max-h-80 w-64 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-lg border border-line-strong bg-surface-raised p-1 shadow-lg ${offset === null ? "right-0" : ""}`}
         >
           {options.map(([value, count]) => {
             const checked = selected.includes(value);
@@ -107,10 +115,10 @@ export function FacetMenu({
                   onChange={() => onToggle(value)}
                   // Without this, the accessible name is the label's own text: value and count
                   // run together with no separator a screen reader can use, e.g. "codezen 12".
-                  aria-label={`${value}, ${count} matching`}
+                  aria-label={`${labelFor(value)}, ${count} matching`}
                   className="size-3.5 accent-accent"
                 />
-                <span className="truncate">{value}</span>
+                <span className="truncate">{labelFor(value)}</span>
                 <span className="ml-auto shrink-0 font-mono text-[0.65rem] text-ink-faint">
                   {count}
                 </span>

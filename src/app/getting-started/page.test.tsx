@@ -114,6 +114,12 @@ describe("the Getting Started page", () => {
         node.querySelector("summary")?.textContent?.includes("SSH access"),
     );
     expect(ssh).toBeDefined();
+    expect(
+      ssh!
+        .querySelector("p")!
+        .compareDocumentPosition(ssh!.querySelector("code")!) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     const commands = [...ssh!.querySelectorAll("code")].map(
       (field) => field.textContent,
     );

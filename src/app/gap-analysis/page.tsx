@@ -15,20 +15,37 @@ export const metadata: Metadata = {
 
 // The token belongs to whoever is signed in and is handed to `runAnalysis` as an argument.
 // Nothing under src/lib/gap touches the environment or the session.
+//
+// Signed out, the token is null and the read goes out anonymously, which GitHub serves for public
+// repositories. So an open source repo needs no account, and the sign-in prompt is kept for the
+// two failures where logging in is the actual remedy rather than a wall in front of everyone.
 async function Result({ repo }: { repo: string }) {
   const token = await getGitHubToken();
-  if (!token) return <SignInPrompt repo={repo} />;
 
   const baseline = getBaseline();
   const result = await runAnalysis(repo, token, { tools, baseline });
-  if (!result.ok) return <Notice>{result.error}</Notice>;
+
+  if (!result.ok) {
+    // Anonymously, 404 means no such public repo, which a private one is indistinguishable from,
+    // and 429 means the shared hourly quota is spent. A signed-in reader's own token already
+    // covers both, so for them these are plain errors with nothing further to offer.
+    const signingInWouldHelp =
+      !token && (result.status === 404 || result.status === 429);
+
+    return signingInWouldHelp ? (
+      <SignInPrompt repo={repo} reason={result.error} />
+    ) : (
+      <Notice>{result.error}</Notice>
+    );
+  }
 
   return <GapReport analysis={result.analysis} stacks={baseline.stacks} />;
 }
 
-// Shown whenever nobody is signed in, so it cannot say anything about the repository itself.
-// Whether it is private, or exists at all, is unknown until a request carries a token.
-function SignInPrompt({ repo }: { repo: string }) {
+// Only reached once an anonymous read has already failed, which is why it can state a reason
+// rather than speculate. The reason comes from the reader, phrased for a signed-out caller:
+// either no public repo of that name exists, or the shared hourly quota is used up.
+function SignInPrompt({ repo, reason }: { repo: string; reason: string }) {
   return (
     <div className="mx-auto flex max-w-md flex-col items-center gap-4 rounded-xl border border-line bg-surface px-6 py-8 text-center">
       <Octocat className="h-7 w-7 text-ink-faint" />
@@ -36,6 +53,7 @@ function SignInPrompt({ repo }: { repo: string }) {
         <h2 className="font-display text-lg font-semibold text-ink">
           Log in to analyze <span className="font-mono text-base">{repo}</span>
         </h2>
+        <p className="text-sm leading-relaxed text-ink-muted">{reason}</p>
         <p className="text-sm leading-relaxed text-ink-muted">
           Korza DevX reads the repository with your own GitHub access, so the
           report never shows you anything you could not already open on GitHub.

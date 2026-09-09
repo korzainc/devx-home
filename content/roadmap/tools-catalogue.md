@@ -8,11 +8,11 @@ summary:
   a baseline per ecosystem, in place of the stand-ins it launched with.
 ---
 
-[Tools](/tools) is filterable by category, capability and stack, and now what
-sits behind it is real too. The 26 placeholder entries, written to look
-plausible before the real catalogue existed, are gone. Every tool, its
-capabilities, and the stacks it applies to come from the catalogue Korza
-actually maintains.
+[Tools](/tools) is filterable by the check a tool runs and the language it
+applies to, and now what sits behind it is real too. The 26 placeholder
+entries, written to look plausible before the real catalogue existed, are
+gone. Every tool, its capabilities, and the stacks it applies to come from the
+catalogue Korza actually maintains.
 
 That matters more than it might seem, because
 [gap analysis](/roadmap/gap-analysis) reads the same catalogue for its

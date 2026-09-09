@@ -7,7 +7,7 @@ import ToolPage, {
   generateMetadata,
   generateStaticParams,
 } from "@/app/tools/[id]/page";
-import { bundles, tools } from "@/lib/catalogue";
+import { bundles, toolInstallMethods, tools } from "@/lib/catalogue";
 
 function renderTool(id: string) {
   return ToolPage({
@@ -37,6 +37,18 @@ describe("ToolPage", () => {
         params: Promise.resolve({ id: "not-a-real-tool" }),
       } as Parameters<typeof generateMetadata>[0]),
     ).resolves.toEqual({});
+  });
+
+  it("carries the install panel for every tool that has something to install", async () => {
+    for (const tool of tools) {
+      const expected = toolInstallMethods(tool.id).length > 0;
+      render(await renderTool(tool.id));
+      expect(
+        screen.queryByRole("heading", { name: "Install" }) !== null,
+        `${tool.id} should ${expected ? "" : "not "}show an install panel`,
+      ).toBe(expected);
+      cleanup();
+    }
   });
 
   it("links a wrapped tool back to the bundle that covers it", async () => {

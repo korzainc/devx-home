@@ -26,6 +26,7 @@ export const manualCommands: {
   title: string;
   commands: string[];
   note: string;
+  noteFirst?: boolean;
 }[] = [
   {
     tool: "Xcode tools",
@@ -56,6 +57,7 @@ export const manualCommands: {
   },
   {
     tool: "SSH access",
+    noteFirst: true,
     why: "GitHub SSH access, separate from HTTPS",
     title: "SSH access",
     commands: [
@@ -65,7 +67,7 @@ export const manualCommands: {
       "ssh-add ~/.ssh/id_ed25519",
       "ssh -T git@github.com",
     ],
-    note: 'Skip key creation when reusing an existing key, and adjust the public and private key paths above. ssh-add loads the key so Claude can clone without a passphrase prompt; run it again if the agent forgets the key. The permission step authorizes uploading the public key. Check GitHub\'s published fingerprint before accepting the first SSH connection. A successful check prints "successfully authenticated"; GitHub returns exit code 1 because it does not provide shell access.',
+    note: 'Skip key creation when reusing an existing key, and adjust the public and private key paths in these commands. ssh-add loads the key so Claude can clone without a passphrase prompt; run it again if the agent forgets the key. The permission step authorizes uploading only the public key; the private key stays on your machine. Check GitHub\'s published fingerprint before accepting the first SSH connection. A successful check prints "successfully authenticated"; GitHub returns exit code 1 because it does not provide shell access.',
   },
   {
     tool: "claude",

@@ -135,6 +135,11 @@ export default function GettingStartedPage() {
                   </span>
                 </summary>
                 <div className="flex flex-col gap-2 border-t border-line px-5 py-4">
+                  {entry.noteFirst && (
+                    <p className="max-w-2xl text-sm text-ink-muted [overflow-wrap:anywhere]">
+                      {entry.note}
+                    </p>
+                  )}
                   {entry.commands.map((command) => (
                     <CommandField
                       key={command}
@@ -142,9 +147,11 @@ export default function GettingStartedPage() {
                       value={command}
                     />
                   ))}
-                  <p className="max-w-2xl pt-1 text-sm text-ink-muted [overflow-wrap:anywhere]">
-                    {entry.note}
-                  </p>
+                  {!entry.noteFirst && (
+                    <p className="max-w-2xl pt-1 text-sm text-ink-muted [overflow-wrap:anywhere]">
+                      {entry.note}
+                    </p>
+                  )}
                 </div>
               </details>
             ))}

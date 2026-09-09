@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { InstallPanel } from "@/components/install-panel";
+import { PluginInstall } from "@/components/plugin-install";
 import { MetaRow } from "@/components/meta-row";
 import { PluginSkills } from "@/components/plugin-skills";
 import { SkillContextStrip } from "@/components/skill-context-strip";
@@ -120,7 +120,7 @@ export default async function PluginPage({
           Nothing to install: this entry resolves to no skills today.
         </p>
       ) : (
-        <InstallPanel commands={installCommands(plugin)} />
+        <PluginInstall commands={installCommands(plugin)} />
       )}
 
       {skills.length > 0 && <PluginSkills plugin={plugin.id} skills={skills} />}

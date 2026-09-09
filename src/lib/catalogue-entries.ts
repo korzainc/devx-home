@@ -15,6 +15,11 @@ export type CatalogueEntry = {
 export type ToolEntry = CatalogueEntry & {
   /** Every real tool and bundle always has one, unlike a skill's optional overlay. */
   summary: string;
+  /**
+   * Short copy for the card, from the local overlay. Falls back to `summary`, which is written
+   * for the detail page and runs long enough to truncate in a card.
+   */
+  cardSummary: string;
   category: string;
   capabilities: string[];
   stacks: string[];

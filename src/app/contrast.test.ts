@@ -2,22 +2,18 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 /**
- * The strip sits on --accent-wash, where --accent is 4.38:1 and --ink-faint 4.41:1 in light
- * mode. Both are under AA for normal-sized text, and a jsdom test cannot see either, so this
- * reads the tokens out of the stylesheet and does the arithmetic. Dark clears throughout.
+ * The strip puts normal-sized text on --accent-wash, and a jsdom test cannot measure rendered
+ * contrast, so this reads the tokens out of the stylesheet and does the arithmetic instead.
  */
 
 const css = readFileSync(new URL("./globals.css", import.meta.url), "utf8");
 
-function palette(mode: "light" | "dark") {
-  // Light lives on the bare :root; dark overrides it inside the media query.
-  const dark = css.slice(css.indexOf("prefers-color-scheme: dark"));
-  const source = mode === "light" ? css.slice(0, css.indexOf("@media")) : dark;
-  return (name: string) => {
-    const match = source.match(new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{6})`));
-    if (!match) throw new Error(`--${name} not found in the ${mode} palette`);
-    return match[1];
-  };
+// One palette to read since the app went dark-only. The hex is what anchors this: `@theme inline`
+// restates every token as `var(--x)`, which this deliberately will not match.
+function token(name: string) {
+  const match = css.match(new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{6})`));
+  if (!match) throw new Error(`--${name} not found in the palette`);
+  return match[1];
 }
 
 function contrast(a: string, b: string) {
@@ -34,32 +30,19 @@ function contrast(a: string, b: string) {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-describe.each(["light", "dark"] as const)("%s mode", (mode) => {
-  const token = palette(mode);
-
-  // Every run of normal-sized text the strip puts on the accent wash.
-  it.each(["accent-strong", "ink-muted", "ink"])(
-    "clears AA for %s on the accent wash",
+// Every token the app renders as text on the accent wash, --ink-faint included: the filter
+// chip's dismiss glyph (catalogue-grid.tsx) is aria-hidden and the button carries its own
+// label, but it is still the visible affordance and clears AA by only 0.11.
+//
+// --accent and --accent-strong are the same hex today, so covering only one of them would
+// pass on the other's behalf and stop catching a change to either.
+describe("the accent wash", () => {
+  it.each(["accent", "accent-strong", "ink-muted", "ink", "ink-faint"])(
+    "clears AA for %s",
     (name) => {
       expect(
         contrast(token(name), token("accent-wash")),
       ).toBeGreaterThanOrEqual(4.5);
     },
   );
-});
-
-// The two the strip deliberately avoids there, asserted so the reason cannot go stale: if a
-// palette change lifts either over 4.5, the strip could use it again and this says so.
-describe("tokens the strip avoids on the accent wash", () => {
-  const light = palette("light");
-
-  it.each([
-    ["accent", 4.38],
-    ["ink-faint", 4.41],
-  ])("still measures %s at ~%s:1 in light mode, under AA", (name, expected) => {
-    expect(contrast(light(name as string), light("accent-wash"))).toBeCloseTo(
-      expected as number,
-      1,
-    );
-  });
 });
