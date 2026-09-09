@@ -6,4 +6,15 @@
 # unrs-resolver is the native resolver behind eslint-import-resolver-typescript, pulled in by
 # eslint-config-next. Without its build step `pnpm lint` cannot resolve imports.
 allowBuilds:
+  onnxruntime-node: true
+  protobufjs: false
+  sharp: false
   unrs-resolver: true
+
+# onnxruntime-node (via @huggingface/transformers) pins adm-zip ^0.5.16, and transformers ships
+# its own sharp 0.34.5. Both carry fixed HIGH CVEs that the dependencies job gates on, and
+# neither has an upstream release to bump to. Next already resolves sharp 0.35.3, so that
+# override only deduplicates onto a version the tree already has.
+overrides:
+  adm-zip: "^0.6.0"
+  sharp: "^0.35.0"

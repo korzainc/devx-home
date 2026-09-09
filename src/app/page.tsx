@@ -1,5 +1,12 @@
 import Link from "next/link";
-import { capabilityLabel, plugins, type CapabilityId } from "@/lib/catalogue";
+import { HomeSearch } from "@/components/home-search";
+import {
+  browsableSkills,
+  capabilityLabel,
+  plugins,
+  visibleTools,
+  type CapabilityId,
+} from "@/lib/catalogue";
 
 /* The band's outline is a masked overlay rather than a border on the element itself, which is the
    only way to have it fade out along the bottom. Closed at the top, open at the bottom, so two
@@ -140,15 +147,23 @@ function MarketplacePreview() {
 export default function Home() {
   return (
     <div className="flex flex-col gap-14">
-      <div className="flex max-w-2xl flex-col gap-4 pt-8">
-        <h1 className="font-display text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
-          Everything Korza recommends, in one place.
-        </h1>
-        <p className="text-lg leading-relaxed text-ink-muted">
-          A health check for your repo, and the catalogues behind what it
-          recommends.
+      {/* The field is the hero, and it carries no headline of its own.
+          "Everything Korza recommends, in one place" used to sit here, and a search box this
+          large over both catalogues already makes that promise - the sentence only repeated it.
+          Sized so the two sections below break the fold rather than sitting under it, which is
+          what tells someone who would rather browse than type to scroll. */}
+      <section className="flex flex-col items-center gap-5 pt-16 pb-6 sm:pt-24">
+        <h1 className="sr-only">Search Korza&apos;s skills and CI tools</h1>
+        <HomeSearch />
+        <p className="text-sm text-ink-faint">
+          <span className="font-mono tabular-nums">
+            {browsableSkills.length}
+          </span>{" "}
+          skills and{" "}
+          <span className="font-mono tabular-nums">{visibleTools.length}</span>{" "}
+          CI tools, searchable by what you are trying to do.
         </p>
-      </div>
+      </section>
 
       <div className="flex flex-col gap-20">
         <Section heading="CI Tools" visual={<ReportPreview />}>
