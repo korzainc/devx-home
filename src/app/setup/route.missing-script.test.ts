@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { NextRequest } from "next/server";
 
 // The route reads public/devx/install.sh from disk. Next's
 // "standalone" output requires public/ to be copied next to server.js by hand,
@@ -28,7 +27,7 @@ describe("GET /setup when the vendored install.sh is missing", () => {
   it("answers with runnable shell that exits non-zero, not an HTML error page", async () => {
     vi.stubEnv("DEVX_PUBLIC_ORIGIN", "https://setup.example");
     const { GET } = await import("./route");
-    const res = GET(new NextRequest("http://localhost:3000/setup"));
+    const res = GET();
 
     expect(res.status).toBe(500);
     expect(res.headers.get("Content-Type")).toMatch(/shellscript/);

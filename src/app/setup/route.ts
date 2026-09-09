@@ -1,8 +1,7 @@
-import type { NextRequest } from "next/server";
 import { setupScript } from "@/lib/setup-script";
 import { getSetupOrigin } from "@/lib/setup-origin";
 
-export const GET: (request: NextRequest) => Response = () => {
+export function GET(): Response {
   const origin = getSetupOrigin();
   if (!origin) {
     return new Response(
@@ -41,4 +40,4 @@ export const GET: (request: NextRequest) => Response = () => {
       "Cache-Control": "no-store",
     },
   });
-};
+}

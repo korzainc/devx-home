@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { GET } from "./route";
+import { GET as getSetup } from "./route";
 import { artifactPaths } from "@/lib/setup-script";
+
+// Next passes a request even when the handler does not consume it. Keep that
+// invocation here to verify that hostile request headers cannot affect the URL.
+const GET: (request: NextRequest) => Response = getSetup;
 
 beforeEach(() => {
   vi.stubEnv("DEVX_PUBLIC_ORIGIN", "https://setup.example");

@@ -32,6 +32,12 @@ outside Vercel, or when overriding its defaults. On Vercel, production uses
 environment variables, or provide the explicit origin. An invalid or missing
 production origin disables the install command and returns 503 from `/setup`.
 
+When moving to a custom domain, set `DEVX_PUBLIC_ORIGIN` to that domain's HTTPS
+origin in the deployment environment and rebuild. `VERCEL_PROJECT_PRODUCTION_URL`
+still names the `vercel.app` host; it does not automatically follow the custom
+domain. Check that the rendered command and `/setup` download URL both name the
+intended domain before sharing the command.
+
 Local development defaults to `http://localhost:3000` (or `PORT`). For another
 port or a tunnel, set the origin explicitly before starting Next:
 
@@ -49,6 +55,13 @@ the shebang check detects a wrong response format, not an untrusted script.
 The pinned digest detects altered downloads but does not authenticate a compromised
 script server. DX-161 replaces this bundled prerelease with verified release
 distribution; update the installer, archive and checksum together at that transition.
+
+Public installer validation remains part of DX-161. A preview protected by Vercel
+SSO can verify that login HTML is rejected, but cannot verify installation through
+the public one-liner. Before marking that path verified, use a host where `/setup`,
+the archive and checksum are accessible without browser authentication, then run
+the rendered command on a clean Mac. Testing a binary copied into a VM validates
+the CLI separately; it does not establish that the hosted download path works.
 
 ## Gotchas worth knowing before you touch the toolchain
 
