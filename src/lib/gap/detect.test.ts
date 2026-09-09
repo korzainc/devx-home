@@ -65,8 +65,33 @@ describe("detectStacks", () => {
     expect(stacks.map((stack) => stack.id)).toEqual(["github-actions"]);
   });
 
-  it("ignores a manifest that is not at the root", () => {
-    expect(detectStacks(["packages/web/package.json"], baseline)).toEqual([]);
+  it("matches a manifest below the root", () => {
+    const stacks = detectStacks(["packages/web/package.json"], baseline);
+    expect(stacks.map((stack) => stack.id)).toEqual(["javascript"]);
+  });
+
+  it("matches every stack in a polyglot monorepo with no root manifest", () => {
+    const stacks = detectStacks(
+      [
+        "README.md",
+        "backend-java/pom.xml",
+        "collector_pipeline/Collector/go.mod",
+        "web/package.json",
+      ],
+      baseline,
+    );
+
+    expect(stacks.map((stack) => stack.id)).toEqual(["javascript", "go"]);
+  });
+
+  it("ignores a manifest inside vendored or generated output", () => {
+    const paths = [
+      "vendor/example.com/dep/go.mod",
+      "node_modules/left-pad/package.json",
+      "target/classes/package.json",
+    ];
+
+    expect(detectStacks(paths, baseline)).toEqual([]);
   });
 
   it("returns every stack present, not just the first", () => {
@@ -76,7 +101,7 @@ describe("detectStacks", () => {
 });
 
 describe("filesToRead", () => {
-  it("takes root manifests and CI config, and nothing else", () => {
+  it("takes manifests and CI config, and nothing else", () => {
     const paths = [
       "package.json",
       "packages/web/package.json",
@@ -90,7 +115,38 @@ describe("filesToRead", () => {
       "package.json",
       ".gitlab-ci.yml",
       ".github/workflows/ci.yml",
+      "packages/web/package.json",
     ]);
+  });
+
+  it("reads workflows before nested manifests", () => {
+    // A monorepo with a manifest per package must not spend the cap before its workflows.
+    const paths = [
+      ...Array.from(
+        { length: 30 },
+        (_, index) => `packages/pkg-${index}/package.json`,
+      ),
+      ".github/workflows/ci.yml",
+    ];
+
+    const read = filesToRead(paths, baseline);
+    expect(read[0]).toBe(".github/workflows/ci.yml");
+    expect(read).toHaveLength(9);
+  });
+
+  it("prefers the shallowest nested manifests", () => {
+    const paths = ["deep/a/b/c/go.mod", "web/package.json"];
+
+    expect(filesToRead(paths, baseline)).toEqual([
+      "web/package.json",
+      "deep/a/b/c/go.mod",
+    ]);
+  });
+
+  it("skips manifests inside vendored output", () => {
+    const paths = ["vendor/example.com/dep/go.mod", "web/package.json"];
+
+    expect(filesToRead(paths, baseline)).toEqual(["web/package.json"]);
   });
 
   it("reads workflows before composite actions", () => {
@@ -316,12 +372,36 @@ describe("detectTools", () => {
     expect(found[0].evidence).toBe("pyproject.toml");
   });
 
-  it("still credits a nested pyproject.toml on existence alone, content unread", () => {
+  it("credits a nested pyproject.toml that configures the tool", () => {
+    const found = detectTools(
+      snapshot({
+        paths: ["services/api/pyproject.toml"],
+        files: {
+          "services/api/pyproject.toml": "[tool.ruff]\nline-length = 100\n",
+        },
+      }),
+      [tool("ruff", { configFiles: ["pyproject.toml"] })],
+    );
+    expect(found[0].evidence).toBe("services/api/pyproject.toml");
+  });
+
+  it("does not credit a nested pyproject.toml with no [tool.ruff] section", () => {
+    const found = detectTools(
+      snapshot({
+        paths: ["services/api/pyproject.toml"],
+        files: { "services/api/pyproject.toml": '[project]\nname = "demo"\n' },
+      }),
+      [tool("ruff", { configFiles: ["pyproject.toml"] })],
+    );
+    expect(found).toEqual([]);
+  });
+
+  it("does not credit a pyproject.toml whose content was never read", () => {
     const found = detectTools(
       snapshot({ paths: ["services/api/pyproject.toml"] }),
       [tool("ruff", { configFiles: ["pyproject.toml"] })],
     );
-    expect(found[0].evidence).toBe("services/api/pyproject.toml");
+    expect(found).toEqual([]);
   });
 
   it("respects word boundaries when matching commands", () => {
