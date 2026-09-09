@@ -3,6 +3,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   statSync,
   writeFileSync,
 } from "node:fs";
@@ -75,6 +76,17 @@ describe("bundled setup artifact", () => {
       RETAINED_ARCHIVE_NAMES.length,
     );
     expect(RETAINED_ARCHIVE_NAMES).not.toContain(BUNDLED_ARCHIVE_NAME);
+
+    // Reconcile against the directory as well, so an archive that is committed but undeclared
+    // cannot ship forever unnoticed. Only the previous release is retained, never a branch
+    // rebuild, so the shipped set is exactly the bundle plus one.
+    const shipped = readdirSync(join(process.cwd(), "public", "korza")).filter(
+      (name) => name.endsWith(".tar.gz"),
+    );
+    expect(new Set(shipped)).toEqual(
+      new Set([BUNDLED_ARCHIVE_NAME, ...RETAINED_ARCHIVE_NAMES]),
+    );
+    expect(RETAINED_ARCHIVE_NAMES).toHaveLength(1);
   });
 
   it("does not generate an installer when the committed sidecar is missing", () => {

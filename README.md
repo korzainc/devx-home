@@ -61,12 +61,14 @@ and generates its pin per request, so running that command fetches the bundle
 URL and digest generated for that request. It is about a saved generated
 installer script, which does embed a pin.
 
-At each bundled refresh, retain the immediately previous digest-named archive
-and sidecar so a saved script can still download the bytes it pins, and list the
-outgoing name in `RETAINED_ARCHIVE_NAMES`. Older pairs may be deleted; a saved
-script referencing a deleted pair is no longer supported and will receive a 404
-from deployments that no longer serve it. The earlier unsuffixed
-`/korza/korza-0.1.0-macos.tar.gz` URL redirects to the current archive.
+Retain the archive and sidecar the preceding production release served, listed
+in `RETAINED_ARCHIVE_NAMES`, so a script saved from that release can still
+download the bytes it pins. Publication is what counts, not commit order: a
+rebuild that only ever existed on a branch has no saved scripts pinning it and
+is not retained. Exactly one pair is kept, and the unsuffixed
+`/korza/korza-0.1.0-macos.tar.gz` URL redirects to it rather than to the current
+bundle, so such a script installs instead of failing its checksum. A script
+older than that pair is no longer supported and gets a 404.
 
 The old `/devx/install.sh` URL redirects to `/setup`, and the old versioned
 `/devx/` archive and checksum URLs redirect to the current `/korza/` archive and
@@ -155,8 +157,13 @@ distribution and was canceled on 2026-09-09 as superseded by the deployment-orig
 flow, so the release transition below is not currently tracked by a ticket. A
 Vercel login page will stop the terminal installer; the HTML guard does not
 bypass deployment protection. The chosen host must serve `/setup` and the bundle
-without browser authentication.
-Keep the checksum sidecar accessible for manual verification as well.
+without browser authentication. Keep the checksum sidecar accessible for manual
+verification as well.
+
+The retention rule above ends here too. Once installers resolve durable published
+release assets and the last website-pinned script has passed its retention
+window, stop committing archives to this repository and drop
+`RETAINED_ARCHIVE_NAMES`.
 
 When the CLI release is ready:
 
@@ -174,9 +181,10 @@ For a bundled refresh before that transition, synchronize
 `public/korza/install.sh` with `korza-cli/install.sh` and copy the archive and
 checksum together, naming both after the first 12 characters of the new
 archive's digest. Update `BUNDLED_ARTIFACT_DIGEST` in `src/lib/artifact.ts`, and
-`BUNDLED_ARTIFACT_VERSION` if the CLI version moved. Add the outgoing name to
-`RETAINED_ARCHIVE_NAMES`, keeping its files committed, and drop the entry before
-it along with its files. Update the recorded source commit and observation date
+`BUNDLED_ARTIFACT_VERSION` if the CLI version moved. If the outgoing archive was
+published, point `PREVIOUS_PUBLISHED_DIGEST` at it and keep its files committed,
+dropping the pair before it; if it only ever existed on a branch, delete it and
+leave that constant alone. Update the recorded source commit and observation date
 above. `pnpm test` covers the naming, the sidecar and the
 installer; run it before deploying. A checksum detects mismatched bytes; it does
 not authenticate a compromised installer server.

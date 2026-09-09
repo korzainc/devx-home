@@ -11,11 +11,12 @@ const BUNDLED_ARTIFACT_DIGEST = "9e6d2d5c763e";
 
 export const BUNDLED_ARCHIVE_NAME = `korza-${BUNDLED_ARTIFACT_VERSION}-macos-${BUNDLED_ARTIFACT_DIGEST}.tar.gz`;
 
-/**
- * Superseded archives still committed so a saved installer script pinning one keeps resolving.
- * On a refresh, add the outgoing name and drop the one before it. Listing a name without
- * committing its files fails setup-script.test.ts.
- */
+// The archive the previous production release served. Keeping it committed lets an installer
+// script saved from that release finish instead of failing its checksum, and the unsuffixed
+// legacy URL redirects to it. Update this at a published refresh, not for a branch-local rebuild:
+// an intermediate that never reached main has no saved scripts pinning it.
+const PREVIOUS_PUBLISHED_DIGEST = "9f4b57099c56";
+
 export const RETAINED_ARCHIVE_NAMES: readonly string[] = [
-  "korza-0.1.0-macos-0b4f0cb34097.tar.gz",
+  `korza-${BUNDLED_ARTIFACT_VERSION}-macos-${PREVIOUS_PUBLISHED_DIGEST}.tar.gz`,
 ];

@@ -28,7 +28,7 @@ type Scenario = {
 function commandWrapper(name: string, interpreter: string, script: string) {
   return [
     "#!/bin/sh",
-    `FIXTURE_COMMAND=${name}`,
+    `FIXTURE_COMMAND=${shellQuote(name)}`,
     "export FIXTURE_COMMAND",
     `exec ${shellQuote(interpreter)} ${shellQuote(script)} "$@"`,
     "",

@@ -1,5 +1,8 @@
 import type { NextConfig } from "next";
-import { BUNDLED_ARCHIVE_NAME } from "./src/lib/artifact";
+import {
+  BUNDLED_ARCHIVE_NAME,
+  RETAINED_ARCHIVE_NAMES,
+} from "./src/lib/artifact";
 import { getSetupOrigin } from "./src/lib/setup-origin";
 
 const setupOrigin = getSetupOrigin();
@@ -40,18 +43,17 @@ const nextConfig: NextConfig = {
         destination: `/korza/${BUNDLED_ARCHIVE_NAME}.sha256`,
         permanent: false,
       },
-      // The unsuffixed name served several different payloads before the URL was content
-      // addressed. Redirecting rather than dropping it keeps the URL resolving, so checksum
-      // verification passes when a saved pin matches the current archive and fails when it
-      // does not.
+      // The unsuffixed name is what the previous release served, so it points at the retained
+      // copy of those bytes rather than at the current bundle. A script saved from that release
+      // then installs, where sending it to the current archive would fail its pinned checksum.
       {
         source: "/korza/korza-0.1.0-macos.tar.gz",
-        destination: `/korza/${BUNDLED_ARCHIVE_NAME}`,
+        destination: `/korza/${RETAINED_ARCHIVE_NAMES[0]}`,
         permanent: false,
       },
       {
         source: "/korza/korza-0.1.0-macos.tar.gz.sha256",
-        destination: `/korza/${BUNDLED_ARCHIVE_NAME}.sha256`,
+        destination: `/korza/${RETAINED_ARCHIVE_NAMES[0]}.sha256`,
         permanent: false,
       },
     ];
