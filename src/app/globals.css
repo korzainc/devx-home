@@ -109,6 +109,25 @@ html {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
   }
+
+  /* Every `button` in the app computed `cursor: default`, so nothing but the `summary` menus read
+     as clickable (DX-93). That is the UA stylesheet, not a Tailwind reset: preflight sets no
+     cursor at all, so there is nothing to opt back into and no utility to spell it with either.
+
+     Here rather than a `cursor-pointer` on each of the 25 call sites, for the reason the focus
+     rule above is here: the correct value is the same for all of them, and one that is missed is
+     invisible until someone hovers it. A shared Button primitive would not have reached them all
+     either, since most are toggles, tabs and icon controls rather than one repeated button.
+
+     `:disabled` is second so it wins on order, both selectors being one element and one
+     pseudo-class. Only one disabled button exists today and it sets `pointer-events-none`, which
+     suppresses the cursor anyway; this is here so the next one does not have to remember. */
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
 }
 
 /* The fix-prompt control on the gap report. One bright segment runs a lap of the border while the

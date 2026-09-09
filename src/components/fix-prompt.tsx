@@ -42,7 +42,7 @@ function CopyButton({ prompt }: { prompt: string }) {
           () => {},
         );
       }}
-      className={`inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
         copied
           ? "text-positive"
           : "text-ink-faint hover:bg-line/40 hover:text-ink"
@@ -179,7 +179,7 @@ export function FixPromptButton({ prompt }: { prompt: string }) {
         style={{ "--fx-lap": `${lapMs}ms` } as React.CSSProperties}
         className={`fx-sweep ${
           charging ? "is-charging" : ""
-        } inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-positive px-3 py-1.5 text-sm font-medium text-positive transition-colors hover:bg-positive-wash`}
+        } inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-positive px-3 py-1.5 text-sm font-medium text-positive transition-colors hover:bg-positive-wash`}
       >
         <Sparkle />
         Generate fix prompt
