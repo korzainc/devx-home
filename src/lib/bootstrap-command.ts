@@ -1,7 +1,18 @@
 import { shellQuote } from "@/lib/shell-quote";
 
-/** Fetch and check the installer before running it; preserve either failure status. */
+/** Fetch the complete installer; validate remote responses before execution. */
 export function bootstrapCommand(url: string): string {
+  const target = new URL(url);
+  const localDevelopment =
+    process.env.NODE_ENV === "development" &&
+    ["localhost", "127.0.0.1", "[::1]"].includes(target.hostname);
+  if (localDevelopment) {
+    // Trust the local development server, but never follow it to a remote host.
+    // Buffer the download so failures cannot execute a partial installer.
+    const script = 's=$(curl -fsSL --max-redirs 0 "$1") && sh -c "$s"';
+    return `sh -c ${shellQuote(script)} sh ${shellQuote(url)}`;
+  }
+
   // Keep POSIX syntax inside sh, regardless of the user's interactive shell.
   // The sentinel preserves the newline so only an exact shebang line is accepted.
   const script =

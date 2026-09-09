@@ -50,7 +50,10 @@ HTTP origins are accepted only for local loopback during development or tests.
 Changes to deployment origins require a rebuild.
 
 The selected host must serve `/setup`, the archive and its checksum without browser
-authentication. The bootstrap rejects unexpected responses such as login HTML;
+authentication. For local development on localhost, 127.0.0.1 or [::1], the page
+shows a compact download-then-run command that trusts the local server and rejects
+redirects. It waits for curl to succeed before executing the complete response.
+Remote URLs and production builds keep the shebang guard, which rejects login HTML;
 the shebang check detects a wrong response format, not an untrusted script.
 The pinned digest detects altered downloads but does not authenticate a compromised
 script server. DX-161 replaces this bundled prerelease with verified release
