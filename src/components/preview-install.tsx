@@ -21,12 +21,12 @@ export function PreviewInstallCommand({ command }: { command: string | null }) {
 
   return (
     <div className="flex items-start gap-2 rounded-xl border border-line-strong bg-[#050607] p-5 font-mono text-sm leading-relaxed text-[#e8eaed]">
-      {/* Keep the copy control outside the single-line command. */}
+      {/* Show a scrollbar only on overflow; keep Copy outside the scrolling region. */}
       <div
         role="region"
         aria-label="Install command"
         tabIndex={0}
-        className="min-w-0 flex-1 overflow-x-auto scrollbar-none whitespace-pre focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        className="min-w-0 flex-1 overflow-x-auto pb-2 whitespace-pre focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#6b7280] [&::-webkit-scrollbar-thumb:hover]:bg-[#9ca3af] [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-white/10"
       >
         <span className="text-ink-faint">$</span>{" "}
         <code className="select-all">
