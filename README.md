@@ -42,14 +42,35 @@ replacing an existing binary, then prints a setup command. It uses `korza setup`
 when PATH selects that binary, otherwise a safely quoted full path. It creates
 `kz` only when that name is available.
 
-The committed bundle is built from `korza-cli` source commit `5fb7ff2`. The
-archive and its checksum live under [public/korza/](public/korza/); this bundle
-was matched byte-for-byte to the CLI distribution at that commit. Later CLI
-changes do not update it automatically. Production builds reject demo/sandbox
-entry points; `korza setup --help` lists the supported setup flags.
+The archive and its checksum live under [public/korza/](public/korza/). One
+thing about the bundle is checkable from this repository alone: the archive's
+SHA-256 matches its committed sidecar. Two further facts were observed
+externally on 2026-09-09 and are recorded here rather than reproducible from
+this repository: `public/korza/install.sh` was verified byte-for-byte identical
+to `install.sh` at `korza-cli` commit `5fb7ff2`, and the archive came from a
+local build of that commit whose manifest is not published. Treat the binary's
+provenance as recorded rather than independently verified until a signed public
+release replaces this path. Later CLI changes do not update the bundle
+automatically. Production builds reject demo/sandbox entry points;
+`korza setup --help` lists the supported setup flags.
 
-The old `/devx/install.sh` URL redirects to `/setup`. The old versioned `/devx/`
-archive and checksum URLs redirect to the matching `/korza/` assets. The CLI repository is `korzainc/korza-cli`; this portal remains
+The archive URL carries the first 12 characters of its own digest, so each
+bundle has a distinct address. This is not about the copyable command on
+`/getting-started`, which holds only the `/setup` URL: `/setup` is `no-store`
+and generates its pin per request, so running that command fetches the bundle
+URL and digest generated for that request. It is about a saved generated
+installer script, which does embed a pin.
+
+At each bundled refresh, retain the immediately previous digest-named archive
+and sidecar so a saved script can still download the bytes it pins, and list the
+outgoing name in `RETAINED_ARCHIVE_NAMES`. Older pairs may be deleted; a saved
+script referencing a deleted pair is no longer supported and will receive a 404
+from deployments that no longer serve it. The earlier unsuffixed
+`/korza/korza-0.1.0-macos.tar.gz` URL redirects to the current archive.
+
+The old `/devx/install.sh` URL redirects to `/setup`, and the old versioned
+`/devx/` archive and checksum URLs redirect to the current `/korza/` archive and
+checksum. The CLI repository is `korzainc/korza-cli`; this portal remains
 `korzainc/devx-home`, and the support channel remains `#devx`.
 
 The rename does not delete an old `~/.local/bin/devx` installation. Locate it
@@ -148,11 +169,15 @@ When the CLI release is ready:
    command. A copied binary tested in a VM does not prove the hosted path works.
 
 For a bundled refresh before that transition, synchronize
-`public/korza/install.sh` with `korza-cli/install.sh`, copy the archive and checksum
-together, update `BUNDLED_ARTIFACT_VERSION` if needed, and update the source
-provenance above. Check the route and installer tests before deploying.
-A checksum detects mismatched bytes; it does not authenticate a compromised
-installer server.
+`public/korza/install.sh` with `korza-cli/install.sh` and copy the archive and
+checksum together, naming both after the first 12 characters of the new
+archive's digest. Update `BUNDLED_ARTIFACT_DIGEST` in `src/lib/artifact.ts`, and
+`BUNDLED_ARTIFACT_VERSION` if the CLI version moved. Add the outgoing name to
+`RETAINED_ARCHIVE_NAMES`, keeping its files committed, and drop the entry before
+it along with its files. Update the recorded source commit and observation date
+above. `pnpm test` covers the naming, the sidecar and the
+installer; run it before deploying. A checksum detects mismatched bytes; it does
+not authenticate a compromised installer server.
 
 ## Toolchain maintenance
 

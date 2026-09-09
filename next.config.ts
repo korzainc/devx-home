@@ -28,8 +28,8 @@ const nextConfig: NextConfig = {
         permanent: false,
       },
       // The sources are the versioned URLs DevX actually published, so they stay literal.
-      // The destinations track the shipped bundle: an old link should still install something
-      // rather than 404 once the artifact version moves.
+      // The destinations track the shipped bundle so an old link still resolves rather than
+      // 404s once the artifact moves.
       {
         source: "/devx/devx-0.1.0-macos.tar.gz",
         destination: `/korza/${BUNDLED_ARCHIVE_NAME}`,
@@ -37,6 +37,20 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/devx/devx-0.1.0-macos.tar.gz.sha256",
+        destination: `/korza/${BUNDLED_ARCHIVE_NAME}.sha256`,
+        permanent: false,
+      },
+      // The unsuffixed name served several different payloads before the URL was content
+      // addressed. Redirecting rather than dropping it keeps the URL resolving, so checksum
+      // verification passes when a saved pin matches the current archive and fails when it
+      // does not.
+      {
+        source: "/korza/korza-0.1.0-macos.tar.gz",
+        destination: `/korza/${BUNDLED_ARCHIVE_NAME}`,
+        permanent: false,
+      },
+      {
+        source: "/korza/korza-0.1.0-macos.tar.gz.sha256",
         destination: `/korza/${BUNDLED_ARCHIVE_NAME}.sha256`,
         permanent: false,
       },

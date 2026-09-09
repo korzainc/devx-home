@@ -8,6 +8,7 @@ import {
 } from "node:fs";
 import { basename, join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { BUNDLED_ARCHIVE_NAME, RETAINED_ARCHIVE_NAMES } from "./artifact";
 import { artifactPaths, setupScript } from "./setup-script";
 
 const ARCHIVE_NAME = basename(artifactPaths().tarball);
@@ -31,7 +32,7 @@ describe("bundled setup artifact", () => {
     vi.restoreAllMocks();
   });
 
-  it("embeds the digest of the real committed archive and matching sidecar", () => {
+  it("names and pins the real committed archive with its own digest", () => {
     const paths = artifactPaths();
     const archivePath = join(process.cwd(), "public", paths.tarball);
     const sidecarPath = join(process.cwd(), "public", paths.checksum);
@@ -43,6 +44,11 @@ describe("bundled setup artifact", () => {
     expect(readFileSync(sidecarPath, "utf8")).toBe(
       `${digest}  ${basename(paths.tarball)}\n`,
     );
+    // A saved installer script embeds a pin, so each bundle needs its own address rather than
+    // one shared URL whose bytes move underneath it.
+    expect(basename(paths.tarball)).toMatch(
+      new RegExp(`-${digest.slice(0, 12)}\\.tar\\.gz$`),
+    );
 
     const script = setupScript("https://preview.example");
     expect(script).toContain(
@@ -52,6 +58,23 @@ describe("bundled setup artifact", () => {
     expect(script.indexOf("export KORZA_DIST_SHA256=")).toBeLessThan(
       script.indexOf("set -eu"),
     );
+  });
+
+  it("validates every declared retained archive and its checksum sidecar", () => {
+    for (const name of RETAINED_ARCHIVE_NAMES) {
+      const archivePath = join(process.cwd(), "public", "korza", name);
+      const digest = createHash("sha256")
+        .update(readFileSync(archivePath))
+        .digest("hex");
+      expect(name).toMatch(new RegExp(`-${digest.slice(0, 12)}\\.tar\\.gz$`));
+      expect(readFileSync(`${archivePath}.sha256`, "utf8")).toBe(
+        `${digest}  ${name}\n`,
+      );
+    }
+    expect(new Set(RETAINED_ARCHIVE_NAMES).size).toBe(
+      RETAINED_ARCHIVE_NAMES.length,
+    );
+    expect(RETAINED_ARCHIVE_NAMES).not.toContain(BUNDLED_ARCHIVE_NAME);
   });
 
   it("does not generate an installer when the committed sidecar is missing", () => {
