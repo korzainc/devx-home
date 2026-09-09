@@ -50,7 +50,7 @@ export default function GettingStartedPage() {
             className="absolute -top-10 -left-12 -z-10 h-36 w-96 max-w-full rounded-full bg-accent/20 blur-3xl"
           />
           <h1 className="font-display text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-            Install korza in one command.
+            Install Korza CLI in one command.
           </h1>
           <p className="max-w-lg text-lg leading-relaxed text-ink-muted">
             Then run the exact setup command printed by the installer to check
@@ -101,6 +101,11 @@ export default function GettingStartedPage() {
           korza checks your machine and helps install and configure the tools
           you choose. Sign-ins and administrator prompts stay in your terminal
           or browser.
+        </p>
+        <p className="text-sm text-ink-muted">
+          Run <code>korza setup --help</code> for setup options, or press{" "}
+          <code>?</code> during setup for keyboard controls. The installer also
+          adds <code>kz</code> as a short alias when that name is available.
         </p>
         <p className="text-ink-muted">
           If a step cannot finish, for example because access needs someone

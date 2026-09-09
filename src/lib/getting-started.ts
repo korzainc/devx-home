@@ -122,7 +122,7 @@ export const faq: { q: string; a: string }[] = [
   },
   {
     q: "Can I run it more than once?",
-    a: "Yes. Tools that are already configured start unselected. You can choose additional tools or explicitly select a tool to reinstall it.",
+    a: "Yes. Run korza setup to reopen the tool catalogue. Enter starts an unfinished tool or opens details for a ready tool. To reinstall a ready tool, press r, then Enter. Run korza doctor whenever you want to check the installed toolchain.",
   },
   {
     q: "What happens if a step fails?",

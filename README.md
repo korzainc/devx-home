@@ -26,6 +26,15 @@ pnpm build
 same configured origin and pins the expected checksum from the committed sidecar.
 Request `Host` and forwarded headers cannot select a download host.
 
+The current bundle is Korza CLI (`korza`, with `kz` as its short alias), built
+from local `devx-cli` main commit `e27f8ca`, pending push. Its archive under
+`public/korza/` matches `devx-cli/dist/korza-0.1.0-macos.tar.gz` byte-for-byte.
+Refresh the archive and checksum together when the CLI changes. Production
+builds omit demo/sandbox entry points; setup flags are documented by
+`korza setup --help`. The `DEVX_*` environment names and existing `/devx/`
+artifact URLs remain for compatibility; the repository and support channel
+are still named `devx-home` and `#devx`.
+
 Set `DEVX_PUBLIC_ORIGIN` to the public HTTPS origin when building and deploying
 outside Vercel, or when overriding its defaults. On Vercel, production uses
 `VERCEL_PROJECT_PRODUCTION_URL`; previews use `VERCEL_URL`. Enable Vercel's system

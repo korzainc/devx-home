@@ -36,7 +36,7 @@ else
   case "$STATUS" in
     403|429)
       printf '\n  GitHub is rate-limiting this network (HTTP %s).\n' "$STATUS" >&2
-      printf '  Wait a few minutes and run this again, or ask in #korza.\n' >&2
+      printf '  Wait a few minutes and run this again, or ask in #devx.\n' >&2
       exit 1
       ;;
   esac
