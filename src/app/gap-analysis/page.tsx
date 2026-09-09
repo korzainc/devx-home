@@ -87,12 +87,30 @@ function Notice({ children }: { children: React.ReactNode }) {
   );
 }
 
+// The boundary's fallback, so it is also the last thing a client running no script ever paints:
+// `$RC` never swaps the report in for them. The <noscript> replaces it rather than adding to it --
+// the ellipsis animates from CSS, which runs regardless of script, so left in place it would go on
+// implying progress directly above a line saying nothing will load. Scoped to this one class, or
+// it would also still the header's breathing X. Markup, not elements, or hydration mismatches.
+// Both sides of the suppression read this, or a typo on one silently restores the animated
+// ellipsis and nothing fails.
+const pendingClass = "pending-progress";
+
 function Pending({ repo }: { repo: string }) {
   return (
-    <p className="font-mono text-sm text-ink-faint">
-      Reading {repo}
-      <span className="animate-breathe">...</span>
-    </p>
+    <>
+      <p className={`${pendingClass} font-mono text-sm text-ink-faint`}>
+        Reading {repo}
+        <span className="animate-breathe">...</span>
+      </p>
+      <noscript
+        dangerouslySetInnerHTML={{
+          __html:
+            `<style>.${pendingClass}{display:none}</style>` +
+            '<p class="text-sm text-ink-muted">The report needs JavaScript. Nothing further will load here.</p>',
+        }}
+      />
+    </>
   );
 }
 
@@ -131,28 +149,18 @@ function RepoForm({ target }: { target: string }) {
 type Params = Pick<PageProps<"/gap-analysis">, "searchParams">;
 
 // The home page posts its field here as a plain GET, so arriving with `?repo=` runs the analysis
-// on the server before anything reaches the browser. A report URL is linkable and needs no
-// client JavaScript.
+// on the server before anything reaches the browser.
 //
-// The promise is awaited here rather than in the page so that everything above it prerenders.
-// Reading a request-time value in the page body would make the whole route render on demand.
-async function Requested({ searchParams }: Params) {
+// `searchParams` is awaited in the page body, not inside a boundary, so the repository reaches the
+// form even without script (DX-100). Awaiting it there is what costs the static shell, and costs
+// it for every visit including a bare nav click; `instant = false` only stops Next reporting that,
+// it does not cause it.
+export const instant = false;
+
+export default async function GapAnalysisPage({ searchParams }: Params) {
   const { repo } = await searchParams;
   const target = (Array.isArray(repo) ? repo[0] : repo)?.trim() ?? "";
 
-  return (
-    <>
-      <RepoForm target={target} />
-      {target ? (
-        <Suspense key={target} fallback={<Pending repo={target} />}>
-          <Result repo={target} />
-        </Suspense>
-      ) : null}
-    </>
-  );
-}
-
-export default function GapAnalysisPage({ searchParams }: Params) {
   return (
     <div className="flex flex-col gap-10">
       <header className="flex max-w-2xl flex-col gap-3">
@@ -168,11 +176,15 @@ export default function GapAnalysisPage({ searchParams }: Params) {
         </p>
       </header>
 
-      {/* The fallback is the same form with an empty field, so the prerendered shell already
-          shows a usable control and only the value filled from the URL streams in. */}
-      <Suspense fallback={<RepoForm target="" />}>
-        <Requested searchParams={searchParams} />
-      </Suspense>
+      <RepoForm target={target} />
+
+      {/* Only the analysis stays behind a boundary: it is a GitHub round trip, and which failure
+          it hits decides whether the prompt or a notice follows. */}
+      {target ? (
+        <Suspense key={target} fallback={<Pending repo={target} />}>
+          <Result repo={target} />
+        </Suspense>
+      ) : null}
     </div>
   );
 }

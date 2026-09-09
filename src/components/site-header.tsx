@@ -39,7 +39,10 @@ export function SiteHeader() {
         <nav className="ml-auto hidden items-center gap-5 sm:flex">
           <NavLinks />
           {/* Reading the session queries Postgres, so it stays behind its own boundary and the
-              rest of the header paints without waiting on it. */}
+              rest of the header paints without waiting on it. The fallback stays null: the
+              signed-out control there would show every signed-in reader "Log in" for the
+              300-1900ms the session takes. The <noscript> covers them instead (DX-100). */}
+          <NoScriptLoginLink />
           <Suspense fallback={null}>
             <AuthControl />
           </Suspense>
@@ -47,6 +50,7 @@ export function SiteHeader() {
 
         <NavMenu>
           <NavLinks />
+          <NoScriptLoginLink />
           <Suspense fallback={null}>
             <AuthControl />
           </Suspense>
@@ -72,16 +76,34 @@ function NavLinks() {
   );
 }
 
+const loginHref = "/login";
+const loginLabel = "Log in";
+
+function LoginLink() {
+  return (
+    <Link href={loginHref} className={navLink}>
+      {loginLabel}
+    </Link>
+  );
+}
+
+// Boundary content is moved into place by an inline `$RC` call, so a client that runs no script
+// never sees it. Set as markup, not elements: a browser with scripts on parses <noscript> as
+// text, which would mismatch on hydration. Shares its constants with `LoginLink`.
+function NoScriptLoginLink() {
+  return (
+    <noscript
+      dangerouslySetInnerHTML={{
+        __html: `<a class="${navLink}" href="${loginHref}">${loginLabel}</a>`,
+      }}
+    />
+  );
+}
+
 async function AuthControl() {
   const session = await getSession();
 
-  if (!session) {
-    return (
-      <Link href="/login" className={navLink}>
-        Log in
-      </Link>
-    );
-  }
+  if (!session) return <LoginLink />;
 
   return (
     <div className="flex items-center gap-3">
