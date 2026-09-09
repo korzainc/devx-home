@@ -4,7 +4,8 @@ import { BUNDLED_ARCHIVE_NAME } from "@/lib/artifact";
 import { shellQuote } from "@/lib/shell-quote";
 
 // Serve the vendored installer with this deployment's interim bundled distribution,
-// including in production. DX-161 replaces this distribution path.
+// including in production. Switching to published release assets is a later step;
+// see the release handoff section in the README.
 // Reconcile installer fixes with korza-cli when updating the script, archive and checksum.
 
 export function artifactPaths() {

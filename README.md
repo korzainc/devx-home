@@ -150,10 +150,12 @@ login HTML. This is response-format validation, not authentication of a script.
 
 ### Release handoff and validation
 
-The bundle remains an ad-hoc-signed prerelease candidate. Public distribution
-and the release transition are tracked in DX-161. A Vercel login page will stop
-the terminal installer; the HTML guard does not bypass deployment protection.
-The chosen host must serve `/setup` and the bundle without browser authentication.
+The bundle remains an ad-hoc-signed prerelease candidate. DX-161 covered public
+distribution and was canceled on 2026-09-09 as superseded by the deployment-origin
+flow, so the release transition below is not currently tracked by a ticket. A
+Vercel login page will stop the terminal installer; the HTML guard does not
+bypass deployment protection. The chosen host must serve `/setup` and the bundle
+without browser authentication.
 Keep the checksum sidecar accessible for manual verification as well.
 
 When the CLI release is ready:
