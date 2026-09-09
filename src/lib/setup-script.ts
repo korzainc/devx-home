@@ -6,27 +6,27 @@ import { shellQuote } from "@/lib/shell-quote";
 // including in production. DX-161 replaces this distribution path.
 // Reconcile installer fixes with devx-cli when updating the script, archive and checksum.
 
-/** Bump this alongside the files committed under public/devx/. */
+/** Bump this alongside the files committed under public/korza/. */
 export const BUNDLED_ARTIFACT_VERSION = "0.1.0";
-const TARBALL_NAME = `devx-${BUNDLED_ARTIFACT_VERSION}-macos.tar.gz`;
+const TARBALL_NAME = `korza-${BUNDLED_ARTIFACT_VERSION}-macos.tar.gz`;
 
 export function artifactPaths() {
   return {
-    tarball: `/devx/${TARBALL_NAME}`,
-    checksum: `/devx/${TARBALL_NAME}.sha256`,
+    tarball: `/korza/${TARBALL_NAME}`,
+    checksum: `/korza/${TARBALL_NAME}.sha256`,
   };
 }
 
 function canonicalInstallScript(): string {
   return readFileSync(
-    join(process.cwd(), "public", "devx", "install.sh"),
+    join(process.cwd(), "public", "korza", "install.sh"),
     "utf8",
   );
 }
 
 function bundledChecksum(): string {
   const [digest, filename, ...extra] = readFileSync(
-    join(process.cwd(), "public", "devx", `${TARBALL_NAME}.sha256`),
+    join(process.cwd(), "public", "korza", `${TARBALL_NAME}.sha256`),
     "utf8",
   )
     .trim()
@@ -36,7 +36,7 @@ function bundledChecksum(): string {
     filename !== TARBALL_NAME ||
     extra.length !== 0
   ) {
-    throw new Error("The bundled devx checksum is invalid.");
+    throw new Error("The bundled korza checksum is invalid.");
   }
   return digest.toLowerCase();
 }

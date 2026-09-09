@@ -8,7 +8,7 @@ import { faq, manualCommands, walkthrough } from "@/lib/getting-started";
 export const metadata: Metadata = {
   title: "Getting started",
   description:
-    "Install devx in one command, then follow the guided Korza toolchain setup or run each step yourself.",
+    "Install korza in one command, then follow the guided Korza toolchain setup or run each step yourself.",
 };
 
 function Pair({
@@ -50,7 +50,7 @@ export default function GettingStartedPage() {
             className="absolute -top-10 -left-12 -z-10 h-36 w-96 max-w-full rounded-full bg-accent/20 blur-3xl"
           />
           <h1 className="font-display text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-            Install devx in one command.
+            Install korza in one command.
           </h1>
           <p className="max-w-lg text-lg leading-relaxed text-ink-muted">
             Then run the exact setup command printed by the installer to check
@@ -98,9 +98,9 @@ export default function GettingStartedPage() {
           Guided setup.
         </h2>
         <p className="text-ink-muted">
-          devx checks your machine and helps install and configure the tools you
-          choose. Sign-ins and administrator prompts stay in your terminal or
-          browser.
+          korza checks your machine and helps install and configure the tools
+          you choose. Sign-ins and administrator prompts stay in your terminal
+          or browser.
         </p>
         <p className="text-ink-muted">
           If a step cannot finish, for example because access needs someone
@@ -156,7 +156,7 @@ export default function GettingStartedPage() {
               </details>
             ))}
             <p className={caption}>
-              Manual alternatives for the tools available in devx setup.
+              Manual alternatives for the tools available in korza setup.
             </p>
           </>
         }
@@ -165,7 +165,7 @@ export default function GettingStartedPage() {
           Prefer to run each step yourself?
         </h2>
         <p className="text-ink-muted">
-          Use these commands to set up the tools independently of devx.
+          Use these commands to set up the tools independently of korza.
         </p>
         <p className="text-ink-muted">
           The manual installers manage their own shell configuration. Follow

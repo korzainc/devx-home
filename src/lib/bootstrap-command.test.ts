@@ -92,7 +92,7 @@ describe("bootstrap command", () => {
     vi.stubEnv("NODE_ENV", environment);
     const result = runBootstrap({ url, body: "<html>login</html>\n" });
     expect(result.status).toBe(1);
-    expect(result.stderr).toBe("devx: unexpected installer response\n");
+    expect(result.stderr).toBe("korza: unexpected installer response\n");
   });
 
   it.each([18, 22])(
@@ -130,7 +130,7 @@ describe("bootstrap command", () => {
     const result = runBootstrap({ body });
     expect(result.status).toBe(1);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toBe("devx: unexpected installer response\n");
+    expect(result.stderr).toBe("korza: unexpected installer response\n");
   });
 
   it.each([
@@ -148,7 +148,7 @@ describe("bootstrap command", () => {
     const result = runBootstrap({ body });
     expect(result.status).toBe(1);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toBe("devx: unexpected installer response\n");
+    expect(result.stderr).toBe("korza: unexpected installer response\n");
   });
 
   it("preserves curl's failure status for a partial response", () => {

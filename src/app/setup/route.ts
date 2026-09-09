@@ -5,7 +5,7 @@ export function GET(): Response {
   const origin = getSetupOrigin();
   if (!origin) {
     return new Response(
-      "#!/bin/sh\n# The devx installer URL is not configured. Use the manual setup steps.\nexit 1\n",
+      "#!/bin/sh\n# The korza installer URL is not configured. Use the manual setup steps.\nexit 1\n",
       {
         status: 503,
         headers: {
@@ -22,7 +22,7 @@ export function GET(): Response {
     // Preserve a shell-safe error for direct consumers of this endpoint.
     // The site's bootstrap command stops on the HTTP error before execution.
     return new Response(
-      "#!/bin/sh\n# The devx installer is temporarily unavailable.\n" +
+      "#!/bin/sh\n# The korza installer is temporarily unavailable.\n" +
         "# Nothing was installed. Please report this in #devx.\n" +
         "exit 1\n",
       {

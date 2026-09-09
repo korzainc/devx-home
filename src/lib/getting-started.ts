@@ -100,7 +100,7 @@ export const manualCommands: {
       "curl -LsSf https://astral.sh/uv/install.sh | sh",
       "uv python install",
     ],
-    note: "Optional. The installer writes PATH setup into your shell config rather than the current shell, so open a new terminal (or run source $HOME/.local/bin/env) before the second command, or uv will not be found. A system or pyenv Python does not count here: this is specifically a uv-managed one, since that is what devx installs and verifies.",
+    note: "Optional. The installer writes PATH setup into your shell config rather than the current shell, so open a new terminal (or run source $HOME/.local/bin/env) before the second command, or uv will not be found. A system or pyenv Python does not count here: this is specifically a uv-managed one, since that is what korza installs and verifies.",
   },
   {
     tool: "Node (fnm)",
@@ -118,7 +118,7 @@ export const manualCommands: {
 export const faq: { q: string; a: string }[] = [
   {
     q: "What does it change on my machine?",
-    a: "devx setup installs missing tools and configures Git and GitHub access. It keeps its shell configuration in one marked block in ~/.zshrc. devx setup --remove removes that block. The manual installers manage their own shell configuration separately.",
+    a: "korza setup installs missing tools and configures Git and GitHub access. It keeps its shell configuration in one marked block in ~/.zshrc. korza setup --remove removes that block. The manual installers manage their own shell configuration separately.",
   },
   {
     q: "Can I run it more than once?",

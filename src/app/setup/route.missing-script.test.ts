@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-// The route reads public/devx/install.sh from disk. Next's
+// The route reads public/korza/install.sh from disk. Next's
 // "standalone" output requires public/ to be copied next to server.js by hand,
 // so a missed copy step makes that read throw at runtime. Direct shell consumers
 // should still receive a shell-safe failure instead of an HTML error page.

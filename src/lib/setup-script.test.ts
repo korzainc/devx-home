@@ -17,7 +17,7 @@ function checksumFixture(contents?: string) {
   const parent = join(process.cwd(), ".claude", "setup-script-tests");
   mkdirSync(parent, { recursive: true });
   const root = mkdtempSync(join(parent, "case-"));
-  const assets = join(root, "public", "devx");
+  const assets = join(root, "public", "korza");
   mkdirSync(assets, { recursive: true });
   writeFileSync(join(assets, "install.sh"), "#!/bin/sh\nset -eu\n");
   if (contents !== undefined) {
@@ -69,7 +69,7 @@ describe("bundled setup artifact", () => {
   ])("rejects a committed sidecar with %s", (_label, contents) => {
     checksumFixture(contents);
     expect(() => setupScript("https://preview.example")).toThrow(
-      "The bundled devx checksum is invalid.",
+      "The bundled korza checksum is invalid.",
     );
   });
 });

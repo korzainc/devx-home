@@ -41,7 +41,7 @@ function install(scenario: Scenario = {}) {
     scenario.fresh ? "new tools' bin" : "destination",
   );
   for (const path of [bin, stage, destination]) mkdirSync(path);
-  const target = join(destination, "devx");
+  const target = join(destination, "korza");
   const directory = join(root, "existing-directory");
   if (scenario.destination) {
     mkdirSync(directory);
@@ -86,29 +86,29 @@ switch (name) {
   case "rm": event("cleanup-retained"); break;
   case "curl": {
     check(args.length === 4 && args[0] === "-fsSL" && args[2] === "-o");
-    const checksum = args[1] === "https://fixture.invalid/devx.sha256";
-    check(checksum || args[1] === "https://fixture.invalid/devx");
-    check(args[3] === path.join(stage, checksum ? "devx.sha256" : "devx.tar.gz"));
+    const checksum = args[1] === "https://fixture.invalid/korza.sha256";
+    check(checksum || args[1] === "https://fixture.invalid/korza");
+    check(args[3] === path.join(stage, checksum ? "korza.sha256" : "korza.tar.gz"));
     fs.appendFileSync(path.join(root, "downloads"), args[1] + "\n");
     if (checksum && scenario.checksum === "missing") process.exit(22);
     const payload = ${JSON.stringify(ARCHIVE_PAYLOAD)};
     const digest = scenario.checksum === "mismatch" ? "0".repeat(64) : crypto.createHash("sha256").update(payload).digest("hex");
-    fs.writeFileSync(args[3], checksum ? digest + "  devx.tar.gz\n" : payload);
+    fs.writeFileSync(args[3], checksum ? digest + "  korza.tar.gz\n" : payload);
     break;
   }
   case "shasum":
-    check(args.join(" ") === "-a 256 " + path.join(stage, "devx.tar.gz"));
+    check(args.join(" ") === "-a 256 " + path.join(stage, "korza.tar.gz"));
     process.stdout.write(crypto.createHash("sha256").update(fs.readFileSync(args[2])).digest("hex") + "  archive\n");
     break;
   case "tar":
-    check(args[1] === path.join(stage, "devx.tar.gz"));
+    check(args[1] === path.join(stage, "korza.tar.gz"));
     if (args[0] === "-tzf") break;
     check(args[0] === "-xzf" && args[2] === "-C" && args[3] === stage);
     event("extract");
-    fs.copyFileSync(path.join(root, "fixture"), path.join(stage, "devx"));
+    fs.copyFileSync(path.join(root, "fixture"), path.join(stage, "korza"));
     break;
   case "codesign":
-    check(args.at(-1) === path.join(stage, "devx"));
+    check(args.at(-1) === path.join(stage, "korza"));
     if (args[0] === "--verify") {
       if (scenario.signature) process.exit(1);
       fs.writeFileSync(path.join(root, "signed"), "valid fixture signature");
@@ -137,6 +137,7 @@ switch (name) {
   }
   for (const [name, systemPath] of Object.entries({
     chmod: "/bin/chmod",
+    ln: "/bin/ln",
     mkdir: "/bin/mkdir",
     mv: "/bin/mv",
     cut: "/usr/bin/cut",
@@ -146,7 +147,7 @@ switch (name) {
     symlinkSync(systemPath, join(bin, name));
   }
   if (scenario.path === "shadowed") {
-    writeFileSync(join(bin, "devx"), "#!/bin/sh\nprintf 'wrong binary\\n'\n", {
+    writeFileSync(join(bin, "korza"), "#!/bin/sh\nprintf 'wrong binary\\n'\n", {
       mode: 0o755,
     });
   }
@@ -158,7 +159,7 @@ switch (name) {
         : bin;
   const result = spawnSync(
     "/bin/sh",
-    [join(process.cwd(), "public/devx/install.sh")],
+    [join(process.cwd(), "public/korza/install.sh")],
     {
       cwd: root,
       env: {
@@ -166,7 +167,7 @@ switch (name) {
         PATH: commandPath,
         TMPDIR: stage,
         DEVX_BIN_DIR: destination,
-        DEVX_DIST_URL: "https://fixture.invalid/devx",
+        DEVX_DIST_URL: "https://fixture.invalid/korza",
         ...(scenario.expectedDigest !== undefined
           ? { DEVX_DIST_SHA256: scenario.expectedDigest }
           : {}),
@@ -198,7 +199,7 @@ describe(
       (expectedDigest) => {
         const result = install({ expectedDigest, checksum: "missing" });
         expect(result.status, result.stderr).toBe(0);
-        expect(result.downloads).toEqual(["https://fixture.invalid/devx"]);
+        expect(result.downloads).toEqual(["https://fixture.invalid/korza"]);
         expect(readFileSync(result.target, "utf8")).toBe(result.fixture);
       },
     );
@@ -207,7 +208,7 @@ describe(
       const result = install({ expectedDigest: "0".repeat(64) });
       expect(result.status).toBe(1);
       expect(result.stderr).toContain("does not match");
-      expect(result.downloads).toEqual(["https://fixture.invalid/devx"]);
+      expect(result.downloads).toEqual(["https://fixture.invalid/korza"]);
       expect(result.events).toEqual(["cleanup-retained"]);
       expect(readFileSync(result.target, "utf8")).toBe("previous installation");
     });
@@ -218,7 +219,7 @@ describe(
         const result = install({ expectedDigest });
         expect(result.status).toBe(1);
         expect(result.stderr).toContain("exactly 64 hexadecimal characters");
-        expect(result.downloads).toEqual(["https://fixture.invalid/devx"]);
+        expect(result.downloads).toEqual(["https://fixture.invalid/korza"]);
         expect(result.events).toEqual(["cleanup-retained"]);
         expect(readFileSync(result.target, "utf8")).toBe(
           "previous installation",
@@ -230,8 +231,8 @@ describe(
       const result = install();
       expect(result.status, result.stderr).toBe(0);
       expect(result.downloads).toEqual([
-        "https://fixture.invalid/devx",
-        "https://fixture.invalid/devx.sha256",
+        "https://fixture.invalid/korza",
+        "https://fixture.invalid/korza.sha256",
       ]);
     });
 
@@ -268,11 +269,11 @@ describe(
         const command = result.stdout.match(/Start setup:\n {4}([^\n]+)/)?.[1];
         expect(command).toBeDefined();
         if (path === "installed") {
-          expect(command).toBe("devx setup");
-          expect(result.stdout).toContain("    devx --help\n");
+          expect(command).toBe("korza setup");
+          expect(result.stdout).toContain("    korza --help\n");
         } else {
-          expect(command).not.toBe("devx setup");
-          expect(result.stdout).not.toContain("    devx --help\n");
+          expect(command).not.toBe("korza setup");
+          expect(result.stdout).not.toContain("    korza --help\n");
         }
         const setup = spawnSync("/bin/sh", ["-c", command!], {
           cwd: result.root,
@@ -332,7 +333,7 @@ describe(
         expect(readFileSync(join(result.target, "keep"), "utf8")).toBe(
           "existing contents",
         );
-        expect(existsSync(join(result.target, "devx"))).toBe(false);
+        expect(existsSync(join(result.target, "korza"))).toBe(false);
       },
     );
   },
