@@ -41,9 +41,9 @@ export const CATEGORY_FALLBACK: SkillCategory = "Make";
 /**
  * Every live skill, keyed by id because `tdd` and `code-review` each name two.
  *
- * Setup and meta rows are classified too, even though they render in their own collapsed section
- * and never reach a heading: they carry a category upstream, and leaving them on the old taxonomy
- * would mean two vocabularies in one file.
+ * Setup and meta rows sit under these headings like everything else. They sort to the foot of
+ * theirs and the card marks them, which is the whole of the distinction now: the collapsed band
+ * they used to live in put nine rows outside every filter for no reason the data supported.
  */
 export const skillCategories: Record<string, SkillCategory> = {
   // codezen

@@ -14,13 +14,8 @@ import { AUDIENCES, skillAudiences } from "@/data/skill-audiences";
 import { PluginsCatalogue } from "@/components/plugins-catalogue";
 import { SkillsCatalogue } from "@/components/skills-catalogue";
 import { entryHaystack, matchesQuery } from "@/lib/search";
-import {
-  browsableSkills,
-  plugins,
-  skillFacets,
-  skills,
-  toolchainSkills,
-} from "@/lib/catalogue";
+import { skillLink } from "@/lib/skill-link";
+import { plugins, skillFacets, skills } from "@/lib/catalogue";
 import { CATEGORIES } from "@/data/skill-categories";
 import { skillCountByPlugin } from "@/lib/catalogue-entries";
 
@@ -44,9 +39,7 @@ beforeEach(() => {
 });
 
 function renderPage() {
-  render(
-    <SkillsCatalogue entries={browsableSkills} toolchain={toolchainSkills} />,
-  );
+  render(<SkillsCatalogue entries={skills} />);
 }
 
 /** Skill cards are links to a plugin page; the sidebar contains no such links. */
@@ -54,6 +47,18 @@ function cardCount() {
   return screen
     .queryAllByRole("link")
     .filter((node) => node.getAttribute("href")?.startsWith("/skills/")).length;
+}
+
+/** The rows on screen, in the order they are drawn. Resolved through the href rather than the
+ *  name, because two plugins can ship a skill of the same name. */
+function onScreen() {
+  const byHref = new Map(
+    skills.map((skill) => [skillLink(skill.plugin, skill.name), skill]),
+  );
+  return screen
+    .queryAllByRole("link")
+    .map((node) => byHref.get(node.getAttribute("href") ?? ""))
+    .filter((skill) => skill !== undefined);
 }
 
 /** The card for one skill. The name is split across elements, so match the link's own name. */
@@ -93,12 +98,17 @@ function pick(facet: string, value: string) {
   fireEvent.click(option(facet, value));
 }
 
-/** A plugin that ships both classified and toolchain rows, so a count taken over the wrong pool
- *  reads differently from one taken over the right one. */
+/** Setup and meta rows: they sit under the same headings as everything else, but sort last and
+ *  carry a marker. Named by kind rather than by id, so a sync that adds one is covered. */
+const TOOLCHAIN = skills.filter((skill) => skill.kind !== "skill");
+
+/** A plugin that ships both kinds, so a facet count taken over only one of them reads
+ *  differently from one taken over both. */
 const SHARED_PLUGIN = plugins.find(
   (plugin) =>
-    browsableSkills.some((skill) => skill.plugin === plugin.id) &&
-    toolchainSkills.some((skill) => skill.plugin === plugin.id),
+    skills.some(
+      (skill) => skill.plugin === plugin.id && skill.kind === "skill",
+    ) && TOOLCHAIN.some((skill) => skill.plugin === plugin.id),
 )!.id;
 
 /**
@@ -112,17 +122,33 @@ function settledCount() {
   return screen.getByRole("status").textContent;
 }
 
-/** Collapsed by default, so counting its cards means opening it. */
-function expandToolchain() {
-  const toggle = screen.getByRole("button", { name: /^Setup and toolchain/ });
-  if (toggle.getAttribute("aria-expanded") !== "true") fireEvent.click(toggle);
-}
-
 describe("the skills catalogue", () => {
-  it("lists every skill in the index, classified or not", () => {
+  it("lists every skill in the index, under a heading, with nothing set aside", () => {
     renderPage();
-    expandToolchain();
     expect(cardCount()).toBe(skills.length);
+    // The band these rows used to sit in is gone: they are in the sections now, which is what
+    // makes the facets and the headings reach them at all.
+    expect(TOOLCHAIN.length).toBeGreaterThan(0);
+    expect(screen.queryByText(/^Setup and toolchain/)).toBeNull();
+    const drawn = new Set(onScreen().map((skill) => skill.id));
+    for (const skill of TOOLCHAIN)
+      expect(drawn.has(skill.id), skill.id).toBe(true);
+  });
+
+  it("marks the setup and meta rows, and sorts them last under their heading", () => {
+    renderPage();
+    // Without the marker a reader scanning Make cannot tell a skill that does the work from one
+    // that configures the toolchain, since both now read as ordinary cards.
+    expect(screen.getAllByText("tooling").length).toBe(TOOLCHAIN.length);
+
+    const drawn = onScreen();
+    for (const category of CATEGORIES) {
+      const kinds = drawn
+        .filter((skill) => skill.category === category)
+        .map((skill) => skill.kind !== "skill");
+      // Once true, never false again: every setup or meta row follows every ordinary one.
+      expect(kinds, category).toEqual([...kinds].sort());
+    }
   });
 
   it("draws exactly the facets skillFacets defines, and none for category", () => {
@@ -160,7 +186,7 @@ describe("the skills catalogue", () => {
     // Every category the rows actually reach, and nothing else: an empty one is dropped rather
     // than drawn over an empty grid.
     const reached = CATEGORIES.filter((category) =>
-      browsableSkills.some((skill) => skill.category === category),
+      skills.some((skill) => skill.category === category),
     );
     expect(headings).toEqual([...reached]);
   });
@@ -175,7 +201,7 @@ describe("the skills catalogue", () => {
       .getAllByRole("heading", { level: 2 })
       .map((node) => node.textContent);
     const reached = CATEGORIES.filter((category) =>
-      browsableSkills.some(
+      skills.some(
         (skill) =>
           skill.category === category &&
           (skill.audiences.includes("Business") ||
@@ -186,50 +212,48 @@ describe("the skills catalogue", () => {
     expect(headings.length).toBeGreaterThan(1);
   });
 
-  it("narrows to a facet and keeps the toolchain rows listed", () => {
+  it("narrows to a facet, and the facet reaches the setup and meta rows too", () => {
     renderPage();
     pick("Origin", "Korza");
-    expandToolchain();
 
-    const inOrigin = browsableSkills.filter(
-      (skill) => skill.origin === "Korza",
-    ).length;
-    expect(inOrigin).toBeGreaterThan(0);
-    expect(cardCount()).toBe(inOrigin + toolchainSkills.length);
+    const inOrigin = skills.filter((skill) => skill.origin === "Korza");
+    expect(inOrigin.length).toBeGreaterThan(0);
+    expect(inOrigin.length).toBeLessThan(skills.length);
+    expect(cardCount()).toBe(inOrigin.length);
+    // The point of the fold: origin, plugin and agent were always on these rows, and routing
+    // them around the facets was the only thing keeping a pick from finding them.
+    expect(inOrigin.some((skill) => skill.kind !== "skill")).toBe(true);
   });
 
-  it("counts a facet over the classified rows only", () => {
+  it("counts a facet over every row it will show, both kinds", () => {
     renderPage();
-    // The toolchain rows carry a plugin too, so counting them inflates the tally.
-    const classified = browsableSkills.filter(
+    const inPlugin = skills.filter(
       (skill) => skill.plugin === SHARED_PLUGIN,
     ).length;
 
-    // The option text, not just the card count: leaking the toolchain rows into the tally makes
-    // the option read one number while clicking it shows another.
+    // The option text, not just the card count: counting one pool and filtering another makes
+    // the option read one number while clicking it shows a different one.
     expect(option("Plugin", SHARED_PLUGIN).closest("label")?.textContent).toBe(
-      `${SHARED_PLUGIN}${classified}`,
+      `${SHARED_PLUGIN}${inPlugin}`,
     );
     pick("Plugin", SHARED_PLUGIN);
-    expandToolchain();
-    expect(cardCount()).toBe(classified + toolchainSkills.length);
+    expect(cardCount()).toBe(inPlugin);
   });
 
-  it("searches the toolchain rows even though it cannot filter them", () => {
+  it("searches the setup and meta rows", () => {
     renderPage();
     fireEvent.change(search(), { target: { value: "credentials" } });
-    expandToolchain();
 
-    const shown = cardCount();
-    expect(shown).toBeGreaterThan(0);
-    expect(shown).toBeLessThan(skills.length);
-    expect(card("setup")).toBeTruthy();
-    // A toolchain row the query does NOT match, or this cannot tell "search reaches them" from
-    // "they are always listed in full".
-    // Guard first: without it, renaming `teach` upstream makes this pass for the trivial
-    // reason and the test silently stops distinguishing anything.
-    expect(toolchainSkills.some((skill) => skill.name === "teach")).toBe(true);
-    expect(card("teach")).toBeNull();
+    const shown = onScreen();
+    expect(shown.length).toBeGreaterThan(0);
+    expect(shown.length).toBeLessThan(skills.length);
+    expect(shown.some((skill) => skill.id === "codezen:skills/setup")).toBe(
+      true,
+    );
+    // A setup or meta row the query does NOT match, or this cannot tell "search reaches them"
+    // from "they are always listed in full".
+    expect(TOOLCHAIN.some((skill) => skill.name === "teach")).toBe(true);
+    expect(shown.some((skill) => skill.name === "teach")).toBe(false);
   });
 
   it("finds a skill by the job it does, not only by its name", () => {
@@ -239,7 +263,7 @@ describe("the skills catalogue", () => {
     expect(cardCount()).toBeGreaterThan(0);
     expect(cardCount()).toBeLessThan(skills.length);
 
-    const byJobsOnly = browsableSkills.filter(
+    const byJobsOnly = skills.filter(
       (skill) =>
         skill.jobs.some((job) => job.includes("pull request")) &&
         !(skill.summary ?? "").includes("pull request"),
@@ -250,7 +274,7 @@ describe("the skills catalogue", () => {
   // Paired with the test above: together they pin `jobs` into the haystack and out of the card.
   it("does not draw the jobs it searches", () => {
     renderPage();
-    const withJob = browsableSkills.find((skill) =>
+    const withJob = skills.find((skill) =>
       skill.jobs.some((job) => job.includes("pull request")),
     )!;
     expect(card(withJob.name)).toBeTruthy();
@@ -267,7 +291,6 @@ describe("the skills catalogue", () => {
     expect(cardCount()).toBeLessThan(skills.length);
 
     pick("Agent", "Codex CLI");
-    expandToolchain();
     expect(cardCount()).toBe(skills.length);
     expect(screen.queryByRole("button", { name: "Clear all" })).toBeNull();
   });
@@ -276,10 +299,10 @@ describe("the skills catalogue", () => {
     renderPage();
     pick(AUDIENCE, "Sales");
 
-    const tagged = browsableSkills.filter((skill) =>
+    const tagged = skills.filter((skill) =>
       skillAudiences[skill.id].includes("Sales"),
     );
-    const withAll = browsableSkills.filter((skill) => {
+    const withAll = skills.filter((skill) => {
       const mine = skillAudiences[skill.id];
       return mine.includes("Sales") || mine.includes("All");
     });
@@ -295,10 +318,10 @@ describe("the skills catalogue", () => {
     renderPage();
     pick(AUDIENCE, "All");
 
-    const expected = browsableSkills.filter((skill) =>
+    const expected = skills.filter((skill) =>
       skillAudiences[skill.id].includes("All"),
     );
-    expect(expected.length).toBeLessThan(browsableSkills.length);
+    expect(expected.length).toBeLessThan(skills.length);
     expect(cardCount()).toBe(expected.length);
   });
 
@@ -315,7 +338,7 @@ describe("the skills catalogue", () => {
     renderPage();
     for (const facet of skillFacets) {
       const values = new Set(
-        browsableSkills.flatMap((skill) => {
+        skills.flatMap((skill) => {
           const value = skill[facet.key as keyof typeof skill];
           return Array.isArray(value) ? value : [String(value)];
         }),
@@ -382,22 +405,14 @@ describe("the page around the grid", () => {
     expect(screen.getByText("No skill matches those filters.")).toBeTruthy();
   });
 
-  it("passes the toolchain rows through the tabs", () => {
-    // Dropping `toolchain` from the CatalogueTabs call makes the whole section vanish, and
-    // rendering SkillsCatalogue directly cannot see it.
-    render(
-      <CatalogueTabs
-        plugins={plugins}
-        skills={browsableSkills}
-        toolchain={toolchainSkills}
-      />,
-    );
+  it("passes the whole pool through the tabs, setup and meta rows included", () => {
+    // The tab count and the grid read the same array now. Handing the panel a filtered one
+    // would leave the tab promising rows the grid never draws.
+    render(<CatalogueTabs plugins={plugins} skills={skills} />);
     fireEvent.click(screen.getByRole("tab", { name: /^Skills/ }));
-    expect(
-      screen.getByText(`Setup and toolchain`, { exact: false }),
-    ).toBeTruthy();
+    expect(cardCount()).toBe(skills.length);
     expect(screen.getByRole("tab", { name: /^Skills/ }).textContent).toContain(
-      String(browsableSkills.length + toolchainSkills.length),
+      String(skills.length),
     );
   });
 });
@@ -412,7 +427,7 @@ describe("what a card links to", () => {
     // below the install panel, so `#<name>` landed the page at the bottom before any
     // JavaScript ran, and nothing on the page could opt out of it.
     renderPage();
-    const withDistinctName = browsableSkills.find(
+    const withDistinctName = skills.find(
       (skill) => skill.name !== skill.plugin,
     )!;
     expect(card(withDistinctName.name)?.getAttribute("href")).toBe(
@@ -425,13 +440,7 @@ describe("the tabs switch panels", () => {
   it("shows one panel at a time, and switching changes which", () => {
     // getByRole respects `hidden`; getByText does not, which is why clicking a tab used to be
     // provable without the click doing anything.
-    render(
-      <CatalogueTabs
-        plugins={plugins}
-        skills={browsableSkills}
-        toolchain={toolchainSkills}
-      />,
-    );
+    render(<CatalogueTabs plugins={plugins} skills={skills} />);
     const panel = () =>
       screen.getByRole("tabpanel").getAttribute("aria-labelledby");
 
@@ -443,65 +452,39 @@ describe("the tabs switch panels", () => {
   });
 });
 
-describe("a search that only the toolchain matches", () => {
+describe("a search that only the setup and meta rows match", () => {
   it("shows those rows rather than an empty grid", () => {
-    // The empty state is suppressed while these match, so leaving the section collapsed
-    // rendered nothing at all. "superpowers" hit this.
     renderPage();
     const onlyToolchain = "superpowers";
-    expect(
-      browsableSkills.some((skill) =>
-        matchesQuery(onlyToolchain, entryHaystack(skill)),
-      ),
-    ).toBe(false);
-    expect(
-      toolchainSkills.some((skill) =>
-        matchesQuery(onlyToolchain, entryHaystack(skill)),
-      ),
-    ).toBe(true);
+    const matched = skills.filter((skill) =>
+      matchesQuery(onlyToolchain, entryHaystack(skill)),
+    );
+    expect(matched.length).toBeGreaterThan(0);
+    expect(matched.every((skill) => skill.kind !== "skill")).toBe(true);
 
     fireEvent.change(search(), { target: { value: onlyToolchain } });
-    expect(cardCount()).toBeGreaterThan(0);
+    expect(cardCount()).toBe(matched.length);
     expect(screen.queryByText("No skill matches those filters.")).toBeNull();
   });
 
   it("treats a whitespace query as no query", () => {
-    // matchesQuery has no terms to apply, so a space is not a search and must not reveal
-    // the toolchain rows. Gating on `query !== ""` instead of on the parsed terms did.
+    // matchesQuery has no terms to apply, so a space must not narrow anything.
     renderPage();
-    expect(card("teach")).toBeNull();
     fireEvent.change(search(), { target: { value: "   " } });
-    expect(card("teach")).toBeNull();
+    expect(cardCount()).toBe(skills.length);
   });
 
-  it("does not answer a faceted search with unfaceted rows", () => {
-    // The toolchain rows ignore facets, so they cannot be the result of a faceted search.
-    renderPage();
-    pick("Origin", "Korza");
-    fireEvent.change(search(), { target: { value: "bootstrap" } });
-    expect(screen.getByText("No skill matches those filters.")).toBeTruthy();
-    expect(cardCount()).toBe(0);
-  });
-
-  // "teach" is a toolchain row and matches nothing classified, so the counts stay unambiguous.
   it("says on screen what is on screen", () => {
-    // The count, the chevron and the empty state each used to read a different set: a search
-    // could reveal toolchain rows while the chevron said closed and the count said none. The
-    // count carries no visible copy now, so the status region is the only place it is stated,
-    // and the only place that disagreement can still be caught.
+    // The count carries no visible copy, so the status region is the only place it is stated,
+    // and the only place a disagreement with the grid can be caught.
     vi.useFakeTimers();
     try {
       renderPage();
-      const toggle = screen.getByRole("button", {
-        name: /^Setup and toolchain/,
-      });
-
       expect(settledCount()).toBe(
-        `${browsableSkills.length} of ${skills.length} skills shown.`,
+        `${skills.length} of ${skills.length} skills shown.`,
       );
 
       fireEvent.change(search(), { target: { value: "teach" } });
-      expect(toggle.getAttribute("aria-expanded")).toBe("true");
       expect(cardCount()).toBe(1);
       expect(settledCount()).toBe(`1 of ${skills.length} skills shown.`);
       expect(screen.queryByText("No skill matches those filters.")).toBeNull();
@@ -511,56 +494,12 @@ describe("a search that only the toolchain matches", () => {
     }
   });
 
-  it("does not put the empty state above a visible card", () => {
-    // Facets do not reach the toolchain rows, but with the section held open they are on
-    // screen, and an empty state above them told the reader the opposite of what they saw.
-    vi.useFakeTimers();
-    try {
-      renderPage();
-      expandToolchain();
-      fireEvent.change(search(), { target: { value: "teach" } });
-      pick("Origin", "Korza");
-
-      expect(cardCount()).toBe(1);
-      expect(screen.queryByText("No skill matches those filters.")).toBeNull();
-      expect(settledCount()).toBe(`1 of ${skills.length} skills shown.`);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("keeps the toggle working while a search has opened the section", () => {
-    // Deriving the open state from the search alone left the button pressing against itself.
-    renderPage();
-    fireEvent.change(search(), { target: { value: "teach" } });
-    const toggle = screen.getByRole("button", { name: /^Setup and toolchain/ });
-
-    fireEvent.click(toggle);
-    expect(toggle.getAttribute("aria-expanded")).toBe("false");
-    expect(cardCount()).toBe(0);
-  });
-
-  it("does not claim nothing matches while a collapsed section holds the match", () => {
-    // Collapsing search-revealed rows hides them; it does not make the match stop existing.
-    renderPage();
-
-    fireEvent.change(search(), { target: { value: "teach" } });
-    fireEvent.click(
-      screen.getByRole("button", { name: /^Setup and toolchain/ }),
-    );
-
-    expect(screen.queryByText("No skill matches those filters.")).toBeNull();
-    expect(cardCount()).toBe(0);
-  });
-
   it("still shows the empty state when a facet leaves nothing", () => {
-    // The toolchain rows match an empty query, so gating the empty state on them hid it
-    // whenever a facet combination found nothing.
     renderPage();
     pick("Plugin", "humanizer");
     pick("Agent", "Codex CLI");
     expect(
-      browsableSkills.some(
+      skills.some(
         (skill) =>
           skill.plugin === "humanizer" && skill.agents.includes("Codex CLI"),
       ),

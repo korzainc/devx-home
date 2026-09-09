@@ -1,11 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  browsableSkills,
-  skillFacets,
-  skills,
-  toolchainSkills,
-  type SkillEntry,
-} from "./catalogue";
+import { skillFacets, skills, type SkillEntry } from "./catalogue";
 import { filterEntries } from "./filter";
 
 type State = { selected: Record<string, string[]>; query: string };
@@ -71,7 +65,7 @@ describe("grid filtering", () => {
   it("gives every facet values that each match something and one that narrows", () => {
     for (const facet of skillFacets) {
       const values = new Set(
-        browsableSkills.flatMap((skill) => {
+        skills.flatMap((skill) => {
           const value = skill[facet.key as keyof SkillEntry];
           return Array.isArray(value) ? value : [String(value)];
         }),
@@ -80,10 +74,8 @@ describe("grid filtering", () => {
 
       const sizes = [...values].map((value) => ({
         value,
-        size: view(
-          { selected: { [facet.key]: [value] }, query: "" },
-          browsableSkills,
-        ).length,
+        size: view({ selected: { [facet.key]: [value] }, query: "" }, skills)
+          .length,
       }));
 
       for (const { value, size } of sizes) {
@@ -92,44 +84,31 @@ describe("grid filtering", () => {
         );
       }
       expect(
-        sizes.some(({ size }) => size < browsableSkills.length),
+        sizes.some(({ size }) => size < skills.length),
         `no value of ${facet.key} narrows the grid`,
       ).toBe(true);
     }
   });
 });
 
-describe("the two populations", () => {
-  it("splits the index in two and loses nothing", () => {
-    expect(browsableSkills.length + toolchainSkills.length).toBe(skills.length);
-    expect(
-      [...browsableSkills, ...toolchainSkills].map((s) => s.id).sort(),
-    ).toEqual(skills.map((s) => s.id).sort());
+describe("the two kinds of row", () => {
+  it("carries a kind on every row, and setup and meta are real values", () => {
+    // The catalogue no longer splits on this, but the grid sorts on it and the card marks it,
+    // so a sync that drops the field would silently unmark every setup row.
+    const kinds = new Set(skills.map((skill) => skill.kind));
+    expect([...kinds].sort()).toEqual(["meta", "setup", "skill"]);
   });
 
-  it("classifies by kind, with setup and meta on the unfaceted side", () => {
-    for (const skill of browsableSkills) expect(skill.kind).toBe("skill");
-    expect(toolchainSkills.length).toBeGreaterThan(0);
-    for (const skill of toolchainSkills) {
-      expect(["setup", "meta"]).toContain(skill.kind);
-    }
-  });
-
-  // A Category count including three ways of installing things describes the catalogue.
-  it("keeps toolchain rows out of every facet count", () => {
-    for (const facet of skillFacets) {
-      const options = new Set(
-        browsableSkills.flatMap((skill) => {
-          const value = skill[facet.key as keyof SkillEntry];
-          return Array.isArray(value) ? value : [String(value)];
-        }),
-      );
-      for (const value of options) {
-        const shown = view(
-          { selected: { [facet.key]: [value] }, query: "" },
-          browsableSkills,
-        );
-        for (const skill of shown) expect(skill.kind).toBe("skill");
+  it("gives the setup and meta rows the values every facet is built from", () => {
+    // The reason they could be folded in: origin, plugin and agents were always on them. A sync
+    // that leaves one blank puts a row behind a facet value no menu draws.
+    for (const skill of skills.filter((entry) => entry.kind !== "skill")) {
+      for (const facet of skillFacets) {
+        const value = skill[facet.key as keyof SkillEntry];
+        expect(
+          Array.isArray(value) ? value.length > 0 : Boolean(value),
+          `${skill.id} has no ${facet.key}`,
+        ).toBe(true);
       }
     }
   });

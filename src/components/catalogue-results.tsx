@@ -56,26 +56,16 @@ export function CatalogueResults<T extends { id: string }>({
   layout,
   renderCard,
   noun,
-  outsideMatches = 0,
 }: {
   sections: CatalogueSection<T>[];
   layout: "sections" | "grid";
   renderCard: (entry: T) => ReactNode;
   /** Singular, for the empty state. */
   noun: string;
-  /**
-   * Rows the same query reaches that the page renders somewhere else, so the empty state cannot
-   * contradict a card the reader can see. Counts what the query could show, not what is expanded:
-   * collapsing a section hides a match, it does not stop it matching.
-   */
-  outsideMatches?: number;
 }) {
   const shown = sections.flatMap((section) => section.entries);
 
-  if (shown.length === 0) {
-    if (outsideMatches > 0) return null;
-    return <NoMatches noun={noun} />;
-  }
+  if (shown.length === 0) return <NoMatches noun={noun} />;
 
   // Flattened from `sections`, not from the caller's full result list, so the flat view can never
   // surface an entry the grouped view drops for sitting in no section.

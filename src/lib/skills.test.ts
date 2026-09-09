@@ -120,10 +120,10 @@ describe("skill catalogue", () => {
     }
   });
 
-  it("keeps setup and meta skills out of the default browse", () => {
-    const hidden = skills.filter((skill) => skill.kind !== "skill");
-    expect(hidden.length).toBeGreaterThan(0);
-    for (const skill of hidden) {
+  it("marks the setup and meta skills apart from the rest", () => {
+    const toolchain = skills.filter((skill) => skill.kind !== "skill");
+    expect(toolchain.length).toBeGreaterThan(0);
+    for (const skill of toolchain) {
       expect(["setup", "meta"]).toContain(skill.kind);
     }
   });

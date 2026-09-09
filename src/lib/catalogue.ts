@@ -299,15 +299,6 @@ export const skills: SkillEntry[] = (
     category: skillCategories[skill.id] ?? CATEGORY_FALLBACK,
   }));
 
-export const browsableSkills: SkillEntry[] = skills.filter(
-  (skill) => skill.kind === "skill",
-);
-
-/** Listed and searchable, but outside every facet. */
-export const toolchainSkills: SkillEntry[] = skills.filter(
-  (skill) => skill.kind !== "skill",
-);
-
 export function skillsForPlugin(pluginId: string): SkillEntry[] {
   return skills.filter((skill) => skill.plugin === pluginId);
 }

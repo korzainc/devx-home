@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { CatalogueTabs } from "@/components/catalogue-tabs";
 import { SkillsFirstRunNudge } from "@/components/skills-first-run";
-import { browsableSkills, plugins, toolchainSkills } from "@/lib/catalogue";
+import { plugins, skills } from "@/lib/catalogue";
 import { parseFilterParam } from "@/lib/filter";
 
 export const metadata: Metadata = {
@@ -21,8 +21,7 @@ async function Tabs({ searchParams }: Params) {
   return (
     <CatalogueTabs
       plugins={plugins}
-      skills={browsableSkills}
-      toolchain={toolchainSkills}
+      skills={skills}
       initialSkillFilters={{
         for: parseFilterParam(params.for),
         agent: parseFilterParam(params.agent),
@@ -52,13 +51,7 @@ export default function SkillsPage({ searchParams }: Params) {
         {/* The fallback is the same tabs with no initial selection, so the prerendered shell
             already shows a usable catalogue and only the picks stream in. */}
         <Suspense
-          fallback={
-            <CatalogueTabs
-              plugins={plugins}
-              skills={browsableSkills}
-              toolchain={toolchainSkills}
-            />
-          }
+          fallback={<CatalogueTabs plugins={plugins} skills={skills} />}
         >
           <Tabs searchParams={searchParams} />
         </Suspense>

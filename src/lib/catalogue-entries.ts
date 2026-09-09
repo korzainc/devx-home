@@ -79,7 +79,8 @@ export type SkillEntry = CatalogueEntry & {
   pinned: boolean;
   /** From the local overlay, which replaces the generator's own taxonomy. */
   category: SkillCategory;
-  /** "setup" and "meta" are listed but never faceted. */
+  /** "setup" and "meta" configure or describe the toolchain rather than doing the work. Filtered
+   *  and grouped like the rest; they sort last under their heading and the card marks them. */
   kind: "skill" | "setup" | "meta";
   /** Searched, not rendered. */
   jobs: string[];

@@ -4,7 +4,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CatalogueTabs } from "@/components/catalogue-tabs";
-import { browsableSkills, plugins, toolchainSkills } from "@/lib/catalogue";
+import { plugins, skills } from "@/lib/catalogue";
 
 // The skills panel keeps its filters in the URL, so both panels reach for the router on mount.
 vi.mock("next/navigation", () => ({
@@ -22,13 +22,7 @@ vi.mock("next/navigation", () => ({
 afterEach(cleanup);
 
 function renderTabs() {
-  render(
-    <CatalogueTabs
-      plugins={plugins}
-      skills={browsableSkills}
-      toolchain={toolchainSkills}
-    />,
-  );
+  render(<CatalogueTabs plugins={plugins} skills={skills} />);
 }
 
 /**
@@ -95,10 +89,9 @@ describe("the tabs themselves", () => {
     expect(tab("Skills").getAttribute("aria-selected")).toBe("false");
   });
 
-  it("counts every skill row in the Skills tab, toolchain rows included", () => {
+  it("counts every skill row in the Skills tab", () => {
     renderTabs();
-    const total = browsableSkills.length + toolchainSkills.length;
-    expect(tab("Skills").textContent).toContain(String(total));
+    expect(tab("Skills").textContent).toContain(String(skills.length));
     expect(tab("Plugins").textContent).toContain(String(plugins.length));
   });
 

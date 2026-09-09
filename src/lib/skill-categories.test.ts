@@ -6,14 +6,14 @@ import {
   CATEGORY_NOTES,
   skillCategories,
 } from "@/data/skill-categories";
-import { browsableSkills, skills } from "@/lib/catalogue";
+import { skills } from "@/lib/catalogue";
 import { matchesAudience } from "@/lib/filter";
 
 // This overlay replaces a field the generator already fills, so it drifts more quietly than one
 // that adds a missing field: an id nobody has reclassified does not render blank, it renders under
 // the fallback as though someone had chosen it. These are the tests that notice.
 describe("skill categories", () => {
-  it("covers every live skill, toolchain rows included", () => {
+  it("covers every live skill", () => {
     const missing = skills
       .filter((skill) => !skillCategories[skill.id])
       .map((skill) => skill.id);
@@ -46,11 +46,9 @@ describe("skill categories", () => {
     expect(rendered.has("Build" as never)).toBe(false);
   });
 
-  it("puts at least one browsable skill under every heading", () => {
+  it("puts at least one skill under every heading", () => {
     for (const category of CATEGORIES) {
-      const held = browsableSkills.filter(
-        (skill) => skill.category === category,
-      );
+      const held = skills.filter((skill) => skill.category === category);
       expect(held.length, `nothing is classified ${category}`).toBeGreaterThan(
         0,
       );
@@ -71,7 +69,7 @@ describe("skill categories", () => {
    */
   it("leaves no heading empty for any audience", () => {
     for (const audience of AUDIENCES) {
-      const visible = browsableSkills.filter((skill) =>
+      const visible = skills.filter((skill) =>
         matchesAudience(skill, [audience]),
       );
       const empty = CATEGORIES.filter(

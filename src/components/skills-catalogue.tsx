@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { CatalogueCard } from "@/components/catalogue-card";
 import {
   CatalogueSearch,
   ChipRow,
   ResultCount,
 } from "@/components/catalogue-controls";
-import { CardGrid, CatalogueResults } from "@/components/catalogue-results";
+import { CatalogueResults } from "@/components/catalogue-results";
 import { FacetMenu } from "@/components/facet-menu";
 import {
   AUDIENCE_ANY,
@@ -22,7 +22,6 @@ import {
   type SkillEntry,
 } from "@/lib/catalogue-entries";
 import { filterEntries, matchesAudience } from "@/lib/filter";
-import { terms } from "@/lib/search";
 import { skillLink } from "@/lib/skill-link";
 import { useCatalogueFilters } from "@/lib/use-catalogue-filters";
 
@@ -47,6 +46,20 @@ function SkillCard({ skill }: { skill: SkillEntry }) {
           {skill.name}
         </span>
       }
+      /* Kept off the footer, which is already the agents and the plugin, and off the summary,
+         which is the skill's own words. A reader scanning a heading for work to hand over needs
+         to see at a glance that this row configures the toolchain instead.
+
+         "tooling", not "toolchain": at 390px the longer word costs enough width to wrap
+         /setup-matt-pocock-skills onto a second line, which pushes the clamped summary past the
+         card's fixed height and shears the last line. */
+      aside={
+        skill.kind !== "skill" ? (
+          <span className="shrink-0 rounded border border-line px-1.5 py-0.5 font-mono text-[0.625rem] text-ink-faint">
+            tooling
+          </span>
+        ) : undefined
+      }
       summary={skill.summary ?? skill.description}
       /* Claude Code is on every skill, so it says nothing alone: the signal is whether codex
          sits beside it. */
@@ -62,21 +75,14 @@ function SkillCard({ skill }: { skill: SkillEntry }) {
 
 export function SkillsCatalogue({
   entries,
-  toolchain = [],
   initial = {},
   sync = true,
 }: {
   entries: SkillEntry[];
-  /** Setup and meta skills: listed, searchable, never faceted. */
-  toolchain?: SkillEntry[];
   /** Selections off the query string, keyed by URL param. Validated against the real values. */
   initial?: Record<string, string[]>;
   sync?: boolean;
 }) {
-  // null follows the search; a click pins it. One value, so the chevron, the rows and the count
-  // cannot disagree.
-  const [pinned, setPinned] = useState<boolean | null>(null);
-
   const facetOptions = useMemo(
     () =>
       skillFacets.map((facet) => {
@@ -153,39 +159,23 @@ export function SkillsCatalogue({
     [entries, selected, query, pickedAudiences],
   );
 
-  // Query only: these rows sit outside every facet.
-  const visibleToolchain = useMemo(
-    () =>
-      filterEntries({ entries: toolchain, facets: [], selected: {}, query }),
-    [toolchain, query],
-  );
-
   const sections = CATEGORIES.map((category) => ({
     label: category,
     note: CATEGORY_NOTES[category],
-    entries: visible.filter((entry) => entry.category === category),
+    // Setup and meta rows sort to the foot of their heading. They belong to it -- writing-skills
+    // really is Make -- but they are about the toolchain rather than the work, and a reader
+    // scanning the first heading for something to reach for should not meet them first.
+    entries: visible
+      .filter((entry) => entry.category === category)
+      .sort((a, b) => Number(a.kind !== "skill") - Number(b.kind !== "skill")),
   })).filter((section) => section.entries.length > 0);
 
-  const searching = terms(query).length > 0;
-  const facetsActive =
-    pickedAudiences.length > 0 ||
-    Object.values(selected).some((values) => values.length > 0);
-  // A search reveals these rows; a facet cannot, since they sit outside every facet.
-  const toolchainShown = pinned ?? (searching && !facetsActive);
-  // Rows the results below must not call absent: either they are on screen, or the search reaches
-  // them and only a collapsed section is hiding them. Collapsing a match does not unmatch it.
-  const outsideMatches =
-    toolchainShown || (searching && !facetsActive)
-      ? visibleToolchain.length
-      : 0;
-
   // Counted from what the sections actually render, so the number can never include a skill that
-  // sits in none of the six, and never promises a toolchain row that is collapsed out of sight.
-  const inSections = sections.reduce(
+  // sits in none of the five.
+  const onScreen = sections.reduce(
     (sum, section) => sum + section.entries.length,
     0,
   );
-  const onScreen = inSections + (toolchainShown ? visibleToolchain.length : 0);
 
   return (
     <div className="flex flex-col gap-6">
@@ -205,11 +195,7 @@ export function SkillsCatalogue({
               onToggle={(value) => toggle(facet.param, value)}
             />
           ))}
-          <ResultCount
-            shown={onScreen}
-            total={entries.length + toolchain.length}
-            noun="skill"
-          />
+          <ResultCount shown={onScreen} total={entries.length} noun="skill" />
         </div>
       </div>
 
@@ -230,42 +216,8 @@ export function SkillsCatalogue({
         // seeing them in one undifferentiated grid.
         layout="sections"
         noun="skill"
-        outsideMatches={outsideMatches}
         renderCard={(skill) => <SkillCard skill={skill} />}
       />
-
-      {visibleToolchain.length > 0 && (
-        <section className="flex flex-col gap-4">
-          {/* Open, these nine push the classified rows off the first screen. */}
-          <button
-            type="button"
-            aria-expanded={toolchainShown}
-            onClick={() => setPinned(!toolchainShown)}
-            className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-dashed border-line px-4 py-3 text-left transition-colors hover:border-line-strong"
-          >
-            <span className="text-sm font-medium text-ink">
-              Setup and toolchain
-            </span>
-            <span className="font-mono text-xs text-ink-faint">
-              {visibleToolchain.length}
-            </span>
-            <span className="text-xs text-ink-faint">
-              These configure a plugin or describe the toolchain itself; the
-              filters above do not apply, though search still finds them.
-            </span>
-            <span aria-hidden className="ml-auto text-xs text-ink-faint">
-              {toolchainShown ? "▾" : "▸"}
-            </span>
-          </button>
-
-          {toolchainShown && (
-            <CardGrid
-              entries={visibleToolchain}
-              renderCard={(skill) => <SkillCard skill={skill} />}
-            />
-          )}
-        </section>
-      )}
     </div>
   );
 }

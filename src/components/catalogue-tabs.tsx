@@ -18,14 +18,10 @@ type View = "plugins" | "skills";
 export function CatalogueTabs({
   plugins,
   skills,
-  toolchain,
   initialSkillFilters = {},
 }: {
   plugins: PluginEntry[];
-  /** The classified rows: everything the facets apply to. */
   skills: SkillEntry[];
-  /** Setup and meta rows. Listed and searchable, but outside every facet. */
-  toolchain: SkillEntry[];
   /** Skills selections off the query string, keyed by URL param. */
   initialSkillFilters?: Record<string, string[]>;
 }) {
@@ -42,16 +38,14 @@ export function CatalogueTabs({
     skills: null,
   });
 
-  // Tab counts every row the panel lists; the grid counts the classified ones.
-  const allSkills = [...skills, ...toolchain];
   // A plugin card's own skill count, computed client-side from rows already in props - the
   // alternative (importing skillsForPlugin) would pull the whole catalogue module, detect
   // signals included, into the browser bundle along with it.
-  const skillCounts = skillCountByPlugin(allSkills);
+  const skillCounts = skillCountByPlugin(skills);
 
   const tabs: { id: View; label: string; count: number }[] = [
     { id: "plugins", label: "Plugins", count: plugins.length },
-    { id: "skills", label: "Skills", count: allSkills.length },
+    { id: "skills", label: "Skills", count: skills.length },
   ];
 
   // Arrow keys move between tabs, per the WAI-ARIA tabs pattern. Without this the tablist role
@@ -154,11 +148,7 @@ export function CatalogueTabs({
         aria-labelledby="catalogue-tab-skills"
         hidden={view !== "skills"}
       >
-        <SkillsCatalogue
-          entries={skills}
-          toolchain={toolchain}
-          initial={initialSkillFilters}
-        />
+        <SkillsCatalogue entries={skills} initial={initialSkillFilters} />
       </div>
     </div>
   );
