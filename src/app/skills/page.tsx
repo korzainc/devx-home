@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CatalogueTabs } from "@/components/catalogue-tabs";
+import { SkillsFirstRunNudge } from "@/components/skills-first-run";
 import {
   browsableSkills,
   indexSchemaVersion,
@@ -17,6 +18,10 @@ export const metadata: Metadata = {
 export default function SkillsPage() {
   return (
     <div className="flex flex-col gap-10">
+      {/* Renders nothing until a client has read localStorage, so the catalogue below is what
+          the prerendered page and any no-JS client get. */}
+      <SkillsFirstRunNudge />
+
       {/* Grouped with the title, so the link sits the same distance above it as "← Skills"
           does on the plugin page. As a direct child it inherited the section gap instead. */}
       <div className="flex flex-col gap-4">

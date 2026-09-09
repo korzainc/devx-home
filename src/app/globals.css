@@ -53,10 +53,38 @@
   --font-mono: var(--font-geist-mono);
 
   --animate-breathe: breathe 3.6s ease-in-out infinite;
+  --animate-caret: caret 1.05s step-end infinite;
 }
 
 /* Slow enough to read as breathing rather than blinking. Opacity and glow only - scaling a
    glyph inside a word would shift the text around it on every cycle. */
+/* A terminal caret is on or off, never mid-fade, so this steps instead of easing. */
+@keyframes caret {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+/* The demo caret runs indefinitely, so it needs a way out. Killing the animation leaves the
+   caret painted solid, which still reads as a cursor without the motion. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --animate-caret: none;
+  }
+}
+
+/* Reserve the scrollbar's width at all times. The first-run overlay locks body scroll while it
+   is open, and without this the page jumps sideways by half a scrollbar as the classic
+   scrollbar is removed and restored -- invisible on macOS overlay scrollbars, obvious
+   elsewhere. */
+html {
+  scrollbar-gutter: stable;
+}
+
 @keyframes breathe {
   0%,
   100% {

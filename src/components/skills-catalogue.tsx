@@ -52,7 +52,7 @@ export function SkillsCatalogue({
       renderCard={(skill) => <SkillCard skill={skill} />}
       unclassified={toolchain}
       unclassifiedLabel="Setup and toolchain"
-      unclassifiedNote="These configure a plugin or describe the toolchain itself — filters above do not apply, search still finds them."
+      unclassifiedNote="These configure a plugin or describe the toolchain itself; the filters above do not apply, though search still finds them."
     />
   );
 }
