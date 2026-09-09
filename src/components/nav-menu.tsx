@@ -1,22 +1,10 @@
 "use client";
 
-import { usePathname } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useCloseOnNavigate } from "@/lib/use-close-on-navigate";
 
-/**
- * The narrow-width nav, as a `details` so it opens before any JavaScript arrives.
- *
- * The client half exists for one reason: the header lives in the root layout, so a client side
- * navigation never remounts it and an open menu would still be sitting over the page you just
- * moved to. Closing on a path change is the whole job.
- */
+/** The narrow-width nav, as a `details` so it opens before any JavaScript arrives. */
 export function NavMenu({ children }: { children: React.ReactNode }) {
-  const ref = useRef<HTMLDetailsElement>(null);
-  const pathname = usePathname();
-
-  useEffect(() => {
-    if (ref.current) ref.current.open = false;
-  }, [pathname]);
+  const ref = useCloseOnNavigate();
 
   return (
     <details ref={ref} className="group relative ml-auto sm:hidden">
