@@ -21,7 +21,8 @@ import {
   skills,
   toolchainSkills,
 } from "@/lib/catalogue";
-import { CATEGORIES, skillCountByPlugin } from "@/lib/catalogue-entries";
+import { CATEGORIES } from "@/data/skill-categories";
+import { skillCountByPlugin } from "@/lib/catalogue-entries";
 
 /**
  * The wiring test: lib tests prove the rules, this proves the page uses them. Everything goes
@@ -164,14 +165,25 @@ describe("the skills catalogue", () => {
     expect(headings).toEqual([...reached]);
   });
 
-  it("collapses the categories once a filter is on", () => {
-    // The headings would then only repeat what the filter row above already says.
+  it("keeps the categories once a filter is on, unlike /tools", () => {
+    // Audience cuts across every heading, so which kinds of work a pick reaches is information
+    // the filter row cannot give. A heading the pick empties is still dropped.
     renderPage();
-    expect(screen.getAllByRole("heading", { level: 2 }).length).toBeGreaterThan(
-      0,
+    pick(AUDIENCE, "Business");
+
+    const headings = screen
+      .getAllByRole("heading", { level: 2 })
+      .map((node) => node.textContent);
+    const reached = CATEGORIES.filter((category) =>
+      browsableSkills.some(
+        (skill) =>
+          skill.category === category &&
+          (skill.audiences.includes("Business") ||
+            skill.audiences.includes("All")),
+      ),
     );
-    pick("Origin", "Korza");
-    expect(screen.queryAllByRole("heading", { level: 2 })).toHaveLength(0);
+    expect(headings).toEqual([...reached]);
+    expect(headings.length).toBeGreaterThan(1);
   });
 
   it("narrows to a facet and keeps the toolchain rows listed", () => {

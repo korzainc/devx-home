@@ -14,8 +14,8 @@ import {
   AUDIENCE_PARAM,
   AUDIENCES,
 } from "@/data/skill-audiences";
+import { CATEGORIES, CATEGORY_NOTES } from "@/data/skill-categories";
 import {
-  CATEGORIES,
   facetValues,
   shortAgents,
   skillFacets,
@@ -25,18 +25,6 @@ import { filterEntries, matchesAudience } from "@/lib/filter";
 import { terms } from "@/lib/search";
 import { skillLink } from "@/lib/skill-link";
 import { useCatalogueFilters } from "@/lib/use-catalogue-filters";
-
-// One line per category, in CATEGORIES order, which runs the way the work runs rather than by
-// count. Each is written from the skills the category really holds, not from its own name, and all
-// six are verb-first so they read as one set.
-const NOTES: Record<string, string> = {
-  Discover: "Reads up on an unfamiliar domain or codebase",
-  Decide: "Explores options and pressure-tests a design before you build it",
-  Build: "Writes, fixes and refactors code, and drives the agents that do it",
-  Document: "Turns the work into specs, plans and handover notes",
-  Verify: "Reviews the code and checks the work is really finished",
-  Coordinate: "Files tickets, triages the queue and lands the branch",
-};
 
 // The URL key for each facet. Written out rather than derived: `agents` is the one field whose
 // name is plural, and a param a reader might type or edit should be singular.
@@ -89,22 +77,11 @@ export function SkillsCatalogue({
   // cannot disagree.
   const [pinned, setPinned] = useState<boolean | null>(null);
 
-  // Everything below counts, filters and renders from this. A skill whose category no section
-  // claims can never reach the grid, so counting it would give a facet a number that picking only
-  // ever turns into "No skill matches those filters".
-  const shown = useMemo(
-    () =>
-      entries.filter((entry) =>
-        (CATEGORIES as readonly string[]).includes(entry.category),
-      ),
-    [entries],
-  );
-
   const facetOptions = useMemo(
     () =>
       skillFacets.map((facet) => {
         const counts = new Map<string, number>();
-        for (const entry of shown) {
+        for (const entry of entries) {
           for (const value of facetValues(entry, facet.key)) {
             counts.set(value, (counts.get(value) ?? 0) + 1);
           }
@@ -117,7 +94,7 @@ export function SkillsCatalogue({
           options: [...counts].sort((a, b) => a[0].localeCompare(b[0])),
         };
       }),
-    [shown],
+    [entries],
   );
 
   // Audience is the one axis kept in the open, and the only one that is not a facet of the
@@ -130,9 +107,9 @@ export function SkillsCatalogue({
   // with never draws a chip that can only ever empty the grid. Kept in declared order, which puts
   // "All" last where the row wants it.
   const audienceOptions = useMemo(() => {
-    const present = new Set(shown.flatMap((entry) => entry.audiences));
+    const present = new Set(entries.flatMap((entry) => entry.audiences));
     return AUDIENCES.filter((value) => present.has(value));
-  }, [shown]);
+  }, [entries]);
 
   const axes = useMemo(
     () => [
@@ -145,8 +122,11 @@ export function SkillsCatalogue({
     [facetOptions, audienceOptions],
   );
 
-  const { query, setQuery, picked, pickedFor, toggle, filtering } =
-    useCatalogueFilters({ axes, initial, sync });
+  const { query, setQuery, picked, pickedFor, toggle } = useCatalogueFilters({
+    axes,
+    initial,
+    sync,
+  });
 
   const pickedAudiences = pickedFor(AUDIENCE_PARAM);
 
@@ -165,12 +145,12 @@ export function SkillsCatalogue({
   const visible = useMemo(
     () =>
       filterEntries({
-        entries: shown,
+        entries,
         facets: skillFacets,
         selected,
         query,
       }).filter((entry) => matchesAudience(entry, pickedAudiences)),
-    [shown, selected, query, pickedAudiences],
+    [entries, selected, query, pickedAudiences],
   );
 
   // Query only: these rows sit outside every facet.
@@ -182,7 +162,7 @@ export function SkillsCatalogue({
 
   const sections = CATEGORIES.map((category) => ({
     label: category,
-    note: NOTES[category],
+    note: CATEGORY_NOTES[category],
     entries: visible.filter((entry) => entry.category === category),
   })).filter((section) => section.entries.length > 0);
 
@@ -227,7 +207,7 @@ export function SkillsCatalogue({
           ))}
           <ResultCount
             shown={onScreen}
-            total={shown.length + toolchain.length}
+            total={entries.length + toolchain.length}
             noun="skill"
           />
         </div>
@@ -245,7 +225,10 @@ export function SkillsCatalogue({
 
       <CatalogueResults
         sections={sections}
-        filtering={filtering}
+        // Always grouped, unlike /tools. Audience cuts across all five headings, so a reader who
+        // picks Sales is better served seeing which kinds of work their eleven rows land in than
+        // seeing them in one undifferentiated grid.
+        layout="sections"
         noun="skill"
         outsideMatches={outsideMatches}
         renderCard={(skill) => <SkillCard skill={skill} />}

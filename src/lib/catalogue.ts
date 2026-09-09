@@ -9,6 +9,7 @@ import {
   pluginAudiences,
   skillAudiences,
 } from "@/data/skill-audiences";
+import { CATEGORY_FALLBACK, skillCategories } from "@/data/skill-categories";
 import { toolCardSummaries } from "@/data/tool-card-summaries";
 import {
   isBundle,
@@ -29,7 +30,6 @@ import type { Baseline, DetectSignals } from "@/lib/gap/types";
 // skillCountByPlugin exist in catalogue-entries specifically so a client component never has to
 // import this module at all, so re-advertising them here would undo the reason for the split.
 export {
-  CATEGORIES,
   isBundle,
   publicToolEntry,
   shortAgents,
@@ -276,10 +276,11 @@ export function toolInstallMethods(id: string): InstallMethod[] {
   ];
 }
 
-// Audience is the one field on either catalogue that upstream does not carry, so it is merged in
-// here rather than read alongside the entry everywhere it is needed. An id the overlay does not
-// name falls back rather than throwing: a sync that adds one should show the new row, and the
-// seam test beside the overlay is what fails.
+// Audience and category both come off local overlays, so they are merged in here rather than read
+// alongside the entry everywhere they are needed. Audience is a field upstream does not carry;
+// category is one it does, and this deliberately replaces it. An id an overlay does not name falls
+// back rather than throwing: a sync that adds one should still show the new row, and the seam test
+// beside the overlay is what fails.
 export const plugins: PluginEntry[] = (
   pluginsData as Omit<PluginEntry, "audiences">[]
 ).map((plugin) => ({
@@ -288,12 +289,14 @@ export const plugins: PluginEntry[] = (
 }));
 
 export const skills: SkillEntry[] = (
-  skillsData.skills as Omit<SkillEntry, "audiences">[]
+  skillsData.skills as Omit<SkillEntry, "audiences" | "category">[]
 )
   .filter((skill) => skill.status !== "Planned")
   .map((skill) => ({
     ...skill,
     audiences: skillAudiences[skill.id] ?? AUDIENCE_FALLBACK,
+    // Spread first, so the generator's own category is overwritten rather than merged beside.
+    category: skillCategories[skill.id] ?? CATEGORY_FALLBACK,
   }));
 
 export const browsableSkills: SkillEntry[] = skills.filter(

@@ -1,4 +1,5 @@
 import type { Audience } from "@/data/skill-audiences";
+import type { SkillCategory } from "@/data/skill-categories";
 import type { DetectSignals } from "@/lib/gap/types";
 
 // Client-safe: no catalogue data import, nothing here reads realCatalogueData/pluginsData/
@@ -76,7 +77,8 @@ export type SkillEntry = CatalogueEntry & {
   sourceRepo: string;
   ref: string;
   pinned: boolean;
-  category: string;
+  /** From the local overlay, which replaces the generator's own taxonomy. */
+  category: SkillCategory;
   /** "setup" and "meta" are listed but never faceted. */
   kind: "skill" | "setup" | "meta";
   /** Searched, not rendered. */
@@ -91,15 +93,6 @@ export type SkillEntry = CatalogueEntry & {
   maturity: string | null;
   status: string;
 };
-
-export const CATEGORIES = [
-  "Discover",
-  "Decide",
-  "Build",
-  "Document",
-  "Verify",
-  "Coordinate",
-] as const;
 
 export type FacetKey<T> = {
   [K in keyof T]: T[K] extends string | string[] ? K : never;

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import skillsData from "@/data/skills.json";
-import { CATEGORIES, plugins, skills, skillsForPlugin } from "./catalogue";
+import { CATEGORIES } from "@/data/skill-categories";
+import { plugins, skills, skillsForPlugin } from "./catalogue";
 
 // Quiet failures: an orphan filter nobody can clear, or one card swallowing another.
 describe("skill catalogue", () => {
@@ -133,16 +134,6 @@ describe("skill catalogue", () => {
       expect(skill).not.toHaveProperty("owner");
     }
     expect(skills.some((skill) => skill.ownerTeam === null)).toBe(true);
-  });
-
-  // Discover holds two rows: the catalogue is engineering-only.
-  it("puts at least one skill in every category", () => {
-    for (const category of CATEGORIES) {
-      expect(
-        skills.filter((skill) => skill.category === category).length,
-        `nothing is classified ${category}`,
-      ).toBeGreaterThan(0);
-    }
   });
 
   it("keeps Planned rows in the index and out of the catalogue", () => {

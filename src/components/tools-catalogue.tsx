@@ -285,7 +285,9 @@ export function ToolsCatalogue({
 
       <CatalogueResults
         sections={sections}
-        filtering={filtering}
+        // Capability, the main facet here, lines up with the category headings closely enough that
+        // a filtered view crowds nearly every match under one of them.
+        layout={filtering ? "grid" : "sections"}
         noun="tool"
         renderCard={(tool) => (
           <ToolCard tool={tool} labels={capabilityLabels} />

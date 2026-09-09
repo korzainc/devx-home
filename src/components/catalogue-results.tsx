@@ -38,9 +38,14 @@ export function NoMatches({ noun }: { noun: string }) {
 }
 
 /**
- * Results under a catalogue's filter row. Unfiltered they sit in fixed sections; once any filter
- * is on they collapse into one grid, because the section headings would then only repeat what the
- * filter row already says.
+ * Results under a catalogue's filter row, either grouped under their section headings or flattened
+ * into one grid.
+ *
+ * Which one a filtered view wants is the caller's call, because it turns on whether that page's
+ * filter axes restate its section axis. `/tools` filters by capability, which is close enough to
+ * its category headings that a filtered view puts nearly every match under one of them, so it
+ * flattens. `/skills` filters by audience, which cuts across all five headings, so it stays
+ * grouped and the reader can still see which kinds of work their picks reach.
  *
  * Sections are handed in already filtered and already emptied out. An empty one is dropped rather
  * than announced: unfiltered that can only mean the synced taxonomy stopped covering a category,
@@ -48,13 +53,13 @@ export function NoMatches({ noun }: { noun: string }) {
  */
 export function CatalogueResults<T extends { id: string }>({
   sections,
-  filtering,
+  layout,
   renderCard,
   noun,
   outsideMatches = 0,
 }: {
   sections: CatalogueSection<T>[];
-  filtering: boolean;
+  layout: "sections" | "grid";
   renderCard: (entry: T) => ReactNode;
   /** Singular, for the empty state. */
   noun: string;
@@ -72,9 +77,10 @@ export function CatalogueResults<T extends { id: string }>({
     return <NoMatches noun={noun} />;
   }
 
-  // Flattened from `sections`, not from the caller's full result list, so the filtered view can
-  // never surface an entry the grouped view drops for sitting in no section.
-  if (filtering) return <CardGrid entries={shown} renderCard={renderCard} />;
+  // Flattened from `sections`, not from the caller's full result list, so the flat view can never
+  // surface an entry the grouped view drops for sitting in no section.
+  if (layout === "grid")
+    return <CardGrid entries={shown} renderCard={renderCard} />;
 
   return (
     <>
