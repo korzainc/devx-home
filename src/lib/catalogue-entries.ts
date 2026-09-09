@@ -53,6 +53,10 @@ export function publicToolEntry<T extends ToolEntry>(
 export type PluginEntry = CatalogueEntry & {
   // Written here: the manifests answer "what", not "why install this".
   problem: string;
+  // What the entry delivers when it is not skills. Absent for a skills plugin, and absent for
+  // one that genuinely ships nothing. Hand-written until the generator emits a component
+  // inventory per plugin.
+  payload?: string;
   benefits: string[];
   agents: string[];
   origin: string;

@@ -32,7 +32,9 @@ export default async function PluginPage({
   if (!plugin) notFound();
 
   const skills = skillsForPlugin(plugin.id);
-  const shipsNothing = skills.length === 0;
+  // Not skills.length alone: a language-server or hooks entry ships something real and is
+  // installable, and calling it a defect hid its install command.
+  const shipsNothing = skills.length === 0 && !plugin.payload;
   const agents = shortAgents(plugin.agents);
 
   return (

@@ -79,6 +79,25 @@ describe("a plugin row", () => {
   });
 });
 
+describe("an optional payload", () => {
+  it("is accepted when absent", () => {
+    expect(problemsWithPlugin(valid)).toEqual([]);
+  });
+
+  it("is accepted when it says what the entry ships", () => {
+    expect(
+      problemsWithPlugin({ ...valid, payload: "1 language server" }),
+    ).toEqual([]);
+  });
+
+  // The card renders it in place of the skill count, so a blank one shows nothing at all.
+  it.each(["", "   "])("is rejected when present but %j", (payload) => {
+    expect(problemsWithPlugin({ ...valid, payload }).join(" ")).toContain(
+      "payload",
+    );
+  });
+});
+
 describe("the plugin set", () => {
   const other = { ...valid, id: "humanizer", name: "humanizer" };
 

@@ -33,7 +33,9 @@ function PluginCard({
       }
       aside={
         <span className="shrink-0 font-mono text-[0.65rem] text-ink-faint">
-          {skillCount} {skillCount === 1 ? "skill" : "skills"}
+          {skillCount === 0 && plugin.payload
+            ? plugin.payload
+            : `${skillCount} ${skillCount === 1 ? "skill" : "skills"}`}
         </span>
       }
       summary={plugin.summary}

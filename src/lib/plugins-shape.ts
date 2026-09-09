@@ -73,6 +73,12 @@ export function problemsWithPlugin(plugin: Record<string, unknown>): string[] {
     );
   }
 
+  // Optional, but a blank one is worse than none: the card renders it in place of the skill
+  // count, so an empty string shows an entry that claims nothing.
+  if ("payload" in plugin && !isFilled(plugin.payload)) {
+    problems.push(`${id}: payload is present but empty; omit it instead`);
+  }
+
   if ("homepage" in plugin && !isHttpsUrl(plugin.homepage)) {
     problems.push(
       `${id}: homepage ${JSON.stringify(plugin.homepage)} becomes an href, so it must be an absolute https URL`,
