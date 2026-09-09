@@ -63,8 +63,9 @@ The page FAQ includes this migration and removal guidance.
 
 **Normally, none.** Vercel supplies deployment domains, `/setup` generates the
 bundle URL and checksum pin, and the installer has directory and repository
-defaults. Use the `KORZA_*` names only when an override is needed. These are
-the only supported configuration names.
+defaults. Only `KORZA_PUBLIC_ORIGIN` is an optional website setting. The other
+`KORZA_*` inputs below belong to the installer; they are not deployment
+requirements. Retired `DEVX_*` overrides are ignored.
 
 | Setting               | What happens without a manual value                                                                                                                                        | Reason to retain it                                                                                                                    |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
@@ -72,7 +73,7 @@ the only supported configuration names.
 | `KORZA_DIST_URL`      | `/setup` generates the URL from the selected origin and committed artifact version. The standalone installer without this input looks up a GitHub release.                 | Pass the selected bundle to a shell script, which cannot recover its original download URL when piped or evaluated.                    |
 | `KORZA_DIST_SHA256`   | `/setup` reads the expected digest from the committed sidecar and embeds it. The standalone installer without a pin downloads a sidecar.                                   | Keep the expected digest tied to the selected bundle; calculating the downloaded file's hash alone cannot establish what was expected. |
 | `KORZA_BIN_DIR`       | The installer uses `$HOME/.local/bin`.                                                                                                                                     | Optional destination for the CLI binary, including isolated installer tests. If `HOME` is unavailable, a directory must be supplied.   |
-| `KORZA_REPO`          | The standalone installer uses `korzainc/devx-cli`.                                                                                                                         | Compatibility and alternative-repository testing. It is ignored when `/setup` supplies the bundle URL.                                 |
+| `KORZA_REPO`          | The standalone installer uses `korzainc/devx-cli`.                                                                                                                         | Optional standalone installer override for another repository. It is ignored when `/setup` supplies the bundle URL.                    |
 
 The last four settings are **not Vercel dashboard inputs**. The generated URL
 and checksum are an interface between the website and its installer. Shell

@@ -24,8 +24,8 @@ case "$(uname -s)" in
   *) printf '  korza supports macOS only for now.\n' >&2; exit 1 ;;
 esac
 
-# KORZA_DIST_URL points the installer at a local tarball, so the whole
-# entry path can be rehearsed before anything is published.
+# /setup supplies its bundled archive URL. An explicit URL also supports
+# installing a candidate before a GitHub release is published.
 if [ -n "${KORZA_DIST_URL:-}" ]; then
   URL="$KORZA_DIST_URL"
 else
