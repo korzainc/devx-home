@@ -24,10 +24,12 @@ function Pair({
     <section
       id={id}
       // scroll-mt clears the sticky header when an anchor link lands here.
-      className="grid scroll-mt-20 items-center gap-8 border-t border-line py-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-14"
+      className="grid scroll-mt-20 grid-cols-1 items-center gap-8 border-t border-line py-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-14"
     >
-      <div className="rounded-xl border border-line bg-surface">{card}</div>
-      <div className="flex flex-col gap-3">{children}</div>
+      <div className="min-w-0 rounded-xl border border-line bg-surface">
+        {card}
+      </div>
+      <div className="min-w-0 flex flex-col gap-3">{children}</div>
     </section>
   );
 }
@@ -140,7 +142,7 @@ export default function GettingStartedPage() {
                       value={command}
                     />
                   ))}
-                  <p className="max-w-2xl pt-1 text-sm text-ink-muted">
+                  <p className="max-w-2xl pt-1 text-sm text-ink-muted [overflow-wrap:anywhere]">
                     {entry.note}
                   </p>
                 </div>

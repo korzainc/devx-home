@@ -29,6 +29,7 @@
 
 # local agent state, including scratch worktrees that carry their own build output
 .claude/
+.codezen/
 
 # debug
 npm-debug.log*
