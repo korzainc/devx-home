@@ -21,8 +21,8 @@ export function PreviewInstallCommand({ command }: { command: string | null }) {
 
   return (
     <div className="flex items-start gap-2 rounded-xl border border-line-strong bg-[#050607] p-5 font-mono text-sm leading-relaxed text-[#e8eaed]">
-      {/* Keep the copy control outside the scrolling command. */}
-      <div className="min-w-0 flex-1 overflow-x-auto scrollbar-none whitespace-pre">
+      {/* Show the complete command; visual wrapping must not change copied bytes. */}
+      <div className="min-w-0 flex-1 whitespace-pre-wrap [overflow-wrap:anywhere]">
         <span className="text-ink-faint">$</span>{" "}
         <code className="select-all">
           {command ?? "Installer unavailable. Use the manual steps below."}
