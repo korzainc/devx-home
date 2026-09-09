@@ -152,10 +152,14 @@ print_shell_word() {
   done
 }
 
+# Use the short command only when PATH selects the executable just installed.
+# Otherwise keep a quoted path so first installs and older PATH entries work.
+if [ "$(command -v devx || true)" = "$BIN_DIR/devx" ]; then
+  DEVX_COMMAND=devx
+else
+  DEVX_COMMAND=$(print_shell_word "$BIN_DIR/devx")
+fi
+
 printf '\n  devx installed to %s\n\n' "$BIN_DIR/devx"
-printf '  Start setup:\n    '
-print_shell_word "$BIN_DIR/devx"
-printf ' setup\n\n'
-printf '  Help:\n    '
-print_shell_word "$BIN_DIR/devx"
-printf ' --help\n'
+printf '  Start setup:\n    %s setup\n\n' "$DEVX_COMMAND"
+printf '  Help:\n    %s --help\n' "$DEVX_COMMAND"

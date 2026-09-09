@@ -18,6 +18,7 @@ type Scenario = {
   versionFails?: boolean;
   destination?: "directory" | "directory-link";
   fresh?: boolean;
+  path?: "installed" | "shadowed";
 };
 
 const ARCHIVE_PAYLOAD = "inert archive fixture";
@@ -144,6 +145,17 @@ switch (name) {
   })) {
     symlinkSync(systemPath, join(bin, name));
   }
+  if (scenario.path === "shadowed") {
+    writeFileSync(join(bin, "devx"), "#!/bin/sh\nprintf 'wrong binary\\n'\n", {
+      mode: 0o755,
+    });
+  }
+  const commandPath =
+    scenario.path === "installed"
+      ? `${destination}:${bin}`
+      : scenario.path === "shadowed"
+        ? `${bin}:${destination}`
+        : bin;
   const result = spawnSync(
     "/bin/sh",
     [join(process.cwd(), "public/devx/install.sh")],
@@ -151,7 +163,7 @@ switch (name) {
       cwd: root,
       env: {
         NODE_ENV: "test",
-        PATH: bin,
+        PATH: commandPath,
         TMPDIR: stage,
         DEVX_BIN_DIR: destination,
         DEVX_DIST_URL: "https://fixture.invalid/devx",
@@ -169,7 +181,7 @@ switch (name) {
   return {
     ...result,
     root,
-    commandPath: bin,
+    commandPath,
     target,
     fixture,
     events: readFileSync(join(root, "events"), "utf8").trim().split("\n"),
@@ -247,6 +259,32 @@ describe(
       expect(readFileSync(result.target, "utf8")).toBe(result.fixture);
       expect(result.stdout).toContain(`'${result.target}' setup`);
     });
+
+    it.each(["installed", "shadowed"] as const)(
+      "prints commands that select the new binary when PATH is %s",
+      (path) => {
+        const result = install({ fresh: true, path });
+        expect(result.status, result.stderr).toBe(0);
+        const command = result.stdout.match(/Start setup:\n {4}([^\n]+)/)?.[1];
+        expect(command).toBeDefined();
+        if (path === "installed") {
+          expect(command).toBe("devx setup");
+          expect(result.stdout).toContain("    devx --help\n");
+        } else {
+          expect(command).not.toBe("devx setup");
+          expect(result.stdout).not.toContain("    devx --help\n");
+        }
+        const setup = spawnSync("/bin/sh", ["-c", command!], {
+          cwd: result.root,
+          env: { NODE_ENV: "test", PATH: result.commandPath },
+          encoding: "utf8",
+          timeout: 5000,
+        });
+        expect(setup.error).toBeUndefined();
+        expect(setup.status, setup.stderr).toBe(0);
+        expect(setup.stdout).toBe("setup reached\n");
+      },
+    );
 
     it("prints a working first-setup command before the install directory is on PATH", () => {
       const result = install({ fresh: true });
