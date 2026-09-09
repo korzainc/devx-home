@@ -118,7 +118,11 @@ export const manualCommands: {
 export const faq: { q: string; a: string }[] = [
   {
     q: "What does it change on my machine?",
-    a: "korza setup installs missing tools and configures Git and GitHub access. It keeps its shell configuration in one marked block in ~/.zshrc. korza setup --remove removes that block. The manual installers manage their own shell configuration separately.",
+    a: "korza setup installs missing tools and configures Git and GitHub access. It keeps its shell configuration in one marked block in ~/.zshrc. korza setup --remove removes only that block; installed tools, the korza binary and the kz alias remain. The manual installers manage their own shell configuration separately.",
+  },
+  {
+    q: "I installed the earlier devx CLI. What should I do?",
+    a: "Use korza from now on. The installer does not delete an older devx executable. Run command -v devx to locate it. Once korza --version works and you have confirmed that path is the earlier Korza CLI, you can delete that old executable. Keep ~/.devx and the existing shell markers: Korza still uses them. If you are unsure which file to remove, ask in #devx.",
   },
   {
     q: "Can I run it more than once?",

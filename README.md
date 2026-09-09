@@ -53,6 +53,13 @@ archive and checksum URLs redirect to the matching `/korza/` assets. Actual
 repository names, the support channel and legacy configuration fallbacks retain
 their DevX names.
 
+The rename does not delete an old `~/.local/bin/devx` installation. Locate it
+with `command -v devx`; after `korza --version` succeeds and you confirm it is
+the earlier Korza CLI, remove only that old executable. Keep `~/.devx` state
+and the existing managed shell markers. `korza setup --remove` removes the
+managed shell block, not installed tools, the `korza` binary or the `kz` alias.
+The page FAQ includes this migration and removal guidance.
+
 ### Do any installer variables need configuring?
 
 **Normally, none.** Vercel supplies deployment domains, `/setup` generates the
@@ -157,6 +164,11 @@ on a clean checkout.
 Dependency build permissions are committed in `pnpm-workspace.yaml`, including
 `unrs-resolver` for the lint toolchain. Review dependency build-script changes
 rather than assuming an updated package has the same requirements.
+
+The workspace also pins `@eslint/eslintrc@3.3.6`'s `js-yaml` dependency to
+4.3.2 for [CVE-2026-84375](https://github.com/nodeca/js-yaml/security/advisories/GHSA-2883-xcg3-v3hh).
+This stays within the parent's supported v4 range. Remove the scoped override
+when replacing that parent with a version that resolves a patched parser.
 
 `package.json` currently constrains TypeScript to `~6.0.3` and ESLint to `^9`.
 Use `pnpm-lock.yaml` for the resolved versions; this README does not claim every
