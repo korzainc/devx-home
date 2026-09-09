@@ -79,9 +79,7 @@ describe("bootstrap command", () => {
     const result = runBootstrap({ body });
     expect(result.status).toBe(1);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toBe(
-      "Unexpected installer response: expected #!/bin/sh on the first line.\n",
-    );
+    expect(result.stderr).toBe("devx: unexpected installer response\n");
   });
 
   it.each([
@@ -99,9 +97,7 @@ describe("bootstrap command", () => {
     const result = runBootstrap({ body });
     expect(result.status).toBe(1);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toBe(
-      "Unexpected installer response: expected #!/bin/sh on the first line.\n",
-    );
+    expect(result.stderr).toBe("devx: unexpected installer response\n");
   });
 
   it("preserves curl's failure status for a partial response", () => {
