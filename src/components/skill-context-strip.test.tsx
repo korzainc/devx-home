@@ -5,6 +5,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { SkillContextStrip } from "@/components/skill-context-strip";
 import { skillsForPlugin } from "@/lib/catalogue";
+import type { SkillEntry } from "@/lib/catalogue-entries";
 
 /** Every failure here is silent: nothing renders, or the wrong skill is named. */
 
@@ -18,17 +19,38 @@ const openedFor = (name: string) =>
 
 const skills = skillsForPlugin("mattpocock-skills");
 
+// By name, never by position: an exclusion or an upstream addition shifts every later index,
+// which is how this file broke when `code-review` and `tdd` left the catalogue.
+function named(name: string) {
+  const skill = skills.find((candidate) => candidate.name === name);
+  if (!skill) throw new Error(`mattpocock-skills no longer ships ${name}`);
+  return skill;
+}
+
+// Three rows, so the position line has literals the component cannot derive from the fixture.
+const fixture = [
+  { name: "first", summary: "The one before." },
+  { name: "middle", summary: "The one under test." },
+  { name: "last", summary: "The one after." },
+] as unknown as SkillEntry[];
+
 describe("the skill context strip", () => {
+  it("counts the position and the total from the list it was given", () => {
+    openedFor("middle");
+    render(<SkillContextStrip plugin="p" skills={fixture} />);
+
+    expect(screen.getByText("2 of 3 in this plugin")).toBeTruthy();
+  });
+
   it("names the skill the page was opened for, and where it sits in the plugin", () => {
-    const target = skills[17];
-    expect(target.name).toBe("wizard");
+    const target = named("wizard");
     openedFor(target.name);
 
     render(<SkillContextStrip plugin="mattpocock-skills" skills={skills} />);
 
     expect(screen.getByText(target.name)).toBeTruthy();
     expect(screen.getByText(target.summary!)).toBeTruthy();
-    expect(screen.getByText("18 of 25 in this plugin")).toBeTruthy();
+    expect(screen.getByText(/^\d+ of \d+ in this plugin$/)).toBeTruthy();
     // The landmark's name: an <aside> keeps its role without one, so queryByRole still found it.
     expect(
       screen.getByRole("complementary", { name: /opened for/i }),
@@ -66,7 +88,7 @@ describe("the skill context strip", () => {
   it("clamps the summary so the install panel stays on the first screen", () => {
     // The fallback is upstream SKILL.md prose, ~890 chars at its longest, and unclamped it
     // filled a 390px viewport.
-    const target = skills[17];
+    const target = named("wizard");
     openedFor(target.name);
     render(<SkillContextStrip plugin="mattpocock-skills" skills={skills} />);
 
@@ -77,19 +99,17 @@ describe("the skill context strip", () => {
 
   it("clamps the skill name too, and keeps the full value for the lookup", () => {
     // The name comes from the URL, so it is as unbounded as the summary was.
-    const target = skills[17];
+    const target = named("wizard");
     openedFor(target.name);
     render(<SkillContextStrip plugin="mattpocock-skills" skills={skills} />);
 
     expect(screen.getByText(target.name).className).toContain("line-clamp-2");
     // Clamping the render must not have narrowed the lookup: the position still resolves.
-    expect(
-      screen.getByText(`18 of ${skills.length} in this plugin`),
-    ).toBeTruthy();
+    expect(screen.getByText(/^\d+ of \d+ in this plugin$/)).toBeTruthy();
   });
 
   it("keeps the arrow out of the control's accessible name", () => {
-    openedFor(skills[17].name);
+    openedFor(named("wizard").name);
     render(<SkillContextStrip plugin="mattpocock-skills" skills={skills} />);
 
     expect(screen.getByRole("button", { name: "Show in list" })).toBeTruthy();
@@ -99,7 +119,7 @@ describe("the skill context strip", () => {
     // contrast.test.ts proves --accent-strong and --ink-muted clear 4.5 on --accent-wash.
     // This is the other half: that the strip actually reaches for those and not the two that
     // measure 4.38 and 4.41 there.
-    openedFor(skills[17].name);
+    openedFor(named("wizard").name);
     const { container } = render(
       <SkillContextStrip plugin="mattpocock-skills" skills={skills} />,
     );
