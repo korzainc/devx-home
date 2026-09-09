@@ -10,7 +10,7 @@ import {
 import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { bootstrapCommand } from "@/lib/bootstrap-command";
-import { PreviewInstallCommand } from "./preview-install";
+import { SetupCommand } from "./setup-command";
 
 afterEach(() => {
   cleanup();
@@ -24,7 +24,7 @@ describe("install command", () => {
   it("copies the command displayed for this deployment and announces success", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal("navigator", { clipboard: { writeText } });
-    render(<PreviewInstallCommand command={command} />);
+    render(<SetupCommand command={command} />);
     expect(screen.getByText(command, { exact: false })).toBeDefined();
     await act(async () => {
       fireEvent.click(
@@ -42,7 +42,7 @@ describe("install command", () => {
       .fn()
       .mockRejectedValue(new Error("Clipboard unavailable"));
     vi.stubGlobal("navigator", { clipboard: { writeText } });
-    render(<PreviewInstallCommand command={command} />);
+    render(<SetupCommand command={command} />);
     await act(async () => {
       fireEvent.click(
         screen.getByRole("button", { name: "Copy install command" }),
@@ -58,14 +58,12 @@ describe("install command", () => {
 
   it("renders the complete command in server HTML without waiting for JavaScript", () => {
     const container = document.createElement("div");
-    container.innerHTML = renderToString(
-      <PreviewInstallCommand command={command} />,
-    );
+    container.innerHTML = renderToString(<SetupCommand command={command} />);
     expect(container.querySelector("code")?.textContent).toBe(command);
     expect(container.textContent).not.toContain("Loading");
   });
   it("shows a manual fallback without a copyable command when setup is unavailable", () => {
-    render(<PreviewInstallCommand command={null} />);
+    render(<SetupCommand command={null} />);
     const button = screen.getByRole("button", {
       name: "Copy install command",
     }) as HTMLButtonElement;

@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { BUNDLED_ARCHIVE_NAME } from "./src/lib/artifact";
 import { getSetupOrigin } from "./src/lib/setup-origin";
 
 const setupOrigin = getSetupOrigin();
@@ -26,14 +27,17 @@ const nextConfig: NextConfig = {
         destination: "/setup",
         permanent: false,
       },
+      // The sources are the versioned URLs DevX actually published, so they stay literal.
+      // The destinations track the shipped bundle: an old link should still install something
+      // rather than 404 once the artifact version moves.
       {
         source: "/devx/devx-0.1.0-macos.tar.gz",
-        destination: "/korza/korza-0.1.0-macos.tar.gz",
+        destination: `/korza/${BUNDLED_ARCHIVE_NAME}`,
         permanent: false,
       },
       {
         source: "/devx/devx-0.1.0-macos.tar.gz.sha256",
-        destination: "/korza/korza-0.1.0-macos.tar.gz.sha256",
+        destination: `/korza/${BUNDLED_ARCHIVE_NAME}.sha256`,
         permanent: false,
       },
     ];

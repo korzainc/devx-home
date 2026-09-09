@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { CommandField } from "@/components/install-panel";
-import { PreviewInstallCommand } from "@/components/preview-install";
+import { SetupCommand } from "@/components/setup-command";
 import { bootstrapCommand } from "@/lib/bootstrap-command";
 import { getSetupOrigin } from "@/lib/setup-origin";
 import { faq, manualCommands, walkthrough } from "@/lib/getting-started";
@@ -60,7 +60,7 @@ export default function GettingStartedPage() {
         </div>
 
         <div className="flex flex-col gap-3">
-          <PreviewInstallCommand key={command} command={command} />
+          <SetupCommand key={command} command={command} />
           <p className="text-xs text-ink-faint">Pre-release macOS build.</p>
 
           <a href="#manual" className={cta}>
