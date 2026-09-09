@@ -7,3 +7,8 @@
 # eslint-config-next. Without its build step `pnpm lint` cannot resolve imports.
 allowBuilds:
   unrs-resolver: true
+
+# Patch ESLint's YAML parser for CVE-2026-84375 without moving it to js-yaml v5.
+# Remove when this parent version is replaced by one resolving a patched parser.
+overrides:
+  "@eslint/eslintrc@3.3.6>js-yaml": 4.3.2
