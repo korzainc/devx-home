@@ -17,18 +17,19 @@
   {
     "id": "pyright-lsp",
     "name": "pyright-lsp",
-    "summary": "Listed in the catalogue; ships nothing today.",
+    "summary": "Python code intelligence for the agent, from Pyright.",
     "problem": "Without a language server the agent reads Python as plain text. It infers signatures instead of looking them up, and type errors an IDE would flag immediately go unnoticed.",
     "benefits": [
-      "Does not currently work. The installed plugin directory contains no skill, agent, hook or LSP-server definitions, because the entry keeps its lspServers configuration outside that directory and the catalogue copies only the directory.",
-      "Intended to give the agent real diagnostics and type information on Python code, which is what it will do once the entry is repaired or replaced.",
-      "Tracked as a known defect rather than a recommendation: install it only to reproduce the problem."
+      "Gives the agent go-to-definition, find-references, hover types and diagnostics on .py and .pyi files, instead of inferring them from the text.",
+      "The server runs as its own process, outside the conversation, so having it installed costs nothing per turn.",
+      "Needs pyright on the machine: npm install -g pyright, or pip, or pipx. The entry declares the server; it does not install it."
     ],
     "agents": ["Claude Code"],
     "origin": "Third party",
-    "ref": "main",
+    "ref": "517b2fcd",
     "sourceRepo": "anthropics/claude-plugins-official",
-    "homepage": "https://github.com/anthropics/claude-plugins-official"
+    "homepage": "https://github.com/anthropics/claude-plugins-official",
+    "payload": "1 language server"
   },
   {
     "id": "superpowers",
