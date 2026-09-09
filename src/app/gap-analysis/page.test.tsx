@@ -188,9 +188,18 @@ describe("the gap-analysis page, for a client running no script", () => {
 
     // Per block: the greedy form this replaced would also match the word sitting between two
     // <noscript> blocks, which is the trap `noscriptBlocks` exists to close.
-    expect(
-      noscriptBlocks(markup).filter((block) => block.includes("JavaScript")),
-    ).toHaveLength(1);
+    const [block, ...rest] = noscriptBlocks(markup).filter((b) =>
+      b.includes("JavaScript"),
+    );
+    expect(rest).toEqual([]);
+    expect(block).toBeDefined();
+
+    // The suppression is the point of the change, so it is read back off the paragraph it has to
+    // suppress rather than asserted as a literal. Hardcoding the class here would let a typo on
+    // either side pass while a no-script reader gets the breathing ellipsis again.
+    const suppressed = markup.match(/<p class="([^" ]+)[^"]*">Reading/)?.[1];
+    expect(suppressed).toBeDefined();
+    expect(block).toContain(`.${suppressed}{display:none}`);
   });
 
   it("keeps the form when the session read throws", async () => {
@@ -203,7 +212,11 @@ describe("the gap-analysis page, for a client running no script", () => {
     expect(markup).toContain('value="facebook/react"');
     expect(takeErrors()).toEqual(["DATABASE_URL is not set."]);
   });
+});
 
+// Separate, because both of these live inside the boundary: a client running no script sees
+// neither. They pin the server's output, which is a different subject from the suite above.
+describe("the gap-analysis page, once the analysis resolves", () => {
   it("offers a login when an anonymous read fails in a way that a login would fix", async () => {
     // `signingInWouldHelp` in the page: only a signed-out 404 or 429 earns the prompt. Subtle
     // enough to have produced a live bug already, per its own comment on 403.

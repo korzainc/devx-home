@@ -33,10 +33,21 @@ export async function renderStream(
   await new Promise<void>((resolve, reject) => {
     // Rejecting alone only settles this promise: React carries on rendering into a sink nothing
     // is reading, so a failing boundary in one test can still be doing work during the next.
+    //
+    // Rejects before aborting, and only once. Aborting re-fires `onError` on any sibling boundary
+    // still pending, which re-enters here, so aborting first would settle the promise with
+    // React's generic "aborted without a reason" in place of the error that actually happened.
+    let settled = false;
     const fail = (error: unknown) => {
+      if (settled) return;
+      settled = true;
+      reject(error);
       stream.abort();
       sink.destroy();
-      reject(error);
+    };
+    const done = () => {
+      settled = true;
+      resolve();
     };
     const flush = () => stream.pipe(sink);
     const stream = renderToPipeableStream(node, {
@@ -51,8 +62,8 @@ export async function renderStream(
         else fail(boundaryError);
       },
     });
-    sink.on("finish", resolve);
-    sink.on("error", reject);
+    sink.on("finish", done);
+    sink.on("error", fail);
   });
 
   return Buffer.concat(chunks).toString("utf8");

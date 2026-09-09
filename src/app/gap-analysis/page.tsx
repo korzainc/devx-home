@@ -92,17 +92,21 @@ function Notice({ children }: { children: React.ReactNode }) {
 // the ellipsis animates from CSS, which runs regardless of script, so left in place it would go on
 // implying progress directly above a line saying nothing will load. Scoped to this one class, or
 // it would also still the header's breathing X. Markup, not elements, or hydration mismatches.
+// Both sides of the suppression read this, or a typo on one silently restores the animated
+// ellipsis and nothing fails.
+const pendingClass = "pending-progress";
+
 function Pending({ repo }: { repo: string }) {
   return (
     <>
-      <p className="pending-progress font-mono text-sm text-ink-faint">
+      <p className={`${pendingClass} font-mono text-sm text-ink-faint`}>
         Reading {repo}
         <span className="animate-breathe">...</span>
       </p>
       <noscript
         dangerouslySetInnerHTML={{
           __html:
-            "<style>.pending-progress{display:none}</style>" +
+            `<style>.${pendingClass}{display:none}</style>` +
             '<p class="text-sm text-ink-muted">The report needs JavaScript. Nothing further will load here.</p>',
         }}
       />

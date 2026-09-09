@@ -23,10 +23,18 @@ describe("the header, with the session boundary unresolved", () => {
     expect(unscriptedLogins(html()).length).toBeGreaterThan(0);
   });
 
-  it("offers one at each viewport, since the two are mutually exclusive", () => {
-    // `hidden sm:flex` against `sm:hidden`, so each viewport needs its own copy. Asserting only
-    // that some <noscript> exists let the narrow one be deleted with nothing failing.
-    expect(unscriptedLogins(html())).toHaveLength(2);
+  it("offers one inside each viewport's own container", () => {
+    // `hidden sm:flex` against `sm:hidden`, so exactly one container is ever on screen. Counting
+    // two links is not enough: both can sit in the wide nav, and a phone loses login entirely
+    // while every assertion stays green.
+    const markup = html();
+    const within = (tag: "nav" | "details") => {
+      const start = markup.indexOf(`<${tag}`);
+      return markup.slice(start, markup.indexOf(`</${tag}>`, start));
+    };
+
+    expect(unscriptedLogins(within("nav"))).toHaveLength(1);
+    expect(unscriptedLogins(within("details"))).toHaveLength(1);
   });
 
   it("leaves the boundary empty rather than claiming the reader is signed out", () => {
