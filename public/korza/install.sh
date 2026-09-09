@@ -8,7 +8,7 @@
 # macOS ships: sh, curl, tar, mktemp. No Homebrew, no Xcode, no sudo.
 set -eu
 
-REPO="${KORZA_REPO:-korzainc/devx-cli}"
+REPO="${KORZA_REPO:-korzainc/korza-cli}"
 # $HOME is only needed for the default. Under `set -u` a bare $HOME would abort
 # with a raw "parameter not set" instead of one of this script's own messages.
 if [ -z "${KORZA_BIN_DIR:-}" ] && [ -z "${HOME:-}" ]; then

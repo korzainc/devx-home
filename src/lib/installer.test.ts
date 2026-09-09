@@ -86,9 +86,17 @@ switch (name) {
   case "mktemp": check(args.join(" ") === "-d"); process.stdout.write(stage + "\n"); break;
   case "rm": event("cleanup-retained"); break;
   case "curl": {
+    if (args[1] === "-o") {
+      check(args.length === 6 && args[0] === "-fsSL" && args[2] === path.join(stage, "release.json") && args[3] === "-w" && args[4] === "%{http_code}");
+      check(args[5] === "https://api.github.com/repos/korzainc/korza-cli/releases/latest");
+      fs.appendFileSync(path.join(root, "downloads"), args[5] + "\n");
+      fs.writeFileSync(args[2], JSON.stringify({assets:[{browser_download_url:"https://fixture.invalid/korza-macos.tar.gz"}]}));
+      process.stdout.write("200");
+      break;
+    }
     check(args.length === 4 && args[0] === "-fsSL" && args[2] === "-o");
-    const checksum = args[1] === "https://fixture.invalid/korza.sha256";
-    check(checksum || args[1] === "https://fixture.invalid/korza" || args[1] === "https://fixture.invalid/korza-new");
+    const checksum = args[1] === "https://fixture.invalid/korza.sha256" || args[1] === "https://fixture.invalid/korza-macos.tar.gz.sha256";
+    check(checksum || args[1] === "https://fixture.invalid/korza-macos.tar.gz" || args[1] === "https://fixture.invalid/korza" || args[1] === "https://fixture.invalid/korza-new");
     check(args[3] === path.join(stage, checksum ? "korza.sha256" : "korza.tar.gz"));
     fs.appendFileSync(path.join(root, "downloads"), args[1] + "\n");
     if (checksum && scenario.checksum === "missing") process.exit(22);
@@ -144,6 +152,8 @@ switch (name) {
     cut: "/usr/bin/cut",
     grep: "/usr/bin/grep",
     tr: "/usr/bin/tr",
+    head: "/usr/bin/head",
+    sed: "/usr/bin/sed",
   })) {
     symlinkSync(systemPath, join(bin, name));
   }
@@ -196,6 +206,17 @@ describe(
   "the vendored installer with inert local fixtures",
   { timeout: 20_000 },
   () => {
+    it("discovers releases from the renamed Korza CLI repository", () => {
+      const result = install({ env: { KORZA_DIST_URL: "" } });
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.downloads).toEqual([
+        "https://api.github.com/repos/korzainc/korza-cli/releases/latest",
+        "https://fixture.invalid/korza-macos.tar.gz",
+        "https://fixture.invalid/korza-macos.tar.gz.sha256",
+      ]);
+      expect(readFileSync(result.target, "utf8")).toBe(result.fixture);
+    });
+
     it.each([ARCHIVE_DIGEST, ARCHIVE_DIGEST.toUpperCase()])(
       "installs against the supplied digest %s without fetching a sidecar",
       (expectedDigest) => {

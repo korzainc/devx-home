@@ -42,15 +42,15 @@ replacing an existing binary, then prints a setup command. It uses `korza setup`
 when PATH selects that binary, otherwise a safely quoted full path. It creates
 `kz` only when that name is available.
 
-The committed bundle is built from `devx-cli` source commit `4611c28`. The
+The committed bundle is built from `korza-cli` source commit `6014258`. The
 archive and its checksum live under [public/korza/](public/korza/); this bundle
 was matched byte-for-byte to the CLI distribution at that commit. Later CLI
 changes do not update it automatically. Production builds reject demo/sandbox
 entry points; `korza setup --help` lists the supported setup flags.
 
 The old `/devx/install.sh` URL redirects to `/setup`. The old versioned `/devx/`
-archive and checksum URLs redirect to the matching `/korza/` assets. Actual
-repository names and the support channel retain their DevX names.
+archive and checksum URLs redirect to the matching `/korza/` assets. The CLI repository is `korzainc/korza-cli`; this portal remains
+`korzainc/devx-home`, and the support channel remains `#devx`.
 
 The rename does not delete an old `~/.local/bin/devx` installation. Locate it
 with `command -v devx`; after `korza --version` succeeds and you confirm it is
@@ -73,7 +73,7 @@ requirements. Retired `DEVX_*` overrides are ignored.
 | `KORZA_DIST_URL`      | `/setup` generates the URL from the selected origin and committed artifact version. The standalone installer without this input looks up a GitHub release.                 | Pass the selected bundle to a shell script, which cannot recover its original download URL when piped or evaluated.                    |
 | `KORZA_DIST_SHA256`   | `/setup` reads the expected digest from the committed sidecar and embeds it. The standalone installer without a pin downloads a sidecar.                                   | Keep the expected digest tied to the selected bundle; calculating the downloaded file's hash alone cannot establish what was expected. |
 | `KORZA_BIN_DIR`       | The installer uses `$HOME/.local/bin`.                                                                                                                                     | Optional destination for the CLI binary, including isolated installer tests. If `HOME` is unavailable, a directory must be supplied.   |
-| `KORZA_REPO`          | The standalone installer uses `korzainc/devx-cli`.                                                                                                                         | Optional standalone installer override for another repository. It is ignored when `/setup` supplies the bundle URL.                    |
+| `KORZA_REPO`          | The standalone installer uses `korzainc/korza-cli`.                                                                                                                        | Optional standalone installer override for another repository. It is ignored when `/setup` supplies the bundle URL.                    |
 
 The last four settings are **not Vercel dashboard inputs**. The generated URL
 and checksum are an interface between the website and its installer. Shell
@@ -148,7 +148,7 @@ When the CLI release is ready:
    command. A copied binary tested in a VM does not prove the hosted path works.
 
 For a bundled refresh before that transition, synchronize
-`public/korza/install.sh` with `devx-cli/install.sh`, copy the archive and checksum
+`public/korza/install.sh` with `korza-cli/install.sh`, copy the archive and checksum
 together, update `BUNDLED_ARTIFACT_VERSION` if needed, and update the source
 provenance above. Check the route and installer tests before deploying.
 A checksum detects mismatched bytes; it does not authenticate a compromised

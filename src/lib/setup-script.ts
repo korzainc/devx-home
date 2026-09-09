@@ -4,7 +4,7 @@ import { shellQuote } from "@/lib/shell-quote";
 
 // Serve the vendored installer with this deployment's interim bundled distribution,
 // including in production. DX-161 replaces this distribution path.
-// Reconcile installer fixes with devx-cli when updating the script, archive and checksum.
+// Reconcile installer fixes with korza-cli when updating the script, archive and checksum.
 
 /** Bump this alongside the files committed under public/korza/. */
 export const BUNDLED_ARTIFACT_VERSION = "0.1.0";
