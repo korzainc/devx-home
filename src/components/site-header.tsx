@@ -65,19 +65,18 @@ export function SiteHeader() {
 const navLink =
   "text-sm whitespace-nowrap text-ink-muted transition-colors hover:text-ink";
 
+/**
+ * One link, not the four the site has pages for. The rest live in the footer.
+ *
+ * The bar is what a reader carries on every page, and only Getting started earns that: Skills and
+ * Tools are where they already are once they are browsing, and Roadmap and Updates are read
+ * occasionally rather than moved through.
+ */
 function NavLinks() {
   return (
-    <>
-      <Link href="/getting-started" className={navLink}>
-        Getting started
-      </Link>
-      <Link href="/roadmap" className={navLink}>
-        Roadmap
-      </Link>
-      <Link href="/updates" className={navLink}>
-        Updates
-      </Link>
-    </>
+    <Link href="/getting-started" className={navLink}>
+      Getting started
+    </Link>
   );
 }
 

@@ -17,7 +17,12 @@ export function CardGrid<T extends { id: string }>({
   renderCard: (entry: T) => ReactNode;
 }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    // `grid-cols-1` is load-bearing, not the default spelled out. Without it the one-column track
+    // is `auto`, whose floor is min-content, and the cards truncate with `white-space: nowrap`, so
+    // min-content is the full untruncated string. A tool carrying three capabilities widened the
+    // track to 896px on a 390px screen. The breakpoint classes never showed it because Tailwind
+    // emits `minmax(0, 1fr)`, which floors at zero.
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {entries.map((entry) => (
         <div key={entry.id} id={entry.id} className="scroll-mt-24">
           {renderCard(entry)}
