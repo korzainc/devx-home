@@ -47,7 +47,7 @@ thing about the bundle is checkable from this repository alone: the archive's
 SHA-256 matches its committed sidecar. Two further facts were observed
 externally on 2026-09-09 and are recorded here rather than reproducible from
 this repository: `public/korza/install.sh` was verified byte-for-byte identical
-to `install.sh` at `korza-cli` commit `5fb7ff2`, and the archive came from a
+to `install.sh` at `korza-cli` commit `d3192ad`, and the archive came from a
 local build of that commit whose manifest is not published. Treat the binary's
 provenance as recorded rather than independently verified until a signed public
 release replaces this path. Later CLI changes do not update the bundle
