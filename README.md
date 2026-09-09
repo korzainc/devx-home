@@ -1,50 +1,175 @@
 # devx-home
 
-Korza's DevX portal: a tools catalogue, a skills catalogue, a CI gap analysis for a given
-repo, and product updates. Tracked in the Linear project **DevX Home**.
-
-Bootstrap only right now (DX-31) — no features, no catalogues, no auth.
+Korza's DevX portal provides tool and skill catalogues, GitHub sign-in, CI gap
+analysis, getting-started instructions, a roadmap and product updates. The
+project is tracked as **DevX Home**. The CLI is named **Korza CLI**, with `korza`
+as its executable and `kz` as its short alias; the support channel remains `#devx`.
 
 ## Develop
 
-pnpm, pinned via `packageManager` in `package.json`.
+Use Node 24.x and the pnpm version pinned in `package.json`. Install the locked
+dependencies before running the app:
 
 ```bash
-pnpm install
-pnpm dev           # http://localhost:3000
+pnpm install --frozen-lockfile
+pnpm dev                       # http://localhost:3000
 ```
 
 ```bash
+pnpm test
 pnpm lint
 pnpm typecheck
+pnpm format:check
 pnpm build
 ```
 
-## Gotchas worth knowing before you touch the toolchain
+The catalogues and getting-started UI can be developed locally. Authentication
+and database-backed features need the existing project credentials and database
+connection. Follow [AGENTS.md](AGENTS.md) for access and database constraints;
+do not overwrite `.env.local` or provision a replacement database.
 
-**`typecheck` runs `next typegen` first, deliberately.** `tsc` alone fails on a clean checkout
-with `Cannot find name 'LayoutProps'` — Next generates those route/layout globals into
-`.next/types`, which `tsconfig.json` includes. Without the typegen step, `pnpm typecheck` only
-passes when a previous build happens to have left `.next` behind, so it would pass locally and
-fail in CI.
+`pnpm vercel-build` runs migrations only when `VERCEL_ENV=production`, then
+builds Next.js. Previews skip that migration step. `pnpm migrate` runs migrations
+explicitly against `DATABASE_URL_UNPOOLED`; the app uses pooled `DATABASE_URL`.
+The installer settings below do not replace these existing application settings.
 
-**Approved build scripts live in `pnpm-workspace.yaml`, not `package.json`.** pnpm 11 no longer
-reads the `pnpm` field in `package.json`, and it treats an unapproved build script as a hard
-error on _every_ command rather than a warning — so one unapproved dependency makes every script
-exit 1. See that file for what is approved and why.
+## Installer distribution
 
-## Dependency ceilings
+`/getting-started` renders a copyable install command on the server. `/setup`
+serves the vendored installer with this deployment's bundle URL and expected
+SHA-256 digest. The installer downloads and validates the candidate before
+replacing an existing binary, then prints a setup command. It uses `korza setup`
+when PATH selects that binary, otherwise a safely quoted full path. It creates
+`kz` only when that name is available.
 
-Two dev dependencies are deliberately held below their latest published major. Both are
-capped by `eslint-config-next`'s bundled plugins, not by our own code, so raising either
-one breaks `pnpm lint` outright:
+The committed bundle is built from `devx-cli` source commit `a62a38b`. The
+archive and its checksum live under [public/korza/](public/korza/); this bundle
+was matched byte-for-byte to the CLI distribution at that commit. Later CLI
+changes do not update it automatically. Production builds reject demo/sandbox
+entry points; `korza setup --help` lists the supported setup flags.
 
-- **TypeScript is `~6.0.3`, not 7.x.** `typescript-eslint` hard-refuses TS 7 with
-  `"typescript-eslint does not support TS 7.0"` (its peer range is `<6.1.0`, which is also
-  why the range is `~` rather than `^` — `^6.0.3` would let 6.1.x in and break lint).
-  Tracking: typescript-eslint#10940.
-- **ESLint is `^9`, not 10.x.** `eslint-plugin-react` still calls `context.getFilename()`,
-  removed in ESLint 10, so every lint run dies in `react/display-name`.
+The old `/devx/install.sh` URL redirects to `/setup`. The old versioned `/devx/`
+archive and checksum URLs redirect to the matching `/korza/` assets. Actual
+repository names and the support channel retain their DevX names.
 
-Everything else is on latest. Re-check these when `eslint-config-next` next bumps its
-plugin set.
+The rename does not delete an old `~/.local/bin/devx` installation. Locate it
+with `command -v devx`; after `korza --version` succeeds and you confirm it is
+the earlier Korza CLI, remove only that old executable. Keep `~/.devx` state
+and the existing managed shell markers. `korza setup --remove` removes the
+managed shell block, not installed tools, the `korza` binary or the `kz` alias.
+The page FAQ includes this migration and removal guidance.
+
+### Do any installer variables need configuring?
+
+**Normally, none.** Vercel supplies deployment domains, `/setup` generates the
+bundle URL and checksum pin, and the installer has directory and repository
+defaults. Use the `KORZA_*` names only when an override is needed. These are
+the only supported configuration names.
+
+| Setting               | What happens without a manual value                                                                                                                                        | Reason to retain it                                                                                                                    |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `KORZA_PUBLIC_ORIGIN` | Vercel production uses `VERCEL_PROJECT_PRODUCTION_URL`, falling back to `VERCEL_URL`; previews use `VERCEL_URL`. Local development uses `http://localhost:3000` or `PORT`. | Optional choice of an exact public domain, non-Vercel hosting or a development tunnel.                                                 |
+| `KORZA_DIST_URL`      | `/setup` generates the URL from the selected origin and committed artifact version. The standalone installer without this input looks up a GitHub release.                 | Pass the selected bundle to a shell script, which cannot recover its original download URL when piped or evaluated.                    |
+| `KORZA_DIST_SHA256`   | `/setup` reads the expected digest from the committed sidecar and embeds it. The standalone installer without a pin downloads a sidecar.                                   | Keep the expected digest tied to the selected bundle; calculating the downloaded file's hash alone cannot establish what was expected. |
+| `KORZA_BIN_DIR`       | The installer uses `$HOME/.local/bin`.                                                                                                                                     | Optional destination for the CLI binary, including isolated installer tests. If `HOME` is unavailable, a directory must be supplied.   |
+| `KORZA_REPO`          | The standalone installer uses `korzainc/devx-cli`.                                                                                                                         | Compatibility and alternative-repository testing. It is ignored when `/setup` supplies the bundle URL.                                 |
+
+The last four settings are **not Vercel dashboard inputs**. The generated URL
+and checksum are an interface between the website and its installer. Shell
+variables are one way to pass these values, not an additional deployment
+requirement. Replacing them with script literals would still require the same
+URL and expected digest; it would change the interface without removing those
+requirements.
+
+`KORZA_BIN_DIR` does not sandbox `korza setup`: it relocates only the CLI binary
+installed by `install.sh`. Normal setup still manages tools and configuration
+under the user's home. `KORZA_REPO` affects installer discovery only, not the
+compiled CLI updater. These overrides can remain optional without making users
+configure them for normal installation.
+
+### Vercel deployment
+
+Enable access to Vercel's system environment variables. Vercel supplies
+`VERCEL_ENV`, `VERCEL_URL` and `VERCEL_PROJECT_PRODUCTION_URL`; do not rename or
+manually populate them. Its production-domain value selects the shortest custom
+domain, or a `vercel.app` domain if there is no custom domain.
+See [Vercel's system-variable reference](https://vercel.com/docs/environment-variables/system-environment-variables).
+
+Leave `KORZA_PUBLIC_ORIGIN` unset if the inferred domain
+is correct. If a specific public host is needed, set `KORZA_PUBLIC_ORIGIN` to
+an HTTPS origin such as `https://your-domain.example`, with no path, credentials,
+query or fragment. Scope a production override to **Production**. Normally leave
+**Preview** unset so each preview installs its own bundle.
+
+Precedence is the Korza override, then the deployment or
+local-development default. An explicitly empty or invalid override fails closed;
+remove it to restore inference. If no valid origin is available, the page offers
+manual setup and `/setup` returns HTTP 503. Request `Host` and forwarded headers
+never choose the download server. The server-rendered command and generated
+installer must agree on a trusted origin, rather than guessing from a request.
+
+Save changes in the intended environment and redeploy. For production hosting
+outside Vercel, provide a valid origin at build and runtime. CLI build settings
+`KORZA_SIGN_ID` and `KORZA_KEYCHAIN_PROFILE` belong on the release-build machine;
+`KORZA_UPDATE_MANIFEST` is a CLI rehearsal override. None belongs in the website's
+normal deployment configuration.
+
+For a local tunnel:
+
+```bash
+KORZA_PUBLIC_ORIGIN=https://your-tunnel.example pnpm dev
+```
+
+Only the selected host is added to Next's development-origin allowlist. HTTP
+origins are allowed only for loopback outside production. Locally, the page uses
+a compact download-then-run command, rejects redirects and waits for curl to
+succeed. Remote URLs and production builds retain the shebang guard to reject
+login HTML. This is response-format validation, not authentication of a script.
+
+### Release handoff and validation
+
+The bundle remains an ad-hoc-signed prerelease candidate. Public distribution
+and the release transition are tracked in DX-161. A Vercel login page will stop
+the terminal installer; the HTML guard does not bypass deployment protection.
+The chosen host must serve `/setup` and the bundle without browser authentication.
+Keep the checksum sidecar accessible for manual verification as well.
+
+When the CLI release is ready:
+
+1. Validate the candidate on a clean Mac or disposable macOS VM, complete
+   Developer ID signing and accepted notarization, and publish the universal
+   macOS archive with its matching SHA-256 sidecar.
+2. Update `/setup` source selection in `src/lib/setup-script.ts` to use the
+   verified release distribution. Publishing a GitHub release or changing the
+   origin alone does not switch this website away from its committed bundle.
+3. Verify the rendered install command on a clean Mac against the actual public
+   host, including the URL, expected checksum, signature and printed setup
+   command. A copied binary tested in a VM does not prove the hosted path works.
+
+For a bundled refresh before that transition, synchronize
+`public/korza/install.sh` with `devx-cli/install.sh`, copy the archive and checksum
+together, update `BUNDLED_ARTIFACT_VERSION` if needed, and update the source
+provenance above. Check the route and installer tests before deploying.
+A checksum detects mismatched bytes; it does not authenticate a compromised
+installer server.
+
+## Toolchain maintenance
+
+`pnpm typecheck` runs `next typegen` before `tsc --noEmit` because the TypeScript
+configuration includes Next's generated route and layout types. Keep that order
+on a clean checkout.
+
+Dependency build permissions are committed in `pnpm-workspace.yaml`, including
+`unrs-resolver` for the lint toolchain. Review dependency build-script changes
+rather than assuming an updated package has the same requirements.
+
+The workspace also pins `@eslint/eslintrc@3.3.6`'s `js-yaml` dependency to
+4.3.2 for [CVE-2026-84375](https://github.com/nodeca/js-yaml/security/advisories/GHSA-2883-xcg3-v3hh).
+This stays within the parent's supported v4 range. Remove the scoped override
+when replacing that parent with a version that resolves a patched parser.
+
+`package.json` currently constrains TypeScript to `~6.0.3` and ESLint to `^9`.
+Use `pnpm-lock.yaml` for the resolved versions; this README does not claim every
+dependency is the latest release. When upgrading the lint toolchain, check
+compatibility with `eslint-config-next` and run formatting, tests, lint, type
+checking and a production build together.

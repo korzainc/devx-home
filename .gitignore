@@ -20,12 +20,18 @@
 # production
 /build
 
+# The installer uses the archive and checksum, not a loose executable.
+/public/devx/devx
+/public/korza/korza
+/public/korza/kz
+
 # misc
 .DS_Store
 *.pem
 
 # local agent state, including scratch worktrees that carry their own build output
 .claude/
+.codezen/
 
 # debug
 npm-debug.log*

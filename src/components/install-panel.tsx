@@ -108,7 +108,7 @@ function Block({ block }: { block: InstallBlock }) {
             </code>
           </div>
           <div className="flex items-start gap-2 py-2.5 pr-2 pl-4">
-            <pre className="flex-1 overflow-x-auto font-mono text-sm text-ink select-all">
+            <pre className="min-w-0 flex-1 overflow-x-auto font-mono text-sm text-ink select-all">
               {block.content}
             </pre>
             {button}
@@ -116,7 +116,7 @@ function Block({ block }: { block: InstallBlock }) {
         </div>
       ) : (
         <div className="flex items-center gap-2 rounded-lg border border-line bg-canvas py-2.5 pr-2 pl-4">
-          <code className="flex-1 overflow-x-auto font-mono text-sm whitespace-nowrap text-ink select-all">
+          <code className="min-w-0 flex-1 overflow-x-auto font-mono text-sm whitespace-nowrap text-ink select-all">
             {block.content}
           </code>
           {button}
@@ -129,6 +129,17 @@ function Block({ block }: { block: InstallBlock }) {
       </span>
     </div>
   );
+}
+
+/** Standalone command field used by the getting-started manual steps. */
+export function CommandField({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return <Block block={{ label, content: value, name: `${label} command` }} />;
 }
 
 /**

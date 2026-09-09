@@ -148,6 +148,16 @@ export default function Home() {
           A health check for your repo, and the catalogues behind what it
           recommends.
         </p>
+        {/* The one door a new machine needs. Everything else on the page assumes the
+            toolchain is already there. */}
+        <p className="text-sm">
+          <Link
+            href="/getting-started"
+            className="font-medium text-accent hover:underline"
+          >
+            New machine, or new to the toolchain? Start here →
+          </Link>
+        </p>
       </div>
 
       <div className="flex flex-col gap-20">

@@ -48,7 +48,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               page content to this stacking context so the sticky header always wins. */}
           <span
             aria-hidden
-            className="absolute top-2 -left-6 -z-10 h-36 w-96 rounded-full bg-accent/20 blur-3xl"
+            className="absolute top-2 -left-6 -z-10 h-36 w-96 max-w-full rounded-full bg-accent/20 blur-3xl"
           />
           {children}
         </main>
