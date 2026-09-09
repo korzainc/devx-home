@@ -5,7 +5,6 @@ import {
   ecosystemLabel,
   getBaseline,
   getPlugin,
-  indexSchemaVersion,
   installCommands,
   marketplaceName,
   marketplaceRepo,
@@ -291,13 +290,10 @@ describe("install commands", () => {
 });
 
 describe("provenance", () => {
-  // The placeholder half cannot be pinned while the data says false: a literal and the
-  // derivation agree.
-  it("declares the skill index as generated, at the schema the file states", () => {
+  it("declares the skill index as generated", () => {
     // Fails if a hand-extracted file is dropped back in.
     expect(skillsData.placeholder).toBe(false);
-    expect(indexSchemaVersion).toBe(skillsData.schemaVersion);
-    expect(indexSchemaVersion).toBeGreaterThan(0);
+    expect(skillsData.schemaVersion).toBeGreaterThan(0);
   });
 });
 

@@ -19,14 +19,24 @@ export function CatalogueTabs({
   plugins,
   skills,
   toolchain,
+  initialSkillFilters = {},
 }: {
   plugins: PluginEntry[];
   /** The classified rows: everything the facets apply to. */
   skills: SkillEntry[];
   /** Setup and meta rows. Listed and searchable, but outside every facet. */
   toolchain: SkillEntry[];
+  /** Skills selections off the query string, keyed by URL param. */
+  initialSkillFilters?: Record<string, string[]>;
 }) {
-  const [view, setView] = useState<View>("plugins");
+  // A link carrying skills filters is a link to the skills panel: opening on Plugins would apply
+  // them where the reader cannot see them, and the first tab click would then look like it had
+  // filtered something itself.
+  const [view, setView] = useState<View>(
+    Object.values(initialSkillFilters).some((values) => values.length > 0)
+      ? "skills"
+      : "plugins",
+  );
   const tabRefs = useRef<Record<View, HTMLButtonElement | null>>({
     plugins: null,
     skills: null,
@@ -144,7 +154,11 @@ export function CatalogueTabs({
         aria-labelledby="catalogue-tab-skills"
         hidden={view !== "skills"}
       >
-        <SkillsCatalogue entries={skills} toolchain={toolchain} />
+        <SkillsCatalogue
+          entries={skills}
+          toolchain={toolchain}
+          initial={initialSkillFilters}
+        />
       </div>
     </div>
   );

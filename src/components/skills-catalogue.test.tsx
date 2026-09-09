@@ -8,8 +8,9 @@ import {
   render,
   screen,
 } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CatalogueTabs } from "@/components/catalogue-tabs";
+import { AUDIENCES, skillAudiences } from "@/data/skill-audiences";
 import { PluginsCatalogue } from "@/components/plugins-catalogue";
 import { SkillsCatalogue } from "@/components/skills-catalogue";
 import { entryHaystack, matchesQuery } from "@/lib/search";
@@ -20,14 +21,26 @@ import {
   skills,
   toolchainSkills,
 } from "@/lib/catalogue";
-import { skillCountByPlugin } from "@/lib/catalogue-entries";
+import { CATEGORIES, skillCountByPlugin } from "@/lib/catalogue-entries";
 
 /**
  * The wiring test: lib tests prove the rules, this proves the page uses them. Everything goes
  * through the DOM. The suite it replaces re-implemented the component and missed 13 mutations.
  */
 
+const replace = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace }),
+  usePathname: () => "/skills",
+}));
+
 afterEach(cleanup);
+beforeEach(() => {
+  replace.mockClear();
+  // The URL writer reads the live location for the params it does not own, and jsdom carries one
+  // document across the file, so a test that seeds a query string would leak into the next.
+  window.history.replaceState({}, "", "/skills");
+});
 
 function renderPage() {
   render(
@@ -55,15 +68,20 @@ function escape(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\-]/g, "\\$&");
 }
 
-/** Values live inside a closed menu now, so reaching one means opening its facet first. */
+/** Audience is the one axis kept in the open, and the only one that is not a facet of the
+ *  generated index: its values are chips, while every facet lives inside a closed menu and
+ *  reaching one means opening it first. */
+const AUDIENCE = "For";
+
 function option(facet: string, value: string) {
-  // A chip for the same facet is named "Remove Category filter: …", so it cannot collide.
+  if (facet === AUDIENCE)
+    return screen.getByRole("button", { name: value, hidden: false });
   const trigger = screen.getByRole("button", {
     name: new RegExp(`^${escape(facet)}`),
   });
   if (trigger.getAttribute("aria-expanded") !== "true")
     fireEvent.click(trigger);
-  // An explicit aria-label now gives the checkbox "Verify, 7 matching" instead of letting the
+  // An explicit aria-label now gives the checkbox "codezen, 15 matching" instead of letting the
   // label's own text run the value and count together.
   return screen.getByRole("checkbox", {
     name: new RegExp(`^${escape(value)}, \\d`),
@@ -73,6 +91,14 @@ function option(facet: string, value: string) {
 function pick(facet: string, value: string) {
   fireEvent.click(option(facet, value));
 }
+
+/** A plugin that ships both classified and toolchain rows, so a count taken over the wrong pool
+ *  reads differently from one taken over the right one. */
+const SHARED_PLUGIN = plugins.find(
+  (plugin) =>
+    browsableSkills.some((skill) => skill.plugin === plugin.id) &&
+    toolchainSkills.some((skill) => skill.plugin === plugin.id),
+)!.id;
 
 /**
  * The result count has no visible copy: it is announced to assistive tech only, and debounced so
@@ -98,48 +124,83 @@ describe("the skills catalogue", () => {
     expect(cardCount()).toBe(skills.length);
   });
 
-  it("draws exactly the facets skillFacets defines", () => {
+  it("draws exactly the facets skillFacets defines, and none for category", () => {
     renderPage();
-    for (const facet of skillFacets) {
+    // Audience is the chip row, so the row carries the label and the values are the buttons.
+    expect(screen.getByText("For")).toBeTruthy();
+    for (const value of AUDIENCES) {
       expect(
-        screen.getByText(facet.label),
-        `${facet.label} is not on screen`,
+        screen.getByRole("button", { name: value }),
+        `${value} is not a chip`,
       ).toBeTruthy();
     }
-    // A fifth facet should be a decision, not a drift.
-    expect(skillFacets).toHaveLength(4);
+    for (const label of ["Agent", "Plugin", "Origin"]) {
+      expect(
+        screen.getByRole("button", { name: new RegExp(`^${label}`) }),
+        `${label} is not on screen`,
+      ).toBeTruthy();
+    }
+    // A fourth facet should be a decision, not a drift.
+    expect(skillFacets.map((facet) => facet.label)).toEqual([
+      "Agent",
+      "Plugin",
+      "Origin",
+    ]);
+    // Category heads the sections now, so a control for it would only pick the heading a card
+    // already sits under.
+    expect(screen.queryByRole("button", { name: /^Category/ })).toBeNull();
   });
 
-  it("narrows to a category and keeps the toolchain rows listed", () => {
+  it("groups the unfiltered rows under the categories, in CATEGORIES order", () => {
     renderPage();
-    pick("Category", "Verify");
-    expandToolchain();
-
-    const inCategory = browsableSkills.filter(
-      (skill) => skill.category === "Verify",
-    ).length;
-    expect(inCategory).toBeGreaterThan(0);
-    expect(cardCount()).toBe(inCategory + toolchainSkills.length);
-  });
-
-  it("counts a category over the classified rows only", () => {
-    renderPage();
-    // The toolchain rows carry Coordinate too, so counting them would read 11 and show 4.
-    const coordinate = browsableSkills.filter(
-      (skill) => skill.category === "Coordinate",
-    ).length;
-    expect(
-      toolchainSkills.some((skill) => skill.category === "Coordinate"),
-    ).toBe(true);
-
-    // The chip text, not just the card count: leaking the toolchain rows into the tally makes
-    // the chip read "Coordinate11" while clicking it still shows four.
-    expect(option("Category", "Coordinate").closest("label")?.textContent).toBe(
-      `Coordinate${coordinate}`,
+    const headings = screen
+      .getAllByRole("heading", { level: 2 })
+      .map((node) => node.textContent);
+    // Every category the rows actually reach, and nothing else: an empty one is dropped rather
+    // than drawn over an empty grid.
+    const reached = CATEGORIES.filter((category) =>
+      browsableSkills.some((skill) => skill.category === category),
     );
-    pick("Category", "Coordinate");
+    expect(headings).toEqual([...reached]);
+  });
+
+  it("collapses the categories once a filter is on", () => {
+    // The headings would then only repeat what the filter row above already says.
+    renderPage();
+    expect(screen.getAllByRole("heading", { level: 2 }).length).toBeGreaterThan(
+      0,
+    );
+    pick("Origin", "Korza");
+    expect(screen.queryAllByRole("heading", { level: 2 })).toHaveLength(0);
+  });
+
+  it("narrows to a facet and keeps the toolchain rows listed", () => {
+    renderPage();
+    pick("Origin", "Korza");
     expandToolchain();
-    expect(cardCount()).toBe(coordinate + toolchainSkills.length);
+
+    const inOrigin = browsableSkills.filter(
+      (skill) => skill.origin === "Korza",
+    ).length;
+    expect(inOrigin).toBeGreaterThan(0);
+    expect(cardCount()).toBe(inOrigin + toolchainSkills.length);
+  });
+
+  it("counts a facet over the classified rows only", () => {
+    renderPage();
+    // The toolchain rows carry a plugin too, so counting them inflates the tally.
+    const classified = browsableSkills.filter(
+      (skill) => skill.plugin === SHARED_PLUGIN,
+    ).length;
+
+    // The option text, not just the card count: leaking the toolchain rows into the tally makes
+    // the option read one number while clicking it shows another.
+    expect(option("Plugin", SHARED_PLUGIN).closest("label")?.textContent).toBe(
+      `${SHARED_PLUGIN}${classified}`,
+    );
+    pick("Plugin", SHARED_PLUGIN);
+    expandToolchain();
+    expect(cardCount()).toBe(classified + toolchainSkills.length);
   });
 
   it("searches the toolchain rows even though it cannot filter them", () => {
@@ -186,14 +247,55 @@ describe("the skills catalogue", () => {
     }
   });
 
-  it("clears back to the full list", () => {
+  it("returns to the full list when the filter is toggled back off", () => {
+    // There is no "Clear all": every filter is visible as a chip or as a count on its own menu,
+    // so the control that turned one on is the control that turns it off.
     renderPage();
-    pick("Category", "Verify");
+    pick("Agent", "Codex CLI");
     expect(cardCount()).toBeLessThan(skills.length);
 
-    fireEvent.click(screen.getByRole("button", { name: "Clear all" }));
+    pick("Agent", "Codex CLI");
     expandToolchain();
     expect(cardCount()).toBe(skills.length);
+    expect(screen.queryByRole("button", { name: "Clear all" })).toBeNull();
+  });
+
+  it("unions the All rows into a specific audience", () => {
+    renderPage();
+    pick(AUDIENCE, "Sales");
+
+    const tagged = browsableSkills.filter((skill) =>
+      skillAudiences[skill.id].includes("Sales"),
+    );
+    const withAll = browsableSkills.filter((skill) => {
+      const mine = skillAudiences[skill.id];
+      return mine.includes("Sales") || mine.includes("All");
+    });
+    // Exact-matching would leave a Sales reader looking at the one card tagged for them, with
+    // every cross-functional skill filtered out from under it.
+    expect(withAll.length).toBeGreaterThan(tagged.length);
+    expect(cardCount()).toBe(withAll.length);
+  });
+
+  it("shows only the cross-functional rows when All is picked on its own", () => {
+    // Asking for All is asking to see fewer, so the union cannot apply to the value that drives
+    // it: every row would satisfy it.
+    renderPage();
+    pick(AUDIENCE, "All");
+
+    const expected = browsableSkills.filter((skill) =>
+      skillAudiences[skill.id].includes("All"),
+    );
+    expect(expected.length).toBeLessThan(browsableSkills.length);
+    expect(cardCount()).toBe(expected.length);
+  });
+
+  it("writes the audience pick to the URL, uncoded", () => {
+    renderPage();
+    pick(AUDIENCE, "Business");
+    expect(replace).toHaveBeenLastCalledWith("/skills?for=Business", {
+      scroll: false,
+    });
   });
 
   // Why the old "gap in the catalogue" empty state was removed: no chip can match nothing.
@@ -363,7 +465,7 @@ describe("a search that only the toolchain matches", () => {
   it("does not answer a faceted search with unfaceted rows", () => {
     // The toolchain rows ignore facets, so they cannot be the result of a faceted search.
     renderPage();
-    pick("Category", "Build");
+    pick("Origin", "Korza");
     fireEvent.change(search(), { target: { value: "bootstrap" } });
     expect(screen.getByText("No skill matches those filters.")).toBeTruthy();
     expect(cardCount()).toBe(0);
@@ -383,13 +485,13 @@ describe("a search that only the toolchain matches", () => {
       });
 
       expect(settledCount()).toBe(
-        `${browsableSkills.length} of ${skills.length} skills shown`,
+        `${browsableSkills.length} of ${skills.length} skills shown.`,
       );
 
       fireEvent.change(search(), { target: { value: "teach" } });
       expect(toggle.getAttribute("aria-expanded")).toBe("true");
       expect(cardCount()).toBe(1);
-      expect(settledCount()).toBe(`1 of ${skills.length} skills shown`);
+      expect(settledCount()).toBe(`1 of ${skills.length} skills shown.`);
       expect(screen.queryByText("No skill matches those filters.")).toBeNull();
     } finally {
       // In a `finally` so a failed assertion above can't leak fake timers into later tests.
@@ -405,11 +507,11 @@ describe("a search that only the toolchain matches", () => {
       renderPage();
       expandToolchain();
       fireEvent.change(search(), { target: { value: "teach" } });
-      pick("Category", "Discover");
+      pick("Origin", "Korza");
 
       expect(cardCount()).toBe(1);
       expect(screen.queryByText("No skill matches those filters.")).toBeNull();
-      expect(settledCount()).toBe(`1 of ${skills.length} skills shown`);
+      expect(settledCount()).toBe(`1 of ${skills.length} skills shown.`);
     } finally {
       vi.useRealTimers();
     }
@@ -443,8 +545,15 @@ describe("a search that only the toolchain matches", () => {
     // The toolchain rows match an empty query, so gating the empty state on them hid it
     // whenever a facet combination found nothing.
     renderPage();
-    pick("Category", "Discover");
     pick("Plugin", "humanizer");
+    pick("Agent", "Codex CLI");
+    expect(
+      browsableSkills.some(
+        (skill) =>
+          skill.plugin === "humanizer" && skill.agents.includes("Codex CLI"),
+      ),
+      "the combination this leans on now matches something",
+    ).toBe(false);
     expect(screen.getByText("No skill matches those filters.")).toBeTruthy();
   });
 });

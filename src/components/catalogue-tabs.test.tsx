@@ -2,9 +2,15 @@
  * @vitest-environment jsdom
  */
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { CatalogueTabs } from "@/components/catalogue-tabs";
 import { browsableSkills, plugins, toolchainSkills } from "@/lib/catalogue";
+
+// The skills panel keeps its filters in the URL, so both panels reach for the router on mount.
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: vi.fn() }),
+  usePathname: () => "/skills",
+}));
 
 /**
  * The header block above the tabs. The panels have their own suites; this one covers what the

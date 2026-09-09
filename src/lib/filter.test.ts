@@ -25,25 +25,29 @@ describe("grid filtering", () => {
   });
 
   it("treats an empty facet array as no filter", () => {
-    expect(view({ selected: { category: [] }, query: "" })).toHaveLength(
+    expect(view({ selected: { plugin: [] }, query: "" })).toHaveLength(
       skills.length,
     );
   });
 
   it("ORs within a facet and ANDs across facets", () => {
-    const build = view({ selected: { category: ["Build"] }, query: "" }).length;
-    const verify = view({
-      selected: { category: ["Verify"] },
+    // Plugin, because a skill carries exactly one, so the two counts cannot overlap and their
+    // sum is the answer OR has to give.
+    const korza = view({ selected: { plugin: ["codezen"] }, query: "" }).length;
+    const third = view({
+      selected: { plugin: ["superpowers"] },
       query: "",
     }).length;
     const either = view({
-      selected: { category: ["Build", "Verify"] },
+      selected: { plugin: ["codezen", "superpowers"] },
       query: "",
     }).length;
-    expect(either).toBe(build + verify);
+    expect(korza).toBeGreaterThan(0);
+    expect(third).toBeGreaterThan(0);
+    expect(either).toBe(korza + third);
 
     const andOrigin = view({
-      selected: { category: ["Build", "Verify"], origin: ["Korza"] },
+      selected: { plugin: ["codezen", "superpowers"], origin: ["Korza"] },
       query: "",
     }).length;
     expect(andOrigin).toBeLessThan(either);

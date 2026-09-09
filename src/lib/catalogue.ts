@@ -4,6 +4,11 @@ import skillsData from "@/data/skills.json";
 import realCatalogueData from "@/data/catalogue.json";
 import { capabilityLabelOverrides } from "@/data/capability-labels";
 import { installConfigs } from "@/data/install-configs";
+import {
+  AUDIENCE_FALLBACK,
+  pluginAudiences,
+  skillAudiences,
+} from "@/data/skill-audiences";
 import { toolCardSummaries } from "@/data/tool-card-summaries";
 import {
   isBundle,
@@ -271,11 +276,25 @@ export function toolInstallMethods(id: string): InstallMethod[] {
   ];
 }
 
-export const plugins: PluginEntry[] = pluginsData;
+// Audience is the one field on either catalogue that upstream does not carry, so it is merged in
+// here rather than read alongside the entry everywhere it is needed. An id the overlay does not
+// name falls back rather than throwing: a sync that adds one should show the new row, and the
+// seam test beside the overlay is what fails.
+export const plugins: PluginEntry[] = (
+  pluginsData as Omit<PluginEntry, "audiences">[]
+).map((plugin) => ({
+  ...plugin,
+  audiences: pluginAudiences[plugin.id] ?? AUDIENCE_FALLBACK,
+}));
 
-export const skills: SkillEntry[] = (skillsData.skills as SkillEntry[]).filter(
-  (skill) => skill.status !== "Planned",
-);
+export const skills: SkillEntry[] = (
+  skillsData.skills as Omit<SkillEntry, "audiences">[]
+)
+  .filter((skill) => skill.status !== "Planned")
+  .map((skill) => ({
+    ...skill,
+    audiences: skillAudiences[skill.id] ?? AUDIENCE_FALLBACK,
+  }));
 
 export const browsableSkills: SkillEntry[] = skills.filter(
   (skill) => skill.kind === "skill",
@@ -285,8 +304,6 @@ export const browsableSkills: SkillEntry[] = skills.filter(
 export const toolchainSkills: SkillEntry[] = skills.filter(
   (skill) => skill.kind !== "skill",
 );
-
-export const indexSchemaVersion: number = skillsData.schemaVersion;
 
 export function skillsForPlugin(pluginId: string): SkillEntry[] {
   return skills.filter((skill) => skill.plugin === pluginId);
