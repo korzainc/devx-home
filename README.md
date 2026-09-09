@@ -42,7 +42,7 @@ replacing an existing binary, then prints a setup command. It uses `korza setup`
 when PATH selects that binary, otherwise a safely quoted full path. It creates
 `kz` only when that name is available.
 
-The committed bundle is built from `devx-cli` source commit `a62a38b`. The
+The committed bundle is built from `devx-cli` source commit `4611c28`. The
 archive and its checksum live under [public/korza/](public/korza/); this bundle
 was matched byte-for-byte to the CLI distribution at that commit. Later CLI
 changes do not update it automatically. Production builds reject demo/sandbox
