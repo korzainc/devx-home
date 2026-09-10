@@ -63,12 +63,8 @@ describe("the first-run nudge", () => {
     expect(dialog()).toBeNull();
   });
 
-  /** Following either link is a decision; it should not greet you again afterwards. */
-  /**
-   * Deliberately not dismissed on click. Doing so unmounted the overlay while the destination
-   * was still loading, exposing the bare catalogue for that moment. The intro pages record the
-   * flag on arrival instead, so the overlay stays up until `/skills` unmounts.
-   */
+  // Dismissing on click exposed the bare catalogue while the destination loaded.
+  // The intro pages record the flag on arrival instead.
   it.each([/Show me around/, /See it run/])(
     "stays up when %s is clicked, so the catalogue is never left bare",
     (name) => {

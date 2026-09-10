@@ -46,11 +46,8 @@ export function SkillsFirstRunNudge() {
   const dismissed = stored || closedHere;
   const dialog = useRef<HTMLDivElement | null>(null);
 
-  /**
-   * Only `Skip for now` and Escape call this. The two intro links deliberately do not: they
-   * used to, which unmounted the overlay while the destination was still loading and left the
-   * bare catalogue on screen. `SkillsIntroSeen` records the flag on arrival instead.
-   */
+  // Skip and Escape only. The intro links must not: unmounting mid-navigation left the bare
+  // catalogue on screen, so `SkillsIntroSeen` records the flag on arrival instead.
   const dismiss = useCallback(() => {
     // First, so it closes whether or not the rest of this works.
     setClosedHere(true);
