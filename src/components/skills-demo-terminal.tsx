@@ -121,12 +121,8 @@ const TIMELINE = schedule(TRANSCRIPT);
 const RUN_MS = (TIMELINE[TIMELINE.length - 1] ?? 0) + FADE_MS;
 
 export function SkillsDemoTerminal() {
-  /**
-   * Starts where the replay starts. Seeding this at the end put the finished transcript in the
-   * first paint and then rewound it, so the reader watched the text they were already reading
-   * get wiped and typed back out. The transcript still reaches everyone else -- see the two
-   * fallbacks below -- which is the guarantee DX-100 established, kept without the rewind.
-   */
+  // Starts where the replay starts. Seeded at the end, it painted the finished transcript
+  // and then rewound it. The fallbacks below carry the text to everyone the replay skips.
   const [elapsed, setElapsed] = useState(0);
   const [runId, setRunId] = useState(0);
 
@@ -151,19 +147,12 @@ export function SkillsDemoTerminal() {
   /** Only after a replay has actually run, which is what `runId` records. */
   const announce = runId > 0 && elapsed >= RUN_MS;
 
-  /**
-   * A reader who asked for less motion is served the static copy, and the replay button on it
-   * still works: pressing it is an explicit request, so from then on the animated copy is the
-   * one shown whatever the media query says.
-   */
+  // Pressing Replay is explicit, so the animated copy wins from then on whatever the media
+  // query says.
   const asked = runId > 0;
 
-  /**
-   * Focus follows that swap. The button the reader pressed sits in the copy being hidden, so
-   * without this it is display:none under their cursor and focus falls to the body -- which
-   * for a keyboard reader means being returned to the top of the page for pressing a button.
-   * Only when they were on the static copy: a reader who has moved on keeps their place.
-   */
+  // The button pressed is in the copy being hidden, so focus would fall to the body. A
+  // reader who has moved on keeps their place.
   const liveReplay = useRef<HTMLButtonElement | null>(null);
   const handedOver = useRef(false);
   useEffect(() => {
@@ -277,7 +266,7 @@ export function SkillsDemoTerminal() {
         </div>
       </div>
 
-      {/* The replay never runs here, so this copy is the transcript already finished. */}
+      {/* No clock here: the transcript already finished. */}
       <div
         className={`demo-reduced overflow-hidden rounded-xl border border-line bg-surface ${
           asked ? "hidden" : "hidden motion-reduce:block"
@@ -287,9 +276,8 @@ export function SkillsDemoTerminal() {
         <StaticRows />
       </div>
 
-      {/* Without JavaScript the animated copy is an empty box and the media query above cannot
-          be trusted to fill it, so both are hidden and this one stands in. The stylesheet is
-          inside `noscript` on purpose: a browser running scripts never parses it. */}
+      {/* A media query cannot detect a browser that never ran the script, so this copy hides
+          both others. Only a browser with scripting off parses anything in here. */}
       <noscript>
         <style>{`.demo-live,.demo-reduced{display:none}`}</style>
         <div className="overflow-hidden rounded-xl border border-line bg-surface">
@@ -307,7 +295,7 @@ export function SkillsDemoTerminal() {
   );
 }
 
-/** The window bar. The replay button is dropped where pressing it could do nothing. */
+/** The window bar. No button where pressing it could do nothing. */
 function TerminalChrome({
   onReplay,
   ref,
@@ -335,10 +323,7 @@ function TerminalChrome({
   );
 }
 
-/**
- * The transcript with no clock attached: what the reader gets when the replay will not run.
- * Rows are plain text here, so none of the sizing machinery the animated copy needs applies.
- */
+/** The transcript with no clock: plain rows, none of the animated copy's sizing machinery. */
 function StaticRows() {
   return (
     <div className="flex flex-col px-5 py-5 font-mono text-[0.8rem] leading-[1.85]">

@@ -135,25 +135,21 @@ describe("the install panel", () => {
 });
 
 describe("the demo terminal", () => {
-  /** The painted rows of the animated copy: what a reader with JavaScript actually watches. */
+  /** The painted rows of the animated copy. */
   function painted(container: HTMLElement) {
     return [...container.querySelectorAll(".demo-live span.absolute")]
       .map((node) => node.textContent ?? "")
       .join(" ");
   }
 
-  /**
-   * The replay used to begin at its end: the server sent the finished transcript, then the
-   * mount effect rewound it to zero and typed it back out, so the reader watched the text they
-   * were already reading get wiped. The animated copy now starts where the replay starts.
-   */
+  // The replay used to begin at its end and rewind, wiping text the reader was reading.
   it("starts the animated copy empty, so nothing is wiped", () => {
     const { container } = render(<SkillsDemoTerminal />);
     expect(painted(container)).not.toContain(
       "write the requirements doc for the client's booking portal",
     );
-    // Untyped rows keep their text from the first frame -- that is what reserves the row's
-    // height -- so what makes them invisible is the opacity the clock drives.
+    // Untyped rows keep their text from the first frame to reserve the row height, so
+    // opacity is what hides them.
     const rows = [
       ...container.querySelectorAll<HTMLElement>(".demo-live span.block"),
     ];
@@ -161,24 +157,21 @@ describe("the demo terminal", () => {
     expect(rows.every((row) => row.style.opacity === "0")).toBe(true);
   });
 
-  /**
-   * Which puts the burden on the fallbacks. DX-100 was this bug in another component: content
-   * that only appears once JavaScript runs is content some readers never get.
-   */
+  // Which puts the burden on the fallbacks: DX-100 was this bug in another component.
   it("carries the whole transcript for a reader without JavaScript", () => {
-    // Read from the served markup, not the rendered tree: React fills `noscript` on the
-    // server and leaves it empty in the browser, so only SSR shows what that reader gets.
+    // React fills `noscript` on the server and empties it in the browser, so only the
+    // served markup shows what this reader gets.
     const html = renderToString(<SkillsDemoTerminal />);
     const fallback = html.slice(html.indexOf("<noscript>"));
     expect(fallback).toContain(
       "write the requirements doc for the client&#x27;s booking portal",
     );
     expect(fallback).toContain("HYPOTHESIS");
-    // And it takes the other two copies off the page, which the media query cannot do.
+    // And it takes the other two copies off the page.
     expect(fallback).toContain("display:none");
   });
 
-  /** A replay that never runs must not leave an empty box where the transcript should be. */
+  /** A replay that never runs must not leave an empty box. */
   it("carries it for a reader who asked for less motion", () => {
     const { container } = render(<SkillsDemoTerminal />);
     const reduced = container.querySelector(".demo-reduced")?.textContent ?? "";
@@ -188,11 +181,11 @@ describe("the demo terminal", () => {
     expect(reduced).toContain("CONFIDENCE: ~40%");
   });
 
-  /** Both fallbacks are hidden from the reader who is watching the replay, and each other. */
+  /** The three copies never show together. */
   it("shows one transcript at a time", () => {
     const { container } = render(<SkillsDemoTerminal />);
-    // `classList`, not the className string: `overflow-hidden` contains "hidden", so a
-    // substring check passed even with the static copy set to plain `block`.
+    // `classList`, not the string: `overflow-hidden` contains "hidden", so a substring
+    // check passed with the static copy set to plain `block`.
     const reduced = container.querySelector(".demo-reduced")!.classList;
     expect(reduced.contains("hidden")).toBe(true);
     expect(reduced.contains("motion-reduce:block")).toBe(true);
@@ -233,16 +226,13 @@ describe("the demo terminal", () => {
     );
   });
 
-  /** Both copies carry it: asking for less motion should not cost the reader the control. */
+  /** Asking for less motion should not cost the reader the control. */
   it("offers a replay on either copy", () => {
     render(<SkillsDemoTerminal />);
     expect(screen.getAllByRole("button", { name: /Replay/ })).toHaveLength(2);
   });
 
-  /**
-   * The button the reader pressed is inside the copy that is about to be hidden, so pressing
-   * it drops focus to the body -- confirmed in Chrome. Focus follows the replay instead.
-   */
+  // Pressing it hides the button pressed, dropping focus to the body -- seen in Chrome.
   it("keeps focus with the reader when the copies swap", () => {
     const { container } = render(<SkillsDemoTerminal />);
     const [live, reduced] = screen.getAllByRole("button", { name: /Replay/ });
@@ -254,7 +244,7 @@ describe("the demo terminal", () => {
     ).toBe(true);
   });
 
-  /** Pressing it is an explicit request, so the animated copy takes over from the static one. */
+  /** An explicit request, so the animated copy takes over. */
   it("shows the replay once it has been asked for", () => {
     const { container } = render(<SkillsDemoTerminal />);
     fireEvent.click(screen.getAllByRole("button", { name: /Replay/ })[1]);
