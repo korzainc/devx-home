@@ -1,0 +1,66 @@
+name: security
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: ci-common
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+        with:
+          client-id: ${{ vars.CI_COMMON_AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.CI_COMMON_AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.CI_COMMON_AZURE_SUBSCRIPTION_ID }}
+      - run: az acr login --name korzacitools
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/ci-scratch/trivy-db
+          key: trivy-db-${{ github.run_id }}
+          restore-keys: trivy-db-
+
+      - name: Scan
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/ci-out" "$RUNNER_TEMP/ci-scratch"
+          docker run --rm \
+            -v "$PWD:/src" -w /src \
+            -v "$RUNNER_TEMP/ci-out:/out" \
+            -e CI=true -e CI_SCRATCH_DIR=/scratch \
+            -v "$RUNNER_TEMP/ci-scratch:/scratch" \
+            -e TRIVY_CACHE_DIR=/scratch/trivy-db \
+            -e GITHUB_STEP_SUMMARY=/step-summary \
+            -v "$GITHUB_STEP_SUMMARY:/step-summary" \
+            korzacitools.azurecr.io/ci-common:0.1.0-rc9 \
+            ci-run scan --out /out --repo-root /src --base-sha "$BASE_SHA" --head-sha "$HEAD_SHA"
+
+      - name: Report
+        if: always()
+        run: |
+          docker run --rm \
+            -v "$PWD/.git:/src/.git:ro" -w /src \
+            -v "$RUNNER_TEMP/ci-out:/out" \
+            -v "$GITHUB_EVENT_PATH:/event.json:ro" \
+            -e GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}" \
+            -e GITHUB_ACTIONS=true -e GITHUB_EVENT_NAME \
+            -e GITHUB_EVENT_PATH=/event.json -e GITHUB_REPOSITORY \
+            -e GITHUB_SHA -e GITHUB_API_URL -e GITHUB_SERVER_URL -e GITHUB_RUN_ID \
+            korzacitools.azurecr.io/ci-common:0.1.0-rc9 \
+            ci-run report --in /out --event-file /event.json --repo-root /src
