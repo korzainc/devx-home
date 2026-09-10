@@ -140,7 +140,10 @@ async function AuthControl({ inMenu = false }: { inMenu?: boolean }) {
           <p className="truncate text-sm text-ink">{name}</p>
           <p className="truncate text-xs text-ink-faint">{email}</p>
         </div>
-        <hr className="my-1.5 border-line" />
+        {/* `mx-2.5` matches the rows' own padding, so the rule starts where the name, the email
+            and the Log out label do. Left to the panel's `p-1.5` it sat 10px short of all three
+            and lined up with nothing. */}
+        <hr className="mx-2.5 my-1.5 border-line" />
         <SignOut className="block w-full rounded-md px-2.5 py-1.5 text-left text-sm text-ink-muted transition-colors hover:bg-surface hover:text-ink" />
       </AccountMenu>
     </>
