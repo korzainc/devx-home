@@ -105,18 +105,40 @@ html {
    Neutral rather than the accent: a red ring on a large field reads as a validation error, and
    focus is a statement about where you are rather than about anything being wrong.
 
-   Inside `@layer base` so a `focus-visible:outline-*` utility can still override it on one
-   element. Unlayered, this rule would beat every layered utility no matter how specific. */
-@layer base {
+   In a layer of its own, first used here and so ordered after Tailwind's `utilities`. Focus has
+   to repaint the `border-line` the controls already carry, and a `@layer base` rule loses to a
+   utility whatever its specificity. To give one element a different ring, use an important
+   variant (`focus-visible:outline-none!`), which beats any layer. */
+@layer focus {
   :focus-visible {
-    outline: 1px solid var(--ink-muted);
-    outline-offset: 3px;
-    /* A hairline alone is easy to miss at 1px, so it sits in a faint halo of its own colour.
-       Two rings at different strengths read as focus from across the page while the thing in
-       focus keeps its own edge. */
-    box-shadow: 0 0 0 5px color-mix(in oklab, var(--ink-muted) 12%, transparent);
+    /* The fields already carry a 1px border, so a ring held off it drew a second edge and the
+       two read as a single thick band. Brightening the border that is already there keeps the
+       count at one edge, and the halo spreads off it as light rather than as a second frame.
+
+       An outline rather than a box-shadow, so the buttons keep the inset highlight along their
+       top edge; a box-shadow here would replace it. Both draw from the border box outwards, so
+       the geometry is the same either way. */
+    border-color: var(--ink-muted);
+    outline: 4px solid color-mix(in oklab, var(--ink-muted) 10%, transparent);
+    outline-offset: 0;
   }
 
+  /* On a field the halo is the quieter half of the signal, because the border it sits against
+     has just brightened. These have no border to brighten, so the halo is the whole signal, and
+     at 10% it lands around 1.1:1 against both the canvas outside it and the button fill inside.
+
+     60% rather than the 55% that first clears the 3:1 non-text contrast bar: the halo is 4px of
+     antialiased curve at the corners, and 3.05:1 leaves nothing for the blend to eat.
+
+     `:where()` contributes no specificity, so this is still one pseudo-class and wins on order
+     alone, which keeps it a colour swap on the rule above rather than a second rule to hold in
+     step with it. */
+  :where(button, a, summary):focus-visible {
+    outline-color: color-mix(in oklab, var(--ink-muted) 60%, transparent);
+  }
+}
+
+@layer base {
   /* Every `button` in the app computed `cursor: default`, so nothing but the `summary` menus read
      as clickable (DX-93). That is the UA stylesheet, not a Tailwind reset: preflight sets no
      cursor at all, so there is nothing to opt back into and no utility to spell it with either.
@@ -184,45 +206,6 @@ html {
   to {
     --sweep: 360deg;
   }
-}
-
-/* A silver hairline around a dark control, brightest along the top edge and gone by the bottom,
-   the way light falls on a raised lip. This is the edge the panels and the band already have,
-   turned up far enough to make a button read as a button.
-
-   A masked pseudo-element rather than a border, for the same reason the band's outline is one: a
-   border takes a single flat colour and cannot carry the gradient. `padding: 1px` sets the rim's
-   thickness, and excluding the content box from the mask leaves only that 1px frame painted.
-
-   `--rim` is a plain custom property, not registered: it steps on hover rather than easing,
-   which is what a highlight catching an edge does anyway. */
-.fx-rim {
-  position: relative;
-  --rim: var(--ink-muted);
-}
-.fx-rim:hover {
-  --rim: var(--ink);
-}
-.fx-rim::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  padding: 1px;
-  border-radius: inherit;
-  pointer-events: none;
-  background: linear-gradient(
-    to bottom,
-    var(--rim),
-    color-mix(in oklab, var(--rim) 18%, transparent)
-  );
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  mask-composite: exclude;
 }
 
 /* Markdown from content/ renders to bare HTML with no utility classes on it, and preflight has

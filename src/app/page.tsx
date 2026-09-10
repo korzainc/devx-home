@@ -185,7 +185,7 @@ export default function Home() {
           <div className="flex flex-col items-start gap-2.5 pt-2">
             <Link
               href="/getting-started"
-              className="fx-rim rounded-lg bg-surface-raised px-5 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-line"
+              className="rounded-lg bg-surface-raised px-5 py-2.5 text-sm font-medium text-ink shadow-[inset_0_1px_0_color-mix(in_oklab,var(--ink)_16%,transparent)] transition-colors hover:bg-line"
             >
               Set up your machine →
             </Link>
@@ -231,7 +231,7 @@ export default function Home() {
               />
               <button
                 type="submit"
-                className="fx-rim rounded-lg bg-surface-raised px-4 py-2 text-sm font-medium whitespace-nowrap text-ink transition-colors hover:bg-line"
+                className="rounded-lg bg-surface-raised px-4 py-2 text-sm font-medium whitespace-nowrap text-ink shadow-[inset_0_1px_0_color-mix(in_oklab,var(--ink)_16%,transparent)] transition-colors hover:bg-line"
               >
                 Analyze
               </button>

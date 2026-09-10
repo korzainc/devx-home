@@ -58,10 +58,7 @@ export function CatalogueSearch({
           else event.currentTarget.blur();
         }}
         placeholder={label}
-        // A text input matches :focus-visible on every click, not just keyboard nav, so the
-        // global outline painted here on every click. Brightening the border keeps a real,
-        // AA-contrast focus signal without bringing that ring back.
-        className="w-full rounded-lg border border-line bg-surface py-2.5 pr-11 pl-10 text-sm text-ink placeholder:text-ink-faint focus:border-ink-muted focus-visible:outline-none"
+        className="w-full rounded-lg border border-line bg-surface py-2.5 pr-11 pl-10 text-sm text-ink placeholder:text-ink-faint"
       />
       <button
         type="button"
