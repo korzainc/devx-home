@@ -208,6 +208,75 @@ html {
   }
 }
 
+/* The gap-report preview on the home page.
+
+   The list rolls on a clock rather than in a scroller. The home page snaps full-viewport panels
+   and has exactly one scroller by design, and a nested one would swallow the wheel before the
+   panel could snap. The track holds the list twice and travels half its own height, so the seam
+   lands back where it started and the loop is not visible. */
+@keyframes report-roll {
+  to {
+    transform: translateY(-50%);
+  }
+}
+
+/* Gone at both ends, so rows arrive and leave rather than appearing at a cut. */
+.report-window {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 14%,
+    #000 86%,
+    transparent
+  );
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .report-roll {
+    animation: report-roll 28s linear infinite;
+  }
+  /* The evidence column is worth reading, so hovering stops the list rather than slowing it. */
+  .report-roll:hover {
+    animation-play-state: paused;
+  }
+}
+
+/* Gives the report a ground without giving it a shape: a wash that is gone by the bottom, so no
+   edge is drawn there and the section stays free of cards.
+
+   A pseudo-element rather than a background on the report itself, because masking the element
+   would take the rows down with the wash. The -1 sits against the `isolate` on the grid, which
+   keeps it behind the rows and in front of the page. */
+.report-ground {
+  position: relative;
+}
+.report-ground::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: 1rem;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in oklab, var(--surface) 85%, transparent),
+    transparent
+  );
+  mask-image: linear-gradient(to bottom, #000 60%, transparent);
+}
+
+/* Splits a section into two columns without boxing either one. An element with a mask rather
+   than a border, for the same reason the band's outline is one: a border takes a single flat
+   colour and cannot fade out at its ends. */
+.column-rule {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 18%,
+    #000 82%,
+    transparent
+  );
+}
+
 /* Markdown from content/ renders to bare HTML with no utility classes on it, and preflight has
    already stripped list markers and heading sizes. These rules put back only what a changelog
    body uses, which is why there is no typography plugin here. */
