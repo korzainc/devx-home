@@ -74,6 +74,25 @@ describe("the home page", () => {
     expect(new Set(eyebrows).size).toBeGreaterThan(1);
   });
 
+  it("nests the headings", () => {
+    const { container } = render(<Home />);
+
+    // The page is read as an outline by anyone who navigates by heading, and the panels are long
+    // enough that the outline is the only way through it. The argument panel used to state its
+    // claim in a paragraph, which promoted its four reasons to siblings of the panels themselves.
+    const levels = [...container.querySelectorAll("h1, h2, h3, h4")].map((h) =>
+      Number(h.tagName[1]),
+    );
+    expect(levels.filter((level) => level === 1).length).toBe(1);
+    expect(levels[0]).toBe(1);
+    for (const [i, level] of levels.entries()) {
+      if (i === 0) continue;
+      expect(level, `heading ${i} jumps past a level`).toBeLessThanOrEqual(
+        levels[i - 1]! + 1,
+      );
+    }
+  });
+
   it("reads the example report's labels from the catalogue", () => {
     render(<Home />);
 

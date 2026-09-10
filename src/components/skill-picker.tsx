@@ -81,9 +81,9 @@ export function SkillPicker({ cards }: { cards: SkillCard[] }) {
                grew with its summary would make a wordy skill look more important than a terse
                one, which is the wrong ranking to draw. */
             className="deal flex h-56 flex-col gap-2 overflow-hidden rounded-2xl bg-surface p-5 shadow-[inset_0_1px_0_color-mix(in_oklab,var(--ink)_10%,transparent),0_12px_32px_-14px_rgb(0_0_0/0.8)]"
-            /* Shifts each card's slice of the range so they arrive in sequence. A delay would not
-               do it: on a scroll timeline the delay is a length along the range, not a wait. */
-            style={{ animationRange: `cover ${i * 3}% cover ${26 + i * 3}%` }}
+            /* Deals the row rather than flipping it over at once. Short enough that the last card
+               is not still arriving after a reader has started on the first. */
+            style={{ animationDelay: `${i * 70}ms` }}
           >
             <p className="font-mono text-xs tracking-wide text-accent uppercase">
               {card.audiences.join(", ")}
@@ -105,12 +105,8 @@ export function SkillPicker({ cards }: { cards: SkillCard[] }) {
             sixth skill. */}
         <div
           className="deal deal-flat flex items-center justify-center p-5"
-          /* Carries on the cards' stagger. Without a range of its own it would take the default,
-             which spans the whole traversal, and the link would still be arriving long after the
-             last card had settled. */
-          style={{
-            animationRange: `cover ${shown.length * 3}% cover ${26 + shown.length * 3}%`,
-          }}
+          /* Last in the deal, so it lands after the cards it sits among rather than with them. */
+          style={{ animationDelay: `${shown.length * 70}ms` }}
         >
           <Link
             href="/skills"

@@ -132,6 +132,8 @@ html {
   /* On a field the halo is the quieter half of the signal, because the border it sits against
      has just brightened. These have no border to brighten, so the halo is the whole signal, and
      at 10% it lands around 1.1:1 against both the canvas outside it and the button fill inside.
+     A scrollable `region` belongs here for the same reason: it takes focus so a keyboard can
+     scroll it, and the border a reader sees around it belongs to its parent.
 
      60% rather than the 55% that first clears the 3:1 non-text contrast bar: the halo is 4px of
      antialiased curve at the corners, and 3.05:1 leaves nothing for the blend to eat.
@@ -139,7 +141,7 @@ html {
      `:where()` contributes no specificity, so this is still one pseudo-class and wins on order
      alone, which keeps it a colour swap on the rule above rather than a second rule to hold in
      step with it. */
-  :where(button, a, summary):focus-visible {
+  :where(button, a, summary, [role="region"]):focus-visible {
     outline-color: color-mix(in oklab, var(--ink-muted) 60%, transparent);
   }
 }
@@ -285,25 +287,39 @@ html {
 
 /* The skill cards on the home page, dealt into place as the section arrives.
 
-   A scroll-driven animation rather than an observer that adds a class, so the cards are scrubbed
-   by the scroll position instead of triggered by it: nothing to keep in state, and scrolling back
-   up runs the entrance in reverse rather than replaying it.
+   Timed rather than scrubbed by a `view()` timeline, which is what this was, for the reason the
+   brush strokes are: the page snaps, so it only ever comes to rest at a panel edge. Measured, the
+   cards read 0 opacity at the rest position above this panel and 1 at the panel's own, with no
+   position in between for the deal to be seen at. It was spent inside the glide every time.
 
-   Longhands rather than the `animation` shorthand, which resets `animation-timeline` to `auto` and
-   would put every card back on the document clock.
+   So they run on a clock, and `Arrive` starts them. Dealt is the resting state and both the other
+   two are added, so a reader with no script gets a legible grid rather than one held at zero
+   opacity by a state nothing will ever clear.
 
-   Each card sets its own `animation-range` inline to stagger the row. The ranges end early, around
-   `cover 40%`, and `both` holds the last keyframe from there on, so there is no exit and a card
-   that has arrived stays put. Ending early also matters because a range only completes if the
-   section travels far enough, and the last panel on a page does not always get to. */
+   Held by `opacity` rather than by pausing an animation that is already running. Pausing loses the
+   race with hydration: the markup is painted and the clock started before React reaches the layout
+   effect, and measured, the first card was 73% dealt by the time it was stopped.
+
+   Longhands rather than the `animation` shorthand, which would set `animation-name` back to `none`
+   on the rules above it.
+
+   Each card sets its own `animation-delay` inline to stagger the row, and `both` fills backwards
+   through the delay so a waiting card is held at the first keyframe rather than shown and then
+   snatched back. */
 .deal {
   animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   animation-fill-mode: both;
-  animation-duration: auto;
-  animation-timeline: view();
+  animation-duration: 620ms;
+}
+
+.deal[data-arrive="off"] {
+  opacity: 0;
+}
+
+.deal[data-arrive="on"] {
   animation-name: deal-l;
 }
-.deal:nth-child(even) {
+.deal[data-arrive="on"]:nth-child(even) {
   animation-name: deal-r;
 }
 
@@ -342,7 +358,7 @@ html {
     transform: none;
   }
 }
-.deal.deal-flat {
+.deal.deal-flat[data-arrive="on"] {
   animation-name: deal-flat;
 }
 
@@ -376,13 +392,17 @@ html {
 
    A scroll timeline needs scroll to advance it, and this page snaps: it only ever comes to rest at
    a panel edge, so the whole draw was spent inside the glide between two of them and the stroke was
-   always finished before its panel landed. Nobody ever saw it drawn. `DrawMarks` sets the two
-   states below instead, and starts the draw when the phrase reaches the screen. */
-.mark[data-draw="off"] {
+   always finished before its panel landed. Nobody ever saw it drawn. `Arrive` sets the two states
+   below instead, and starts the draw when the phrase reaches the screen.
+
+   Undrawn rather than paused, which is how the cards do the same thing: a card holds still at its
+   first keyframe, but this one animates a custom property the `::before` reads, and a paused
+   animation would still be applying it. */
+.mark[data-arrive="off"] {
   --mark-draw: 100%;
 }
 
-.mark[data-draw="on"] {
+.mark[data-arrive="on"] {
   animation-name: mark-draw;
   animation-duration: 700ms;
   /* Committed through the middle and settling at the end, the way a stroke is actually laid down.
@@ -471,28 +491,25 @@ html {
   }
 }
 
-/* The offset state only exists where the animation can actually run, so anywhere else the card is
-   simply sitting flat and legible rather than never arriving.
+/* Last, and matching the specificity of the `nth-child` rule above rather than the plain one,
+   because this has to beat every `animation-name` set so far and not only the first of them.
 
-   Last, and matching the two-class specificity of the rule above, because these have to beat every
-   `animation-name` set so far rather than only the first of them. */
-@supports not (animation-timeline: view()) {
-  .deal.deal {
-    animation-name: none;
-  }
-}
+   Only reachable by changing the setting mid-session, since `Arrive` checks it too and an unarmed
+   card carries no attribute for this to match. Taken away and shown, not held: a card at its first
+   keyframe is not on the page at all. */
 @media (prefers-reduced-motion: reduce) {
-  .deal.deal {
+  .deal.deal[data-arrive] {
     animation-name: none;
+    opacity: 1;
   }
   /* Taken away rather than stopped. The sheen is the whole point of this element, and parked at
      whatever position it stopped at it would leave a stray highlight on one end of the plate. */
   .field-plate::after {
     display: none;
   }
-  /* `DrawMarks` checks the same setting and does not arm at all, so this only catches a stroke
-     armed before the reader changed it. Painted, not frozen part way. */
-  .mark[data-draw] {
+  /* `Arrive` checks the same setting and does not arm at all, so this only catches a stroke armed
+     before the reader changed it. Painted, not frozen part way. */
+  .mark[data-arrive] {
     animation-name: none;
     --mark-draw: 0%;
   }

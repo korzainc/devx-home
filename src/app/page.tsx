@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { DrawMarks } from "@/components/draw-marks";
+import { Arrive } from "@/components/arrive";
 import { SkillPicker, type SkillCard } from "@/components/skill-picker";
 import { SnapScroll } from "@/components/snap-scroll";
 import { capabilityLabel, skills, type CapabilityId } from "@/lib/catalogue";
@@ -136,8 +136,8 @@ const reasons = [
     body: "Nobody was hired to format documents or write boilerplate. Every hour on a solved problem is taken from the calls only you can make.",
   },
   {
-    title: "Solved means proven",
-    body: "Nothing lands here on vibes. Every skill is pinned to a version that was tried first, and the CI catalogue is synced from the pipelines it describes.",
+    title: "Nothing here is anonymous",
+    body: "Every skill says where it came from and which version you get, and the CI catalogue is synced from the pipelines it describes.",
   },
 ];
 
@@ -174,9 +174,14 @@ const exampleMissing = exampleRun.filter((row) => row.evidence === null).length;
 function CheckRow({ label, evidence }: Check) {
   return (
     <div className="flex items-baseline justify-between gap-4 border-t border-line py-3">
-      <span className="text-sm whitespace-nowrap text-ink">{label}</span>
+      {/* Allowed to wrap. Held on one line, the longest check name plus its evidence set a
+          minimum width for the whole report, and through the grid above it for the page: below
+          390px the document scrolled sideways. */}
+      <span className="text-sm text-ink">{label}</span>
       {evidence ? (
-        <span className="truncate font-mono text-xs text-ink-faint">
+        // `min-w-0`, or the truncation never happens: a flex item will not shrink past its own
+        // content by default, so the path pushed the row wider instead of ellipsing.
+        <span className="min-w-0 truncate font-mono text-xs text-ink-faint">
           {evidence}
         </span>
       ) : (
@@ -233,8 +238,14 @@ const featuredSkills: SkillCard[] = featuredSkillIds.map((id) => {
     );
   }
   // `jobs[0]` is already written as a job someone wants done, so the card title needs nothing
-  // invented, only a capital.
+  // invented, only a capital. Named the same way the lookup above is, rather than left to throw
+  // on `undefined.charAt`: a sync that empties this should say which skill it emptied.
   const job = skill.jobs[0];
+  if (!job) {
+    throw new Error(
+      `The home page features skill "${id}", which lists no jobs.`,
+    );
+  }
   return {
     id: skill.id,
     title: job.charAt(0).toUpperCase() + job.slice(1),
@@ -296,7 +307,7 @@ export default function Home() {
      */
     <div className="-my-12 flex flex-col">
       <SnapScroll />
-      <DrawMarks />
+      <Arrive />
       <Panel>
         <div className="flex max-w-3xl flex-col gap-5">
           <h1 className="font-display text-5xl font-semibold tracking-tight text-balance sm:text-6xl">
@@ -403,9 +414,9 @@ export default function Home() {
             </h2>
             <p className="max-w-3xl leading-relaxed text-ink-muted">
               Stop repeating yourself to your agents, and let a curated skill
-              take care of it. Each one is written for a job someone at Korza
-              had already solved, kept to the format your team expects, and
-              tested before it reaches you.
+              take care of it. Each one is named for the job it does, and says
+              whether it was built at Korza or picked up from someone who had
+              already solved it.
             </p>
           </div>
           <SkillPicker cards={featuredSkills} />
@@ -416,17 +427,20 @@ export default function Home() {
           send you is already a door on a panel either side of it. */}
       <Panel>
         <div className="flex flex-col gap-14">
-          <p className="max-w-3xl font-display text-3xl leading-snug font-semibold tracking-tight text-balance sm:text-4xl">
+          {/* The panel's heading, and long for one, but it is what the panel is called: the
+              reasons below are subordinate to it. Left as a paragraph it took the four reasons
+              with it, and they became four more page-level sections in the outline. */}
+          <h2 className="max-w-3xl font-display text-3xl leading-snug font-semibold tracking-tight text-balance sm:text-4xl">
             Most work is re-work. Someone has already optimised a way to write
             that plan, that config, that deck. So take it, and spend your time
             on the problems <span className="mark">worth the effort</span>.
-          </p>
+          </h2>
           <div className="grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
             {reasons.map((reason) => (
               <div key={reason.title} className="flex flex-col gap-2">
-                <h2 className="font-display leading-snug font-semibold text-ink">
+                <h3 className="font-display leading-snug font-semibold text-ink">
                   {reason.title}
-                </h2>
+                </h3>
                 <p className="text-sm leading-relaxed text-ink-muted">
                   {reason.body}
                 </p>
@@ -466,8 +480,12 @@ export default function Home() {
                   {recent.map((entry) => (
                     <li key={entry.slug} className="flex gap-2 text-sm">
                       {/* The date column is fixed so the titles start on one edge, and the title
-                          wraps rather than truncating: cut short, these read as fragments. */}
-                      <span className="w-11 shrink-0 pt-0.5 font-mono text-xs text-ink-faint">
+                          wraps rather than truncating: cut short, these read as fragments.
+
+                          Wide enough for "30 Sept", which is 50px: en-GB abbreviates September to
+                          four letters and every other month to three, so a column cut to the
+                          common case wraps the date for one month of the year. */}
+                      <span className="w-14 shrink-0 pt-0.5 font-mono text-xs text-ink-faint">
                         {updateDate.format(new Date(entry.date))}
                       </span>
                       <span className="min-w-0 leading-snug text-ink-muted">
