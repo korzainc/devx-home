@@ -137,7 +137,7 @@ describe("the Getting Started page", () => {
     expect(ssh).toBeDefined();
     expect(
       ssh!
-        .querySelector("p")!
+        .querySelector("ul")!
         .compareDocumentPosition(ssh!.querySelector("code")!) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();

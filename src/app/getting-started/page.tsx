@@ -8,7 +8,7 @@ import { faq, manualCommands, walkthrough } from "@/lib/getting-started";
 export const metadata: Metadata = {
   title: "Getting started",
   description:
-    "Install Korza CLI in one command, then follow the guided toolchain setup or run each step yourself.",
+    "Set up your Mac with Korza CLI, or follow the manual instructions.",
 };
 
 function Pair({
@@ -34,6 +34,19 @@ function Pair({
   );
 }
 
+function ManualNote({ note }: { note: string | string[] }) {
+  const style = "max-w-2xl text-sm text-ink-muted [overflow-wrap:anywhere]";
+  return Array.isArray(note) ? (
+    <ul className={`${style} list-disc space-y-2 pl-4`}>
+      {note.map((instruction) => (
+        <li key={instruction}>{instruction}</li>
+      ))}
+    </ul>
+  ) : (
+    <p className={style}>{note}</p>
+  );
+}
+
 const row = "flex items-baseline gap-4 border-b border-line px-5 py-3 text-sm";
 const caption = "px-5 pt-3 pb-4 text-xs text-ink-faint";
 const cta = "text-sm font-medium text-accent hover:underline";
@@ -53,8 +66,8 @@ export default function GettingStartedPage() {
             Install Korza CLI in one command.
           </h1>
           <p className="max-w-lg text-lg leading-relaxed text-ink-muted">
-            Run this command in Terminal, then follow the installer&apos;s
-            instructions to start setup. For macOS.
+            Run this command in Terminal on your Mac. Follow the
+            installer&apos;s instructions to start setup.
           </p>
         </div>
 
@@ -94,8 +107,8 @@ export default function GettingStartedPage() {
           Guided setup.
         </h2>
         <p className="text-ink-muted">
-          Start one tool, then keep choosing others while installation runs.
-          Press <code>?</code> during setup for help.
+          Choose a tool and press Enter to set it up. You can choose more tools
+          while setup runs. Press <code>?</code> for help.
         </p>
         <a href="#questions" className={cta}>
           Need help? →
@@ -127,11 +140,7 @@ export default function GettingStartedPage() {
                       Install {entry.tool} →
                     </a>
                   )}
-                  {entry.noteFirst && (
-                    <p className="max-w-2xl text-sm text-ink-muted [overflow-wrap:anywhere]">
-                      {entry.note}
-                    </p>
-                  )}
+                  {entry.noteFirst && <ManualNote note={entry.note} />}
                   {entry.commands.map((command) => (
                     <CommandField
                       key={command}
@@ -139,11 +148,7 @@ export default function GettingStartedPage() {
                       value={command}
                     />
                   ))}
-                  {!entry.noteFirst && (
-                    <p className="max-w-2xl pt-1 text-sm text-ink-muted [overflow-wrap:anywhere]">
-                      {entry.note}
-                    </p>
-                  )}
+                  {!entry.noteFirst && <ManualNote note={entry.note} />}
                 </div>
               </details>
             ))}
@@ -154,8 +159,8 @@ export default function GettingStartedPage() {
           Set up manually
         </h2>
         <p className="text-ink-muted">
-          Open a tool for its setup commands. Follow the installer&apos;s
-          instructions and open a new terminal when asked.
+          Open a tool to see its setup commands. Follow the installer&apos;s
+          instructions. Open a new terminal when asked.
         </p>
       </Pair>
 

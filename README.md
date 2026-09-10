@@ -43,9 +43,9 @@ when PATH selects that binary, otherwise a safely quoted full path. It creates
 `kz` only when that name is available.
 
 The current archive and checksum are in [public/korza/](public/korza/).
-This candidate was built on 2026-09-10 from the local `korza-cli` working tree
-based on `426fcf8`, including uncommitted fixes. It is ad-hoc signed; clean-VM
-acceptance is pending. Production builds exclude demo and sandbox modes.
+This candidate was built on 2026-09-10 from `korza-cli` commit `843b368`.
+It is ad-hoc signed; clean-VM acceptance is pending. Production builds exclude
+demo and sandbox modes.
 Later CLI changes do not update this bundle automatically.
 
 The old `/devx/install.sh` URL redirects to `/setup`. The old versioned `/devx/`

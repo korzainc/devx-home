@@ -8,7 +8,7 @@ export const walkthrough: { does: string; detail: string }[] = [
   },
   {
     does: "Install what’s missing",
-    detail: "Installs your choices and any tools they need.",
+    detail: "Korza CLI installs your choices and any tools they need.",
   },
   {
     does: "Sign in when asked",
@@ -26,7 +26,7 @@ export const manualCommands: {
   why: string;
   title: string;
   commands: string[];
-  note: string;
+  note: string | string[];
   noteFirst?: boolean;
   installUrl?: string;
 }[] = [
@@ -58,7 +58,7 @@ export const manualCommands: {
       "gh auth login --hostname github.com --git-protocol https --web",
       "gh auth setup-git --hostname github.com",
     ],
-    note: "Install GitHub CLI using the link above, then run these commands to sign in and let Git use that account over HTTPS. This requires Git from the Xcode tools step.",
+    note: "Complete the Xcode tools step first. Install GitHub CLI using the link above. Run these commands to sign in. Git will use your GitHub account over HTTPS.",
   },
   {
     tool: "SSH access",
@@ -72,7 +72,14 @@ export const manualCommands: {
       "ssh-add ~/.ssh/id_ed25519",
       "ssh -T git@github.com",
     ],
-    note: 'Skip key creation when reusing an existing key, and adjust the public and private key paths in these commands. ssh-add loads the key so Claude can clone without a passphrase prompt; run it again if the agent forgets the key. The permission step authorizes uploading only the public key; the private key stays on your machine. Check GitHub\'s published fingerprint before accepting the first SSH connection. A successful check prints "successfully authenticated"; GitHub returns exit code 1 because it does not provide shell access.',
+    note: [
+      "Complete the GitHub CLI step first.",
+      "If you already have an SSH key, skip key creation. Use that key's paths in the remaining commands.",
+      "ssh-add loads your key so Claude can use it without another passphrase prompt. Run it again if the SSH agent no longer has the key.",
+      "GitHub needs permission to add the public key. The private key stays on your Mac.",
+      "Check GitHub's published fingerprint before accepting the first connection.",
+      'A successful check prints "successfully authenticated". GitHub returns exit code 1 because it does not provide shell access.',
+    ],
   },
   {
     tool: "Claude Code",
@@ -132,7 +139,11 @@ export const faq: { q: string; a: string }[] = [
   },
   {
     q: "What does it change on my machine?",
-    a: "Korza CLI installs and configures the tools you choose and their prerequisites. It saves progress and logs in ~/.devx and adds a marked block to ~/.zshrc. korza setup --remove removes only that block; installed tools and the CLI remain. Manual installers may add their own shell settings.",
+    a: "Korza CLI installs and configures the tools you choose and any tools they need. It saves progress and logs in ~/.devx and adds a marked block to ~/.zshrc. korza setup --remove removes only that block; installed tools and the CLI remain. Manual installers may add their own shell settings.",
+  },
+  {
+    q: "How do I change my Git name or email?",
+    a: "Run korza setup. Select Git & GitHub and press r, then Enter. Review your current details and choose Edit.",
   },
   {
     q: "Can I stop and come back later?",
@@ -156,7 +167,7 @@ export const faq: { q: string; a: string }[] = [
   },
   {
     q: "My laptop is managed and I do not have admin rights.",
-    a: "Some steps need administrator approval. You can defer them and continue with independent tools. Ask your IT team about the steps your device policy blocks.",
+    a: "Some steps need administrator approval. You can leave those steps for later and continue with other tools. Ask your IT team if your device policy blocks a step.",
   },
   {
     q: "When am I actually done?",
