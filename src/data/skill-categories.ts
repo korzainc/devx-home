@@ -51,58 +51,27 @@ export const skillCategories: Record<string, SkillCategory> = {
   "codezen:skills/brainstorm": "Decide",
   "codezen:skills/code-review": "Pressure-test",
   "codezen:skills/fix": "Make",
-  "codezen:skills/noc-fix": "Make",
-  "codezen:skills/noc-tdd": "Make",
   "codezen:skills/security-review": "Pressure-test",
   "codezen:skills/setup": "Make", // setup
   "codezen:skills/sut-bootstrap": "Make", // setup
   "codezen:skills/tdd": "Make",
+  "codezen:skills/to-issue": "Hand over",
   "codezen:skills/to-notion": "Hand over",
+  "codezen:skills/to-pr": "Hand over",
 
   // humanizer
   "humanizer:.": "Make",
-
-  // mattpocock-skills
-  "mattpocock-skills:skills/engineering/ask-matt": "Understand", // meta
-  "mattpocock-skills:skills/engineering/code-review": "Pressure-test",
   "mattpocock-skills:skills/engineering/codebase-design": "Understand",
   "mattpocock-skills:skills/engineering/diagnosing-bugs": "Understand",
   "mattpocock-skills:skills/engineering/domain-modeling": "Understand",
-  "mattpocock-skills:skills/engineering/grill-with-docs": "Pressure-test",
-  "mattpocock-skills:skills/engineering/implement": "Make",
-  "mattpocock-skills:skills/engineering/improve-codebase-architecture":
-    "Understand",
-  "mattpocock-skills:skills/engineering/prototype": "Decide",
   "mattpocock-skills:skills/engineering/research": "Understand",
-  "mattpocock-skills:skills/engineering/resolving-merge-conflicts": "Make",
-  "mattpocock-skills:skills/engineering/setup-matt-pocock-skills": "Make", // setup
-  "mattpocock-skills:skills/engineering/tdd": "Make",
-  "mattpocock-skills:skills/engineering/to-spec": "Make",
   "mattpocock-skills:skills/engineering/to-tickets": "Hand over",
   "mattpocock-skills:skills/engineering/triage": "Hand over",
-  "mattpocock-skills:skills/engineering/wayfinder": "Decide",
-  "mattpocock-skills:skills/engineering/wizard": "Make",
-  "mattpocock-skills:skills/productivity/grill-me": "Pressure-test",
-  "mattpocock-skills:skills/productivity/grilling": "Pressure-test",
-  "mattpocock-skills:skills/productivity/handoff": "Hand over",
-  "mattpocock-skills:skills/productivity/teach": "Understand", // meta
-  "mattpocock-skills:skills/productivity/to-questionnaire": "Hand over",
-  "mattpocock-skills:skills/productivity/wait-what": "Hand over", // meta
-  "mattpocock-skills:skills/productivity/writing-for-agents": "Make", // meta
-
-  // superpowers
-  "superpowers:skills/brainstorming": "Decide",
-  "superpowers:skills/dispatching-parallel-agents": "Make",
+  "mattpocock-skills:skills/productivity/grilling": "Pressure-test", // meta
+  "mattpocock-skills:skills/productivity/to-questionnaire": "Hand over", // meta
+  "mattpocock-skills:skills/productivity/writing-for-agents": "Make",
   "superpowers:skills/executing-plans": "Make",
-  "superpowers:skills/finishing-a-development-branch": "Hand over",
-  "superpowers:skills/receiving-code-review": "Pressure-test",
-  "superpowers:skills/requesting-code-review": "Pressure-test",
-  "superpowers:skills/subagent-driven-development": "Make",
-  "superpowers:skills/systematic-debugging": "Understand",
-  "superpowers:skills/test-driven-development": "Make",
-  "superpowers:skills/using-git-worktrees": "Hand over",
-  "superpowers:skills/using-superpowers": "Understand", // meta
+  "superpowers:skills/finishing-a-development-branch": "Hand over", // meta
   "superpowers:skills/verification-before-completion": "Pressure-test",
-  "superpowers:skills/writing-plans": "Make",
-  "superpowers:skills/writing-skills": "Make", // meta
+  "superpowers:skills/writing-plans": "Make", // meta,
 };
