@@ -11,6 +11,17 @@ import type {
 // number of API reads has to stay bounded by something other than the size of the repo.
 const maxFiles = 20;
 
+// Nested manifests get their own budget inside `maxFiles`. A monorepo with a manifest in every
+// package would otherwise fill the cap before a single workflow was read, and workflows are where
+// most tool evidence comes from.
+const maxNestedManifests = 8;
+
+// A manifest or config file inside vendored or generated output belongs to a dependency, not to
+// this repo. Without this, any Go repo with a `vendor/` directory reports whatever its
+// dependencies use, and would match every stack its dependencies are written in.
+const notOwnedByRepo =
+  /(^|\/)(vendor|node_modules|third_party|testdata|\.venv|\.yarn|dist|build|target)\//;
+
 const ciRootFiles = [
   ".gitlab-ci.yml",
   ".gitlab-ci.yaml",
@@ -22,9 +33,21 @@ function isYaml(path: string) {
   return path.endsWith(".yml") || path.endsWith(".yaml");
 }
 
-/** True when the marker names an existing file, or a directory that has anything under it. */
-function markerMatches(paths: string[], marker: string) {
-  return paths.some((path) => path === marker || path.startsWith(`${marker}/`));
+/** True when the path is the marker itself, or a directory marker that has this path under it. */
+function isRootMarker(path: string, marker: string) {
+  return path === marker || path.startsWith(`${marker}/`);
+}
+
+/**
+ * True when the path is a copy of the marker below the root. A polyglot monorepo keeps every
+ * manifest one or more levels down, so root-only matching reports it as having no stack at all.
+ * Vendored and generated trees are excluded, so a stack is never inferred from a dependency's
+ * own manifest.
+ */
+function isNestedMarker(path: string, marker: string) {
+  if (notOwnedByRepo.test(path)) return false;
+  const nested = `/${marker}`;
+  return path.endsWith(nested) || path.includes(`${nested}/`);
 }
 
 export function detectStacks(
@@ -32,19 +55,47 @@ export function detectStacks(
   baseline: Baseline,
 ): BaselineStack[] {
   return baseline.stacks.filter((stack) =>
-    stack.markers.some((marker) => markerMatches(paths, marker)),
+    stack.markers.some((marker) =>
+      paths.some(
+        (path) => isRootMarker(path, marker) || isNestedMarker(path, marker),
+      ),
+    ),
   );
+}
+
+function depth(path: string) {
+  return path.split("/").length;
+}
+
+/**
+ * Copies of a file marker below the root, shallowest first: in a monorepo the manifest nearest
+ * the root describes the main component, and the budget can run out before the deep ones.
+ * Directory markers like `.github/workflows` are skipped, since they name a location rather than
+ * a manifest and their contents are already collected as workflows.
+ */
+function nestedManifestsFor(paths: string[], marker: string): string[] {
+  if (marker.includes("/")) return [];
+  return paths.filter((path) => isNestedMarker(path, marker));
 }
 
 /**
  * Chooses what is worth a content read: the manifests the baseline knows about, plus CI config.
- * A marker only names a real file if it appears in the tree, which is also how directory markers
- * like `.github/workflows` get excluded here without a second list.
+ * A marker only names a real root file if it appears in the tree verbatim, which is also how
+ * directory markers like `.github/workflows` stay out of the root group without a second list.
  */
 export function filesToRead(paths: string[], baseline: Baseline): string[] {
-  const manifests = baseline.stacks
-    .flatMap((stack) => stack.markers)
-    .filter((marker) => paths.includes(marker));
+  const markers = [
+    ...new Set(baseline.stacks.flatMap((stack) => stack.markers)),
+  ];
+
+  const manifests = markers.filter((marker) => paths.includes(marker));
+
+  // Read after the workflows below, never before: a stack detected only in a subdirectory still
+  // needs its manifest contents, or every dependency-based signal for it reports a false gap.
+  const nested = markers
+    .flatMap((marker) => nestedManifestsFor(paths, marker))
+    .sort((a, b) => depth(a) - depth(b) || a.localeCompare(b))
+    .slice(0, maxNestedManifests);
 
   const ci = paths.filter((path) => ciRootFiles.includes(path));
 
@@ -59,10 +110,9 @@ export function filesToRead(paths: string[], baseline: Baseline): string[] {
     (path) => isYaml(path) && path.startsWith(".github/actions/"),
   );
 
-  return [...new Set([...manifests, ...ci, ...workflows, ...composites])].slice(
-    0,
-    maxFiles,
-  );
+  return [
+    ...new Set([...manifests, ...ci, ...workflows, ...nested, ...composites]),
+  ].slice(0, maxFiles);
 }
 
 type CiSignals = {
@@ -176,11 +226,6 @@ function dependsOn(snapshot: RepoSnapshot, dep: string): string | null {
   return null;
 }
 
-// A config file inside vendored or generated output belongs to a dependency, not to this repo.
-// Without this, any Go repo with a `vendor/` directory reports whatever its dependencies use.
-const notOwnedByRepo =
-  /(^|\/)(vendor|node_modules|third_party|testdata|\.venv|\.yarn|dist|build|target)\//;
-
 // pyproject.toml is Python's central config file for many tools at once; its mere existence
 // proves nothing about which of them are actually configured there. Content markers for the
 // two catalogue tools that share it as a configFiles signal - keyed by tool id, not stored in
@@ -209,19 +254,21 @@ function configFileMatch(paths: string[], candidate: string): string | null {
 
 // A shared config file only counts as evidence when it actually configures this specific tool -
 // existence alone can't distinguish "configured here" from "just also present" for a file more
-// than one tool lists. Root-only: a nested match's content is never fetched (see filesToRead), so
-// there's nothing to check there either way. If the root file's content failed to fetch (network
-// error, oversized file - see github.ts), it's treated as unconfirmed rather than credited.
+// than one tool lists. Applies wherever the match is, root or nested, since pyproject.toml is a
+// Python stack marker and so nested copies get read too (see filesToRead). Content that was not
+// read (beyond the nested budget, or a failed fetch - see github.ts) is treated as unconfirmed
+// rather than credited, so a shared file never becomes evidence on existence alone.
 function configuresPyproject(
   tool: AnalysisTool,
   candidate: string,
   hit: string,
   snapshot: RepoSnapshot,
 ): boolean {
-  if (candidate !== "pyproject.toml" || hit !== candidate) return true;
+  if (candidate !== "pyproject.toml") return true;
   const marker = pyprojectMarkers[tool.id];
   if (!marker) return true;
-  return marker.test(snapshot.files[hit] ?? "");
+  const content = snapshot.files[hit];
+  return content === undefined ? false : marker.test(content);
 }
 
 // The prefix match above only guarantees the value starts with the catalogue's trusted family

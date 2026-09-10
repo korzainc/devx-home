@@ -57,6 +57,10 @@ export type PluginEntry = CatalogueEntry & {
   audiences: Audience[];
   // Written here: the manifests answer "what", not "why install this".
   problem: string;
+  // What the entry delivers when it is not skills. Absent for a skills plugin, and absent for
+  // one that genuinely ships nothing. Hand-written until the generator emits a component
+  // inventory per plugin.
+  payload?: string;
   benefits: string[];
   agents: string[];
   origin: string;
@@ -95,6 +99,10 @@ export type SkillEntry = CatalogueEntry & {
   status: string;
 };
 
+// The agents install commands are rendered for. One list: `installCommands` builds from it and
+// plugins-shape validates against it, so a typo cannot silently drop an install command.
+export const AGENTS = ["Claude Code", "Codex CLI"] as const;
+
 export type FacetKey<T> = {
   [K in keyof T]: T[K] extends string | string[] ? K : never;
 }[keyof T] &
@@ -127,7 +135,7 @@ export const skillFacets: Facet<SkillEntry>[] = [
 ];
 
 export type InstallCommand = {
-  agent: string;
+  agent: (typeof AGENTS)[number];
   /** Once per machine, not once per plugin. */
   register: string;
   install: string;

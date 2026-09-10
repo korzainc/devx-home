@@ -45,7 +45,8 @@ export type BaselineExpectation = {
 export type BaselineStack = {
   id: string;
   label: string;
-  /** Root-level filenames, or directories matched as a path prefix. */
+  /** Filenames, or directories matched as a path prefix. A nested copy counts too, so a
+   * monorepo that keeps its manifests in subdirectories still matches. */
   markers: string[];
   expects: Record<string, BaselineExpectation>;
 };

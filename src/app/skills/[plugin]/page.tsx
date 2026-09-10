@@ -32,7 +32,9 @@ export default async function PluginPage({
   if (!plugin) notFound();
 
   const skills = skillsForPlugin(plugin.id);
-  const shipsNothing = skills.length === 0;
+  // Not skills.length alone: a language-server or hooks entry ships something real and is
+  // installable, and calling it a defect hid its install command.
+  const shipsNothing = skills.length === 0 && !plugin.payload;
   const agents = shortAgents(plugin.agents);
 
   return (
@@ -73,8 +75,8 @@ export default async function PluginPage({
             </p>
           </div>
           <div className="grid gap-2 p-5 sm:grid-cols-[9rem_1fr] sm:gap-6">
-            {/* pyright-lsp's first bullet is "Does not currently work", so the heading follows
-                the content. */}
+            {/* An entry that ships nothing has benefits describing why, not what you get. No
+                catalogue entry is in that state today. */}
             <h2 className="text-xs font-medium tracking-wide text-ink-faint uppercase">
               {shipsNothing ? "Known defect" : "What you get"}
             </h2>
