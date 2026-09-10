@@ -1,7 +1,7 @@
 ---
 title: Say which gaps you have to fix
 stage: exploring
-category: gap analysis
+category: CI coverage
 outcome: Know which gap to fix first
 summary:
   Every gap in a report reads the same, so a missing secret scan looks no more

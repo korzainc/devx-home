@@ -1,7 +1,7 @@
 ---
-title: Gap analysis for GitHub Actions
+title: CI coverage for GitHub Actions
 stage: shipped
-category: gap analysis
+category: CI coverage
 landed: 2026-08
 summary:
   Paste a repo name and see which recommended checks are running, with the file

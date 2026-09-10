@@ -14,6 +14,13 @@ const nextConfig: NextConfig = {
         destination: "/ci-coverage",
         permanent: true,
       },
+      // The roadmap entry moved with it: its slug is its filename, so renaming the file to match
+      // the feature changed a URL that shipped in August.
+      {
+        source: "/roadmap/gap-analysis",
+        destination: "/roadmap/ci-coverage",
+        permanent: true,
+      },
       {
         source: "/devx/install.sh",
         destination: "/setup",

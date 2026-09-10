@@ -11,9 +11,11 @@ import { parse as parseYaml } from "yaml";
 export type RoadmapStage = "exploring" | "planned" | "building" | "shipped";
 
 /* The part of Korza DevX an entry touches, which is wider than the portal: `agents` covers work
-   that ships no page here at all. Doubles as the filter above each section. */
+   that ships no page here at all. Doubles as the filter above each section.
+   `CI coverage` keeps its capitals where the rest are lowercase, because the chip is rendered
+   verbatim and `ci coverage` reads as a typo rather than as a house style. */
 export type RoadmapCategory =
-  "gap analysis" | "skills" | "catalogue" | "access" | "portal" | "agents";
+  "CI coverage" | "skills" | "catalogue" | "access" | "portal" | "agents";
 
 export type RoadmapEntry = {
   /** Filename without the extension, and the join key for anything attached to an entry later. */
@@ -42,7 +44,7 @@ export const roadmapStages: RoadmapStage[] = [
 ];
 
 const roadmapCategories: RoadmapCategory[] = [
-  "gap analysis",
+  "CI coverage",
   "skills",
   "catalogue",
   "access",

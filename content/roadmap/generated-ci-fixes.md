@@ -1,7 +1,7 @@
 ---
 title: Write the fix, not just the finding
 stage: planned
-category: gap analysis
+category: CI coverage
 outcome: Close a gap without writing the YAML yourself
 summary:
   A report that names what is missing still leaves you to write it. The next
@@ -10,9 +10,9 @@ question: Would you rather see the fix inside the report, or ask for it after
   you have read the gaps?
 ---
 
-Gap analysis compares your repo against the catalogue and stops at the list. It
-does not write the fix, because a snippet nobody has run against your repo can
-easily be wrong, and a wrong fix costs more than no fix.
+The CI coverage report compares your repo against the catalogue and stops at
+the list. It does not write the fix, because a snippet nobody has run against
+your repo can easily be wrong, and a wrong fix costs more than no fix.
 
 Writing it was the point of building the catalogue. The catalogue already knows
 which tool to use, how to invoke it, and what it needs from a repo. Grounded in
