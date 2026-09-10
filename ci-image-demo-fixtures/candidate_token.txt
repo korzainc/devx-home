@@ -1,0 +1,5 @@
+Fixture for validating the self-contained ci-image security scan: a fake, inert
+PyPI upload token (never a real credential), trips the secrets leaf as an
+unvalidated candidate.
+
+pypi-AgEIcHlwaS5vcmcCJDEyMzQ1Njc4LTEyMzQtMTIzNC0xMjM0LTEyMzQ1Njc4OTAxMg
