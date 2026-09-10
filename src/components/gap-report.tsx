@@ -202,7 +202,7 @@ export function GapReport({
 
         {noStackDetected ? (
           <h2 className="font-display text-2xl font-semibold tracking-tight">
-            No recognized stack was detected.
+            No recognized stack in this repository.
           </h2>
         ) : (
           <>
@@ -242,9 +242,9 @@ export function GapReport({
           <p className="text-sm text-ink-muted">
             {noStackDetected ? (
               <>
-                No manifest for a stack the catalogue covers (
-                {stacks.map((stack) => stack.label).join(", ")}) was found at
-                the repo root, so nothing could be compared.
+                Nothing in the repository matched the stacks the catalogue
+                covers ({stacks.map((stack) => stack.label).join(", ")}), so
+                there was nothing to compare.
               </>
             ) : (
               <>

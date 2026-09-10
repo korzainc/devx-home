@@ -9,7 +9,7 @@ import { SiteFooter } from "@/components/site-footer";
 /**
  * The footer is the site's navigation, so the thing worth testing is coverage, not markup.
  *
- * `/gap-analysis` shipped with no link anywhere: you reached it by submitting the repo form on the
+ * `/ci-coverage` shipped with no link anywhere: you reached it by submitting the repo form on the
  * home page, and a reader who had run one could not get back to it. This walks the route folders
  * so the next page added that way fails here rather than going unnoticed.
  */

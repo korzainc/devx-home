@@ -122,7 +122,7 @@ function PromptOverlay({
           <div className="flex items-center gap-2">
             <Sparkle className="h-3.5 w-3.5 text-positive" />
             <h3 id="fix-prompt-title" className="text-sm font-medium text-ink">
-              Fix instructions for optimising CI pipeline
+              Fix instructions for your CI pipeline
             </h3>
           </div>
           <CopyButton prompt={prompt} />

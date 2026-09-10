@@ -73,7 +73,7 @@ describe("buildFixPrompt", () => {
       "It found no manifest and no CI config",
     );
     expect(buildFixPrompt(empty)).toContain(
-      "no manifest was recognised at the repo root",
+      "no manifest in the repository was recognised",
     );
   });
 
