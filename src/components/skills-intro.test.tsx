@@ -191,12 +191,17 @@ describe("the demo terminal", () => {
   /** Both fallbacks are hidden from the reader who is watching the replay, and each other. */
   it("shows one transcript at a time", () => {
     const { container } = render(<SkillsDemoTerminal />);
-    expect(container.querySelector(".demo-reduced")?.className).toContain(
-      "hidden",
-    );
-    expect(container.querySelector(".demo-live")?.className).toContain(
-      "motion-reduce:hidden",
-    );
+    // `classList`, not the className string: `overflow-hidden` contains "hidden", so a
+    // substring check passed even with the static copy set to plain `block`.
+    const reduced = container.querySelector(".demo-reduced")!.classList;
+    expect(reduced.contains("hidden")).toBe(true);
+    expect(reduced.contains("motion-reduce:block")).toBe(true);
+    expect(reduced.contains("block")).toBe(false);
+    expect(
+      container
+        .querySelector(".demo-live")!
+        .classList.contains("motion-reduce:hidden"),
+    ).toBe(true);
   });
 
   /** One question, with its guess. Three batched questions is what `brainstorm` forbids. */
@@ -234,15 +239,34 @@ describe("the demo terminal", () => {
     expect(screen.getAllByRole("button", { name: /Replay/ })).toHaveLength(2);
   });
 
+  /**
+   * The button the reader pressed is inside the copy that is about to be hidden, so pressing
+   * it drops focus to the body -- confirmed in Chrome. Focus follows the replay instead.
+   */
+  it("keeps focus with the reader when the copies swap", () => {
+    const { container } = render(<SkillsDemoTerminal />);
+    const [live, reduced] = screen.getAllByRole("button", { name: /Replay/ });
+    reduced.focus();
+    fireEvent.click(reduced);
+    expect(document.activeElement).toBe(live);
+    expect(
+      container.querySelector(".demo-reduced")!.classList.contains("hidden"),
+    ).toBe(true);
+  });
+
   /** Pressing it is an explicit request, so the animated copy takes over from the static one. */
   it("shows the replay once it has been asked for", () => {
     const { container } = render(<SkillsDemoTerminal />);
     fireEvent.click(screen.getAllByRole("button", { name: /Replay/ })[1]);
-    expect(container.querySelector(".demo-live")?.className).not.toContain(
-      "motion-reduce:hidden",
-    );
-    expect(container.querySelector(".demo-reduced")?.className).not.toContain(
-      "motion-reduce:block",
-    );
+    expect(
+      container
+        .querySelector(".demo-live")!
+        .classList.contains("motion-reduce:hidden"),
+    ).toBe(false);
+    expect(
+      container
+        .querySelector(".demo-reduced")!
+        .classList.contains("motion-reduce:block"),
+    ).toBe(false);
   });
 });

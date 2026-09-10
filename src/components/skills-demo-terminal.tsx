@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Line = {
   /** Typed a character at a time, with a caret, when the replay runs. */
@@ -158,6 +158,26 @@ export function SkillsDemoTerminal() {
    */
   const asked = runId > 0;
 
+  /**
+   * Focus follows that swap. The button the reader pressed sits in the copy being hidden, so
+   * without this it is display:none under their cursor and focus falls to the body -- which
+   * for a keyboard reader means being returned to the top of the page for pressing a button.
+   * Only when they were on the static copy: a reader who has moved on keeps their place.
+   */
+  const liveReplay = useRef<HTMLButtonElement | null>(null);
+  const handedOver = useRef(false);
+  useEffect(() => {
+    if (!asked || handedOver.current) return;
+    handedOver.current = true;
+    const active = document.activeElement;
+    const leaving =
+      active === document.body ||
+      (active instanceof HTMLElement &&
+        Boolean(active.closest(".demo-reduced")));
+    if (!leaving) return;
+    liveReplay.current?.focus();
+  }, [asked]);
+
   return (
     <div className="flex flex-col gap-4">
       <div
@@ -165,7 +185,10 @@ export function SkillsDemoTerminal() {
           asked ? "" : "motion-reduce:hidden"
         }`}
       >
-        <TerminalChrome onReplay={() => setRunId((id) => id + 1)} />
+        <TerminalChrome
+          ref={liveReplay}
+          onReplay={() => setRunId((id) => id + 1)}
+        />
 
         {/* Lines are revealed with opacity rather than mounted on a timer, and every row is
             laid out at its finished size from the first frame, so the box holds its height
@@ -285,7 +308,13 @@ export function SkillsDemoTerminal() {
 }
 
 /** The window bar. The replay button is dropped where pressing it could do nothing. */
-function TerminalChrome({ onReplay }: { onReplay?: () => void }) {
+function TerminalChrome({
+  onReplay,
+  ref,
+}: {
+  onReplay?: () => void;
+  ref?: React.Ref<HTMLButtonElement>;
+}) {
   return (
     <div className="flex items-center gap-3 border-b border-line bg-canvas px-4 py-2.5">
       <span className="font-mono text-xs text-ink-faint">
@@ -294,6 +323,7 @@ function TerminalChrome({ onReplay }: { onReplay?: () => void }) {
       <span className="flex-1" />
       {onReplay ? (
         <button
+          ref={ref}
           type="button"
           onClick={onReplay}
           className="rounded-md border border-line px-2 py-1 font-mono text-xs text-ink-muted transition-colors hover:border-line-strong hover:text-ink"
