@@ -79,25 +79,16 @@ export default function GettingStartedPage() {
       </section>
 
       <section className="grid grid-cols-1 gap-8 border-t border-line py-12 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-center lg:gap-14">
-        <a
-          href="/images/korza-cli-setup.jpg"
-          aria-label="View the Korza CLI preview at full size"
-          className="block min-w-0 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
-        >
-          <figure className="overflow-hidden rounded-xl border border-line bg-surface shadow-xl shadow-black/20">
-            <Image
-              src="/images/korza-cli-setup.jpg"
-              alt="Korza CLI setup, grouped into Essentials, AI tools and Languages. Installed tools show Ready. The selected tool’s actions appear below."
-              width={1330}
-              height={912}
-              unoptimized
-              className="h-auto w-full"
-            />
-            <figcaption className="border-t border-line px-5 py-3 text-xs text-ink-muted">
-              CLI preview · View full size ↗
-            </figcaption>
-          </figure>
-        </a>
+        <figure className="min-w-0 overflow-hidden rounded-xl border border-line bg-surface shadow-xl shadow-black/20">
+          <Image
+            src="/images/korza-cli-setup.jpg"
+            alt="Korza CLI setup, grouped into Essentials, AI tools and Languages. Installed tools show Ready. The selected tool’s actions appear below."
+            width={1330}
+            height={912}
+            unoptimized
+            className="h-auto w-full"
+          />
+        </figure>
         <div className="flex min-w-0 flex-col gap-3">
           <h2 className="font-display text-2xl font-semibold tracking-tight">
             Guided setup.
