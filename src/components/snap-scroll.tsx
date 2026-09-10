@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useLayoutEffect } from "react";
 
 /**
  * Turns the document into a snapped scroller for as long as the page rendering this is on screen.
@@ -15,11 +15,16 @@ import { useEffect } from "react";
  * React hides that subtree with Activity, which runs effect cleanups while leaving the DOM in
  * place, so the teardown below fires exactly when the page stops being on screen.
  *
+ * A layout effect, because a passive one tears down too late. The panels are the page's own, so
+ * they vanish the moment it is hidden, which leaves the footer holding the only snap target in
+ * the document; still snapping mandatorily, the browser pulls the incoming page down to it. The
+ * reader clicks a link near the top of the home page and arrives at the foot of the next one.
+ *
  * Nothing here is load bearing: with no script the page is a long scroll through the same
  * panels, which is why this sets no fallback and renders no markup.
  */
 export function SnapScroll() {
-  useEffect(() => {
+  useLayoutEffect(() => {
     // Snapping hijacks the scroll position, which is the sort of motion this asks to be spared.
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 

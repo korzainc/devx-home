@@ -2,15 +2,14 @@ import Link from "next/link";
 import { PRODUCTS } from "@/lib/nav";
 
 /**
- * Every page the site has, grouped, at the foot of every page.
+ * Every page the site has, grouped, at the foot of the home page.
  *
- * This is the site's navigation now: the header carries one link, so a reader who reaches the end
- * of the catalogue and wants to cross to Tools finds the way here rather than by going home first.
- * `/ci-coverage` in particular had no link anywhere before this, reachable only by submitting the
- * repo form on the home page.
+ * `HomeOnly` in the root layout keeps it off every other route, so this is what a reader is given
+ * once they have scrolled the home page rather than the site's navigation. Crossing between pages
+ * is the header's Products menu.
  *
- * Skills and Tools appearing here as well as on the home page is not a duplicate to remove. A
- * footer is what someone reads when they have finished a page and want the map.
+ * That leaves Roadmap, Updates and Introduction to skills linked from here and nowhere else, so
+ * they are reachable only by way of home.
  */
 
 const REPO = "https://github.com/korzainc/devx-home";
@@ -41,9 +40,8 @@ const footerLink = "text-sm text-ink-muted transition-colors hover:text-ink";
 
 export function SiteFooter() {
   return (
-    /* `snap-end` is inert unless a page has turned snapping on, and the home page is the only
-       one that does. Without a target of its own the footer is unreachable there: mandatory
-       snap returns the document to the nearest one, which is the last full-height panel. */
+    /* Without a snap target of its own the footer is unreachable: mandatory snap returns the
+       document to the nearest one, which is the last full-height panel. */
     <footer className="mt-16 snap-end border-t border-line bg-surface">
       <div className="mx-auto max-w-6xl px-6 py-10">
         {/* Where a reader is going on the left, what the site is on the right, pushed to the two

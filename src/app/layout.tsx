@@ -1,6 +1,7 @@
 import { Analytics } from "@vercel/analytics/next";
 import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Inter, Work_Sans } from "next/font/google";
+import { HomeOnly } from "@/components/home-only";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import "./globals.css";
@@ -53,7 +54,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           />
           {children}
         </main>
-        <SiteFooter />
+        <HomeOnly>
+          <SiteFooter />
+        </HomeOnly>
         {/* Renders no markup. It is a client component that appends the script from an effect,
             so the served HTML is unchanged and nothing blocks the prerender. On Vercel the
             script is same-origin at /_vercel/insights/script.js, which the platform serves and

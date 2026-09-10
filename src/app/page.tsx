@@ -172,22 +172,28 @@ export default function Home() {
       <Panel>
         <div className="flex max-w-3xl flex-col gap-5">
           <h1 className="font-display text-5xl font-semibold tracking-tight text-balance sm:text-6xl">
-            Everything Korza recommends, in one place.
+            Never solve the same problem twice.
           </h1>
           <p className="text-xl leading-relaxed text-ink-muted">
-            A health check for your repo, and the catalogues behind what it
-            recommends.
+            Korza&apos;s proven tools, skills, and ways of working. Captured
+            once, tested, and ready for whatever you&apos;re doing today.
           </p>
-          {/* The one door a new machine needs. Everything else on the page assumes the
-              toolchain is already there. */}
-          <p className="text-sm">
+          {/* The one door a new machine needs, and the only control on this screen. Everything
+              below it assumes the toolchain is already there, so it goes above them rather than
+              at the end of the scroll. The install itself is a long `sh -c` one-liner, which is
+              why this links to the page that can present it properly instead of printing it. */}
+          <div className="flex flex-col items-start gap-2.5 pt-2">
             <Link
               href="/getting-started"
-              className="font-medium text-accent hover:underline"
+              className="rounded-lg border border-accent bg-accent-wash px-5 py-2.5 text-sm font-medium text-accent transition-opacity hover:opacity-80"
             >
-              New machine, or new to the toolchain? Start here →
+              Set up your machine →
             </Link>
-          </p>
+            <p className="text-sm text-ink-faint">
+              One command installs the Korza CLI. It sets up the toolchain and
+              the skills from there.
+            </p>
+          </div>
         </div>
       </Panel>
 
