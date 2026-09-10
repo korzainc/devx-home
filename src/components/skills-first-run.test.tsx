@@ -1,14 +1,34 @@
 /**
  * @vitest-environment jsdom
  */
+import { act } from "react";
+import type { Root } from "react-dom/client";
+import { hydrateRoot } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SkillsFirstRunNudge } from "@/components/skills-first-run";
 
-import { INTRO_SEEN_KEY as KEY } from "@/lib/skills-intro-seen";
+import {
+  INTRO_ROUTE,
+  INTRO_SEEN_KEY as KEY,
+  INTRO_UNSEEN_ATTR as ATTR,
+} from "@/lib/skills-intro-seen";
+
+// The nudge now mounts from the root layout, on every route, and picks its own one.
+let pathname = INTRO_ROUTE;
+vi.mock("next/navigation", () => ({ usePathname: () => pathname }));
 
 afterEach(cleanup);
-beforeEach(() => window.localStorage.clear());
+beforeEach(() => {
+  window.localStorage.clear();
+  document.documentElement.removeAttribute(ATTR);
+  pathname = INTRO_ROUTE;
+});
+
+function revealed() {
+  return document.documentElement.hasAttribute(ATTR);
+}
 
 function dialog() {
   return screen.queryByRole("dialog");
@@ -123,11 +143,81 @@ describe("the first-run nudge", () => {
     expect(document.activeElement).toBe(stops[0]);
   });
 
-  it("locks the page behind it, and unlocks on dismissal", () => {
+  /**
+   * The attribute is the whole visibility contract: the stylesheet reveals the overlay and
+   * locks body scroll under it, which is what lets the pre-paint script do both before React
+   * exists. So these assert the attribute, not the styles jsdom would have to compute.
+   */
+  it("reveals itself, and hides again on dismissal", () => {
     render(<SkillsFirstRunNudge />);
-    expect(document.body.style.overflow).toBe("hidden");
+    expect(revealed()).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: /Skip/ }));
-    expect(document.body.style.overflow).not.toBe("hidden");
+    expect(revealed()).toBe(false);
+  });
+
+  /** Otherwise the scroll lock keyed to it follows the reader onto every other page. */
+  it("hides again when the reader leaves the page", () => {
+    const view = render(<SkillsFirstRunNudge />);
+    view.unmount();
+    expect(revealed()).toBe(false);
+  });
+
+  it("renders nothing on the routes it does not belong to", () => {
+    pathname = "/roadmap";
+    render(<SkillsFirstRunNudge />);
+    expect(dialog()).toBeNull();
+    expect(revealed()).toBe(false);
+  });
+
+  /**
+   * The markup is now in the served HTML, so a returning reader hydrates it before the store
+   * reports the flag. It is hidden by CSS throughout, and must not pull focus on its way out.
+   */
+  it("does not take focus from a reader who has seen it", () => {
+    window.localStorage.setItem(KEY, "1");
+    render(<SkillsFirstRunNudge />);
+    expect(document.activeElement).toBe(document.body);
+  });
+
+  /**
+   * The one case `render` cannot show. Hydration replays the server's answer first -- not
+   * dismissed -- so for a returning reader there is a commit where the component believes it
+   * is open. Reveal it there and the overlay appears for a frame at the one reader it is
+   * hidden from, and the end state looks correct afterwards either way. Hence the observer:
+   * it asks whether the attribute was ever touched, not where it ended up.
+   */
+  it("stays hidden through hydration for a reader who has seen it", async () => {
+    window.localStorage.setItem(KEY, "1");
+    const container = document.createElement("div");
+    container.innerHTML = renderToString(<SkillsFirstRunNudge />);
+    document.body.appendChild(container);
+
+    const touched: string[] = [];
+    const observer = new MutationObserver(() =>
+      touched.push(String(revealed())),
+    );
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: [ATTR],
+    });
+    // Focus is transient in the same way: it lands on the dialog, the dialog leaves, and it
+    // falls back to the body looking untouched. Recorded as it happens instead.
+    const focused: string[] = [];
+    const onFocusIn = (event: FocusEvent) =>
+      focused.push((event.target as HTMLElement).nodeName);
+    document.addEventListener("focusin", onFocusIn);
+
+    let root: Root | undefined;
+    await act(async () => {
+      root = hydrateRoot(container, <SkillsFirstRunNudge />);
+    });
+    observer.disconnect();
+    document.removeEventListener("focusin", onFocusIn);
+
+    expect(touched).toEqual([]);
+    expect(focused).toEqual([]);
+    await act(async () => root?.unmount());
+    container.remove();
   });
 
   /** James's case: another tab sets the flag, so this one closes without a click of its own. */

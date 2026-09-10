@@ -85,6 +85,23 @@ html {
   scrollbar-gutter: stable;
 }
 
+/* The first-run overlay ships in the HTML so a first-time reader has it in the first paint,
+   and these two rules decide who that is. Hidden is the default, so a client with no
+   JavaScript never meets an overlay it has no way to close; the pre-paint script in the head
+   sets the attribute for everyone else. The scroll lock hangs off the same attribute, which
+   is what puts it in place before hydration rather than after. */
+.first-run-overlay {
+  display: none;
+}
+
+:root[data-intro-unseen] .first-run-overlay {
+  display: flex;
+}
+
+:root[data-intro-unseen] body {
+  overflow: hidden;
+}
+
 @keyframes breathe {
   0%,
   100% {

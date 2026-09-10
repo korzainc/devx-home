@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -10,9 +11,12 @@ import {
 } from "react";
 
 import {
+  hideIntro,
+  INTRO_ROUTE,
   INTRO_SEEN_EVENT as EVENT,
   isIntroSeen,
   markIntroSeen,
+  showIntro,
 } from "@/lib/skills-intro-seen";
 
 function subscribe(onChange: () => void) {
@@ -25,16 +29,25 @@ function subscribe(onChange: () => void) {
 }
 
 /**
- * Dismissed on the server, so nothing renders in the prerendered HTML and a client without
- * JavaScript gets the catalogue rather than an overlay it has no way to close. This is the
- * opposite call from DX-100 on purpose: there, content was hidden from no-JS clients and had
- * to be restored; here the overlay *is* the enhancement, and the page underneath is complete.
+ * Not dismissed on the server, so the overlay is in the served HTML and a first-time reader
+ * has it in the first paint instead of watching it land on a catalogue they were already
+ * reading. What keeps it away from everyone else is the stylesheet, not this: the markup is
+ * hidden until the pre-paint script sets the attribute, so a client without JavaScript is
+ * left with the catalogue rather than an overlay it has no way to close.
  */
 function serverSnapshot() {
-  return true;
+  return false;
 }
 
 export function SkillsFirstRunNudge() {
+  /**
+   * Mounted from the root layout, outside `main`. Inside it, `main`'s `isolate` capped the
+   * overlay below the sticky header -- painting over its top edge and leaving the nav
+   * clickable through a dialog claiming `aria-modal`. A portal would also escape that, but
+   * React does not server-render portals, and being in the HTML is the point here.
+   */
+  const onIntroRoute = usePathname() === INTRO_ROUTE;
+
   /**
    * Two sources, OR'd. `stored` is the persisted flag; `closedHere` is this view's own copy.
    * Reading alone was not enough: when reads work but `setItem` throws, as it does on a full
@@ -58,17 +71,34 @@ export function SkillsFirstRunNudge() {
   }, []);
 
   /**
-   * Takes focus on open, unless the reader is already using the page. The server markup omits
-   * this overlay, so it appears after hydration: on a slow connection someone can be mid-query
-   * in the skills search when it mounts, and grabbing focus then sends their next keystrokes
-   * somewhere they cannot see. Anything focused other than the body means they got there first.
+   * Reveals what the pre-paint script could not. That script only runs on a full page load,
+   * so a reader who walks here from another page needs the attribute set from here instead.
+   * The cleanup matters as much: the same attribute locks body scroll, which would otherwise
+   * follow them onto every page after this one.
+   *
+   * `isIntroSeen` rather than `dismissed` alone. During hydration the store still reports the
+   * server's answer, so a returning reader's first commit has `dismissed` false, and setting
+   * the attribute there would flash the overlay at exactly the reader it is hidden from.
    */
   useEffect(() => {
-    if (dismissed) return;
+    if (!onIntroRoute || dismissed || isIntroSeen()) return;
+    showIntro();
+    return hideIntro;
+  }, [onIntroRoute, dismissed]);
+
+  /**
+   * Takes focus on open, unless the reader is already using the page: on a slow connection
+   * someone can be mid-query in the skills search when this hydrates, and grabbing focus then
+   * sends their next keystrokes somewhere they cannot see. Anything focused other than the
+   * body means they got there first. `isIntroSeen` for the same hydration reason as above --
+   * the overlay a returning reader never sees must not take their focus on its way out.
+   */
+  useEffect(() => {
+    if (!onIntroRoute || dismissed || isIntroSeen()) return;
     const active = document.activeElement;
     if (active && active !== document.body) return;
     dialog.current?.focus();
-  }, [dismissed]);
+  }, [onIntroRoute, dismissed]);
 
   /**
    * Focus goes somewhere deliberate when this closes, whichever way it closed: this tab's
@@ -140,24 +170,18 @@ export function SkillsFirstRunNudge() {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [dismissed, dismiss]);
 
+  // Body scroll is locked by the stylesheet, keyed to the same attribute, so the lock is in
+  // place from the first paint rather than from hydration.
+
+  if (!onIntroRoute || dismissed) return null;
+
   /**
-   * Body scroll is locked while this is open. `fixed inset-0 overflow-y-auto` scrolls the
-   * overlay but chains to the document once its own content ends, so the catalogue moved
-   * underneath and the reader lost their place. `aria-modal` does not imply a scroll lock.
+   * `first-run-overlay` is what the stylesheet keys on, and the element is hidden until the
+   * attribute on `<html>` says otherwise. Rendering it here says only that it exists in the
+   * HTML -- whether the reader sees it is settled before this component runs.
    */
-  useEffect(() => {
-    if (dismissed) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previous;
-    };
-  }, [dismissed]);
-
-  if (dismissed) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain bg-canvas/85 px-4 py-12 backdrop-blur-sm">
+    <div className="first-run-overlay fixed inset-0 z-50 items-start justify-center overflow-y-auto overscroll-contain bg-canvas/85 px-4 py-12 backdrop-blur-sm">
       <div
         ref={dialog}
         role="dialog"

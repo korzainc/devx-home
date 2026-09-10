@@ -3,6 +3,8 @@ import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Inter, Work_Sans } from "next/font/google";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { SkillsFirstRunNudge } from "@/components/skills-first-run";
+import { PRE_PAINT_SCRIPT } from "@/lib/skills-intro-seen";
 import "./globals.css";
 
 // Work Sans is the face korza.com uses, so headings carry the brand. Inter takes the dense UI
@@ -41,6 +43,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${workSans.variable} ${inter.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        {/* Blocking on purpose, and the only script here. It decides before the first paint
+            whether the first-run overlay below is visible, which nothing running after
+            hydration can do: by then the reader has already seen the page without it. */}
+        <script dangerouslySetInnerHTML={{ __html: PRE_PAINT_SCRIPT }} />
+      </head>
       <body className="flex min-h-full flex-col bg-canvas font-sans text-ink">
         <SiteHeader />
         <main className="relative isolate mx-auto w-full max-w-6xl flex-1 px-6 py-12">
@@ -54,6 +62,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           {children}
         </main>
         <SiteFooter />
+        {/* Outside `main`, whose `isolate` capped it below the sticky header, and outside the
+            page for the same reason. It renders itself on `/skills` alone. */}
+        <SkillsFirstRunNudge />
         {/* Renders no markup. It is a client component that appends the script from an effect,
             so the served HTML is unchanged and nothing blocks the prerender. On Vercel the
             script is same-origin at /_vercel/insights/script.js, which the platform serves and
