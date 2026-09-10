@@ -167,14 +167,8 @@ export function SkillsFirstRunNudge() {
 
   if (dismissed) return null;
 
-  /**
-   * Portalled to the body, not rendered in place. `main` carries `isolate` so the sticky
-   * header always wins over page content, which also caps anything inside it: `z-50` on the
-   * overlay could not beat the header's `z-20` one context up, so the header painted over the
-   * dialog's top edge and stayed clickable through a dialog claiming `aria-modal`. No z-index
-   * fixes that from the inside. Safe without an SSR guard because this renders nothing on the
-   * server -- see `serverSnapshot` -- so it only ever mounts after hydration.
-   */
+  // `main` carries `isolate`, so no z-index here can beat the header one context up. Safe
+  // without an SSR guard: `serverSnapshot` means this never renders on the server.
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain bg-canvas/85 px-4 py-12 backdrop-blur-sm">
       <div

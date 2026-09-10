@@ -30,13 +30,7 @@ function clickWithoutNavigating(element: HTMLElement) {
 }
 
 describe("the first-run nudge", () => {
-  /**
-   * `main` carries `isolate`, deliberately, so the sticky header always wins over page
-   * content. An overlay rendered inside it therefore cannot out-stack the header at any
-   * z-index: the header painted over the dialog's top edge, and stayed clickable through a
-   * dialog claiming `aria-modal`. Escaping that context is the fix, so the assertion is that
-   * the overlay is not a descendant of the page container.
-   */
+  // Escaping `main`'s stacking context is the fix, so that is what this asserts.
   it("renders outside the page container, not inside it", () => {
     const main = document.createElement("main");
     main.className = "isolate";

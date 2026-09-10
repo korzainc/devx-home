@@ -24,12 +24,8 @@ describe("prerendering", () => {
     ).toBe("");
   });
 
-  /**
-   * The nudge portals to `document.body`, which react-dom/server cannot do. It gets away with
-   * it because the store's server snapshot reports dismissed, so it returns before reaching
-   * the portal -- an invariant with nothing else holding it in place. Flip that snapshot and
-   * the prerender of every page carrying this component throws.
-   */
+  // react-dom/server cannot render a portal. Flip `serverSnapshot` and every page carrying
+  // the nudge throws during prerender.
   it("renders the nudge to nothing, so its portal is never reached", () => {
     expect(renderToString(<SkillsFirstRunNudge />)).toBe("");
   });
