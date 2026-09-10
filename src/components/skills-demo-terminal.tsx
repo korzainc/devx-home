@@ -122,11 +122,12 @@ const RUN_MS = (TIMELINE[TIMELINE.length - 1] ?? 0) + FADE_MS;
 
 export function SkillsDemoTerminal() {
   /**
-   * Starts at the end, so the server-rendered document and any client without JavaScript carry
-   * the whole transcript. DX-100 was this bug in another component: content that only appears
-   * once JavaScript runs is content some readers never get. The replay is the enhancement.
+   * Starts where the replay starts. Seeding this at the end put the finished transcript in the
+   * first paint and then rewound it, so the reader watched the text they were already reading
+   * get wiped and typed back out. The transcript still reaches everyone else -- see the two
+   * fallbacks below -- which is the guarantee DX-100 established, kept without the rewind.
    */
-  const [elapsed, setElapsed] = useState(RUN_MS);
+  const [elapsed, setElapsed] = useState(0);
   const [runId, setRunId] = useState(0);
 
   useEffect(() => {
@@ -147,28 +148,24 @@ export function SkillsDemoTerminal() {
     return () => cancelAnimationFrame(frame);
   }, [runId]);
 
-  /** Only after a replay has actually run. `elapsed` starts at RUN_MS so the transcript is
-   *  complete in the server markup and on the reduced-motion path, where no frame is ever
-   *  scheduled -- announcing "finished" there is an announcement for something that did not
-   *  happen. `runId` only advances when a replay starts. */
+  /** Only after a replay has actually run, which is what `runId` records. */
   const announce = runId > 0 && elapsed >= RUN_MS;
+
+  /**
+   * A reader who asked for less motion is served the static copy, and the replay button on it
+   * still works: pressing it is an explicit request, so from then on the animated copy is the
+   * one shown whatever the media query says.
+   */
+  const asked = runId > 0;
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="overflow-hidden rounded-xl border border-line bg-surface">
-        <div className="flex items-center gap-3 border-b border-line bg-canvas px-4 py-2.5">
-          <span className="font-mono text-xs text-ink-faint">
-            your agent, learning manners
-          </span>
-          <span className="flex-1" />
-          <button
-            type="button"
-            onClick={() => setRunId((id) => id + 1)}
-            className="rounded-md border border-line px-2 py-1 font-mono text-xs text-ink-muted transition-colors hover:border-line-strong hover:text-ink"
-          >
-            ↻ Replay
-          </button>
-        </div>
+      <div
+        className={`demo-live overflow-hidden rounded-xl border border-line bg-surface ${
+          asked ? "" : "motion-reduce:hidden"
+        }`}
+      >
+        <TerminalChrome onReplay={() => setRunId((id) => id + 1)} />
 
         {/* Lines are revealed with opacity rather than mounted on a timer, and every row is
             laid out at its finished size from the first frame, so the box holds its height
@@ -257,11 +254,87 @@ export function SkillsDemoTerminal() {
         </div>
       </div>
 
+      {/* The replay never runs here, so this copy is the transcript already finished. */}
+      <div
+        className={`demo-reduced overflow-hidden rounded-xl border border-line bg-surface ${
+          asked ? "hidden" : "hidden motion-reduce:block"
+        }`}
+      >
+        <TerminalChrome onReplay={() => setRunId((id) => id + 1)} />
+        <StaticRows />
+      </div>
+
+      {/* Without JavaScript the animated copy is an empty box and the media query above cannot
+          be trusted to fill it, so both are hidden and this one stands in. The stylesheet is
+          inside `noscript` on purpose: a browser running scripts never parses it. */}
+      <noscript>
+        <style>{`.demo-live,.demo-reduced{display:none}`}</style>
+        <div className="overflow-hidden rounded-xl border border-line bg-surface">
+          <TerminalChrome />
+          <StaticRows />
+        </div>
+      </noscript>
+
       {/* Announced once, when there is something whole to announce. Announcing each line as it
           typed would read the transcript out a character at a time. */}
       <span role="status" className="sr-only">
         {announce ? "Demo finished." : ""}
       </span>
+    </div>
+  );
+}
+
+/** The window bar. The replay button is dropped where pressing it could do nothing. */
+function TerminalChrome({ onReplay }: { onReplay?: () => void }) {
+  return (
+    <div className="flex items-center gap-3 border-b border-line bg-canvas px-4 py-2.5">
+      <span className="font-mono text-xs text-ink-faint">
+        your agent, learning manners
+      </span>
+      <span className="flex-1" />
+      {onReplay ? (
+        <button
+          type="button"
+          onClick={onReplay}
+          className="rounded-md border border-line px-2 py-1 font-mono text-xs text-ink-muted transition-colors hover:border-line-strong hover:text-ink"
+        >
+          ↻ Replay
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The transcript with no clock attached: what the reader gets when the replay will not run.
+ * Rows are plain text here, so none of the sizing machinery the animated copy needs applies.
+ */
+function StaticRows() {
+  return (
+    <div className="flex flex-col px-5 py-5 font-mono text-[0.8rem] leading-[1.85]">
+      {TRANSCRIPT.map((line, index) =>
+        line.tone === "rule" ? (
+          <span
+            key={index}
+            aria-hidden="true"
+            className="my-3 border-t border-dashed border-line"
+          />
+        ) : (
+          <span
+            key={index}
+            className={`block break-words whitespace-pre-wrap ${TONE[line.tone]} ${
+              line.indent ? "pl-6" : ""
+            }`}
+          >
+            {line.typed ? <span className="text-ink-faint">{"> "}</span> : null}
+            {line.typed && line.command ? (
+              <CommandToken text={line.text} />
+            ) : (
+              line.text
+            )}
+          </span>
+        ),
+      )}
     </div>
   );
 }

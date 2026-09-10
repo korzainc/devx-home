@@ -2,6 +2,7 @@
  * @vitest-environment jsdom
  */
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it } from "vitest";
 import { SkillsDemoTerminal } from "@/components/skills-demo-terminal";
 import { InstallPanel } from "@/components/install-panel";
@@ -134,34 +135,74 @@ describe("the install panel", () => {
 });
 
 describe("the demo terminal", () => {
-  /**
-   * The transcript is in the document before any timer runs, which is what a server-rendered
-   * page and a client without JavaScript get. DX-100 was this bug in another component.
-   */
-  it("renders the whole transcript up front", () => {
-    const { container } = render(<SkillsDemoTerminal />);
-    // The painted copies only. `textContent` on the whole tree also picks up the aria-hidden
-    // sizers, which carry the finished text whatever the animation is doing, so an assertion
-    // against the tree stayed green even with `elapsed` seeded to 0.
-    const painted = [...container.querySelectorAll("span.absolute")]
-      .map((n) => n.textContent ?? "")
+  /** The painted rows of the animated copy: what a reader with JavaScript actually watches. */
+  function painted(container: HTMLElement) {
+    return [...container.querySelectorAll(".demo-live span.absolute")]
+      .map((node) => node.textContent ?? "")
       .join(" ");
-    expect(painted).toContain(
+  }
+
+  /**
+   * The replay used to begin at its end: the server sent the finished transcript, then the
+   * mount effect rewound it to zero and typed it back out, so the reader watched the text they
+   * were already reading get wiped. The animated copy now starts where the replay starts.
+   */
+  it("starts the animated copy empty, so nothing is wiped", () => {
+    const { container } = render(<SkillsDemoTerminal />);
+    expect(painted(container)).not.toContain(
       "write the requirements doc for the client's booking portal",
     );
-    expect(painted).toContain(
-      "/brainstorm requirements doc for the booking portal",
+    // Untyped rows keep their text from the first frame -- that is what reserves the row's
+    // height -- so what makes them invisible is the opacity the clock drives.
+    const rows = [
+      ...container.querySelectorAll<HTMLElement>(".demo-live span.block"),
+    ];
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.every((row) => row.style.opacity === "0")).toBe(true);
+  });
+
+  /**
+   * Which puts the burden on the fallbacks. DX-100 was this bug in another component: content
+   * that only appears once JavaScript runs is content some readers never get.
+   */
+  it("carries the whole transcript for a reader without JavaScript", () => {
+    // Read from the served markup, not the rendered tree: React fills `noscript` on the
+    // server and leaves it empty in the browser, so only SSR shows what that reader gets.
+    const html = renderToString(<SkillsDemoTerminal />);
+    const fallback = html.slice(html.indexOf("<noscript>"));
+    expect(fallback).toContain(
+      "write the requirements doc for the client&#x27;s booking portal",
     );
-    const untyped = document.body.textContent ?? "";
-    expect(untyped).toContain("HYPOTHESIS");
-    expect(untyped).toContain("CONFIDENCE: ~40%");
-    expect(untyped).toContain("GUESS");
+    expect(fallback).toContain("HYPOTHESIS");
+    // And it takes the other two copies off the page, which the media query cannot do.
+    expect(fallback).toContain("display:none");
+  });
+
+  /** A replay that never runs must not leave an empty box where the transcript should be. */
+  it("carries it for a reader who asked for less motion", () => {
+    const { container } = render(<SkillsDemoTerminal />);
+    const reduced = container.querySelector(".demo-reduced")?.textContent ?? "";
+    expect(reduced).toContain(
+      "write the requirements doc for the client's booking portal",
+    );
+    expect(reduced).toContain("CONFIDENCE: ~40%");
+  });
+
+  /** Both fallbacks are hidden from the reader who is watching the replay, and each other. */
+  it("shows one transcript at a time", () => {
+    const { container } = render(<SkillsDemoTerminal />);
+    expect(container.querySelector(".demo-reduced")?.className).toContain(
+      "hidden",
+    );
+    expect(container.querySelector(".demo-live")?.className).toContain(
+      "motion-reduce:hidden",
+    );
   });
 
   /** One question, with its guess. Three batched questions is what `brainstorm` forbids. */
   it("asks a single question", () => {
-    render(<SkillsDemoTerminal />);
-    const text = document.body.textContent ?? "";
+    const { container } = render(<SkillsDemoTerminal />);
+    const text = container.querySelector(".demo-reduced")?.textContent ?? "";
     expect(text.match(/Q:/g)).toHaveLength(1);
     expect(text.match(/GUESS:/g)).toHaveLength(1);
   });
@@ -174,7 +215,9 @@ describe("the demo terminal", () => {
   it("sizes each typed row by its finished text", () => {
     const { container } = render(<SkillsDemoTerminal />);
     const sizers = [
-      ...container.querySelectorAll('[aria-hidden="true"].invisible'),
+      ...container.querySelectorAll(
+        '.demo-live [aria-hidden="true"].invisible',
+      ),
     ].map((n) => n.textContent?.trim());
     expect(sizers).toHaveLength(2);
     expect(sizers[0]).toContain(
@@ -185,8 +228,21 @@ describe("the demo terminal", () => {
     );
   });
 
-  it("offers a replay", () => {
+  /** Both copies carry it: asking for less motion should not cost the reader the control. */
+  it("offers a replay on either copy", () => {
     render(<SkillsDemoTerminal />);
-    expect(screen.getByRole("button", { name: /Replay/ })).toBeDefined();
+    expect(screen.getAllByRole("button", { name: /Replay/ })).toHaveLength(2);
+  });
+
+  /** Pressing it is an explicit request, so the animated copy takes over from the static one. */
+  it("shows the replay once it has been asked for", () => {
+    const { container } = render(<SkillsDemoTerminal />);
+    fireEvent.click(screen.getAllByRole("button", { name: /Replay/ })[1]);
+    expect(container.querySelector(".demo-live")?.className).not.toContain(
+      "motion-reduce:hidden",
+    );
+    expect(container.querySelector(".demo-reduced")?.className).not.toContain(
+      "motion-reduce:block",
+    );
   });
 });
