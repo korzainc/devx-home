@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SkillsIntroSeen } from "@/components/skills-intro-seen";
 import Link from "next/link";
 import {
   SkillsGlossaryNote,
@@ -20,6 +21,7 @@ export const metadata: Metadata = {
 export default function SkillsIntroPage() {
   return (
     <div className="flex min-h-[70vh] flex-col gap-10">
+      <SkillsIntroSeen />
       <Link
         href="/skills"
         className="w-fit font-mono text-xs text-ink-faint hover:text-accent"

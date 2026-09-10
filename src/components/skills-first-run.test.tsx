@@ -5,7 +5,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SkillsFirstRunNudge } from "@/components/skills-first-run";
 
-const KEY = "devx.skills.intro.dismissed";
+import { INTRO_SEEN_KEY as KEY } from "@/lib/skills-intro-seen";
 
 afterEach(cleanup);
 beforeEach(() => window.localStorage.clear());
@@ -77,12 +77,20 @@ describe("the first-run nudge", () => {
     expect(dialog()).toBeNull();
   });
 
-  /** Following either link is a decision; it should not greet you again afterwards. */
-  it("records the dismissal when the tour is opened", () => {
+  it.each([/Show me around/, /See it run/])(
+    "stays up when %s is clicked, so the catalogue is never left bare",
+    (name) => {
+      render(<SkillsFirstRunNudge />);
+      clickWithoutNavigating(screen.getByRole("link", { name }));
+
+      expect(dialog()).not.toBeNull();
+      expect(window.localStorage.getItem(KEY)).toBeNull();
+    },
+  );
+
+  it("records the dismissal when it is skipped", () => {
     render(<SkillsFirstRunNudge />);
-    clickWithoutNavigating(
-      screen.getByRole("link", { name: /Show me around/ }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: /Skip for now/ }));
     expect(window.localStorage.getItem(KEY)).toBe("1");
   });
 
