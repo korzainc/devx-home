@@ -82,17 +82,20 @@ describe("the Getting Started page", () => {
     const disclosures = [...container.querySelectorAll("#manual details")];
     const expected = [
       ["Xcode tools", "xcode-select --install"],
-      ["git", 'git config --global user.name "Your Name"'],
-      ["gh", "gh auth login --hostname github.com --git-protocol https --web"],
-      ["SSH access", "ssh -T git@github.com"],
-      ["claude", "claude plugin marketplace add korzainc/marketplace"],
+      ["Git", 'git config --global user.name "Your Name"'],
       [
-        "homebrew",
+        "GitHub CLI",
+        "gh auth login --hostname github.com --git-protocol https --web",
+      ],
+      ["SSH access", "ssh -T git@github.com"],
+      ["Claude Code", "claude plugin marketplace add korzainc/marketplace"],
+      [
+        "Homebrew",
         "https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh",
       ],
       ["Python (uv)", "uv python install"],
       [
-        "Node (fnm)",
+        "Node.js (fnm)",
         "curl -fsSL https://fnm.vercel.app/install | bash -s -- --force-install",
       ],
     ];
@@ -105,6 +108,24 @@ describe("the Getting Started page", () => {
         commands.some((field) => field.textContent?.includes(command)),
       ).toBe(true);
     }
+  });
+
+  it("puts Claude sign-in before plugins and activates the installed Node version", () => {
+    const claude = manualCommands.find((entry) =>
+      entry.title.includes("Claude Code"),
+    )!;
+    const login = claude.commands.indexOf("claude auth login");
+    const marketplace = claude.commands.findIndex((command) =>
+      command.startsWith("claude plugin marketplace add"),
+    );
+    expect(login).toBeGreaterThan(0);
+    expect(marketplace).toBeGreaterThan(login);
+    const node = manualCommands.find((entry) =>
+      entry.title.startsWith("Node"),
+    )!;
+    expect(node.commands.indexOf("fnm use lts-latest")).toBeGreaterThan(
+      node.commands.indexOf("fnm install --lts"),
+    );
   });
 
   it("authorizes the SSH upload and loads the key before checking access", () => {

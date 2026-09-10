@@ -122,6 +122,11 @@ export default function GettingStartedPage() {
                   </span>
                 </summary>
                 <div className="flex flex-col gap-2 border-t border-line px-5 py-4">
+                  {entry.installUrl && (
+                    <a href={entry.installUrl} className={cta}>
+                      Install {entry.tool} →
+                    </a>
+                  )}
                   {entry.noteFirst && (
                     <p className="max-w-2xl text-sm text-ink-muted [overflow-wrap:anywhere]">
                       {entry.note}
@@ -142,25 +147,15 @@ export default function GettingStartedPage() {
                 </div>
               </details>
             ))}
-            <p className={caption}>
-              Manual alternatives for the tools available in korza setup.
-            </p>
           </>
         }
       >
         <h2 className="font-display text-2xl font-semibold tracking-tight">
-          Prefer to run each step yourself?
+          Set up manually
         </h2>
         <p className="text-ink-muted">
-          Use these commands to set up the tools independently of korza.
-        </p>
-        <p className="text-ink-muted">
-          The manual installers manage their own shell configuration. Follow
-          each tool&apos;s instructions to update your PATH and open a new
-          terminal when needed.
-        </p>
-        <p className="text-sm text-ink-faint">
-          Open a tool for its commands and prerequisites.
+          Open a tool for its setup commands. Follow the installer&apos;s
+          instructions and open a new terminal when asked.
         </p>
       </Pair>
 
