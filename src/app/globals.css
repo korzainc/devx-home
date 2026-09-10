@@ -102,12 +102,14 @@ html {
    the dark canvas. Setting it once here keeps every interactive element keyboard-visible
    without repeating focus classes on each one.
 
+   Neutral rather than the accent: a red ring on a large field reads as a validation error, and
+   focus is a statement about where you are rather than about anything being wrong.
+
    Inside `@layer base` so a `focus-visible:outline-*` utility can still override it on one
-   element. Unlayered, this rule would beat every layered utility no matter how specific, and a
-   large field would be stuck with a red ring that reads as a validation error. */
+   element. Unlayered, this rule would beat every layered utility no matter how specific. */
 @layer base {
   :focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--ink);
     outline-offset: 2px;
   }
 
