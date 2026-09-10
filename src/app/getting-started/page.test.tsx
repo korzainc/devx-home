@@ -8,7 +8,10 @@ import GettingStartedPage from "./page";
 import { bootstrapCommand } from "@/lib/bootstrap-command";
 import { faq, manualCommands } from "@/lib/getting-started";
 
-beforeEach(() => vi.stubEnv("KORZA_PUBLIC_ORIGIN", "https://setup.example"));
+beforeEach(() => {
+  vi.stubEnv("VERCEL_ENV", "preview");
+  vi.stubEnv("VERCEL_URL", "setup.example");
+});
 afterEach(() => {
   cleanup();
   vi.unstubAllEnvs();
@@ -25,7 +28,7 @@ describe("the Getting Started page", () => {
   });
 
   it("keeps manual setup available when the origin is invalid", () => {
-    vi.stubEnv("KORZA_PUBLIC_ORIGIN", "http://untrusted.example");
+    vi.stubEnv("VERCEL_URL", "invalid.example/path");
     render(<GettingStartedPage />);
     expect(screen.getByText(/Installer unavailable/)).toBeDefined();
     expect(
