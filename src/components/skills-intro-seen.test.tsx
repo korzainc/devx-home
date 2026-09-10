@@ -28,7 +28,6 @@ describe("recording that the intro was reached", () => {
     expect(container.innerHTML).toBe("");
   });
 
-  // A blocked or full store must not take the page down with it.
   it("survives storage refusing the write", () => {
     const original = window.localStorage.setItem;
     window.localStorage.setItem = () => {

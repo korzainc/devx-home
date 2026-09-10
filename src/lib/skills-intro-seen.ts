@@ -9,13 +9,12 @@ export function isIntroSeen() {
   try {
     return window.localStorage.getItem(INTRO_SEEN_KEY) === "1";
   } catch {
-    // Blocked storage counts as seen: a nudge that cannot remember being closed returns
-    // on every visit.
+    // Blocked storage counts as seen, or the nudge returns on every visit.
     return true;
   }
 }
 
-/** Never throws; a refused write just means the reader is greeted again next visit. */
+/** Never throws: a refused write means the reader is greeted again next visit. */
 export function markIntroSeen() {
   try {
     window.localStorage.setItem(INTRO_SEEN_KEY, "1");

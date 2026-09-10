@@ -3,10 +3,7 @@ import { describe, expect, it } from "vitest";
 import SkillsDemoPage from "@/app/skills-intro/demo/page";
 import SkillsIntroPage from "@/app/skills-intro/page";
 
-/**
- * Drop the recorder from either page and nothing else fails, while the reader is greeted
- * forever. The tree is walked, not rendered: server components, as in `tools/page.test.tsx`.
- */
+// Drop the recorder and nothing else fails. Tree walked, not rendered: server components.
 function contains(element: ReactElement, name: string): boolean {
   if (typeof element.type === "function" && element.type.name === name) {
     return true;

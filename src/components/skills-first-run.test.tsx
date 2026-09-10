@@ -63,8 +63,6 @@ describe("the first-run nudge", () => {
     expect(dialog()).toBeNull();
   });
 
-  // Dismissing on click exposed the bare catalogue while the destination loaded.
-  // The intro pages record the flag on arrival instead.
   it.each([/Show me around/, /See it run/])(
     "stays up when %s is clicked, so the catalogue is never left bare",
     (name) => {
@@ -76,7 +74,6 @@ describe("the first-run nudge", () => {
     },
   );
 
-  // Skip is the one control that means dismissed without seeing anything, so it still writes.
   it("records the dismissal when it is skipped", () => {
     render(<SkillsFirstRunNudge />);
     fireEvent.click(screen.getByRole("button", { name: /Skip for now/ }));
