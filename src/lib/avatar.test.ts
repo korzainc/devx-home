@@ -26,9 +26,9 @@ describe("initials", () => {
 
 describe("avatarSrc", () => {
   it("asks GitHub for the size the header draws, not the 460px default", () => {
-    expect(avatarSrc("https://avatars.githubusercontent.com/u/21181916?v=4")).toBe(
-      "https://avatars.githubusercontent.com/u/21181916?v=4&s=64",
-    );
+    expect(
+      avatarSrc("https://avatars.githubusercontent.com/u/21181916?v=4"),
+    ).toBe("https://avatars.githubusercontent.com/u/21181916?v=4&s=64");
   });
 
   it("replaces a size that is already there rather than adding a second one", () => {
