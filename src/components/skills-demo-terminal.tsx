@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Line = {
   /** Typed a character at a time, with a caret, when the replay runs. */
@@ -121,12 +121,9 @@ const TIMELINE = schedule(TRANSCRIPT);
 const RUN_MS = (TIMELINE[TIMELINE.length - 1] ?? 0) + FADE_MS;
 
 export function SkillsDemoTerminal() {
-  /**
-   * Starts at the end, so the server-rendered document and any client without JavaScript carry
-   * the whole transcript. DX-100 was this bug in another component: content that only appears
-   * once JavaScript runs is content some readers never get. The replay is the enhancement.
-   */
-  const [elapsed, setElapsed] = useState(RUN_MS);
+  // Starts where the replay starts. Seeded at the end, it painted the finished transcript
+  // and then rewound it. The fallbacks below carry the text to everyone the replay skips.
+  const [elapsed, setElapsed] = useState(0);
   const [runId, setRunId] = useState(0);
 
   useEffect(() => {
@@ -147,28 +144,37 @@ export function SkillsDemoTerminal() {
     return () => cancelAnimationFrame(frame);
   }, [runId]);
 
-  /** Only after a replay has actually run. `elapsed` starts at RUN_MS so the transcript is
-   *  complete in the server markup and on the reduced-motion path, where no frame is ever
-   *  scheduled -- announcing "finished" there is an announcement for something that did not
-   *  happen. `runId` only advances when a replay starts. */
   const announce = runId > 0 && elapsed >= RUN_MS;
+
+  // Pressing Replay is explicit, so the animated copy wins whatever the media query says.
+  const asked = runId > 0;
+
+  // The button pressed is in the copy being hidden, so focus would fall to the body.
+  const liveReplay = useRef<HTMLButtonElement | null>(null);
+  const handedOver = useRef(false);
+  useEffect(() => {
+    if (!asked || handedOver.current) return;
+    handedOver.current = true;
+    const active = document.activeElement;
+    const leaving =
+      active === document.body ||
+      (active instanceof HTMLElement &&
+        Boolean(active.closest(".demo-reduced")));
+    if (!leaving) return;
+    liveReplay.current?.focus();
+  }, [asked]);
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="overflow-hidden rounded-xl border border-line bg-surface">
-        <div className="flex items-center gap-3 border-b border-line bg-canvas px-4 py-2.5">
-          <span className="font-mono text-xs text-ink-faint">
-            your agent, learning manners
-          </span>
-          <span className="flex-1" />
-          <button
-            type="button"
-            onClick={() => setRunId((id) => id + 1)}
-            className="rounded-md border border-line px-2 py-1 font-mono text-xs text-ink-muted transition-colors hover:border-line-strong hover:text-ink"
-          >
-            ↻ Replay
-          </button>
-        </div>
+      <div
+        className={`demo-live overflow-hidden rounded-xl border border-line bg-surface ${
+          asked ? "" : "motion-reduce:hidden"
+        }`}
+      >
+        <TerminalChrome
+          ref={liveReplay}
+          onReplay={() => setRunId((id) => id + 1)}
+        />
 
         {/* Lines are revealed with opacity rather than mounted on a timer, and every row is
             laid out at its finished size from the first frame, so the box holds its height
@@ -257,11 +263,89 @@ export function SkillsDemoTerminal() {
         </div>
       </div>
 
+      <div
+        className={`demo-reduced overflow-hidden rounded-xl border border-line bg-surface ${
+          asked ? "hidden" : "hidden motion-reduce:block"
+        }`}
+      >
+        <TerminalChrome onReplay={() => setRunId((id) => id + 1)} />
+        <StaticRows />
+      </div>
+
+      {/* A media query cannot detect a browser that never ran the script, so this copy
+          hides both others. Only scripting-off browsers parse in here. */}
+      <noscript>
+        <style>{`.demo-live,.demo-reduced{display:none}`}</style>
+        <div className="overflow-hidden rounded-xl border border-line bg-surface">
+          <TerminalChrome />
+          <StaticRows />
+        </div>
+      </noscript>
+
       {/* Announced once, when there is something whole to announce. Announcing each line as it
           typed would read the transcript out a character at a time. */}
       <span role="status" className="sr-only">
         {announce ? "Demo finished." : ""}
       </span>
+    </div>
+  );
+}
+
+/** No button where pressing it could do nothing. */
+function TerminalChrome({
+  onReplay,
+  ref,
+}: {
+  onReplay?: () => void;
+  ref?: React.Ref<HTMLButtonElement>;
+}) {
+  return (
+    <div className="flex items-center gap-3 border-b border-line bg-canvas px-4 py-2.5">
+      <span className="font-mono text-xs text-ink-faint">
+        your agent, learning manners
+      </span>
+      <span className="flex-1" />
+      {onReplay ? (
+        <button
+          ref={ref}
+          type="button"
+          onClick={onReplay}
+          className="rounded-md border border-line px-2 py-1 font-mono text-xs text-ink-muted transition-colors hover:border-line-strong hover:text-ink"
+        >
+          ↻ Replay
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+/** The transcript with no clock attached. */
+function StaticRows() {
+  return (
+    <div className="flex flex-col px-5 py-5 font-mono text-[0.8rem] leading-[1.85]">
+      {TRANSCRIPT.map((line, index) =>
+        line.tone === "rule" ? (
+          <span
+            key={index}
+            aria-hidden="true"
+            className="my-3 border-t border-dashed border-line"
+          />
+        ) : (
+          <span
+            key={index}
+            className={`block break-words whitespace-pre-wrap ${TONE[line.tone]} ${
+              line.indent ? "pl-6" : ""
+            }`}
+          >
+            {line.typed ? <span className="text-ink-faint">{"> "}</span> : null}
+            {line.typed && line.command ? (
+              <CommandToken text={line.text} />
+            ) : (
+              line.text
+            )}
+          </span>
+        ),
+      )}
     </div>
   );
 }

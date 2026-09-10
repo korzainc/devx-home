@@ -2,6 +2,7 @@
  * @vitest-environment jsdom
  */
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it } from "vitest";
 import { SkillsDemoTerminal } from "@/components/skills-demo-terminal";
 import { InstallPanel } from "@/components/install-panel";
@@ -134,34 +135,67 @@ describe("the install panel", () => {
 });
 
 describe("the demo terminal", () => {
-  /**
-   * The transcript is in the document before any timer runs, which is what a server-rendered
-   * page and a client without JavaScript get. DX-100 was this bug in another component.
-   */
-  it("renders the whole transcript up front", () => {
-    const { container } = render(<SkillsDemoTerminal />);
-    // The painted copies only. `textContent` on the whole tree also picks up the aria-hidden
-    // sizers, which carry the finished text whatever the animation is doing, so an assertion
-    // against the tree stayed green even with `elapsed` seeded to 0.
-    const painted = [...container.querySelectorAll("span.absolute")]
-      .map((n) => n.textContent ?? "")
+  function painted(container: HTMLElement) {
+    return [...container.querySelectorAll(".demo-live span.absolute")]
+      .map((node) => node.textContent ?? "")
       .join(" ");
-    expect(painted).toContain(
+  }
+
+  // The replay used to begin at its end and rewind, wiping text the reader was reading.
+  it("starts the animated copy empty, so nothing is wiped", () => {
+    const { container } = render(<SkillsDemoTerminal />);
+    expect(painted(container)).not.toContain(
       "write the requirements doc for the client's booking portal",
     );
-    expect(painted).toContain(
-      "/brainstorm requirements doc for the booking portal",
+    // Untyped rows keep their text to reserve the row height; opacity is what hides them.
+    const rows = [
+      ...container.querySelectorAll<HTMLElement>(".demo-live span.block"),
+    ];
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.every((row) => row.style.opacity === "0")).toBe(true);
+  });
+
+  // Which puts the burden on the fallbacks: DX-100 was this bug in another component.
+  it("carries the whole transcript for a reader without JavaScript", () => {
+    // React empties `noscript` in the browser, so read the served markup.
+    const html = renderToString(<SkillsDemoTerminal />);
+    const fallback = html.slice(html.indexOf("<noscript>"));
+    expect(fallback).toContain(
+      "write the requirements doc for the client&#x27;s booking portal",
     );
-    const untyped = document.body.textContent ?? "";
-    expect(untyped).toContain("HYPOTHESIS");
-    expect(untyped).toContain("CONFIDENCE: ~40%");
-    expect(untyped).toContain("GUESS");
+    expect(fallback).toContain("HYPOTHESIS");
+    expect(fallback).toContain("display:none");
+  });
+
+  it("carries it for a reader who asked for less motion", () => {
+    const { container } = render(<SkillsDemoTerminal />);
+    const reduced = container.querySelector(".demo-reduced")?.textContent ?? "";
+    expect(reduced).toContain(
+      "write the requirements doc for the client's booking portal",
+    );
+    expect(reduced).toContain("CONFIDENCE: ~40%");
+  });
+
+  /** The three copies never show together. */
+  it("shows one transcript at a time", () => {
+    const { container } = render(<SkillsDemoTerminal />);
+    // `classList`, not the string: `overflow-hidden` contains "hidden", so a substring
+    // check passed with the static copy set to plain `block`.
+    const reduced = container.querySelector(".demo-reduced")!.classList;
+    expect(reduced.contains("hidden")).toBe(true);
+    expect(reduced.contains("motion-reduce:block")).toBe(true);
+    expect(reduced.contains("block")).toBe(false);
+    expect(
+      container
+        .querySelector(".demo-live")!
+        .classList.contains("motion-reduce:hidden"),
+    ).toBe(true);
   });
 
   /** One question, with its guess. Three batched questions is what `brainstorm` forbids. */
   it("asks a single question", () => {
-    render(<SkillsDemoTerminal />);
-    const text = document.body.textContent ?? "";
+    const { container } = render(<SkillsDemoTerminal />);
+    const text = container.querySelector(".demo-reduced")?.textContent ?? "";
     expect(text.match(/Q:/g)).toHaveLength(1);
     expect(text.match(/GUESS:/g)).toHaveLength(1);
   });
@@ -174,7 +208,9 @@ describe("the demo terminal", () => {
   it("sizes each typed row by its finished text", () => {
     const { container } = render(<SkillsDemoTerminal />);
     const sizers = [
-      ...container.querySelectorAll('[aria-hidden="true"].invisible'),
+      ...container.querySelectorAll(
+        '.demo-live [aria-hidden="true"].invisible',
+      ),
     ].map((n) => n.textContent?.trim());
     expect(sizers).toHaveLength(2);
     expect(sizers[0]).toContain(
@@ -185,8 +221,35 @@ describe("the demo terminal", () => {
     );
   });
 
-  it("offers a replay", () => {
+  it("offers a replay on either copy", () => {
     render(<SkillsDemoTerminal />);
-    expect(screen.getByRole("button", { name: /Replay/ })).toBeDefined();
+    expect(screen.getAllByRole("button", { name: /Replay/ })).toHaveLength(2);
+  });
+
+  // Pressing it hides the button pressed, dropping focus to the body -- seen in Chrome.
+  it("keeps focus with the reader when the copies swap", () => {
+    const { container } = render(<SkillsDemoTerminal />);
+    const [live, reduced] = screen.getAllByRole("button", { name: /Replay/ });
+    reduced.focus();
+    fireEvent.click(reduced);
+    expect(document.activeElement).toBe(live);
+    expect(
+      container.querySelector(".demo-reduced")!.classList.contains("hidden"),
+    ).toBe(true);
+  });
+
+  it("shows the replay once it has been asked for", () => {
+    const { container } = render(<SkillsDemoTerminal />);
+    fireEvent.click(screen.getAllByRole("button", { name: /Replay/ })[1]);
+    expect(
+      container
+        .querySelector(".demo-live")!
+        .classList.contains("motion-reduce:hidden"),
+    ).toBe(false);
+    expect(
+      container
+        .querySelector(".demo-reduced")!
+        .classList.contains("motion-reduce:block"),
+    ).toBe(false);
   });
 });
