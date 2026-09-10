@@ -165,7 +165,8 @@ describe("the plugin set", () => {
     );
   });
 
-  // pyright-lsp ships nothing and is still a legitimate entry, so an empty plugin is not a fault.
+  // An entry whose payload is a language server rather than skills is legitimate, so an empty
+  // plugin is not a fault. No committed entry is one today; the rule outlives the example.
   it("accepts a plugin that ships no skills at all", () => {
     expect(problemsWithPluginSet([valid], [])).toEqual([]);
   });
@@ -188,5 +189,12 @@ describe("the committed catalogue data", () => {
 
   it("is internally consistent across plugins.json and skills.json", () => {
     expect(problemsWithPluginSet(plugins, skills)).toEqual([]);
+  });
+
+  // Nothing reads `versions`, so a row left behind for a delisted plugin is invisible: it neither
+  // renders nor fails a shape check. The audience overlay has the same hazard and its own test.
+  it("carries a version row for each plugin and no others", () => {
+    const listed = plugins.map((plugin) => plugin.id).sort();
+    expect(Object.keys(skillsData.versions).sort()).toEqual(listed);
   });
 });

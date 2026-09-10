@@ -368,7 +368,8 @@ describe("the plugins catalogue", () => {
       ["code review", "mattpocock-skills"],
       ["Wikipedia", "humanizer"],
       ["domain modeling", "mattpocock-skills"],
-      ["python", "pyright-lsp"],
+      // Matches `problem` and nothing else, so the field stays in the haystack on its own.
+      ["diagnosing", "mattpocock-skills"],
     ] as const) {
       fireEvent.change(search, { target: { value: query } });
       expect(

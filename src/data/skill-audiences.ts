@@ -113,6 +113,5 @@ export const pluginAudiences: Record<string, Audience[]> = {
   codezen: ["Engineering"],
   humanizer: ["All"],
   "mattpocock-skills": ["Engineering", "Business", "Sales"],
-  "pyright-lsp": ["Engineering"],
   superpowers: ["Engineering"],
 };

@@ -1969,12 +1969,6 @@
       "pinned": "main",
       "state": "unpinned"
     },
-    "pyright-lsp": {
-      "behind": null,
-      "latest": null,
-      "pinned": "main",
-      "state": "no-releases"
-    },
     "superpowers": {
       "behind": 1,
       "latest": "v6.3.0",
