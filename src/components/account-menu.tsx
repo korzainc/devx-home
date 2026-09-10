@@ -1,6 +1,6 @@
 "use client";
 
-import { useCloseOnNavigate } from "@/lib/use-close-on-navigate";
+import { useDismissableMenu } from "@/lib/use-dismissable-menu";
 
 /**
  * The signed-in block in the wide header: an avatar that opens onto who you are and the way out.
@@ -18,7 +18,7 @@ export function AccountMenu({
   trigger: React.ReactNode;
   children: React.ReactNode;
 }) {
-  const ref = useCloseOnNavigate();
+  const ref = useDismissableMenu();
 
   return (
     <details ref={ref} className="group relative">

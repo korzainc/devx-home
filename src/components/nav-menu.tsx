@@ -1,10 +1,10 @@
 "use client";
 
-import { useCloseOnNavigate } from "@/lib/use-close-on-navigate";
+import { useDismissableMenu } from "@/lib/use-dismissable-menu";
 
 /** The narrow-width nav, as a `details` so it opens before any JavaScript arrives. */
 export function NavMenu({ children }: { children: React.ReactNode }) {
-  const ref = useCloseOnNavigate();
+  const ref = useDismissableMenu();
 
   return (
     <details ref={ref} className="group relative ml-auto sm:hidden">
