@@ -5,6 +5,7 @@ import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { PluginSkills } from "@/components/plugin-skills";
 import { SkillContextStrip } from "@/components/skill-context-strip";
+import { SkillsFirstRunNudge } from "@/components/skills-first-run";
 import { skillsForPlugin } from "@/lib/catalogue";
 
 /**
@@ -21,6 +22,16 @@ describe("prerendering", () => {
         <SkillContextStrip plugin="mattpocock-skills" skills={skills} />,
       ),
     ).toBe("");
+  });
+
+  /**
+   * The nudge portals to `document.body`, which react-dom/server cannot do. It gets away with
+   * it because the store's server snapshot reports dismissed, so it returns before reaching
+   * the portal -- an invariant with nothing else holding it in place. Flip that snapshot and
+   * the prerender of every page carrying this component throws.
+   */
+  it("renders the nudge to nothing, so its portal is never reached", () => {
+    expect(renderToString(<SkillsFirstRunNudge />)).toBe("");
   });
 
   it("renders the list's preview on the server, and marks nothing", () => {
