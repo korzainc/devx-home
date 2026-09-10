@@ -4,8 +4,10 @@ import { Suspense } from "react";
 import korzaLogo from "@/assets/korza-logo.png";
 import { AccountMenu } from "@/components/account-menu";
 import { NavMenu } from "@/components/nav-menu";
+import { ProductsMenu } from "@/components/products-menu";
 import { signOut } from "@/lib/auth-actions";
 import { avatarSrc, initials } from "@/lib/avatar";
+import { PRODUCTS } from "@/lib/nav";
 import { getSession } from "@/lib/session";
 
 export function SiteHeader() {
@@ -36,8 +38,8 @@ export function SiteHeader() {
           </span>
         </Link>
 
-        {/* The same three items twice, once along the row and once inside the menu. Only one is
-            ever visible, and getSession is memoised per request, so the pair costs one query. */}
+        {/* The same items twice, once along the row and once inside the menu. Only one is ever
+            visible, and getSession is memoised per request, so the pair costs one query. */}
         <nav className="ml-auto hidden items-center gap-5 sm:flex">
           <NavLinks />
           {/* Reading the session queries Postgres, so it stays behind its own boundary and the
@@ -51,7 +53,7 @@ export function SiteHeader() {
         </nav>
 
         <NavMenu>
-          <NavLinks />
+          <NavLinks inMenu />
           <NoScriptLoginLink />
           <Suspense fallback={null}>
             <AuthControl inMenu />
@@ -66,17 +68,41 @@ const navLink =
   "text-sm whitespace-nowrap text-ink-muted transition-colors hover:text-ink";
 
 /**
- * One link, not the four the site has pages for. The rest live in the footer.
- *
- * The bar is what a reader carries on every page, and only Getting started earns that: Skills and
- * Tools are where they already are once they are browsing, and Roadmap and Updates are read
+ * What the site sells, then the way in. Roadmap and Updates stay in the footer: they are read
  * occasionally rather than moved through.
+ *
+ * `inMenu` is the narrow copy, inside the hamburger, and it flattens the dropdown. A dropdown
+ * nested in a dropdown would cost two taps to reach one link, and the panel groups by stacking
+ * under a heading instead.
  */
-function NavLinks() {
-  return (
+function NavLinks({ inMenu = false }: { inMenu?: boolean }) {
+  const gettingStarted = (
     <Link href="/getting-started" className={navLink}>
       Getting started
     </Link>
+  );
+
+  if (!inMenu)
+    return (
+      <>
+        <ProductsMenu />
+        {gettingStarted}
+      </>
+    );
+
+  return (
+    <>
+      <p className="font-mono text-xs tracking-wide text-ink-faint uppercase">
+        Products
+      </p>
+      {PRODUCTS.map((product) => (
+        <Link key={product.href} href={product.href} className={navLink}>
+          {product.label}
+        </Link>
+      ))}
+      <span aria-hidden className="h-px w-full bg-line" />
+      {gettingStarted}
+    </>
   );
 }
 

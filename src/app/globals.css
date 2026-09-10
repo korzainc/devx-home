@@ -29,6 +29,13 @@
      the way red does, so it needs no desaturating. */
   --partial: #facc15;
   --partial-wash: #2a2013;
+  /* The brush stroke behind a marked phrase. Currently the same yellow as --partial and kept apart
+     from it on purpose: that one is a verdict about a repository and this one is emphasis, so they
+     should be free to diverge. Not exposed through @theme, because nothing draws it as a utility.
+
+     Red was tried first and read as a strikethrough, which is what red through running text means
+     everywhere else. */
+  --highlight: #facc15;
 }
 
 @theme inline {
@@ -101,15 +108,45 @@ html {
    the dark canvas. Setting it once here keeps every interactive element keyboard-visible
    without repeating focus classes on each one.
 
-   Inside `@layer base` so a `focus-visible:outline-*` utility can still override it on one
-   element. Unlayered, this rule would beat every layered utility no matter how specific, and a
-   large field would be stuck with a red ring that reads as a validation error. */
-@layer base {
+   Neutral rather than the accent: a red ring on a large field reads as a validation error, and
+   focus is a statement about where you are rather than about anything being wrong.
+
+   In a layer of its own, first used here and so ordered after Tailwind's `utilities`. Focus has
+   to repaint the `border-line` the controls already carry, and a `@layer base` rule loses to a
+   utility whatever its specificity. To give one element a different ring, use an important
+   variant (`focus-visible:outline-none!`), which beats any layer. */
+@layer focus {
   :focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
+    /* The fields already carry a 1px border, so a ring held off it drew a second edge and the
+       two read as a single thick band. Brightening the border that is already there keeps the
+       count at one edge, and the halo spreads off it as light rather than as a second frame.
+
+       An outline rather than a box-shadow, so the buttons keep the inset highlight along their
+       top edge; a box-shadow here would replace it. Both draw from the border box outwards, so
+       the geometry is the same either way. */
+    border-color: var(--ink-muted);
+    outline: 4px solid color-mix(in oklab, var(--ink-muted) 10%, transparent);
+    outline-offset: 0;
   }
 
+  /* On a field the halo is the quieter half of the signal, because the border it sits against
+     has just brightened. These have no border to brighten, so the halo is the whole signal, and
+     at 10% it lands around 1.1:1 against both the canvas outside it and the button fill inside.
+     A scrollable `region` belongs here for the same reason: it takes focus so a keyboard can
+     scroll it, and the border a reader sees around it belongs to its parent.
+
+     60% rather than the 55% that first clears the 3:1 non-text contrast bar: the halo is 4px of
+     antialiased curve at the corners, and 3.05:1 leaves nothing for the blend to eat.
+
+     `:where()` contributes no specificity, so this is still one pseudo-class and wins on order
+     alone, which keeps it a colour swap on the rule above rather than a second rule to hold in
+     step with it. */
+  :where(button, a, summary, [role="region"]):focus-visible {
+    outline-color: color-mix(in oklab, var(--ink-muted) 60%, transparent);
+  }
+}
+
+@layer base {
   /* Every `button` in the app computed `cursor: default`, so nothing but the `summary` menus read
      as clickable (DX-93). That is the UA stylesheet, not a Tailwind reset: preflight sets no
      cursor at all, so there is nothing to opt back into and no utility to spell it with either.
@@ -176,6 +213,305 @@ html {
 @keyframes fx-lap {
   to {
     --sweep: 360deg;
+  }
+}
+
+/* The gap-report preview on the home page.
+
+   The list rolls on a clock rather than in a scroller. The home page snaps full-viewport panels
+   and has exactly one scroller by design, and a nested one would swallow the wheel before the
+   panel could snap. The track holds the list twice and travels half its own height, so the seam
+   lands back where it started and the loop is not visible. */
+@keyframes report-roll {
+  to {
+    transform: translateY(-50%);
+  }
+}
+
+/* Gone at both ends, so rows arrive and leave rather than appearing at a cut. */
+.report-window {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 14%,
+    #000 86%,
+    transparent
+  );
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .report-roll {
+    animation: report-roll 28s linear infinite;
+  }
+  /* The evidence column is worth reading, so hovering stops the list rather than slowing it. */
+  .report-roll:hover {
+    animation-play-state: paused;
+  }
+}
+
+/* Gives the report a ground without giving it a shape: a wash that is gone by the bottom, so no
+   edge is drawn there and the section stays free of cards.
+
+   A pseudo-element rather than a background on the report itself, because masking the element
+   would take the rows down with the wash. The -1 sits against the `isolate` on the grid, which
+   keeps it behind the rows and in front of the page. */
+.report-ground {
+  position: relative;
+}
+.report-ground::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: 1rem;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in oklab, var(--surface) 85%, transparent),
+    transparent
+  );
+  mask-image: linear-gradient(to bottom, #000 60%, transparent);
+}
+
+/* Splits a section into two columns without boxing either one. An element with a mask rather
+   than a border, for the same reason the band's outline is one: a border takes a single flat
+   colour and cannot fade out at its ends. */
+.column-rule {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 18%,
+    #000 82%,
+    transparent
+  );
+}
+
+/* The skill cards on the home page, dealt into place as the section arrives.
+
+   Timed rather than scrubbed by a `view()` timeline, which is what this was, for the reason the
+   brush strokes are: the page snaps, so it only ever comes to rest at a panel edge. Measured, the
+   cards read 0 opacity at the rest position above this panel and 1 at the panel's own, with no
+   position in between for the deal to be seen at. It was spent inside the glide every time.
+
+   So they run on a clock, and `Arrive` starts them. Dealt is the resting state and both the other
+   two are added, so a reader with no script gets a legible grid rather than one held at zero
+   opacity by a state nothing will ever clear.
+
+   Held by `opacity` rather than by pausing an animation that is already running. Pausing loses the
+   race with hydration: the markup is painted and the clock started before React reaches the layout
+   effect, and measured, the first card was 73% dealt by the time it was stopped.
+
+   Longhands rather than the `animation` shorthand, which would set `animation-name` back to `none`
+   on the rules above it.
+
+   Each card sets its own `animation-delay` inline to stagger the row, and `both` fills backwards
+   through the delay so a waiting card is held at the first keyframe rather than shown and then
+   snatched back. */
+.deal {
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation-fill-mode: both;
+  animation-duration: 620ms;
+}
+
+.deal[data-arrive="off"] {
+  opacity: 0;
+}
+
+.deal[data-arrive="on"] {
+  animation-name: deal-l;
+}
+.deal[data-arrive="on"]:nth-child(even) {
+  animation-name: deal-r;
+}
+
+/* The tilt alternates so the row does not lean one way. */
+@keyframes deal-l {
+  from {
+    opacity: 0;
+    transform: translateY(72px) scale(0.94) rotate(-3.5deg);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes deal-r {
+  from {
+    opacity: 0;
+    transform: translateY(72px) scale(0.94) rotate(3.5deg);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The marketplace link is a line of text rather than a card, and the tilt that reads as a card
+   settling reads as a rendering fault on a single line, so it only rises. Ordered after the two
+   rules above, which it has to beat on both `.deal` and the `nth-child` alternation. */
+@keyframes deal-flat {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.deal.deal-flat[data-arrive="on"] {
+  animation-name: deal-flat;
+}
+
+/* The phrase a heading turns on, struck through with a brush.
+
+   How far the stroke is drawn, as the width still to be revealed. Registered so it can be
+   animated at all: an unregistered custom property has no type, so a browser can only flip it
+   from one value to the other at the halfway point. It also has to inherit, because the timeline
+   runs on `.mark` while the value is read by its `::before`. */
+@property --mark-draw {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 0%;
+}
+
+/* A marked phrase is one stroke, so it is one line. Left to wrap, an absolutely positioned stroke
+   would take the bounding box of both line fragments and paint a slab across the gap between
+   them; the phrases marked here are short enough that holding them together costs no width. */
+.mark {
+  position: relative;
+  white-space: nowrap;
+  /* Confines the stroke's negative z-index to this word. Without it the stroke sits behind the
+     page background instead of behind the glyphs, and disappears. */
+  isolation: isolate;
+  /* Painted. The draw is an enhancement on top of this, so a page with no script keeps its
+     emphasis instead of losing every stroke to a state nothing will ever advance. */
+  --mark-draw: 0%;
+}
+
+/* Timed rather than scrubbed by a `view()` timeline, which is what this was.
+
+   A scroll timeline needs scroll to advance it, and this page snaps: it only ever comes to rest at
+   a panel edge, so the whole draw was spent inside the glide between two of them and the stroke was
+   always finished before its panel landed. Nobody ever saw it drawn. `Arrive` sets the two states
+   below instead, and starts the draw when the phrase reaches the screen.
+
+   Undrawn rather than paused, which is how the cards do the same thing: a card holds still at its
+   first keyframe, but this one animates a custom property the `::before` reads, and a paused
+   animation would still be applying it. */
+.mark[data-arrive="off"] {
+  --mark-draw: 100%;
+}
+
+.mark[data-arrive="on"] {
+  animation-name: mark-draw;
+  animation-duration: 700ms;
+  /* Committed through the middle and settling at the end, the way a stroke is actually laid down.
+     The easing this carried while it was scrubbed was a hard ease-out, which spends nine tenths of
+     the stroke in the first third: on a clock rather than a scrollbar that reads as a flash. */
+  animation-timing-function: cubic-bezier(0.33, 0, 0.2, 1);
+  animation-fill-mode: both;
+}
+
+/* The stroke itself.
+
+   Sized in `em` so it tracks whatever heading it lands in, and placed to cover the glyphs from
+   about the x-height down to just past the baseline, which is where a real stroke falls. Anything
+   shorter or lower reads as an underline.
+
+   The silhouette is an SVG mask rather than a gradient, because the things that make a stroke look
+   painted are an uneven edge and a ragged end, and a gradient can only make a lens. The mask
+   carries no colour, so the palette stays in `--accent` and there is no hex to keep in step. The
+   holes in the path are the bristles that skipped; `preserveAspectRatio: none` stretches the one
+   shape to whatever the phrase is wide. A hair of rotation keeps it off the horizontal, which is
+   what stops it reading as a drawn box. */
+.mark::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0.16em -0.24em auto -0.24em;
+  height: 0.88em;
+  background: linear-gradient(
+    100deg,
+    color-mix(in oklab, var(--highlight) 58%, transparent),
+    color-mix(in oklab, var(--highlight) 82%, transparent) 40%,
+    color-mix(in oklab, var(--highlight) 52%, transparent)
+  );
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 40' preserveAspectRatio='none'%3E%3Cpath fill='%23000' fill-rule='evenodd' d='M2 12C20 8 60 7 110 8 150 9 195 6 232 9 238 10 239 13 238 17 237 24 239 29 232 31 200 34 150 31 108 32 66 33 24 34 6 31 1 30 0 26 1 22 2 18 0 15 2 12ZM34 12.6C64 11.8 100 11.6 132 11.8 100 13.4 64 13.6 35 14ZM162 13.4C180 12.9 200 12.8 214 12.8 200 14.2 180 14.4 163 14.6ZM52 26.4C74 26 98 26.1 118 26.8 98 27.9 74 27.9 53 27.8ZM186 27.6C200 27.2 216 27.2 226 27.4 216 28.6 200 28.6 187 28.8Z'/%3E%3C/svg%3E");
+  mask-size: 100% 100%;
+  mask-repeat: no-repeat;
+  transform: rotate(-0.5deg);
+  /* Revealed left to right, so it looks drawn rather than faded on. The clip is what animates;
+     the silhouette underneath never moves, which a `scaleX` would have squashed. */
+  clip-path: inset(0 var(--mark-draw) 0 0);
+}
+
+@keyframes mark-draw {
+  from {
+    --mark-draw: 100%;
+  }
+}
+
+/* The plate the repository field sits on.
+
+   A light passes slowly along its top edge, which is enough movement to read the plate as something
+   live without asking to be watched. It runs on a hairline pseudo-element rather than the plate
+   itself so the field and the button underneath stay untouched, and there is deliberately no
+   `overflow: hidden` here: it would clip the focus outline the input draws outside its own box. */
+.field-plate {
+  position: relative;
+}
+
+.field-plate::after {
+  content: "";
+  position: absolute;
+  /* Held in by the plate's own corner radius. A hairline is too short to take a radius of its own,
+     so run edge to edge it would paint straight across the corners and hang in the air beside them. */
+  inset: 0 1rem auto 1rem;
+  height: 1px;
+  pointer-events: none;
+  /* Wider than the plate so the highlight can start and finish off the edge, rather than appearing
+     in place at one end and vanishing at the other. */
+  background-image: linear-gradient(
+    90deg,
+    transparent 0 35%,
+    color-mix(in oklab, var(--ink) 55%, transparent) 50%,
+    transparent 65% 100%
+  );
+  background-size: 220% 100%;
+  background-repeat: no-repeat;
+  animation: field-sheen 7s linear infinite;
+}
+
+@keyframes field-sheen {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -120% 0;
+  }
+}
+
+/* Last, and matching the specificity of the `nth-child` rule above rather than the plain one,
+   because this has to beat every `animation-name` set so far and not only the first of them.
+
+   Only reachable by changing the setting mid-session, since `Arrive` checks it too and an unarmed
+   card carries no attribute for this to match. Taken away and shown, not held: a card at its first
+   keyframe is not on the page at all. */
+@media (prefers-reduced-motion: reduce) {
+  .deal.deal[data-arrive] {
+    animation-name: none;
+    opacity: 1;
+  }
+  /* Taken away rather than stopped. The sheen is the whole point of this element, and parked at
+     whatever position it stopped at it would leave a stray highlight on one end of the plate. */
+  .field-plate::after {
+    display: none;
+  }
+  /* `Arrive` checks the same setting and does not arm at all, so this only catches a stroke armed
+     before the reader changed it. Painted, not frozen part way. */
+  .mark[data-arrive] {
+    animation-name: none;
+    --mark-draw: 0%;
   }
 }
 

@@ -7,18 +7,19 @@ import { describe, expect, it } from "vitest";
 import { SiteFooter } from "@/components/site-footer";
 
 /**
- * The footer is the site's navigation, so the thing worth testing is coverage, not markup.
+ * The bar carries one link, so the footer is where every page is named and coverage is the thing
+ * worth testing, not markup.
  *
- * `/ci-coverage` shipped with no link anywhere: you reached it by submitting the repo form on the
- * home page, and a reader who had run one could not get back to it. This walks the route folders
- * so the next page added that way fails here rather than going unnoticed.
+ * This walks the route folders rather than a written-out list, because the failure it is for is a
+ * page that nothing links to. `/ci-coverage` was reachable only by submitting the repo form on the
+ * home page, and a reader who had run one could not get back to it; a list would have been written
+ * to match the footer and agreed with it.
  */
 
 // Route folders a reader is not meant to navigate to by name.
 const UNLISTED = new Set([
   "api", // route handlers
   "setup", // the install script, a route handler
-  "scrap", // throwaway design sketches
   "login", // the header's own control, and only for the signed out
 ]);
 

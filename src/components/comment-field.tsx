@@ -18,9 +18,7 @@ export function CommentField() {
           value.trim() ? "" : "A comment needs more than whitespace.",
         );
       }}
-      // The global :focus-visible ring is accent red, which on a box this size reads as an error
-      // rather than focus. Overridden here only, so the rest of the site keeps its ring.
-      className="w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus-visible:outline-line-strong"
+      className="w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-ink placeholder:text-ink-faint"
     />
   );
 }

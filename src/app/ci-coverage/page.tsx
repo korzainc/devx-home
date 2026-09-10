@@ -146,7 +146,7 @@ function RepoForm({ target }: { target: string }) {
         </div>
         <button
           type="submit"
-          className="rounded-lg border border-accent bg-accent-wash px-4 py-2 text-sm font-medium whitespace-nowrap text-accent transition-opacity hover:opacity-80"
+          className="rounded-lg bg-surface-raised px-4 py-2 text-sm font-medium whitespace-nowrap text-ink shadow-[inset_0_1px_0_color-mix(in_oklab,var(--ink)_16%,transparent)] transition-colors hover:bg-line"
         >
           Analyze
         </button>
