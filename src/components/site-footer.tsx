@@ -41,7 +41,10 @@ const footerLink = "text-sm text-ink-muted transition-colors hover:text-ink";
 
 export function SiteFooter() {
   return (
-    <footer className="mt-16 border-t border-line bg-surface">
+    /* `snap-end` is inert unless a page has turned snapping on, and the home page is the only
+       one that does. Without a target of its own the footer is unreachable there: mandatory
+       snap returns the document to the nearest one, which is the last full-height panel. */
+    <footer className="mt-16 snap-end border-t border-line bg-surface">
       <div className="mx-auto max-w-6xl px-6 py-10">
         {/* Where a reader is going on the left, what the site is on the right, pushed to the two
             edges of the content column. Not a 3-track grid: the longest link is about 160px, so

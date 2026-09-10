@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SnapScroll } from "@/components/snap-scroll";
 import { capabilityLabel, plugins, type CapabilityId } from "@/lib/catalogue";
 
 /* The band's outline is a masked overlay rather than a border on the element itself, which is the
@@ -18,14 +19,14 @@ const panel =
  *
  * `100svh` rather than `100vh`: on a phone `vh` is the height with the browser chrome retracted,
  * so every panel would overflow by the address bar until you scrolled. The 4rem is the sticky
- * header, matching the `scroll-padding-top` that positions the snap.
+ * header the scroller starts below.
  *
  * `min-h`, not `h`: a panel whose content outgrows the viewport should get taller and scroll
  * rather than clip.
  */
 function Panel({ children }: { children: React.ReactNode }) {
   return (
-    <section className="relative flex min-h-[calc(100svh-4rem)] snap-start flex-col justify-center py-16">
+    <section className="flex min-h-[calc(100svh-4rem)] snap-start flex-col justify-center py-16">
       {children}
     </section>
   );
@@ -158,23 +159,16 @@ function MarketplacePreview() {
 export default function Home() {
   return (
     /**
-     * The page scrolls itself rather than letting the document do it.
-     *
-     * This has to be a scroll container of its own, not `scroll-snap-type` on `html` scoped by
-     * `:has`. On a client-side navigation Next leaves the page you came from in the DOM at
-     * `display: none`, ready for an instant back, and `:has` matches a hidden element perfectly
-     * well: every later page kept the snapping, and the footer's snap target held them all
-     * pinned to the bottom of the document. A hidden element cannot scroll, so owning the
-     * scroller is what makes this impossible rather than merely fixed.
+     * The document is the scroller, so there is exactly one of them: a scroll container here
+     * meant the footer sat in the document behind it, and once the document had scrolled down
+     * to show the footer the wheel went on driving the inner scroller, so nothing scrolled the
+     * footer back off again.
      *
      * `-my-12` cancels the root layout's own padding: the panels measure themselves against the
      * viewport, so padding above the first one pushes it off the bottom of its own screen.
-     *
-     * The scrollbar is hidden because the document has one already, and two side by side inside
-     * the content column is the sort of thing you only see on a machine with classic scrollbars.
-     * Scrolling past the last panel chains out to the document, which is what reaches the footer.
      */
-    <div className="-my-12 h-[calc(100svh-4rem)] snap-y snap-mandatory overflow-y-auto [scrollbar-width:none] motion-reduce:snap-none [&::-webkit-scrollbar]:hidden">
+    <div className="-my-12 flex flex-col">
+      <SnapScroll />
       <Panel>
         <div className="flex max-w-3xl flex-col gap-5">
           <h1 className="font-display text-5xl font-semibold tracking-tight text-balance sm:text-6xl">
