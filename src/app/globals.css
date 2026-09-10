@@ -368,16 +368,29 @@ html {
   /* Confines the stroke's negative z-index to this word. Without it the stroke sits behind the
      page background instead of behind the glyphs, and disappears. */
   isolation: isolate;
+  /* Painted. The draw is an enhancement on top of this, so a page with no script keeps its
+     emphasis instead of losing every stroke to a state nothing will ever advance. */
   --mark-draw: 0%;
+}
+
+/* Timed rather than scrubbed by a `view()` timeline, which is what this was.
+
+   A scroll timeline needs scroll to advance it, and this page snaps: it only ever comes to rest at
+   a panel edge, so the whole draw was spent inside the glide between two of them and the stroke was
+   always finished before its panel landed. Nobody ever saw it drawn. `DrawMarks` sets the two
+   states below instead, and starts the draw when the phrase reaches the screen. */
+.mark[data-draw="off"] {
+  --mark-draw: 100%;
+}
+
+.mark[data-draw="on"] {
   animation-name: mark-draw;
-  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation-duration: 700ms;
+  /* Committed through the middle and settling at the end, the way a stroke is actually laid down.
+     The easing this carried while it was scrubbed was a hard ease-out, which spends nine tenths of
+     the stroke in the first third: on a clock rather than a scrollbar that reads as a flash. */
+  animation-timing-function: cubic-bezier(0.33, 0, 0.2, 1);
   animation-fill-mode: both;
-  animation-duration: auto;
-  animation-timeline: view();
-  /* After the cards have dealt in rather than alongside them. The word is higher up the panel than
-     the grid, so the same scroll position is further along this element's own range than the
-     cards': the later window is what puts the stroke last. */
-  animation-range: cover 30% cover 58%;
 }
 
 /* The stroke itself.
@@ -419,21 +432,70 @@ html {
   }
 }
 
+/* The plate the repository field sits on.
+
+   A light passes slowly along its top edge, which is enough movement to read the plate as something
+   live without asking to be watched. It runs on a hairline pseudo-element rather than the plate
+   itself so the field and the button underneath stay untouched, and there is deliberately no
+   `overflow: hidden` here: it would clip the focus outline the input draws outside its own box. */
+.field-plate {
+  position: relative;
+}
+
+.field-plate::after {
+  content: "";
+  position: absolute;
+  /* Held in by the plate's own corner radius. A hairline is too short to take a radius of its own,
+     so run edge to edge it would paint straight across the corners and hang in the air beside them. */
+  inset: 0 1rem auto 1rem;
+  height: 1px;
+  pointer-events: none;
+  /* Wider than the plate so the highlight can start and finish off the edge, rather than appearing
+     in place at one end and vanishing at the other. */
+  background-image: linear-gradient(
+    90deg,
+    transparent 0 35%,
+    color-mix(in oklab, var(--ink) 55%, transparent) 50%,
+    transparent 65% 100%
+  );
+  background-size: 220% 100%;
+  background-repeat: no-repeat;
+  animation: field-sheen 7s linear infinite;
+}
+
+@keyframes field-sheen {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -120% 0;
+  }
+}
+
 /* The offset state only exists where the animation can actually run, so anywhere else the card is
    simply sitting flat and legible rather than never arriving.
 
    Last, and matching the two-class specificity of the rule above, because these have to beat every
    `animation-name` set so far rather than only the first of them. */
 @supports not (animation-timeline: view()) {
-  .deal.deal,
-  .mark {
+  .deal.deal {
     animation-name: none;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .deal.deal,
-  .mark {
+  .deal.deal {
     animation-name: none;
+  }
+  /* Taken away rather than stopped. The sheen is the whole point of this element, and parked at
+     whatever position it stopped at it would leave a stray highlight on one end of the plate. */
+  .field-plate::after {
+    display: none;
+  }
+  /* `DrawMarks` checks the same setting and does not arm at all, so this only catches a stroke
+     armed before the reader changed it. Painted, not frozen part way. */
+  .mark[data-draw] {
+    animation-name: none;
+    --mark-draw: 0%;
   }
 }
 

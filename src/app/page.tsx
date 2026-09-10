@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DrawMarks } from "@/components/draw-marks";
 import { SkillPicker, type SkillCard } from "@/components/skill-picker";
 import { SnapScroll } from "@/components/snap-scroll";
 import { capabilityLabel, skills, type CapabilityId } from "@/lib/catalogue";
@@ -30,21 +31,16 @@ function Panel({ children }: { children: React.ReactNode }) {
  * which reads the first and stops.
  */
 function Roll({
-  eyebrow,
   title,
   meta,
   children,
 }: {
-  eyebrow: string;
   title: string;
   meta: string;
   children: React.ReactNode;
 }) {
   return (
     <div className="report-ground flex flex-col gap-1 p-5">
-      <p className="font-mono text-[0.65rem] tracking-wide text-ink-faint uppercase">
-        {eyebrow}
-      </p>
       <div className="flex items-baseline justify-between gap-3 pb-1">
         <span className="font-mono text-sm text-ink">{title}</span>
         <span className="font-mono text-xs text-ink-faint">{meta}</span>
@@ -105,9 +101,12 @@ function Split({
 const heading =
   "font-display text-3xl leading-tight font-semibold tracking-tight sm:text-4xl";
 
-// TODO: the channel URL. It is the one thing on this page that cannot be derived from the repo,
-// and this constant is the only place it appears.
-const SLACK_CHANNEL = "https://slack.com/app_redirect?channel=devx";
+/**
+ * #devx, by channel id rather than by name, so renaming the channel does not break the link. That
+ * is the trade for an id nobody can check by reading it. Slack hands off to the desktop app when
+ * it is installed and falls back to the browser when it is not.
+ */
+const SLACK_CHANNEL = "https://korzaworkspace.slack.com/archives/C0BR0RQD0UC";
 
 const RECENT_UPDATES = 3;
 
@@ -144,8 +143,11 @@ const reasons = [
 
 type Check = { label: string; evidence: string | null };
 
-// Illustrative, and labelled as such on screen. Labels are read from the catalogue rather than
-// written here, so the preview cannot name a check differently from the analysis that runs it.
+// Illustrative. Nothing on screen says so any more, so the repository it names has to be one that
+// does not exist: a real name here would read as a published audit of somebody's project.
+//
+// Labels are read from the catalogue rather than written here, so the preview cannot name a check
+// differently from the analysis that runs it.
 const check = (id: CapabilityId, evidence: string | null): Check => ({
   label: capabilityLabel(id),
   evidence,
@@ -187,8 +189,7 @@ function CheckRow({ label, evidence }: Check) {
 function ReportPreview() {
   return (
     <Roll
-      eyebrow="Example run"
-      title="your-org/service-api"
+      title="korza/kessel-run"
       meta={`${exampleMissing} of ${exampleRun.length} missing`}
     >
       {exampleRun.map((row) => (
@@ -295,6 +296,7 @@ export default function Home() {
      */
     <div className="-my-12 flex flex-col">
       <SnapScroll />
+      <DrawMarks />
       <Panel>
         <div className="flex max-w-3xl flex-col gap-5">
           <h1 className="font-display text-5xl font-semibold tracking-tight text-balance sm:text-6xl">
@@ -352,10 +354,15 @@ export default function Home() {
                 client.
               </p>
               {/* A plain GET form, so the field works before any JavaScript loads. The report
-                  page reads `repo` from the query string and runs the analysis on arrival. */}
+                  page reads `repo` from the query string and runs the analysis on arrival.
+
+                  On a raised plate, because the field is the one thing on this panel a reader is
+                  meant to touch and a bordered box on the canvas was reading as part of the
+                  background. The plate lifts the pair off the page and the field sits recessed
+                  inside it, which is the affordance the border alone was not carrying. */}
               <form
                 action="/ci-coverage"
-                className="flex w-full max-w-md flex-col gap-2 sm:flex-row"
+                className="field-plate flex w-full max-w-xl flex-col gap-2 rounded-2xl bg-surface p-2 shadow-[inset_0_1px_0_color-mix(in_oklab,var(--ink)_10%,transparent),0_16px_40px_-16px_rgb(0_0_0/0.9)] sm:flex-row"
               >
                 {/* `required` rather than a disabled button, which would need this to be a
                     client component and would leave the empty submit working until the JS
@@ -370,11 +377,11 @@ export default function Home() {
                   title="A GitHub repository, as owner/repo or a full github.com URL."
                   autoComplete="off"
                   spellCheck={false}
-                  className="min-w-0 flex-1 rounded-lg border border-line bg-canvas px-3 py-2 font-mono text-sm text-ink placeholder:text-ink-faint"
+                  className="min-w-0 flex-1 rounded-xl border border-line bg-canvas px-4 py-3 font-mono text-base text-ink placeholder:text-ink-faint"
                 />
                 <button
                   type="submit"
-                  className="rounded-lg bg-surface-raised px-4 py-2 text-sm font-medium whitespace-nowrap text-ink shadow-[inset_0_1px_0_color-mix(in_oklab,var(--ink)_16%,transparent)] transition-colors hover:bg-line"
+                  className="rounded-xl bg-surface-raised px-6 py-3 text-base font-medium whitespace-nowrap text-ink shadow-[inset_0_1px_0_color-mix(in_oklab,var(--ink)_16%,transparent)] transition-colors hover:bg-line"
                 >
                   Analyze
                 </button>
