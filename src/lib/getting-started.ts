@@ -2,24 +2,22 @@
 
 /** Guided setup overview. */
 export const walkthrough: { does: string; detail: string }[] = [
-  { does: "Checks your machine", detail: "Nothing changes yet." },
+  { does: "Checks your machine", detail: "Finds tools already set up." },
   {
     does: "Waits for you to choose",
-    detail: "Enter starts the focused tool.",
+    detail: "Choose a tool and press Enter to start.",
   },
   {
     does: "Pauses when you are needed",
-    detail:
-      "For browser sign-in, an administrator password, or a secure SSH confirmation.",
+    detail: "For sign-in, an administrator password, or SSH access approval.",
   },
   {
     does: "Installs what is missing",
-    detail:
-      "Skips tools already configured, by default. An installed tool may still need sign-in.",
+    detail: "Includes required tools. Already configured tools are skipped.",
   },
   {
-    does: "Proves each tool works",
-    detail: "Runs a real command, not a file check.",
+    does: "Checks each tool’s setup",
+    detail: "Reports whether it is ready or needs attention.",
   },
   { does: "Shows you what changed", detail: "And what to try next." },
 ];
@@ -123,7 +121,7 @@ export const manualCommands: {
 export const faq: { q: string; a: string }[] = [
   {
     q: "What does it change on my machine?",
-    a: "korza setup installs missing tools and configures Git and GitHub access. It keeps its shell configuration in one marked block in ~/.zshrc. korza setup --remove removes only that block; installed tools, the korza binary and the kz alias remain. The manual installers manage their own shell configuration separately. Its own state, the resume file and logs, stays in ~/.devx.",
+    a: "Korza CLI installs and configures the tools you choose and their prerequisites. It saves progress and logs in ~/.devx and adds a marked block to ~/.zshrc. korza setup --remove removes only that block; installed tools and the CLI remain. Manual installers may add their own shell settings.",
   },
   {
     q: "Can I run it more than once?",
@@ -131,7 +129,7 @@ export const faq: { q: string; a: string }[] = [
   },
   {
     q: "What happens if a step fails?",
-    a: "The independent steps still run. The summary names the step that failed, the reason, and what to try next.",
+    a: "Independent steps can continue. Korza CLI shows what needs attention and how to retry.",
   },
   {
     q: "It will not let me in. Is that my machine?",
@@ -139,7 +137,7 @@ export const faq: { q: string; a: string }[] = [
   },
   {
     q: "Something is broken, or the CLI does not do this yet.",
-    a: "Post in #devx. That is the DevX team's support channel for exactly this: a broken step, a missing tool, a question about the setup itself.",
+    a: "Ask in #devx. Include the tool name and any error message.",
   },
   {
     q: "I already have some of these tools installed.",
@@ -151,6 +149,6 @@ export const faq: { q: string; a: string }[] = [
   },
   {
     q: "When am I actually done?",
-    a: "Not when every tool shows a checkmark. You are done when you can finish the first real task, for example installing the Korza Marketplace plugins.",
+    a: "When the tools you chose are ready, follow the next steps shown. You can return later to set up other tools.",
   },
 ];

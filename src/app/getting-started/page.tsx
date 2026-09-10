@@ -53,7 +53,7 @@ export default function GettingStartedPage() {
             Install Korza CLI in one command.
           </h1>
           <p className="max-w-lg text-lg leading-relaxed text-ink-muted">
-            Then run the setup command the installer prints, to check this
+            Then run the setup command the installer prints to check this
             machine and install what is missing. macOS only for now.
           </p>
         </div>
@@ -85,8 +85,7 @@ export default function GettingStartedPage() {
               ))}
             </ol>
             <p className={caption}>
-              How long it takes depends on what is missing, your network, and
-              the required sign-ins. You choose which tools to set up.
+              Setup time depends on downloads and sign-ins.
             </p>
           </>
         }
@@ -95,19 +94,13 @@ export default function GettingStartedPage() {
           Guided setup.
         </h2>
         <p className="text-ink-muted">
-          Korza CLI checks your machine and helps install and configure the
-          tools you choose. Sign-ins and administrator prompts stay in your
-          terminal or browser.
+          Choose a tool and press Enter to start. Required tools are included.
+          You can keep choosing tools while installs run.
         </p>
         <p className="text-sm text-ink-muted">
           Run <code>korza setup --help</code> for setup options, or press{" "}
           <code>?</code> during setup for keyboard controls. The installer also
           adds <code>kz</code> as a short alias when that name is available.
-        </p>
-        <p className="text-ink-muted">
-          If a step cannot finish, for example because access needs someone
-          else&apos;s approval, it says so and moves on rather than stopping the
-          run.
         </p>
         <a href="#questions" className={cta}>
           What if something fails? See the questions →
