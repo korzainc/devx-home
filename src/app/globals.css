@@ -29,6 +29,13 @@
      the way red does, so it needs no desaturating. */
   --partial: #facc15;
   --partial-wash: #2a2013;
+  /* The brush stroke behind a marked phrase. Currently the same yellow as --partial and kept apart
+     from it on purpose: that one is a verdict about a repository and this one is emphasis, so they
+     should be free to diverge. Not exposed through @theme, because nothing draws it as a utility.
+
+     Red was tried first and read as a strikethrough, which is what red through running text means
+     everywhere else. */
+  --highlight: #facc15;
 }
 
 @theme inline {
@@ -275,6 +282,159 @@ html {
     #000 82%,
     transparent
   );
+}
+
+/* The skill cards on the home page, dealt into place as the section arrives.
+
+   A scroll-driven animation rather than an observer that adds a class, so the cards are scrubbed
+   by the scroll position instead of triggered by it: nothing to keep in state, and scrolling back
+   up runs the entrance in reverse rather than replaying it.
+
+   Longhands rather than the `animation` shorthand, which resets `animation-timeline` to `auto` and
+   would put every card back on the document clock.
+
+   Each card sets its own `animation-range` inline to stagger the row. The ranges end early, around
+   `cover 40%`, and `both` holds the last keyframe from there on, so there is no exit and a card
+   that has arrived stays put. Ending early also matters because a range only completes if the
+   section travels far enough, and the last panel on a page does not always get to. */
+.deal {
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation-fill-mode: both;
+  animation-duration: auto;
+  animation-timeline: view();
+  animation-name: deal-l;
+}
+.deal:nth-child(even) {
+  animation-name: deal-r;
+}
+
+/* The tilt alternates so the row does not lean one way. */
+@keyframes deal-l {
+  from {
+    opacity: 0;
+    transform: translateY(72px) scale(0.94) rotate(-3.5deg);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes deal-r {
+  from {
+    opacity: 0;
+    transform: translateY(72px) scale(0.94) rotate(3.5deg);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The marketplace link is a line of text rather than a card, and the tilt that reads as a card
+   settling reads as a rendering fault on a single line, so it only rises. Ordered after the two
+   rules above, which it has to beat on both `.deal` and the `nth-child` alternation. */
+@keyframes deal-flat {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.deal.deal-flat {
+  animation-name: deal-flat;
+}
+
+/* The phrase a heading turns on, struck through with a brush.
+
+   How far the stroke is drawn, as the width still to be revealed. Registered so it can be
+   animated at all: an unregistered custom property has no type, so a browser can only flip it
+   from one value to the other at the halfway point. It also has to inherit, because the timeline
+   runs on `.mark` while the value is read by its `::before`. */
+@property --mark-draw {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 0%;
+}
+
+/* A marked phrase is one stroke, so it is one line. Left to wrap, an absolutely positioned stroke
+   would take the bounding box of both line fragments and paint a slab across the gap between
+   them; the phrases marked here are short enough that holding them together costs no width. */
+.mark {
+  position: relative;
+  white-space: nowrap;
+  /* Confines the stroke's negative z-index to this word. Without it the stroke sits behind the
+     page background instead of behind the glyphs, and disappears. */
+  isolation: isolate;
+  --mark-draw: 0%;
+  animation-name: mark-draw;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation-fill-mode: both;
+  animation-duration: auto;
+  animation-timeline: view();
+  /* After the cards have dealt in rather than alongside them. The word is higher up the panel than
+     the grid, so the same scroll position is further along this element's own range than the
+     cards': the later window is what puts the stroke last. */
+  animation-range: cover 30% cover 58%;
+}
+
+/* The stroke itself.
+
+   Sized in `em` so it tracks whatever heading it lands in, and placed to cover the glyphs from
+   about the x-height down to just past the baseline, which is where a real stroke falls. Anything
+   shorter or lower reads as an underline.
+
+   The silhouette is an SVG mask rather than a gradient, because the things that make a stroke look
+   painted are an uneven edge and a ragged end, and a gradient can only make a lens. The mask
+   carries no colour, so the palette stays in `--accent` and there is no hex to keep in step. The
+   holes in the path are the bristles that skipped; `preserveAspectRatio: none` stretches the one
+   shape to whatever the phrase is wide. A hair of rotation keeps it off the horizontal, which is
+   what stops it reading as a drawn box. */
+.mark::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0.16em -0.24em auto -0.24em;
+  height: 0.88em;
+  background: linear-gradient(
+    100deg,
+    color-mix(in oklab, var(--highlight) 58%, transparent),
+    color-mix(in oklab, var(--highlight) 82%, transparent) 40%,
+    color-mix(in oklab, var(--highlight) 52%, transparent)
+  );
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 40' preserveAspectRatio='none'%3E%3Cpath fill='%23000' fill-rule='evenodd' d='M2 12C20 8 60 7 110 8 150 9 195 6 232 9 238 10 239 13 238 17 237 24 239 29 232 31 200 34 150 31 108 32 66 33 24 34 6 31 1 30 0 26 1 22 2 18 0 15 2 12ZM34 12.6C64 11.8 100 11.6 132 11.8 100 13.4 64 13.6 35 14ZM162 13.4C180 12.9 200 12.8 214 12.8 200 14.2 180 14.4 163 14.6ZM52 26.4C74 26 98 26.1 118 26.8 98 27.9 74 27.9 53 27.8ZM186 27.6C200 27.2 216 27.2 226 27.4 216 28.6 200 28.6 187 28.8Z'/%3E%3C/svg%3E");
+  mask-size: 100% 100%;
+  mask-repeat: no-repeat;
+  transform: rotate(-0.5deg);
+  /* Revealed left to right, so it looks drawn rather than faded on. The clip is what animates;
+     the silhouette underneath never moves, which a `scaleX` would have squashed. */
+  clip-path: inset(0 var(--mark-draw) 0 0);
+}
+
+@keyframes mark-draw {
+  from {
+    --mark-draw: 100%;
+  }
+}
+
+/* The offset state only exists where the animation can actually run, so anywhere else the card is
+   simply sitting flat and legible rather than never arriving.
+
+   Last, and matching the two-class specificity of the rule above, because these have to beat every
+   `animation-name` set so far rather than only the first of them. */
+@supports not (animation-timeline: view()) {
+  .deal.deal,
+  .mark {
+    animation-name: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .deal.deal,
+  .mark {
+    animation-name: none;
+  }
 }
 
 /* Markdown from content/ renders to bare HTML with no utility classes on it, and preflight has

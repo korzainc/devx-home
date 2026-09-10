@@ -1,13 +1,8 @@
 import Link from "next/link";
-import { PreviewInstallCommand } from "@/components/preview-install";
+import { SkillPicker, type SkillCard } from "@/components/skill-picker";
 import { SnapScroll } from "@/components/snap-scroll";
-import {
-  capabilityLabel,
-  marketplaceName,
-  skills,
-  type CapabilityId,
-  type SkillEntry,
-} from "@/lib/catalogue";
+import { capabilityLabel, skills, type CapabilityId } from "@/lib/catalogue";
+import { getUpdates } from "@/lib/updates";
 
 /**
  * One panel, one screenful, one snap target.
@@ -28,26 +23,21 @@ function Panel({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * The rolling list that stands in for a product surface in each section.
+ * The rolling list that stands in for the gap report.
  *
  * The window is a fixed height so the track has something to travel through, and the track holds
  * the list twice so there is no gap at the wrap. The second copy is hidden from assistive tech,
  * which reads the first and stops.
- *
- * `seconds` is per caller rather than fixed, because the two lists have different row heights and
- * one duration would make the taller one travel twice as fast.
  */
 function Roll({
   eyebrow,
   title,
   meta,
-  seconds,
   children,
 }: {
   eyebrow: string;
   title: string;
   meta: string;
-  seconds: number;
   children: React.ReactNode;
 }) {
   return (
@@ -60,10 +50,7 @@ function Roll({
         <span className="font-mono text-xs text-ink-faint">{meta}</span>
       </div>
       <div className="report-window h-[19rem] overflow-hidden">
-        <div
-          className="report-roll"
-          style={{ animationDuration: `${seconds}s` }}
-        >
+        <div className="report-roll">
           {[0, 1].map((copy) => (
             <div key={copy} aria-hidden={copy === 1 ? true : undefined}>
               {children}
@@ -118,6 +105,43 @@ function Split({
 const heading =
   "font-display text-3xl leading-tight font-semibold tracking-tight sm:text-4xl";
 
+// TODO: the channel URL. It is the one thing on this page that cannot be derived from the repo,
+// and this constant is the only place it appears.
+const SLACK_CHANNEL = "https://slack.com/app_redirect?channel=devx";
+
+const RECENT_UPDATES = 3;
+
+const updateDate = new Intl.DateTimeFormat("en-GB", {
+  day: "numeric",
+  month: "short",
+  timeZone: "UTC",
+});
+
+/**
+ * The argument for the whole portal, as one claim and the four reasons it holds.
+ *
+ * Nothing here is a feature. The panels above sell the two things the site does; this one says why
+ * either is worth opening, which is the part a reader who has never heard of the portal is missing.
+ */
+const reasons = [
+  {
+    title: "Everyone solves it alone",
+    body: "Fifty people solving the same problem produce fifty slightly different answers, and lose fifty afternoons doing it.",
+  },
+  {
+    title: "Capturing got cheap",
+    body: "AI collapsed the cost of reuse. A solution captured once becomes something anyone can pull in with one command.",
+  },
+  {
+    title: "Your judgment is the scarce thing",
+    body: "Nobody was hired to format documents or write boilerplate. Every hour on a solved problem is taken from the calls only you can make.",
+  },
+  {
+    title: "Solved means proven",
+    body: "Nothing lands here on vibes. Every skill is pinned to a version that was tried first, and the CI catalogue is synced from the pipelines it describes.",
+  },
+];
+
 type Check = { label: string; evidence: string | null };
 
 // Illustrative, and labelled as such on screen. Labels are read from the catalogue rather than
@@ -166,7 +190,6 @@ function ReportPreview() {
       eyebrow="Example run"
       title="your-org/service-api"
       meta={`${exampleMissing} of ${exampleRun.length} missing`}
-      seconds={28}
     >
       {exampleRun.map((row) => (
         <CheckRow key={row.label} {...row} />
@@ -175,83 +198,91 @@ function ReportPreview() {
   );
 }
 
-// Named rather than sliced off the front of the catalogue, so the preview keeps its spread across
-// audiences when the marketplace syncs and the order changes. Chosen to show that the work either
-// side of code is covered too: three of these carry no engineering audience at all.
-const previewSkillIds = [
-  "superpowers:skills/brainstorming",
-  "mattpocock-skills:skills/engineering/to-spec",
-  "mattpocock-skills:skills/productivity/grilling",
-  "mattpocock-skills:skills/productivity/to-questionnaire",
-  "superpowers:skills/test-driven-development",
+/**
+ * The pool the audience chips draw from, named rather than sliced off the front of the catalogue
+ * so the row keeps its shape when the marketplace syncs and the order changes.
+ *
+ * Ordered as the unfiltered view, which is why it opens on four different audiences: those five
+ * are what "Everyone" shows. Each chip then needs five of its own out of this pool, and the three
+ * that follow are there to make Engineering and Business reach that on their own tags rather than
+ * on the All rows.
+ */
+const featuredSkillIds = [
+  "codezen:skills/brainstorm",
   "codezen:skills/code-review",
-  "mattpocock-skills:skills/engineering/diagnosing-bugs",
-  "mattpocock-skills:skills/engineering/to-tickets",
-  "humanizer:.",
+  "mattpocock-skills:skills/productivity/to-questionnaire",
+  "mattpocock-skills:skills/engineering/triage",
   "mattpocock-skills:skills/productivity/handoff",
-  "mattpocock-skills:skills/engineering/research",
-  "mattpocock-skills:skills/productivity/wait-what",
+  "codezen:skills/security-review",
+  "codezen:skills/tdd",
+  "superpowers:skills/systematic-debugging",
+  "mattpocock-skills:skills/engineering/to-tickets",
+  "mattpocock-skills:skills/productivity/grilling",
+  "humanizer:.",
+  "superpowers:skills/writing-plans",
 ];
 
 // Throws rather than filters, for the reason `capabilityLabel` does: a sync that retires one of
-// these should fail the build, not quietly show eleven rows.
-const previewSkills = previewSkillIds.map((id) => {
+// these should fail the build, not quietly leave a chip a card short.
+const featuredSkills: SkillCard[] = featuredSkillIds.map((id) => {
   const skill = skills.find((entry) => entry.id === id);
   if (!skill) {
     throw new Error(
       `The home page names skill "${id}", which the marketplace no longer publishes.`,
     );
   }
-  return skill;
+  // `jobs[0]` is already written as a job someone wants done, so the card title needs nothing
+  // invented, only a capital.
+  const job = skill.jobs[0];
+  return {
+    id: skill.id,
+    title: job.charAt(0).toUpperCase() + job.slice(1),
+    summary: skill.summary ?? skill.description,
+    audiences: skill.audiences,
+    provenance:
+      skill.origin === "Korza"
+        ? "Built at Korza"
+        : skill.pinned
+          ? `Pinned to ${skill.ref}`
+          : `From ${skill.sourceRepo}`,
+  };
 });
 
-const installCommand = `/plugin install codezen@${marketplaceName}`;
+const doorClass =
+  "flex flex-col gap-2 rounded-2xl bg-surface p-6 shadow-[inset_0_1px_0_color-mix(in_oklab,var(--ink)_10%,transparent),0_12px_32px_-14px_rgb(0_0_0/0.8)] transition-colors hover:bg-surface-raised";
 
-// Takes only the fields it draws, rather than the whole entry: a `SkillEntry` also carries `ref`,
-// the git ref the skill is pinned to, and spreading that in hands React a real ref.
-function SkillRow({
-  name,
-  summary,
-  description,
-  audiences,
-}: Pick<SkillEntry, "name" | "summary" | "description" | "audiences">) {
+/**
+ * One of the three ways in on the closing panel. The whole card is the control rather than a link
+ * at the bottom of it, so the arrow is a label for the card and not a second target inside it.
+ */
+function Door({
+  eyebrow,
+  title,
+  action,
+  children,
+}: {
+  eyebrow: string;
+  title: string;
+  action: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="border-t border-line py-3">
-      <div className="flex items-baseline justify-between gap-4">
-        <span className="font-mono text-sm whitespace-nowrap text-ink">
-          {name}
-        </span>
-        <span className="truncate font-mono text-xs text-ink-faint">
-          {audiences.join(", ")}
-        </span>
-      </div>
-      <p className="pt-1 text-xs text-ink-muted">{summary ?? description}</p>
-    </div>
-  );
-}
-
-function SkillsPreview() {
-  return (
-    <Roll
-      eyebrow="Marketplace"
-      title={marketplaceName}
-      meta={`${skills.length} skills`}
-      seconds={46}
-    >
-      {previewSkills.map((skill) => (
-        <SkillRow
-          key={skill.id}
-          name={skill.name}
-          summary={skill.summary}
-          description={skill.description}
-          audiences={skill.audiences}
-        />
-      ))}
-    </Roll>
+    <>
+      <p className="font-mono text-xs tracking-wide text-accent uppercase">
+        {eyebrow}
+      </p>
+      <h3 className="font-display text-lg leading-snug font-semibold tracking-tight text-ink">
+        {title}
+      </h3>
+      {children}
+      <p className="mt-auto pt-5 text-sm font-medium text-accent">{action}</p>
+    </>
   );
 }
 
 export default function Home() {
+  const recent = getUpdates().slice(0, RECENT_UPDATES);
+
   return (
     /**
      * The document is the scroller, so there is exactly one of them: a scroll container here
@@ -353,45 +384,124 @@ export default function Home() {
         />
       </Panel>
 
+      {/* No split and no rule down the middle, unlike the section above: the cards are the whole
+          width of the panel, so the copy sits over them rather than beside them. */}
       <Panel>
-        <Split
-          copy={
-            <>
-              {/* Opens on "And", so the section reads as the second half of the one above
-                  rather than as a pitch of its own. */}
-              <h2 className={heading}>
-                And when you&apos;re working with AI agents.
-              </h2>
-              <p className="leading-relaxed text-ink-muted">
-                Every prompt you write twice is a skill you have not installed
-                yet. Skills for engineers, and for everyone whose work reaches
-                them: shaping a vague request into a spec, pressure-testing a
-                decision before you commit, handing work over so it can be
-                picked up.
-              </p>
-              <Link
-                href="/skills"
-                className="text-sm font-medium text-accent hover:underline"
-              >
-                Browse the marketplace →
-              </Link>
-            </>
-          }
-          visual={<SkillsPreview />}
-          action={
-            <>
-              <p className="text-center text-sm text-ink-muted">
-                Stop repeating yourself, and let a curated skill take care of
-                it.
-              </p>
-              {/* The counterpart to the analyze field above: the section's instruction, and the
-                  command that carries it out. */}
-              <div className="w-full max-w-md">
-                <PreviewInstallCommand command={installCommand} />
+        <div className="flex flex-col gap-8">
+          <div className="flex flex-col gap-5">
+            <h2 className={heading}>
+              Supercharge your work with specialised{" "}
+              <span className="mark">skills</span> when working with your AI
+              agents.
+            </h2>
+            <p className="max-w-3xl leading-relaxed text-ink-muted">
+              Stop repeating yourself to your agents, and let a curated skill
+              take care of it. Each one is written for a job someone at Korza
+              had already solved, kept to the format your team expects, and
+              tested before it reaches you.
+            </p>
+          </div>
+          <SkillPicker cards={featuredSkills} />
+        </div>
+      </Panel>
+
+      {/* The argument, and deliberately the one panel with nothing to click: everywhere it could
+          send you is already a door on a panel either side of it. */}
+      <Panel>
+        <div className="flex flex-col gap-14">
+          <p className="max-w-3xl font-display text-3xl leading-snug font-semibold tracking-tight text-balance sm:text-4xl">
+            Most work is re-work. Someone has already optimised a way to write
+            that plan, that config, that deck. So take it, and spend your time
+            on the problems <span className="mark">worth the effort</span>.
+          </p>
+          <div className="grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
+            {reasons.map((reason) => (
+              <div key={reason.title} className="flex flex-col gap-2">
+                <h2 className="font-display leading-snug font-semibold text-ink">
+                  {reason.title}
+                </h2>
+                <p className="text-sm leading-relaxed text-ink-muted">
+                  {reason.body}
+                </p>
               </div>
-            </>
-          }
-        />
+            ))}
+          </div>
+        </div>
+      </Panel>
+
+      {/* The last panel before the footer, and the only one that asks for something back. The
+          three doors are ordered by how much they ask of the reader: read what changed, vote on
+          what is coming, then say a thing of your own. */}
+      <Panel>
+        <div className="flex flex-col gap-8">
+          <div className="flex flex-col gap-5">
+            <h2 className={heading}>
+              Bring us <span className="mark">your ideas</span>. We are here to
+              help you do your best work.
+            </h2>
+            <p className="max-w-3xl leading-relaxed text-ink-muted">
+              This portal is early and it is built in the open. The most useful
+              thing you can hand it is a problem you have already solved twice,
+              or one you keep hitting and nobody has picked up yet.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Link href="/updates" className={doorClass}>
+              <Door
+                eyebrow="Updates"
+                title="See what has changed"
+                action="Read all updates →"
+              >
+                {/* The three newest entries, read from content/updates at build time, so this
+                    stops being true only if nobody writes an update. */}
+                <ul className="flex flex-col gap-1.5 pt-1">
+                  {recent.map((entry) => (
+                    <li key={entry.slug} className="flex gap-2 text-sm">
+                      {/* The date column is fixed so the titles start on one edge, and the title
+                          wraps rather than truncating: cut short, these read as fragments. */}
+                      <span className="w-11 shrink-0 pt-0.5 font-mono text-xs text-ink-faint">
+                        {updateDate.format(new Date(entry.date))}
+                      </span>
+                      <span className="min-w-0 leading-snug text-ink-muted">
+                        {entry.title}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </Door>
+            </Link>
+
+            <Link href="/roadmap" className={doorClass}>
+              <Door
+                eyebrow="Roadmap"
+                title="Decide what comes next"
+                action="Open the roadmap →"
+              >
+                <p className="text-sm leading-relaxed text-ink-muted">
+                  Everything being considered is listed, and every item takes a
+                  vote and a comment. Back the ones you need. Saying plainly
+                  that something is missing is worth more than a vote.
+                </p>
+              </Door>
+            </Link>
+
+            {/* An anchor rather than Link: it leaves the site, so there is nothing to prefetch. */}
+            <a href={SLACK_CHANNEL} className={doorClass}>
+              <Door
+                eyebrow="Slack"
+                title="Talk to the DevX team"
+                action="Join the channel →"
+              >
+                <p className="text-sm leading-relaxed text-ink-muted">
+                  The fastest way to reach us. Ask a question, or bring
+                  something your team has worked out, and we will look at
+                  turning it into a skill everyone gets.
+                </p>
+              </Door>
+            </a>
+          </div>
+        </div>
       </Panel>
     </div>
   );
