@@ -561,3 +561,31 @@ html {
   font-size: 0.85em;
   color: var(--ink);
 }
+
+/* Keep native details controls and use instant motion when requested or unsupported. */
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.getting-started) {
+    scroll-behavior: smooth;
+  }
+
+  @supports (interpolate-size: allow-keywords) and selector(::details-content) {
+    .getting-started details {
+      interpolate-size: allow-keywords;
+    }
+
+    .getting-started details::details-content {
+      height: 0;
+      overflow: clip;
+      opacity: 0;
+      transition:
+        height 180ms ease-out,
+        opacity 180ms ease-out,
+        content-visibility 180ms allow-discrete;
+    }
+
+    .getting-started details[open]::details-content {
+      height: auto;
+      opacity: 1;
+    }
+  }
+}

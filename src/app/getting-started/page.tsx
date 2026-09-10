@@ -54,7 +54,7 @@ export default function GettingStartedPage() {
   const origin = getSetupOrigin();
   const command = origin ? bootstrapCommand(`${origin}/setup`) : null;
   return (
-    <div className="flex flex-col">
+    <div className="getting-started flex flex-col">
       <section className="grid grid-cols-1 items-center gap-8 pb-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start lg:gap-14">
         <div className="relative isolate flex flex-col gap-4">
           <span
