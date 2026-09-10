@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { createPortal } from "react-dom";
 import {
   useCallback,
   useEffect,
@@ -166,7 +167,9 @@ export function SkillsFirstRunNudge() {
 
   if (dismissed) return null;
 
-  return (
+  // `main` carries `isolate`, so no z-index here can beat the header one context up. Safe
+  // without an SSR guard: `serverSnapshot` means this never renders on the server.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain bg-canvas/85 px-4 py-12 backdrop-blur-sm">
       <div
         ref={dialog}
@@ -232,7 +235,8 @@ export function SkillsFirstRunNudge() {
           <FirstRunPreview />
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

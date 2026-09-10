@@ -30,6 +30,20 @@ function clickWithoutNavigating(element: HTMLElement) {
 }
 
 describe("the first-run nudge", () => {
+  // Escaping `main`'s stacking context is the fix, so that is what this asserts.
+  it("renders outside the page container, not inside it", () => {
+    const main = document.createElement("main");
+    main.className = "isolate";
+    document.body.append(main);
+
+    render(<SkillsFirstRunNudge />, { container: main });
+
+    const node = dialog();
+    expect(node).not.toBeNull();
+    expect(main.contains(node!)).toBe(false);
+    expect(document.body.contains(node!)).toBe(true);
+  });
+
   it("appears on a first visit", () => {
     render(<SkillsFirstRunNudge />);
     expect(dialog()).not.toBeNull();
