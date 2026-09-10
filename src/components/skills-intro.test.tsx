@@ -135,7 +135,6 @@ describe("the install panel", () => {
 });
 
 describe("the demo terminal", () => {
-  /** The painted rows of the animated copy. */
   function painted(container: HTMLElement) {
     return [...container.querySelectorAll(".demo-live span.absolute")]
       .map((node) => node.textContent ?? "")
@@ -148,8 +147,7 @@ describe("the demo terminal", () => {
     expect(painted(container)).not.toContain(
       "write the requirements doc for the client's booking portal",
     );
-    // Untyped rows keep their text from the first frame to reserve the row height, so
-    // opacity is what hides them.
+    // Untyped rows keep their text to reserve the row height; opacity is what hides them.
     const rows = [
       ...container.querySelectorAll<HTMLElement>(".demo-live span.block"),
     ];
@@ -159,19 +157,16 @@ describe("the demo terminal", () => {
 
   // Which puts the burden on the fallbacks: DX-100 was this bug in another component.
   it("carries the whole transcript for a reader without JavaScript", () => {
-    // React fills `noscript` on the server and empties it in the browser, so only the
-    // served markup shows what this reader gets.
+    // React empties `noscript` in the browser, so read the served markup.
     const html = renderToString(<SkillsDemoTerminal />);
     const fallback = html.slice(html.indexOf("<noscript>"));
     expect(fallback).toContain(
       "write the requirements doc for the client&#x27;s booking portal",
     );
     expect(fallback).toContain("HYPOTHESIS");
-    // And it takes the other two copies off the page.
     expect(fallback).toContain("display:none");
   });
 
-  /** A replay that never runs must not leave an empty box. */
   it("carries it for a reader who asked for less motion", () => {
     const { container } = render(<SkillsDemoTerminal />);
     const reduced = container.querySelector(".demo-reduced")?.textContent ?? "";
@@ -226,7 +221,6 @@ describe("the demo terminal", () => {
     );
   });
 
-  /** Asking for less motion should not cost the reader the control. */
   it("offers a replay on either copy", () => {
     render(<SkillsDemoTerminal />);
     expect(screen.getAllByRole("button", { name: /Replay/ })).toHaveLength(2);
@@ -244,7 +238,6 @@ describe("the demo terminal", () => {
     ).toBe(true);
   });
 
-  /** An explicit request, so the animated copy takes over. */
   it("shows the replay once it has been asked for", () => {
     const { container } = render(<SkillsDemoTerminal />);
     fireEvent.click(screen.getAllByRole("button", { name: /Replay/ })[1]);

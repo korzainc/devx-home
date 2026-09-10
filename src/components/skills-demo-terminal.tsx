@@ -144,15 +144,12 @@ export function SkillsDemoTerminal() {
     return () => cancelAnimationFrame(frame);
   }, [runId]);
 
-  /** Only after a replay has actually run, which is what `runId` records. */
   const announce = runId > 0 && elapsed >= RUN_MS;
 
-  // Pressing Replay is explicit, so the animated copy wins from then on whatever the media
-  // query says.
+  // Pressing Replay is explicit, so the animated copy wins whatever the media query says.
   const asked = runId > 0;
 
-  // The button pressed is in the copy being hidden, so focus would fall to the body. A
-  // reader who has moved on keeps their place.
+  // The button pressed is in the copy being hidden, so focus would fall to the body.
   const liveReplay = useRef<HTMLButtonElement | null>(null);
   const handedOver = useRef(false);
   useEffect(() => {
@@ -266,7 +263,6 @@ export function SkillsDemoTerminal() {
         </div>
       </div>
 
-      {/* No clock here: the transcript already finished. */}
       <div
         className={`demo-reduced overflow-hidden rounded-xl border border-line bg-surface ${
           asked ? "hidden" : "hidden motion-reduce:block"
@@ -276,8 +272,8 @@ export function SkillsDemoTerminal() {
         <StaticRows />
       </div>
 
-      {/* A media query cannot detect a browser that never ran the script, so this copy hides
-          both others. Only a browser with scripting off parses anything in here. */}
+      {/* A media query cannot detect a browser that never ran the script, so this copy
+          hides both others. Only scripting-off browsers parse in here. */}
       <noscript>
         <style>{`.demo-live,.demo-reduced{display:none}`}</style>
         <div className="overflow-hidden rounded-xl border border-line bg-surface">
@@ -295,7 +291,7 @@ export function SkillsDemoTerminal() {
   );
 }
 
-/** The window bar. No button where pressing it could do nothing. */
+/** No button where pressing it could do nothing. */
 function TerminalChrome({
   onReplay,
   ref,
@@ -323,7 +319,7 @@ function TerminalChrome({
   );
 }
 
-/** The transcript with no clock: plain rows, none of the animated copy's sizing machinery. */
+/** The transcript with no clock attached. */
 function StaticRows() {
   return (
     <div className="flex flex-col px-5 py-5 font-mono text-[0.8rem] leading-[1.85]">
