@@ -2,24 +2,22 @@
 
 /** Guided setup overview. */
 export const walkthrough: { does: string; detail: string }[] = [
-  { does: "Checks your machine", detail: "Finds tools already set up." },
   {
-    does: "Waits for you to choose",
-    detail: "Choose a tool and press Enter to start.",
+    does: "Choose your tools",
+    detail: "See what’s already set up and choose what you need.",
   },
   {
-    does: "Pauses when you are needed",
-    detail: "For sign-in, an administrator password, or SSH access approval.",
+    does: "Install what’s missing",
+    detail: "Installs your choices and any tools they need.",
   },
   {
-    does: "Installs what is missing",
-    detail: "Includes required tools. Already configured tools are skipped.",
+    does: "Sign in when asked",
+    detail: "Follow prompts in your terminal or browser.",
   },
   {
-    does: "Checks each tool’s setup",
-    detail: "Reports whether it is ready or needs attention.",
+    does: "See what’s ready",
+    detail: "Get next steps or instructions to finish an incomplete setup.",
   },
-  { does: "Shows you what changed", detail: "And what to try next." },
 ];
 
 /** The commands themselves, one disclosure per tool. Closed by default. */
@@ -119,6 +117,10 @@ export const manualCommands: {
 ];
 
 export const faq: { q: string; a: string }[] = [
+  {
+    q: "Where can I find CLI help?",
+    a: "Run korza --help for commands or korza setup --help for setup options. The installer also adds kz as a short name for korza when that name is available.",
+  },
   {
     q: "What does it change on my machine?",
     a: "Korza CLI installs and configures the tools you choose and their prerequisites. It saves progress and logs in ~/.devx and adds a marked block to ~/.zshrc. korza setup --remove removes only that block; installed tools and the CLI remain. Manual installers may add their own shell settings.",

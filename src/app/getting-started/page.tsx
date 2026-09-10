@@ -53,15 +53,15 @@ export default function GettingStartedPage() {
             Install Korza CLI in one command.
           </h1>
           <p className="max-w-lg text-lg leading-relaxed text-ink-muted">
-            Then run the setup command the installer prints to check this
-            machine and install what is missing. macOS only for now.
+            Run this command in Terminal, then follow the installer&apos;s
+            instructions to start setup. For macOS.
           </p>
         </div>
 
         <div className="flex flex-col gap-3">
           <PreviewInstallCommand key={command} command={command} />
           <a href="#manual" className={cta}>
-            Prefer to run each step yourself? ↓
+            Set up manually ↓
           </a>
         </div>
       </section>
@@ -94,16 +94,11 @@ export default function GettingStartedPage() {
           Guided setup.
         </h2>
         <p className="text-ink-muted">
-          Choose a tool and press Enter to start. Required tools are included.
-          You can keep choosing tools while installs run.
-        </p>
-        <p className="text-sm text-ink-muted">
-          Run <code>korza setup --help</code> for setup options, or press{" "}
-          <code>?</code> during setup for keyboard controls. The installer also
-          adds <code>kz</code> as a short alias when that name is available.
+          Start one tool, then keep choosing others while installation runs.
+          Press <code>?</code> during setup for help.
         </p>
         <a href="#questions" className={cta}>
-          What if something fails? See the questions →
+          Need help? →
         </a>
       </Pair>
 
