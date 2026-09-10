@@ -13,6 +13,24 @@ const band =
 const panel =
   "flex h-full flex-col rounded-xl border border-line bg-canvas p-5 shadow-sm";
 
+/**
+ * One panel, one screenful, one snap target.
+ *
+ * `100svh` rather than `100vh`: on a phone `vh` is the height with the browser chrome retracted,
+ * so every panel would overflow by the address bar until you scrolled. The 4rem is the sticky
+ * header, matching the `scroll-padding-top` that positions the snap.
+ *
+ * `min-h`, not `h`: a panel whose content outgrows the viewport should get taller and scroll
+ * rather than clip.
+ */
+function Panel({ children }: { children: React.ReactNode }) {
+  return (
+    <section className="relative flex min-h-[calc(100svh-4rem)] snap-start flex-col justify-center py-16">
+      {children}
+    </section>
+  );
+}
+
 /* Each section says its piece once, inside the band. The heading outside carries no copy of its
    own, which is what keeps it working as the break between the two sections. */
 function Section({
@@ -25,7 +43,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6">
       {/* Separates the two sections without a rule: a blurred accent bloom behind the heading.
           `isolate` keeps the negative z-index bloom from sliding behind the page background. */}
       <div className="relative isolate">
@@ -33,7 +51,7 @@ function Section({
           aria-hidden
           className="absolute -top-8 -left-10 -z-10 h-28 w-72 rounded-full bg-accent/20 blur-3xl"
         />
-        <h2 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+        <h2 className="font-display text-4xl font-semibold tracking-tight sm:text-5xl">
           {heading}
         </h2>
       </div>
@@ -43,7 +61,7 @@ function Section({
           <div className="flex flex-col gap-5 px-1 sm:px-2">{children}</div>
         </div>
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -139,28 +157,47 @@ function MarketplacePreview() {
 
 export default function Home() {
   return (
-    <div className="flex flex-col gap-14">
-      <div className="flex max-w-2xl flex-col gap-4 pt-8">
-        <h1 className="font-display text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
-          Everything Korza recommends, in one place.
-        </h1>
-        <p className="text-lg leading-relaxed text-ink-muted">
-          A health check for your repo, and the catalogues behind what it
-          recommends.
-        </p>
-        {/* The one door a new machine needs. Everything else on the page assumes the
-            toolchain is already there. */}
-        <p className="text-sm">
-          <Link
-            href="/getting-started"
-            className="font-medium text-accent hover:underline"
-          >
-            New machine, or new to the toolchain? Start here →
-          </Link>
-        </p>
-      </div>
+    /**
+     * The page scrolls itself rather than letting the document do it.
+     *
+     * This has to be a scroll container of its own, not `scroll-snap-type` on `html` scoped by
+     * `:has`. On a client-side navigation Next leaves the page you came from in the DOM at
+     * `display: none`, ready for an instant back, and `:has` matches a hidden element perfectly
+     * well: every later page kept the snapping, and the footer's snap target held them all
+     * pinned to the bottom of the document. A hidden element cannot scroll, so owning the
+     * scroller is what makes this impossible rather than merely fixed.
+     *
+     * `-my-12` cancels the root layout's own padding: the panels measure themselves against the
+     * viewport, so padding above the first one pushes it off the bottom of its own screen.
+     *
+     * The scrollbar is hidden because the document has one already, and two side by side inside
+     * the content column is the sort of thing you only see on a machine with classic scrollbars.
+     * Scrolling past the last panel chains out to the document, which is what reaches the footer.
+     */
+    <div className="-my-12 h-[calc(100svh-4rem)] snap-y snap-mandatory overflow-y-auto [scrollbar-width:none] motion-reduce:snap-none [&::-webkit-scrollbar]:hidden">
+      <Panel>
+        <div className="flex max-w-3xl flex-col gap-5">
+          <h1 className="font-display text-5xl font-semibold tracking-tight text-balance sm:text-6xl">
+            Everything Korza recommends, in one place.
+          </h1>
+          <p className="text-xl leading-relaxed text-ink-muted">
+            A health check for your repo, and the catalogues behind what it
+            recommends.
+          </p>
+          {/* The one door a new machine needs. Everything else on the page assumes the
+              toolchain is already there. */}
+          <p className="text-sm">
+            <Link
+              href="/getting-started"
+              className="font-medium text-accent hover:underline"
+            >
+              New machine, or new to the toolchain? Start here →
+            </Link>
+          </p>
+        </div>
+      </Panel>
 
-      <div className="flex flex-col gap-20">
+      <Panel>
         <Section heading="CI Tools" visual={<ReportPreview />}>
           <p className={lead}>
             The checks that keep every Korza pipeline consistent and every
@@ -203,8 +240,10 @@ export default function Home() {
 
           <BottomLink href="/tools">Browse the checks →</BottomLink>
         </Section>
+      </Panel>
 
-        <Section heading="Skills" visual={<MarketplacePreview />}>
+      <Panel>
+        <Section heading="Agent Skills" visual={<MarketplacePreview />}>
           <div className="flex flex-col gap-2">
             <p className={lead}>Stop repeating yourself to your AI agents.</p>
             <p className="leading-relaxed text-ink-muted">
@@ -220,7 +259,7 @@ export default function Home() {
 
           <BottomLink href="/skills">Browse the marketplace →</BottomLink>
         </Section>
-      </div>
+      </Panel>
     </div>
   );
 }
