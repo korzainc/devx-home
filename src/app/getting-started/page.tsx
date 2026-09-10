@@ -78,15 +78,15 @@ export default function GettingStartedPage() {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-8 border-t border-line py-12 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-center lg:gap-14">
-        <figure className="min-w-0 overflow-hidden rounded-xl border border-line bg-surface shadow-xl shadow-black/20">
+      <section className="grid grid-cols-1 gap-8 border-t border-line py-12 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-center lg:gap-14">
+        <figure className="min-w-0 rounded-2xl border border-white/5 bg-[radial-gradient(ellipse_at_top_left,#502827_0%,#281c20_45%,#111318_100%)] p-2 sm:p-5">
           <Image
             src="/images/korza-cli-setup.jpg"
             alt="Korza CLI setup, grouped into Essentials, AI tools and Languages. Installed tools show Ready. The selected tool’s actions appear below."
             width={1330}
             height={912}
             unoptimized
-            className="h-auto w-full"
+            className="h-auto w-full rounded-lg border border-white/15 shadow-[0_14px_32px_-8px_rgba(0,0,0,0.8)] sm:rounded-xl"
           />
         </figure>
         <div className="flex min-w-0 flex-col gap-3">
