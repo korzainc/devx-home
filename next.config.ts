@@ -1,8 +1,4 @@
 import type { NextConfig } from "next";
-import {
-  BUNDLED_ARCHIVE_NAME,
-  RETAINED_ARCHIVE_NAMES,
-} from "./src/lib/artifact";
 import { getSetupOrigin } from "./src/lib/setup-origin";
 
 const setupOrigin = getSetupOrigin();
@@ -30,30 +26,14 @@ const nextConfig: NextConfig = {
         destination: "/setup",
         permanent: false,
       },
-      // The sources are the versioned URLs DevX actually published, so they stay literal.
-      // The destinations track the shipped bundle so an old link still resolves rather than
-      // 404s once the artifact moves.
       {
         source: "/devx/devx-0.1.0-macos.tar.gz",
-        destination: `/korza/${BUNDLED_ARCHIVE_NAME}`,
+        destination: "/korza/korza-0.1.0-macos.tar.gz",
         permanent: false,
       },
       {
         source: "/devx/devx-0.1.0-macos.tar.gz.sha256",
-        destination: `/korza/${BUNDLED_ARCHIVE_NAME}.sha256`,
-        permanent: false,
-      },
-      // The unsuffixed name is what the previous release served, so it points at the retained
-      // copy of those bytes rather than at the current bundle. A script saved from that release
-      // then installs, where sending it to the current archive would fail its pinned checksum.
-      {
-        source: "/korza/korza-0.1.0-macos.tar.gz",
-        destination: `/korza/${RETAINED_ARCHIVE_NAMES[0]}`,
-        permanent: false,
-      },
-      {
-        source: "/korza/korza-0.1.0-macos.tar.gz.sha256",
-        destination: `/korza/${RETAINED_ARCHIVE_NAMES[0]}.sha256`,
+        destination: "/korza/korza-0.1.0-macos.tar.gz.sha256",
         permanent: false,
       },
     ];

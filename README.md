@@ -42,53 +42,25 @@ replacing an existing binary, then prints a setup command. It uses `korza setup`
 when PATH selects that binary, otherwise a safely quoted full path. It creates
 `kz` only when that name is available.
 
-The archive and its checksum live under [public/korza/](public/korza/). One
-thing about the bundle is checkable from this repository alone: the archive's
-SHA-256 matches its committed sidecar. Two further facts were observed
-externally on 2026-09-09 and are recorded here rather than reproducible from
-this repository: `public/korza/install.sh` was verified byte-for-byte identical
-to `install.sh` at `korza-cli` commit `d3192ad`, and the archive came from a
-local build of that commit whose manifest is not published. Treat the binary's
-provenance as recorded rather than independently verified until a signed public
-release replaces this path. Later CLI changes do not update the bundle
-automatically. Production builds reject demo/sandbox entry points;
-`korza setup --help` lists the supported setup flags.
+The current archive and checksum are in [public/korza/](public/korza/).
+This candidate was built on 2026-09-10 from the local `korza-cli` working tree
+based on `426fcf8`, including uncommitted fixes. It is ad-hoc signed; clean-VM
+acceptance is pending. Production builds exclude demo and sandbox modes.
+Later CLI changes do not update this bundle automatically.
 
-The archive URL carries the first 12 characters of its own digest, so each
-bundle has a distinct address. This is not about the copyable command on
-`/getting-started`, which holds only the `/setup` URL: `/setup` is `no-store`
-and generates its pin per request, so running that command fetches the bundle
-URL and digest generated for that request. It is about a saved generated
-installer script, which does embed a pin.
+The old `/devx/install.sh` URL redirects to `/setup`. The old versioned `/devx/`
+archive and checksum URLs redirect to the matching `/korza/` assets. The CLI
+repository is `korzainc/korza-cli`; this portal and `#devx` keep their names.
 
-Retain the archive and sidecar the preceding production release served, listed
-in `RETAINED_ARCHIVE_NAMES`, so a script saved from that release can still
-download the bytes it pins. Publication is what counts, not commit order: a
-rebuild that only ever existed on a branch has no saved scripts pinning it and
-is not retained. Exactly one pair is kept, and the unsuffixed
-`/korza/korza-0.1.0-macos.tar.gz` URL redirects to it rather than to the current
-bundle, so such a script installs instead of failing its checksum. A script
-older than that pair is no longer supported and gets a 404.
-
-The old `/devx/install.sh` URL redirects to `/setup`, and the old versioned
-`/devx/` archive and checksum URLs redirect to the current `/korza/` archive and
-checksum. The CLI repository is `korzainc/korza-cli`; this portal remains
-`korzainc/devx-home`, and the support channel remains `#devx`.
-
-The rename does not delete an old `~/.local/bin/devx` installation. Locate it
-with `command -v devx`; after `korza --version` succeeds and you confirm it is
-the earlier Korza CLI, remove only that old executable. Keep `~/.devx` state
-and the existing managed shell markers. `korza setup --remove` removes the
-managed shell block, not installed tools, the `korza` binary or the `kz` alias.
-The page FAQ includes this migration and removal guidance.
+`korza setup --remove` removes the managed shell block, not installed tools,
+the CLI binary or the `kz` alias. The FAQ explains what setup changes.
 
 ### Do any installer variables need configuring?
 
 **Normally, none.** Vercel supplies deployment domains, `/setup` generates the
 bundle URL and checksum pin, and the installer has directory and repository
-defaults. Only `KORZA_PUBLIC_ORIGIN` is an optional website setting. The other
-`KORZA_*` inputs below belong to the installer; they are not deployment
-requirements. Retired `DEVX_*` overrides are ignored.
+defaults. Use the `KORZA_*` names only when an override is needed. These are
+the only supported configuration names.
 
 | Setting               | What happens without a manual value                                                                                                                                        | Reason to retain it                                                                                                                    |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
@@ -96,7 +68,7 @@ requirements. Retired `DEVX_*` overrides are ignored.
 | `KORZA_DIST_URL`      | `/setup` generates the URL from the selected origin and committed artifact version. The standalone installer without this input looks up a GitHub release.                 | Pass the selected bundle to a shell script, which cannot recover its original download URL when piped or evaluated.                    |
 | `KORZA_DIST_SHA256`   | `/setup` reads the expected digest from the committed sidecar and embeds it. The standalone installer without a pin downloads a sidecar.                                   | Keep the expected digest tied to the selected bundle; calculating the downloaded file's hash alone cannot establish what was expected. |
 | `KORZA_BIN_DIR`       | The installer uses `$HOME/.local/bin`.                                                                                                                                     | Optional destination for the CLI binary, including isolated installer tests. If `HOME` is unavailable, a directory must be supplied.   |
-| `KORZA_REPO`          | The standalone installer uses `korzainc/korza-cli`.                                                                                                                        | Optional standalone installer override for another repository. It is ignored when `/setup` supplies the bundle URL.                    |
+| `KORZA_REPO`          | The standalone installer uses `korzainc/korza-cli`.                                                                                                                        | Optional alternative-repository testing. It is ignored when `/setup` supplies the bundle URL.                                          |
 
 The last four settings are **not Vercel dashboard inputs**. The generated URL
 and checksum are an interface between the website and its installer. Shell
@@ -145,25 +117,14 @@ KORZA_PUBLIC_ORIGIN=https://your-tunnel.example pnpm dev
 ```
 
 Only the selected host is added to Next's development-origin allowlist. HTTP
-origins are allowed only for loopback outside production. Locally, the page uses
-a compact download-then-run command, rejects redirects and waits for curl to
-succeed. Remote URLs and production builds retain the shebang guard to reject
-login HTML. This is response-format validation, not authentication of a script.
+origins are allowed only for loopback outside production. The page shows
+`curl -fsSL '<origin>/setup' | sh`. The URL must serve a public shell script.
+This pipeline does not screen HTML or buffer the whole script before execution.
 
 ### Release handoff and validation
 
-The bundle remains an ad-hoc-signed prerelease candidate. DX-161 covered public
-distribution and was canceled on 2026-09-09 as superseded by the deployment-origin
-flow, so the release transition below is not currently tracked by a ticket. A
-Vercel login page will stop the terminal installer; the HTML guard does not
-bypass deployment protection. The chosen host must serve `/setup` and the bundle
-without browser authentication. Keep the checksum sidecar accessible for manual
-verification as well.
-
-The retention rule above ends here too. Once installers resolve durable published
-release assets and the last website-pinned script has passed its retention
-window, stop committing archives to this repository and drop
-`RETAINED_ARCHIVE_NAMES`.
+The chosen host must serve `/setup` and the bundle without browser authentication.
+Keep the checksum sidecar accessible for manual verification as well.
 
 When the CLI release is ready:
 
@@ -178,16 +139,13 @@ When the CLI release is ready:
    command. A copied binary tested in a VM does not prove the hosted path works.
 
 For a bundled refresh before that transition, synchronize
-`public/korza/install.sh` with `korza-cli/install.sh` and copy the archive and
-checksum together, naming both after the first 12 characters of the new
-archive's digest. Update `BUNDLED_ARTIFACT_DIGEST` in `src/lib/artifact.ts`, and
-`BUNDLED_ARTIFACT_VERSION` if the CLI version moved. If the outgoing archive was
-published, point `PREVIOUS_PUBLISHED_DIGEST` at it and keep its files committed,
-dropping the pair before it; if it only ever existed on a branch, delete it and
-leave that constant alone. Update the recorded source commit and observation date
-above. `pnpm test` covers the naming, the sidecar and the
-installer; run it before deploying. A checksum detects mismatched bytes; it does
-not authenticate a compromised installer server.
+`public/korza/install.sh` with `korza-cli/install.sh`, copy the archive and checksum
+together, update `BUNDLED_ARTIFACT_VERSION` if needed, and update the source
+provenance above. Keep one archive and its matching checksum. Fetch `/setup`
+again after a refresh; an older saved script may pin the previous checksum.
+Check the route and installer tests before deploying.
+A checksum detects mismatched bytes; it does not authenticate a compromised
+installer server.
 
 ## Toolchain maintenance
 

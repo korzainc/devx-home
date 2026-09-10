@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { CommandField } from "@/components/install-panel";
-import { SetupCommand } from "@/components/setup-command";
+import { PreviewInstallCommand } from "@/components/preview-install";
 import { bootstrapCommand } from "@/lib/bootstrap-command";
 import { getSetupOrigin } from "@/lib/setup-origin";
 import { faq, manualCommands, walkthrough } from "@/lib/getting-started";
@@ -8,7 +8,7 @@ import { faq, manualCommands, walkthrough } from "@/lib/getting-started";
 export const metadata: Metadata = {
   title: "Getting started",
   description:
-    "Install korza in one command, then follow the guided Korza toolchain setup or run each step yourself.",
+    "Install Korza CLI in one command, then follow the guided toolchain setup or run each step yourself.",
 };
 
 function Pair({
@@ -24,7 +24,7 @@ function Pair({
     <section
       id={id}
       // scroll-mt clears the sticky header when an anchor link lands here.
-      className="grid scroll-mt-20 grid-cols-1 items-center gap-8 border-t border-line py-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-14"
+      className="grid scroll-mt-20 grid-cols-1 items-center gap-8 border-t border-line py-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start lg:gap-14"
     >
       <div className="min-w-0 rounded-xl border border-line bg-surface">
         {card}
@@ -43,7 +43,7 @@ export default function GettingStartedPage() {
   const command = origin ? bootstrapCommand(`${origin}/setup`) : null;
   return (
     <div className="flex flex-col">
-      <section className="grid grid-cols-1 items-center gap-8 pb-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-14">
+      <section className="grid grid-cols-1 items-center gap-8 pb-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start lg:gap-14">
         <div className="relative isolate flex flex-col gap-4">
           <span
             aria-hidden
@@ -53,16 +53,13 @@ export default function GettingStartedPage() {
             Install Korza CLI in one command.
           </h1>
           <p className="max-w-lg text-lg leading-relaxed text-ink-muted">
-            Then run the exact setup command printed by the installer to check
-            this machine and install what is missing. macOS to start, with the
-            manual steps available if you prefer them.
+            Then run the setup command the installer prints, to check this
+            machine and install what is missing. macOS only for now.
           </p>
         </div>
 
         <div className="flex flex-col gap-3">
-          <SetupCommand key={command} command={command} />
-          <p className="text-xs text-ink-faint">Pre-release macOS build.</p>
-
+          <PreviewInstallCommand key={command} command={command} />
           <a href="#manual" className={cta}>
             Prefer to run each step yourself? ↓
           </a>
@@ -98,9 +95,9 @@ export default function GettingStartedPage() {
           Guided setup.
         </h2>
         <p className="text-ink-muted">
-          korza checks your machine and helps install and configure the tools
-          you choose. Sign-ins and administrator prompts stay in your terminal
-          or browser.
+          Korza CLI checks your machine and helps install and configure the
+          tools you choose. Sign-ins and administrator prompts stay in your
+          terminal or browser.
         </p>
         <p className="text-sm text-ink-muted">
           Run <code>korza setup --help</code> for setup options, or press{" "}
@@ -113,10 +110,7 @@ export default function GettingStartedPage() {
           run.
         </p>
         <a href="#questions" className={cta}>
-          What if something fails, see the questions →
-        </a>
-        <a href="#manual" className={cta}>
-          Prefer to do this by hand instead? Skip to the manual steps ↓
+          What if something fails? See the questions →
         </a>
       </Pair>
 

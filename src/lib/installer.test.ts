@@ -23,8 +23,7 @@ type Scenario = {
   path?: "installed" | "shadowed";
 };
 
-// A shebang cannot quote its interpreter, and this machine's Node path contains a space, so each
-// fixture command is a wrapper that execs one shared script and names itself in the environment.
+// Use a shell wrapper so interpreter paths containing spaces work.
 function commandWrapper(name: string, interpreter: string, script: string) {
   return [
     "#!/bin/sh",
@@ -221,9 +220,6 @@ switch (name) {
 }
 
 describe("the fixture command wrapper", () => {
-  // This machine's Node path happens to contain a space; a CI runner's may not, which would let
-  // the quoting regress unnoticed and prevent the cases below from exercising their command
-  // paths.
   it("executes when the interpreter path contains a space", () => {
     const parent = join(process.cwd(), ".claude", "installer-tests");
     mkdirSync(parent, { recursive: true });

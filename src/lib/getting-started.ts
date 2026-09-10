@@ -4,13 +4,18 @@
 export const walkthrough: { does: string; detail: string }[] = [
   { does: "Checks your machine", detail: "Nothing changes yet." },
   {
+    does: "Waits for you to choose",
+    detail: "Enter starts the focused tool.",
+  },
+  {
     does: "Pauses when you are needed",
     detail:
       "For browser sign-in, an administrator password, or a secure SSH confirmation.",
   },
   {
     does: "Installs what is missing",
-    detail: "Reuses configured tools; finishes setup where needed.",
+    detail:
+      "Skips tools already configured, by default. An installed tool may still need sign-in.",
   },
   {
     does: "Proves each tool works",
@@ -100,7 +105,7 @@ export const manualCommands: {
       "curl -LsSf https://astral.sh/uv/install.sh | sh",
       "uv python install",
     ],
-    note: "Optional. The installer writes PATH setup into your shell config rather than the current shell, so open a new terminal (or run source $HOME/.local/bin/env) before the second command, or uv will not be found. A system or pyenv Python does not count here: this is specifically a uv-managed one, since that is what korza installs and verifies.",
+    note: "Optional. The installer writes PATH setup into your shell config rather than the current shell, so open a new terminal (or run source $HOME/.local/bin/env) before the second command, or uv will not be found. A system or pyenv Python does not count here: this is specifically a uv-managed one, since that is what Korza CLI installs and verifies.",
   },
   {
     tool: "Node (fnm)",
@@ -118,11 +123,7 @@ export const manualCommands: {
 export const faq: { q: string; a: string }[] = [
   {
     q: "What does it change on my machine?",
-    a: "korza setup installs missing tools and configures Git and GitHub access. It keeps its shell configuration in one marked block in ~/.zshrc. korza setup --remove removes only that block; installed tools, the korza binary and the kz alias remain. The manual installers manage their own shell configuration separately.",
-  },
-  {
-    q: "I installed the earlier devx CLI. What should I do?",
-    a: "Use korza from now on. The installer does not delete an older devx executable. Run command -v devx to locate it. Once korza --version works and you have confirmed that path is the earlier Korza CLI, you can delete that old executable. Keep ~/.devx and the existing shell markers: Korza still uses them. If you are unsure which file to remove, ask in #devx.",
+    a: "korza setup installs missing tools and configures Git and GitHub access. It keeps its shell configuration in one marked block in ~/.zshrc. korza setup --remove removes only that block; installed tools, the korza binary and the kz alias remain. The manual installers manage their own shell configuration separately. Its own state, the resume file and logs, stays in ~/.devx.",
   },
   {
     q: "Can I run it more than once?",
@@ -133,7 +134,7 @@ export const faq: { q: string; a: string }[] = [
     a: "The independent steps still run. The summary names the step that failed, the reason, and what to try next.",
   },
   {
-    q: "It is not letting me in, is that my machine?",
+    q: "It will not let me in. Is that my machine?",
     a: "Not always. Some blockers are access, not software, for example not yet being in the Korza GitHub org. Ask in #devx rather than retrying.",
   },
   {

@@ -46,7 +46,7 @@ describe("the Getting Started page", () => {
     render(<GettingStartedPage />);
     const hero = screen.getByRole("heading", { level: 1 }).closest("section");
     expect(hero?.textContent).toMatch(
-      /run the exact setup command printed by the installer/i,
+      /run the setup command the installer prints/i,
     );
   });
 

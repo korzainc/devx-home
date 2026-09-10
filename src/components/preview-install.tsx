@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-export function SetupCommand({ command }: { command: string | null }) {
+export function PreviewInstallCommand({ command }: { command: string | null }) {
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);

@@ -1,17 +1,18 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { BUNDLED_ARCHIVE_NAME } from "@/lib/artifact";
 import { shellQuote } from "@/lib/shell-quote";
 
-// Serve the vendored installer with this deployment's interim bundled distribution,
-// including in production. Switching to published release assets is a later step;
-// see the release handoff section in the README.
-// Reconcile installer fixes with korza-cli when updating the script, archive and checksum.
+// Serve this deployment's bundle until /setup switches to GitHub releases.
+// Update the installer, archive and checksum together from korza-cli.
+
+/** Bump this alongside the files committed under public/korza/. */
+export const BUNDLED_ARTIFACT_VERSION = "0.1.0";
+const TARBALL_NAME = `korza-${BUNDLED_ARTIFACT_VERSION}-macos.tar.gz`;
 
 export function artifactPaths() {
   return {
-    tarball: `/korza/${BUNDLED_ARCHIVE_NAME}`,
-    checksum: `/korza/${BUNDLED_ARCHIVE_NAME}.sha256`,
+    tarball: `/korza/${TARBALL_NAME}`,
+    checksum: `/korza/${TARBALL_NAME}.sha256`,
   };
 }
 
@@ -24,14 +25,14 @@ function canonicalInstallScript(): string {
 
 function bundledChecksum(): string {
   const [digest, filename, ...extra] = readFileSync(
-    join(process.cwd(), "public", "korza", `${BUNDLED_ARCHIVE_NAME}.sha256`),
+    join(process.cwd(), "public", "korza", `${TARBALL_NAME}.sha256`),
     "utf8",
   )
     .trim()
     .split(/\s+/);
   if (
     !/^[0-9a-fA-F]{64}$/.test(digest) ||
-    filename !== BUNDLED_ARCHIVE_NAME ||
+    filename !== TARBALL_NAME ||
     extra.length !== 0
   ) {
     throw new Error("The bundled korza checksum is invalid.");
