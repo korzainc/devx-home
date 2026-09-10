@@ -4,7 +4,7 @@ import ToolsPage from "@/app/tools/page";
 
 // `ToolsPage` stays a plain (non-async) function so the static shell above it prerenders; the
 // actual `searchParams` parsing happens in a nested async `Catalogue` component, deferred behind
-// `Suspense` (mirroring `gap-analysis/page.tsx`). React 19 client rendering can't mount an async
+// `Suspense` (mirroring `ci-coverage/page.tsx`). React 19 client rendering can't mount an async
 // component directly ("Only Server Components can be async at the moment"), so this drives the
 // element tree the same way React itself does: call the component functions directly and inspect
 // what they return, without going through ReactDOM.

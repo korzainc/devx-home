@@ -1,9 +1,9 @@
 ---
 date: 2026-08-22
-title: Gap analysis tells you what your CI is missing
+title: CI coverage tells you what your pipeline is missing
 ---
 
-Paste a repo into [gap analysis](/gap-analysis) and you get back the checks it
+Paste a repo into [CI coverage](/ci-coverage) and you get back the checks it
 should be running and is not, in about two seconds.
 
 ### Try it on something you own
@@ -11,7 +11,7 @@ should be running and is not, in about two seconds.
 Give it `owner/repo` or a full GitHub URL. It reads the repo through the API and
 never clones, so there is nothing to install and nothing to configure first.
 
-The repo is part of the URL, so `/gap-analysis?repo=owner/name` is a link you can
+The repo is part of the URL, so `/ci-coverage?repo=owner/name` is a link you can
 drop into a ticket or a PR review, and it runs when someone opens it.
 
 ### It shows its work

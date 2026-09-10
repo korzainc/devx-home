@@ -42,7 +42,7 @@ function CopyButton({ prompt }: { prompt: string }) {
           () => {},
         );
       }}
-      className={`inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
         copied
           ? "text-positive"
           : "text-ink-faint hover:bg-line/40 hover:text-ink"
@@ -122,7 +122,7 @@ function PromptOverlay({
           <div className="flex items-center gap-2">
             <Sparkle className="h-3.5 w-3.5 text-positive" />
             <h3 id="fix-prompt-title" className="text-sm font-medium text-ink">
-              Fix instructions for optimising CI pipeline
+              Fix instructions for your CI pipeline
             </h3>
           </div>
           <CopyButton prompt={prompt} />
@@ -179,7 +179,7 @@ export function FixPromptButton({ prompt }: { prompt: string }) {
         style={{ "--fx-lap": `${lapMs}ms` } as React.CSSProperties}
         className={`fx-sweep ${
           charging ? "is-charging" : ""
-        } inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-positive px-3 py-1.5 text-sm font-medium text-positive transition-colors hover:bg-positive-wash`}
+        } inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-positive px-3 py-1.5 text-sm font-medium text-positive transition-colors hover:bg-positive-wash`}
       >
         <Sparkle />
         Generate fix prompt

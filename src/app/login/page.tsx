@@ -7,7 +7,7 @@ import { signInWithGitHub } from "@/lib/auth-actions";
 export const metadata: Metadata = {
   title: "Log in",
   description:
-    "Log in to Korza DevX with your GitHub account. The gap analysis reads repositories with your own access.",
+    "Log in to Korza DevX with your GitHub account. The CI coverage report reads repositories with your own access.",
 };
 
 const comingSoon = ["GitLab", "Azure DevOps"];

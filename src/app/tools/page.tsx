@@ -7,6 +7,7 @@ import {
   publicToolEntry,
   visibleTools,
 } from "@/lib/catalogue";
+import { parseFilterParam } from "@/lib/filter";
 
 export const metadata: Metadata = {
   title: "CI Tools",
@@ -14,18 +15,6 @@ export const metadata: Metadata = {
 };
 
 type Params = Pick<PageProps<"/tools">, "searchParams">;
-
-// Splits only. Whether a value names a real stack or check is decided in ToolsCatalogue, which is
-// the side that holds both lists; anything else is dropped there rather than filtered on.
-// A repeated key arrives as an array and is ignored, so `?stack=go&stack=java` reads as no pick
-// at all instead of silently honouring one of the two.
-function parseList(value: string | string[] | undefined): string[] {
-  if (typeof value !== "string" || value.length === 0) return [];
-  return value
-    .split(",")
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0);
-}
 
 // The promise is awaited here rather than in the page so that everything above it prerenders.
 // Reading a request-time value in the page body would make the whole route render on demand.
@@ -35,8 +24,8 @@ async function Catalogue({ searchParams }: Params) {
     <ToolsCatalogue
       entries={visibleTools.map(publicToolEntry)}
       capabilityLabels={capabilityLabels}
-      initialStacks={parseList(params.stack)}
-      initialChecks={parseList(params.check)}
+      initialStacks={parseFilterParam(params.stack)}
+      initialChecks={parseFilterParam(params.check)}
     />
   );
 }

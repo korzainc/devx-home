@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import GapAnalysisPage from "@/app/gap-analysis/page";
+import CiCoveragePage from "@/app/ci-coverage/page";
 import type { RunResult } from "@/lib/gap/run";
 import type { Analysis } from "@/lib/gap/types";
 import { noscriptBlocks } from "@/test-utils/noscript";
@@ -131,12 +131,12 @@ afterEach(() => {
 });
 
 const page = (repo?: string) => (
-  <GapAnalysisPage
+  <CiCoveragePage
     searchParams={Promise.resolve(repo === undefined ? {} : { repo })}
   />
 );
 
-describe("the gap-analysis page, for a client running no script", () => {
+describe("the CI coverage page, for a client running no script", () => {
   it("shows the requested repository in the form", async () => {
     // The surviving half of DX-100's second acceptance bullet: since #42 a signed-out reader gets
     // a real report, so there is no prompt left to assert on here.
@@ -216,7 +216,7 @@ describe("the gap-analysis page, for a client running no script", () => {
 
 // Separate, because both of these live inside the boundary: a client running no script sees
 // neither. They pin the server's output, which is a different subject from the suite above.
-describe("the gap-analysis page, once the analysis resolves", () => {
+describe("the CI coverage page, once the analysis resolves", () => {
   it("offers a login when an anonymous read fails in a way that a login would fix", async () => {
     // `signingInWouldHelp` in the page: only a signed-out 404 or 429 earns the prompt. Subtle
     // enough to have produced a live bug already, per its own comment on 403.

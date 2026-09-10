@@ -1,10 +1,10 @@
 ---
 date: 2026-09-01
-title: Turn a gap report into a prompt for your coding agent
+title: Turn a coverage report into a prompt for your coding agent
 ---
 
-A [gap report](/gap-analysis) now has a Generate fix prompt button next to the
-score. It writes a brief listing the checks you are missing, the tools that would
+A [CI coverage](/ci-coverage) report now has a Generate fix prompt button next
+to the score. It writes a brief listing the checks you are missing, the tools that would
 cover each one, and what is already running so nothing gets added twice.
 
 Copy it, open your repository in a coding agent, and paste.

@@ -1,7 +1,7 @@
 ---
 title: Explain CI steps the catalogue does not recognise
 stage: exploring
-category: gap analysis
+category: CI coverage
 outcome: Know what your pipeline is missing
 summary: A bespoke script reads as a gap even when it does the job. We want to
   interpret those steps and label anything we infer.

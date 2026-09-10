@@ -1,13 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { CatalogueTabs } from "@/components/catalogue-tabs";
 import { SkillsFirstRunNudge } from "@/components/skills-first-run";
-import {
-  browsableSkills,
-  indexSchemaVersion,
-  plugins,
-  toolchainSkills,
-} from "@/lib/catalogue";
+import { plugins, skills } from "@/lib/catalogue";
+import { parseFilterParam } from "@/lib/filter";
 
 export const metadata: Metadata = {
   title: "Skills",
@@ -15,7 +12,27 @@ export const metadata: Metadata = {
     "Plugins published to the Korza marketplace, and the skills they bundle.",
 };
 
-export default function SkillsPage() {
+type Params = Pick<PageProps<"/skills">, "searchParams">;
+
+// Awaited here rather than in the page so everything above it still prerenders: reading a
+// request-time value in the page body would render the whole route on demand.
+async function Tabs({ searchParams }: Params) {
+  const params = await searchParams;
+  return (
+    <CatalogueTabs
+      plugins={plugins}
+      skills={skills}
+      initialSkillFilters={{
+        for: parseFilterParam(params.for),
+        agent: parseFilterParam(params.agent),
+        plugin: parseFilterParam(params.plugin),
+        origin: parseFilterParam(params.origin),
+      }}
+    />
+  );
+}
+
+export default function SkillsPage({ searchParams }: Params) {
   return (
     <div className="flex flex-col gap-10">
       {/* Renders nothing until a client has read localStorage, so the catalogue below is what
@@ -31,28 +48,14 @@ export default function SkillsPage() {
         >
           ← Home
         </Link>
-        <CatalogueTabs
-          plugins={plugins}
-          skills={browsableSkills}
-          toolchain={toolchainSkills}
-        />
-      </div>
-
-      {/* Provenance only. A date or a tally written here goes stale the next time the index
-          is regenerated, and deriving the tally from skill rows undercounts: an entry that
-          ships no skills has no rows. Each entry's ref is on its own page instead. */}
-      <footer className="border-t border-line pt-4 font-mono text-xs text-ink-faint">
-        Skill index: schema v{indexSchemaVersion}, generated from the entries
-        listed in{" "}
-        <a
-          href="https://github.com/korzainc/marketplace"
-          className="hover:text-accent"
+        {/* The fallback is the same tabs with no initial selection, so the prerendered shell
+            already shows a usable catalogue and only the picks stream in. */}
+        <Suspense
+          fallback={<CatalogueTabs plugins={plugins} skills={skills} />}
         >
-          korzainc/marketplace
-        </a>
-        . Each entry is read at the ref the catalogue records, which its own
-        page shows beside its name.
-      </footer>
+          <Tabs searchParams={searchParams} />
+        </Suspense>
+      </div>
     </div>
   );
 }

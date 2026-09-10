@@ -174,7 +174,7 @@ export default function Home() {
             {/* A plain GET form, so the field works before any JavaScript loads. The report page
                 reads `repo` from the query string and runs the analysis on arrival. */}
             <form
-              action="/gap-analysis"
+              action="/ci-coverage"
               className="flex w-full flex-col gap-2 sm:flex-row"
             >
               {/* `required` rather than a disabled button, which would need this to be a client

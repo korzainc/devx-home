@@ -15,7 +15,7 @@ gone. Every tool, its capabilities, and the stacks it applies to come from the
 catalogue Korza actually maintains.
 
 That matters more than it might seem, because
-[gap analysis](/roadmap/gap-analysis) reads the same catalogue for its
+[CI coverage](/roadmap/ci-coverage) reads the same catalogue for its
 baselines. What a report tells you is missing is now measured against a list
 Korza has agreed to, using tools it has decided to recommend, not an invented
 one.

@@ -2,8 +2,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
 import korzaLogo from "@/assets/korza-logo.png";
+import { AccountMenu } from "@/components/account-menu";
 import { NavMenu } from "@/components/nav-menu";
 import { signOut } from "@/lib/auth-actions";
+import { avatarSrc, initials } from "@/lib/avatar";
 import { getSession } from "@/lib/session";
 
 export function SiteHeader() {
@@ -52,7 +54,7 @@ export function SiteHeader() {
           <NavLinks />
           <NoScriptLoginLink />
           <Suspense fallback={null}>
-            <AuthControl />
+            <AuthControl inMenu />
           </Suspense>
         </NavMenu>
       </div>
@@ -63,19 +65,18 @@ export function SiteHeader() {
 const navLink =
   "text-sm whitespace-nowrap text-ink-muted transition-colors hover:text-ink";
 
+/**
+ * One link, not the four the site has pages for. The rest live in the footer.
+ *
+ * The bar is what a reader carries on every page, and only Getting started earns that: Skills and
+ * Tools are where they already are once they are browsing, and Roadmap and Updates are read
+ * occasionally rather than moved through.
+ */
 function NavLinks() {
   return (
-    <>
-      <Link href="/getting-started" className={navLink}>
-        Getting started
-      </Link>
-      <Link href="/roadmap" className={navLink}>
-        Roadmap
-      </Link>
-      <Link href="/updates" className={navLink}>
-        Updates
-      </Link>
-    </>
+    <Link href="/getting-started" className={navLink}>
+      Getting started
+    </Link>
   );
 }
 
@@ -103,24 +104,89 @@ function NoScriptLoginLink() {
   );
 }
 
-async function AuthControl() {
+/**
+ * The account block, in the two places the header draws it.
+ *
+ * `inMenu` is the narrow-width copy, inside the hamburger. It stays flat: a dropdown nested in a
+ * dropdown would need two taps to reach a single item, and that panel already separates the
+ * account from the links by stacking them.
+ */
+async function AuthControl({ inMenu = false }: { inMenu?: boolean }) {
   const session = await getSession();
 
   if (!session) return <LoginLink />;
 
+  const { name, email, image } = session.user;
+  const avatar = <Avatar image={image} name={name} />;
+
+  if (inMenu)
+    return (
+      <>
+        <span className="flex items-center gap-2">
+          {avatar}
+          <span className="truncate text-sm text-ink-muted">{name}</span>
+        </span>
+        <SignOut className={navLink} />
+      </>
+    );
+
   return (
-    <div className="flex items-center gap-3">
-      <span className="hidden text-sm text-ink-muted sm:inline">
-        {session.user.name}
+    <>
+      {/* The whole of the fix: a rule between going somewhere and being someone, so the account
+          stops reading as a fourth destination in the row. */}
+      <span aria-hidden className="h-5 w-px bg-line" />
+      <AccountMenu trigger={avatar}>
+        <div className="px-2.5 py-2">
+          <p className="truncate text-sm text-ink">{name}</p>
+          <p className="truncate text-xs text-ink-faint">{email}</p>
+        </div>
+        {/* `mx-2.5` matches the rows' own padding, so the rule starts where the name, the email
+            and the Log out label do. Left to the panel's `p-1.5` it sat 10px short of all three
+            and lined up with nothing. */}
+        <hr className="mx-2.5 my-1.5 border-line" />
+        <SignOut className="block w-full rounded-md px-2.5 py-1.5 text-left text-sm text-ink-muted transition-colors hover:bg-surface hover:text-ink" />
+      </AccountMenu>
+    </>
+  );
+}
+
+function SignOut({ className }: { className: string }) {
+  return (
+    <form action={signOut} className="contents">
+      <button type="submit" className={className}>
+        Log out
+      </button>
+    </form>
+  );
+}
+
+/**
+ * A plain `img`, not `next/image`: the optimizer would need `avatars.githubusercontent.com` in
+ * `remotePatterns` and would then proxy a file GitHub's own CDN already sizes and caches.
+ *
+ * `image` is nullable in the schema. Every row carries one today, because Better Auth writes
+ * `profile.avatar_url` at sign-up, but initials cost less than a broken image in the header.
+ */
+function Avatar({ image, name }: { image?: string | null; name: string }) {
+  const shape = "h-8 w-8 shrink-0 rounded-full border border-line";
+
+  if (!image)
+    return (
+      <span
+        className={`${shape} flex items-center justify-center bg-surface-raised font-mono text-[0.6875rem] text-ink-muted`}
+      >
+        {initials(name)}
       </span>
-      <form action={signOut}>
-        <button
-          type="submit"
-          className="rounded-lg border border-line px-3 py-1.5 text-sm whitespace-nowrap text-ink-muted transition-colors hover:text-ink"
-        >
-          Log out
-        </button>
-      </form>
-    </div>
+    );
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={avatarSrc(image)}
+      alt=""
+      width={32}
+      height={32}
+      className={`${shape} object-cover`}
+    />
   );
 }

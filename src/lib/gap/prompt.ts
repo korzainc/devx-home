@@ -149,7 +149,7 @@ export function buildFixPrompt(analysis: Analysis): string {
   const stacks =
     analysis.stacks.length > 0
       ? analysis.stacks.map((stack) => stack.label).join(", ")
-      : "none, no manifest was recognised at the repo root";
+      : "none, no manifest in the repository was recognised";
 
   // A repo with nothing detected is the case this whole feature exists for, so none of these
   // sections can assume it has rows. A markdown table with a header and no body reads as a

@@ -4,6 +4,12 @@ import skillsData from "@/data/skills.json";
 import realCatalogueData from "@/data/catalogue.json";
 import { capabilityLabelOverrides } from "@/data/capability-labels";
 import { installConfigs } from "@/data/install-configs";
+import {
+  AUDIENCE_FALLBACK,
+  pluginAudiences,
+  skillAudiences,
+} from "@/data/skill-audiences";
+import { CATEGORY_FALLBACK, skillCategories } from "@/data/skill-categories";
 import { toolCardSummaries } from "@/data/tool-card-summaries";
 import {
   isBundle,
@@ -24,7 +30,6 @@ import type { Baseline, DetectSignals } from "@/lib/gap/types";
 // skillCountByPlugin exist in catalogue-entries specifically so a client component never has to
 // import this module at all, so re-advertising them here would undo the reason for the split.
 export {
-  CATEGORIES,
   isBundle,
   publicToolEntry,
   shortAgents,
@@ -271,22 +276,28 @@ export function toolInstallMethods(id: string): InstallMethod[] {
   ];
 }
 
-export const plugins: PluginEntry[] = pluginsData;
+// Audience and category both come off local overlays, so they are merged in here rather than read
+// alongside the entry everywhere they are needed. Audience is a field upstream does not carry;
+// category is one it does, and this deliberately replaces it. An id an overlay does not name falls
+// back rather than throwing: a sync that adds one should still show the new row, and the seam test
+// beside the overlay is what fails.
+export const plugins: PluginEntry[] = (
+  pluginsData as Omit<PluginEntry, "audiences">[]
+).map((plugin) => ({
+  ...plugin,
+  audiences: pluginAudiences[plugin.id] ?? AUDIENCE_FALLBACK,
+}));
 
-export const skills: SkillEntry[] = (skillsData.skills as SkillEntry[]).filter(
-  (skill) => skill.status !== "Planned",
-);
-
-export const browsableSkills: SkillEntry[] = skills.filter(
-  (skill) => skill.kind === "skill",
-);
-
-/** Listed and searchable, but outside every facet. */
-export const toolchainSkills: SkillEntry[] = skills.filter(
-  (skill) => skill.kind !== "skill",
-);
-
-export const indexSchemaVersion: number = skillsData.schemaVersion;
+export const skills: SkillEntry[] = (
+  skillsData.skills as Omit<SkillEntry, "audiences" | "category">[]
+)
+  .filter((skill) => skill.status !== "Planned")
+  .map((skill) => ({
+    ...skill,
+    audiences: skillAudiences[skill.id] ?? AUDIENCE_FALLBACK,
+    // Spread first, so the generator's own category is overwritten rather than merged beside.
+    category: skillCategories[skill.id] ?? CATEGORY_FALLBACK,
+  }));
 
 export function skillsForPlugin(pluginId: string): SkillEntry[] {
   return skills.filter((skill) => skill.plugin === pluginId);
