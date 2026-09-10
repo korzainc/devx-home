@@ -5,7 +5,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { SkillsFirstRunNudge } from "@/components/skills-first-run";
 
-const KEY = "devx.skills.intro.dismissed";
+import { INTRO_SEEN_KEY as KEY } from "@/lib/skills-intro-seen";
 
 afterEach(cleanup);
 beforeEach(() => window.localStorage.clear());
@@ -64,11 +64,26 @@ describe("the first-run nudge", () => {
   });
 
   /** Following either link is a decision; it should not greet you again afterwards. */
-  it("records the dismissal when the tour is opened", () => {
+  /**
+   * Deliberately not dismissed on click. Doing so unmounted the overlay while the destination
+   * was still loading, exposing the bare catalogue for that moment. The intro pages record the
+   * flag on arrival instead, so the overlay stays up until `/skills` unmounts.
+   */
+  it.each([/Show me around/, /See it run/])(
+    "stays up when %s is clicked, so the catalogue is never left bare",
+    (name) => {
+      render(<SkillsFirstRunNudge />);
+      clickWithoutNavigating(screen.getByRole("link", { name }));
+
+      expect(dialog()).not.toBeNull();
+      expect(window.localStorage.getItem(KEY)).toBeNull();
+    },
+  );
+
+  // Skip is the one control that means dismissed without seeing anything, so it still writes.
+  it("records the dismissal when it is skipped", () => {
     render(<SkillsFirstRunNudge />);
-    clickWithoutNavigating(
-      screen.getByRole("link", { name: /Show me around/ }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: /Skip for now/ }));
     expect(window.localStorage.getItem(KEY)).toBe("1");
   });
 

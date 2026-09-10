@@ -9,9 +9,11 @@ import {
   useSyncExternalStore,
 } from "react";
 
-const KEY = "devx.skills.intro.dismissed";
-/** Same-tab writes do not fire `storage`, so the setter announces itself. */
-const EVENT = "devx:skills-intro-dismissed";
+import {
+  INTRO_SEEN_EVENT as EVENT,
+  isIntroSeen,
+  markIntroSeen,
+} from "@/lib/skills-intro-seen";
 
 function subscribe(onChange: () => void) {
   window.addEventListener(EVENT, onChange);
@@ -20,16 +22,6 @@ function subscribe(onChange: () => void) {
     window.removeEventListener(EVENT, onChange);
     window.removeEventListener("storage", onChange);
   };
-}
-
-function isDismissed() {
-  try {
-    return window.localStorage.getItem(KEY) === "1";
-  } catch {
-    // Storage can be blocked outright. Treat that as dismissed: a nudge that cannot remember
-    // being closed would return on every visit, which is worse than never appearing.
-    return true;
-  }
 }
 
 /**
@@ -49,22 +41,20 @@ export function SkillsFirstRunNudge() {
    * quota, the write was swallowed, the re-read still returned null, and the overlay could
    * never be closed by Skip or Escape. Closing must not depend on persisting succeeding.
    */
-  const stored = useSyncExternalStore(subscribe, isDismissed, serverSnapshot);
+  const stored = useSyncExternalStore(subscribe, isIntroSeen, serverSnapshot);
   const [closedHere, setClosedHere] = useState(false);
   const dismissed = stored || closedHere;
   const dialog = useRef<HTMLDivElement | null>(null);
 
+  /**
+   * Only `Skip for now` and Escape call this. The two intro links deliberately do not: they
+   * used to, which unmounted the overlay while the destination was still loading and left the
+   * bare catalogue on screen. `SkillsIntroSeen` records the flag on arrival instead.
+   */
   const dismiss = useCallback(() => {
     // First, so it closes whether or not the rest of this works.
     setClosedHere(true);
-    try {
-      window.localStorage.setItem(KEY, "1");
-    } catch {
-      // A full quota, or a browser refusing writes. It stays closed for this view; it will
-      // greet the reader again next visit, which is the honest outcome when nothing can be
-      // remembered.
-    }
-    window.dispatchEvent(new Event(EVENT));
+    markIntroSeen();
   }, []);
 
   /**
@@ -200,14 +190,12 @@ export function SkillsFirstRunNudge() {
             <div className="flex flex-wrap items-center gap-3">
               <Link
                 href="/skills-intro/demo"
-                onClick={dismiss}
                 className="rounded-lg border border-line-strong bg-accent-wash px-4 py-2.5 text-sm font-medium text-ink transition-colors hover:border-accent"
               >
                 See it run
               </Link>
               <Link
                 href="/skills-intro"
-                onClick={dismiss}
                 className="rounded-lg border border-line px-4 py-2.5 text-sm font-medium text-ink transition-colors hover:border-line-strong"
               >
                 Show me around
