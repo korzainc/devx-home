@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { CommandField } from "@/components/install-panel";
 import { PreviewInstallCommand } from "@/components/preview-install";
 import { bootstrapCommand } from "@/lib/bootstrap-command";
 import { getSetupOrigin } from "@/lib/setup-origin";
-import { faq, manualCommands, walkthrough } from "@/lib/getting-started";
+import { faq, manualCommands } from "@/lib/getting-started";
 
 export const metadata: Metadata = {
   title: "Getting started",
@@ -47,8 +48,6 @@ function ManualNote({ note }: { note: string | string[] }) {
   );
 }
 
-const row = "flex items-baseline gap-4 border-b border-line px-5 py-3 text-sm";
-const caption = "px-5 pt-3 pb-4 text-xs text-ink-faint";
 const cta = "text-sm font-medium text-accent hover:underline";
 
 export default function GettingStartedPage() {
@@ -79,41 +78,38 @@ export default function GettingStartedPage() {
         </div>
       </section>
 
-      <Pair
-        card={
-          <>
-            <ol className="flex flex-col">
-              {walkthrough.map((step, index) => (
-                <li key={step.does} className={`${row} last:border-b-0`}>
-                  <span className="font-mono text-xs text-accent">
-                    {index + 1}
-                  </span>
-                  <span className="flex flex-col">
-                    <span className="text-ink">{step.does}</span>
-                    <span className="text-xs text-ink-muted">
-                      {step.detail}
-                    </span>
-                  </span>
-                </li>
-              ))}
-            </ol>
-            <p className={caption}>
-              Setup time depends on downloads and sign-ins.
-            </p>
-          </>
-        }
-      >
-        <h2 className="font-display text-2xl font-semibold tracking-tight">
-          Guided setup.
-        </h2>
-        <p className="text-ink-muted">
-          Choose a tool and press Enter to set it up. You can choose more tools
-          while setup runs. Press <code>?</code> for help.
-        </p>
-        <a href="#questions" className={cta}>
-          Need help? →
+      <section className="grid grid-cols-1 gap-8 border-t border-line py-12 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-center lg:gap-14">
+        <a
+          href="/images/korza-cli-setup.jpg"
+          aria-label="View the Korza CLI preview at full size"
+          className="block min-w-0 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+        >
+          <figure className="overflow-hidden rounded-xl border border-line bg-surface shadow-xl shadow-black/20">
+            <Image
+              src="/images/korza-cli-setup.jpg"
+              alt="Korza CLI setup, grouped into Essentials, AI tools and Languages. Installed tools show Ready. The selected tool’s actions appear below."
+              width={1330}
+              height={912}
+              unoptimized
+              className="h-auto w-full"
+            />
+            <figcaption className="border-t border-line px-5 py-3 text-xs text-ink-muted">
+              CLI preview · View full size ↗
+            </figcaption>
+          </figure>
         </a>
-      </Pair>
+        <div className="flex min-w-0 flex-col gap-3">
+          <h2 className="font-display text-2xl font-semibold tracking-tight">
+            Guided setup.
+          </h2>
+          <p className="text-ink-muted">
+            Choose your tools. Korza CLI guides you through setup.
+          </p>
+          <a href="#questions" className={cta}>
+            Need help? →
+          </a>
+        </div>
+      </section>
 
       <Pair
         id="manual"

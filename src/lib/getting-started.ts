@@ -1,24 +1,4 @@
-/** Setup overview and manual commands for the Getting started page. */
-
-/** Guided setup overview. */
-export const walkthrough: { does: string; detail: string }[] = [
-  {
-    does: "Choose your tools",
-    detail: "See what’s already set up and choose what you need.",
-  },
-  {
-    does: "Install what’s missing",
-    detail: "Korza CLI installs your choices and any tools they need.",
-  },
-  {
-    does: "Sign in when asked",
-    detail: "Follow prompts in your terminal or browser.",
-  },
-  {
-    does: "See what’s ready",
-    detail: "Get next steps or instructions to finish an incomplete setup.",
-  },
-];
+/** Manual commands and questions for the Getting started page. */
 
 /** The commands themselves, one disclosure per tool. Closed by default. */
 export const manualCommands: {
