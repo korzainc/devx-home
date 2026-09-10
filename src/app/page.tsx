@@ -185,7 +185,7 @@ export default function Home() {
           <div className="flex flex-col items-start gap-2.5 pt-2">
             <Link
               href="/getting-started"
-              className="rounded-lg bg-ink px-5 py-2.5 text-sm font-medium text-canvas transition-opacity hover:opacity-85"
+              className="fx-rim rounded-lg bg-surface-raised px-5 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-line"
             >
               Set up your machine →
             </Link>
@@ -231,7 +231,7 @@ export default function Home() {
               />
               <button
                 type="submit"
-                className="rounded-lg bg-ink px-4 py-2 text-sm font-medium whitespace-nowrap text-canvas transition-opacity hover:opacity-85"
+                className="fx-rim rounded-lg bg-surface-raised px-4 py-2 text-sm font-medium whitespace-nowrap text-ink transition-colors hover:bg-line"
               >
                 Analyze
               </button>

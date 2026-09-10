@@ -109,8 +109,12 @@ html {
    element. Unlayered, this rule would beat every layered utility no matter how specific. */
 @layer base {
   :focus-visible {
-    outline: 2px solid var(--ink);
-    outline-offset: 2px;
+    outline: 1px solid var(--ink-muted);
+    outline-offset: 3px;
+    /* A hairline alone is easy to miss at 1px, so it sits in a faint halo of its own colour.
+       Two rings at different strengths read as focus from across the page while the thing in
+       focus keeps its own edge. */
+    box-shadow: 0 0 0 5px color-mix(in oklab, var(--ink-muted) 12%, transparent);
   }
 
   /* Every `button` in the app computed `cursor: default`, so nothing but the `summary` menus read
@@ -180,6 +184,45 @@ html {
   to {
     --sweep: 360deg;
   }
+}
+
+/* A silver hairline around a dark control, brightest along the top edge and gone by the bottom,
+   the way light falls on a raised lip. This is the edge the panels and the band already have,
+   turned up far enough to make a button read as a button.
+
+   A masked pseudo-element rather than a border, for the same reason the band's outline is one: a
+   border takes a single flat colour and cannot carry the gradient. `padding: 1px` sets the rim's
+   thickness, and excluding the content box from the mask leaves only that 1px frame painted.
+
+   `--rim` is a plain custom property, not registered: it steps on hover rather than easing,
+   which is what a highlight catching an edge does anyway. */
+.fx-rim {
+  position: relative;
+  --rim: var(--ink-muted);
+}
+.fx-rim:hover {
+  --rim: var(--ink);
+}
+.fx-rim::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    var(--rim),
+    color-mix(in oklab, var(--rim) 18%, transparent)
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
 }
 
 /* Markdown from content/ renders to bare HTML with no utility classes on it, and preflight has

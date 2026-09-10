@@ -146,7 +146,7 @@ function RepoForm({ target }: { target: string }) {
         </div>
         <button
           type="submit"
-          className="rounded-lg bg-ink px-4 py-2 text-sm font-medium whitespace-nowrap text-canvas transition-opacity hover:opacity-85"
+          className="fx-rim rounded-lg bg-surface-raised px-4 py-2 text-sm font-medium whitespace-nowrap text-ink transition-colors hover:bg-line"
         >
           Analyze
         </button>
