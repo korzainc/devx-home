@@ -18,7 +18,6 @@ import { SiteFooter } from "@/components/site-footer";
 const UNLISTED = new Set([
   "api", // route handlers
   "setup", // the install script, a route handler
-  "scrap", // throwaway design sketches
   "login", // the header's own control, and only for the signed out
 ]);
 
