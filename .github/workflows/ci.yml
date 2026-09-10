@@ -218,3 +218,22 @@ jobs:
           path: kingfisher.json
           if-no-files-found: ignore
           retention-days: 7
+
+  # Dependency scan + source SBOM, via the shared-workflows sca leaf - shared, versioned pipeline
+  # rather than a second hand-rolled Trivy invocation. Advisory (blocking left at its default
+  # false) so this never gates a PR on top of the `dependencies` job above, which already does
+  # that with tuning specific to this repo (TRIVY_INCLUDE_DEV_DEPS, the ignore-unfixed floor).
+  # This job's own value is the source SBOM it publishes on push to main - see
+  # korzainc/shared-workflows#76 (DX-122). TEMP: pinned to the dx-122 temp-wiring branch until
+  # #76 merges and a real 0.2.0 is cut, then revert to @v4.
+  sbom:
+    name: dependencies (source SBOM)
+    uses: korzainc/shared-workflows/.github/workflows/security-sca.yml@vinaypolisetti/dx-122-devxhome-temp-wiring
+    permissions:
+      contents: read
+      id-token: write
+      checks: write # required unconditionally by post_annotations's default of true
+    with:
+      azure_client_id: ${{ vars.CI_COMMON_AZURE_CLIENT_ID }}
+      azure_tenant_id: ${{ vars.CI_COMMON_AZURE_TENANT_ID }}
+      azure_subscription_id: ${{ vars.CI_COMMON_AZURE_SUBSCRIPTION_ID }}
