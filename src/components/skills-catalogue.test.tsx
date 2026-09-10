@@ -252,8 +252,12 @@ describe("the skills catalogue", () => {
     );
     // A setup or meta row the query does NOT match, or this cannot tell "search reaches them"
     // from "they are always listed in full".
-    expect(TOOLCHAIN.some((skill) => skill.name === "teach")).toBe(true);
-    expect(shown.some((skill) => skill.name === "teach")).toBe(false);
+    expect(TOOLCHAIN.some((skill) => skill.name === "writing-for-agents")).toBe(
+      true,
+    );
+    expect(shown.some((skill) => skill.name === "writing-for-agents")).toBe(
+      false,
+    );
   });
 
   it("finds a skill by the job it does, not only by its name", () => {
@@ -456,7 +460,9 @@ describe("the tabs switch panels", () => {
 describe("a search that only the setup and meta rows match", () => {
   it("shows those rows rather than an empty grid", () => {
     renderPage();
-    const onlyToolchain = "superpowers";
+    // "superpowers" until the catalogue cut removed the using-superpowers meta row, after
+    // which it matched nothing; "toolchain" reaches the two setup rows and no ordinary skill.
+    const onlyToolchain = "toolchain";
     const matched = skills.filter((skill) =>
       matchesQuery(onlyToolchain, entryHaystack(skill)),
     );
@@ -485,7 +491,8 @@ describe("a search that only the setup and meta rows match", () => {
         `${skills.length} of ${skills.length} skills shown.`,
       );
 
-      fireEvent.change(search(), { target: { value: "teach" } });
+      // Matches sut-bootstrap and nothing else, so the count is pinned at exactly one.
+      fireEvent.change(search(), { target: { value: "bootstrap" } });
       expect(cardCount()).toBe(1);
       expect(settledCount()).toBe(`1 of ${skills.length} skills shown.`);
       expect(screen.queryByText("No skill matches those filters.")).toBeNull();

@@ -54,7 +54,9 @@ describe("catalogue search", () => {
 
   it("does not join two inflections of the same stem", () => {
     expect(matchesQuery("testing", "unit tests")).toBe(false);
-    expect(hits("testing").length).toBeGreaterThanOrEqual(7);
+    // Six of the 25 published rows, so the floor moves with the catalogue rather than the
+    // matcher. It guards breadth: a matcher this narrow would drop to one or two.
+    expect(hits("testing").length).toBeGreaterThanOrEqual(6);
   });
 
   it("does not let the reverse direction match on a stub", () => {
@@ -65,7 +67,9 @@ describe("catalogue search", () => {
   it("finds the skills a user would search for by job", () => {
     for (const query of [
       "review code",
-      "test driven",
+      // "test driven" was this row until superpowers:test-driven-development left the
+      // catalogue; codezen:tdd states the job as "test-first".
+      "test first",
       "end to end",
       "testing",
     ]) {
