@@ -1,10 +1,10 @@
 /**
  * Who each skill and plugin is for, authored here rather than synced.
  *
- * `skills.json` and `plugins.json` arrive from korzainc/marketplace, and neither carries an
- * audience: upstream classifies by `category` and `kind`, both of which describe the work rather
- * than the reader. This overlay sits beside them and survives the next sync, the way
- * `tool-card-summaries.ts` does for the tools catalogue.
+ * `skills.json` arrives from korzainc/marketplace, which generates it; `plugins.json` is
+ * hand-authored here. Neither carries an audience: upstream classifies by `category` and `kind`,
+ * both of which describe the work rather than the reader. This overlay sits beside them and
+ * survives the next sync, the way `tool-card-summaries.ts` does for the tools catalogue.
  *
  * The list is expected to grow. Values are written out per entry rather than derived from holding
  * every audience at once, so adding a fourth later does not silently reclassify a row.
@@ -113,6 +113,5 @@ export const pluginAudiences: Record<string, Audience[]> = {
   codezen: ["Engineering"],
   humanizer: ["All"],
   "mattpocock-skills": ["Engineering", "Business", "Sales"],
-  "pyright-lsp": ["Engineering"],
   superpowers: ["Engineering"],
 };
