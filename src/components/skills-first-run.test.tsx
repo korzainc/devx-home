@@ -191,6 +191,10 @@ describe("the first-run nudge", () => {
     const container = document.createElement("div");
     container.innerHTML = renderToString(<SkillsFirstRunNudge />);
     document.body.appendChild(container);
+    // The page's own heading, which the hand-off focuses when the overlay closes. Standing in
+    // for a subtree React has not hydrated yet: touching it here is what the server never sent.
+    const heading = document.createElement("h1");
+    document.body.appendChild(heading);
 
     const touched: string[] = [];
     const observer = new MutationObserver(() =>
@@ -216,8 +220,10 @@ describe("the first-run nudge", () => {
 
     expect(touched).toEqual([]);
     expect(focused).toEqual([]);
+    expect(heading.hasAttribute("tabindex")).toBe(false);
     await act(async () => root?.unmount());
     container.remove();
+    heading.remove();
   });
 
   /** James's case: another tab sets the flag, so this one closes without a click of its own. */

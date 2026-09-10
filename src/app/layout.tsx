@@ -39,8 +39,12 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
+    // The script below sets `data-intro-unseen` here before React hydrates, which React
+    // then reports as an attribute the server did not send. Suppressing that is the point of
+    // the flag, and it covers this element alone -- a mismatch anywhere inside still reports.
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${workSans.variable} ${inter.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>

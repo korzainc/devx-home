@@ -113,11 +113,16 @@ export function SkillsFirstRunNudge() {
    * `wasOpen` keeps it from firing for a returning reader, who arrives already dismissed. By
    * this point the overlay has left the DOM and focus has fallen to the body, which is the
    * signal to forward it; focus anywhere else means the reader moved on themselves.
+   *
+   * It latches on what the reader could actually see, not on `dismissed` alone. Hydration
+   * replays the server's not-dismissed answer for one commit, so latching there handed a
+   * returning reader's focus to the heading on every visit -- and stamped `tabIndex` on a
+   * subtree React had not hydrated yet, which it then reported as a mismatch.
    */
   const wasOpen = useRef(false);
   useEffect(() => {
     if (!dismissed) {
-      wasOpen.current = true;
+      if (onIntroRoute && !isIntroSeen()) wasOpen.current = true;
       return;
     }
     if (!wasOpen.current) return;
@@ -128,7 +133,7 @@ export function SkillsFirstRunNudge() {
     if (!heading) return;
     heading.tabIndex = -1;
     heading.focus();
-  }, [dismissed]);
+  }, [onIntroRoute, dismissed]);
 
   /**
    * Escape closes, and Tab stays inside. Listening on the document rather than the dialog:
