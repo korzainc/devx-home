@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PRODUCTS } from "@/lib/nav";
 
 /**
  * Every page the site has, grouped, at the foot of every page.
@@ -17,14 +18,7 @@ const REPO = "https://github.com/korzainc/devx-home";
 type FooterLink = { label: string; href: string; external?: boolean };
 type FooterColumn = { heading: string; links: FooterLink[] };
 
-const PRODUCT: FooterColumn = {
-  heading: "Product",
-  links: [
-    { label: "Skills", href: "/skills" },
-    { label: "Tools", href: "/tools" },
-    { label: "CI coverage", href: "/ci-coverage" },
-  ],
-};
+const PRODUCT: FooterColumn = { heading: "Product", links: PRODUCTS };
 
 const LEARN: FooterColumn = {
   heading: "Learn",
