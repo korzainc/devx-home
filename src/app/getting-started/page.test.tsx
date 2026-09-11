@@ -38,7 +38,7 @@ describe("the Getting Started page", () => {
   it("leads with the one command, built from the configured origin", () => {
     const { container } = render(<GettingStartedPage />);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(
-      /Set up your Mac with Korza CLI/i,
+      /Install Korza CLI\s*in one command/i,
     );
     expect(container.textContent).toContain(
       bootstrapCommand("https://setup.example/setup"),
@@ -48,7 +48,9 @@ describe("the Getting Started page", () => {
   it("directs first-time users to the setup command printed by the installer", () => {
     render(<GettingStartedPage />);
     const hero = screen.getByRole("heading", { level: 1 }).closest("section");
-    expect(hero?.textContent).toMatch(/follow the printed setup instructions/i);
+    expect(hero?.textContent).toMatch(
+      /follow the installer.s instructions to start setup/i,
+    );
   });
 
   it("points questions about a broken step or missing tool at #devx", () => {

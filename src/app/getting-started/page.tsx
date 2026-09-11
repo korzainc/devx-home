@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import { CommandField } from "@/components/install-panel";
 import { PreviewInstallCommand } from "@/components/preview-install";
 import { bootstrapCommand } from "@/lib/bootstrap-command";
@@ -25,12 +24,14 @@ function Pair({
     <section
       id={id}
       // scroll-mt clears the sticky header when an anchor link lands here.
-      className="grid scroll-mt-20 grid-cols-1 items-center gap-8 border-t border-line py-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start lg:gap-14"
+      className="grid scroll-mt-20 grid-cols-1 items-center gap-8 border-t border-line py-12 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-start lg:gap-14"
     >
-      <div className="min-w-0 rounded-xl border border-line bg-surface">
+      <div className="min-w-0 rounded-xl border border-line bg-surface lg:order-2">
         {card}
       </div>
-      <div className="min-w-0 flex flex-col gap-3">{children}</div>
+      <div className="order-first flex min-w-0 flex-col gap-3 lg:sticky lg:top-24">
+        {children}
+      </div>
     </section>
   );
 }
@@ -55,19 +56,19 @@ export default function GettingStartedPage() {
   const command = origin ? bootstrapCommand(`${origin}/setup`) : null;
   return (
     <div className="getting-started flex flex-col">
-      <section className="grid grid-cols-1 items-center gap-8 pb-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start lg:gap-14">
+      <section className="grid grid-cols-1 items-center gap-8 pb-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-start lg:gap-14">
         <div className="relative isolate flex flex-col gap-4">
           <span
             aria-hidden
             className="absolute -top-10 -left-12 -z-10 h-36 w-96 max-w-full rounded-full bg-accent/20 blur-3xl"
           />
           <h1 className="font-display text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-            Set up your Mac with Korza CLI.
+            Install Korza CLI <br />
+            in one command.
           </h1>
           <p className="max-w-lg text-lg leading-relaxed text-ink-muted">
-            Run this command in Terminal to install Korza CLI. Then follow the
-            printed setup instructions to choose your tools and sign in when
-            asked.
+            Run this command in Terminal on your Mac. Follow the
+            installer&apos;s instructions to start setup.
           </p>
         </div>
 
@@ -79,18 +80,69 @@ export default function GettingStartedPage() {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-8 border-t border-line py-12 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-center lg:gap-14">
-        <figure className="min-w-0 rounded-2xl border border-white/5 bg-[radial-gradient(ellipse_at_top_left,#502827_0%,#281c20_45%,#111318_100%)] p-2 sm:p-5">
-          <Image
-            src="/images/korza-cli-setup.jpg"
-            alt="Korza CLI setup, grouped into Essentials, AI tools and Languages. Installed tools show Ready. The selected tool’s actions appear below."
-            width={1330}
-            height={912}
-            unoptimized
-            className="h-auto w-full rounded-lg border border-white/15 shadow-[0_14px_32px_-8px_rgba(0,0,0,0.8)] sm:rounded-xl"
-          />
+      <section className="grid grid-cols-1 gap-8 border-t border-line py-12 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-start lg:gap-14">
+        <figure className="min-w-0 rounded-xl border border-[#e5484d]/25 bg-[linear-gradient(135deg,#2a1214,#161014)] p-5 lg:order-2">
+          <div className="overflow-x-auto rounded-lg border border-white/10 bg-[#0e0e10] px-6 py-[22px]">
+            <pre
+              aria-label="Example Korza CLI setup screen"
+              className="m-0 font-mono text-[12.5px] leading-[1.75] whitespace-pre text-[#d6d6d6]"
+            >
+              <span className="text-[#e5484d]">{"◆ Korza CLI"}</span>{" "}
+              <span className="text-[#7a7a82]">{"· Setup"}</span>
+              <br />
+              {"This tool is ready. Enter shows details."}
+              <br />
+              <span className="text-[#7a7a82]">{"5 tools"}</span>
+              <br />
+              <br />
+              <span className="text-[#7a7a82]">{"── Essentials"}</span>
+              <br />
+              {"  "}
+              <span className="text-[#d9a441]">{"●"}</span>
+              {" Git & GitHub ▸        "}
+              <span className="text-[#7a7a82]">{"Set up"}</span>
+              <br />
+              {"  "}
+              <span className="text-[#5fd07a]">{"✓"}</span>
+              {" Homebrew              "}
+              <span className="text-[#5fd07a]">{"Ready · 6.0.22"}</span>
+              <br />
+              <span className="text-[#7a7a82]">{"── AI tools"}</span>
+              <br />
+              <span className="text-[#e5484d]">{"❯"}</span>{" "}
+              <span className="text-[#5fd07a]">{"✓"}</span>{" "}
+              <b>{"Claude Code"}</b>
+              {" ▸         "}
+              <span className="text-[#5fd07a]">{"Ready · 2.1.263"}</span>
+              <br />
+              <span className="text-[#7a7a82]">{"── Languages"}</span>
+              <br />
+              {"  "}
+              <span className="text-[#d9a441]">{"●"}</span>
+              {" Python                "}
+              <span className="text-[#7a7a82]">{"Install Python"}</span>
+              <br />
+              {"  "}
+              <span className="text-[#d9a441]">{"●"}</span>
+              {" Node.js               "}
+              <span className="text-[#7a7a82]">{"Install Node LTS"}</span>
+              <br />
+              <span className="text-[#7a7a82]">{"2 ready"}</span>
+              <br />
+              <br />
+              {"Get help writing and reviewing code."}
+              <br />
+              <span className="text-[#7a7a82]">
+                {"────────────────────────────────────────────────────────────"}
+              </span>
+              <br />
+              <span className="text-[#d9a441]">
+                {"↑↓ Move · Enter Details · r Reinstall · Esc Finish · ? Help"}
+              </span>
+            </pre>
+          </div>
         </figure>
-        <div className="flex min-w-0 flex-col gap-3">
+        <div className="order-first flex min-w-0 flex-col gap-3 lg:sticky lg:top-24">
           <h2 className="font-display text-2xl font-semibold tracking-tight">
             Guided setup.
           </h2>
@@ -112,13 +164,13 @@ export default function GettingStartedPage() {
                 key={entry.title}
                 className="group border-b border-line last:border-b-0 open:bg-canvas"
               >
-                <summary className="flex cursor-pointer list-none items-center gap-3 px-5 py-3 text-ink [&::-webkit-details-marker]:hidden">
+                <summary className="grid cursor-pointer list-none grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-1 px-5 py-3 text-ink [&::-webkit-details-marker]:hidden">
                   <span aria-hidden className="font-mono text-accent">
                     <span className="group-open:hidden">+</span>
                     <span className="hidden group-open:inline">−</span>
                   </span>
                   <span className="font-mono text-sm">{entry.tool}</span>
-                  <span className="ml-auto text-right text-xs text-ink-faint">
+                  <span className="col-start-2 text-xs text-ink-muted">
                     {entry.why}
                   </span>
                 </summary>
