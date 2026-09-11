@@ -119,7 +119,7 @@ export const faq: { q: string; a: string }[] = [
   },
   {
     q: "What does it change on my machine?",
-    a: "Korza CLI installs and configures the tools you choose and any tools they need. It saves progress and logs in ~/.devx and adds a marked block to ~/.zshrc. korza setup --remove removes only that block; installed tools and the CLI remain. Manual installers may add their own shell settings.",
+    a: "Korza CLI installs and configures the tools you choose and any tools they need. It saves progress and logs in ~/.korza and adds a marked block to ~/.zshrc. korza setup --remove removes only that block; installed tools and the CLI remain. Manual installers may add their own shell settings.",
   },
   {
     q: "How do I change my Git name or email?",
@@ -147,7 +147,7 @@ export const faq: { q: string; a: string }[] = [
   },
   {
     q: "What if I do not have administrator access?",
-    a: "Some steps need administrator approval. You can leave those steps for later and continue with other tools. Ask your IT team if your device policy blocks a step.",
+    a: "Some steps need administrator approval. You can leave those steps for later and continue with other tools. Ask the IT team if device policy blocks a step.",
   },
   {
     q: "When am I actually done?",
