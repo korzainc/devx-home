@@ -114,7 +114,7 @@ export const manualCommands: {
 
 export const faq: { q: string; a: string }[] = [
   {
-    q: "Where can I find CLI help?",
+    q: "Where can I find help with Korza CLI?",
     a: "Run korza --help for commands or korza setup --help for setup options. The installer also adds kz as a short name for korza when that name is available.",
   },
   {
@@ -138,15 +138,15 @@ export const faq: { q: string; a: string }[] = [
     a: "Check that you are using the right account and have access to Korza’s GitHub organisation. Ask in #devx if access is missing.",
   },
   {
-    q: "Something is broken, or the CLI does not do this yet.",
+    q: "How do I report a problem or request a tool?",
     a: "Ask in #devx. Include the tool name and any error message.",
   },
   {
-    q: "I already have some of these tools installed.",
+    q: "What if I already have some tools installed?",
     a: "Configured tools are skipped by default. An installed tool may still need sign-in or configuration. Run korza doctor to check your tools without installing anything.",
   },
   {
-    q: "My laptop is managed and I do not have admin rights.",
+    q: "What if I do not have administrator access?",
     a: "Some steps need administrator approval. You can leave those steps for later and continue with other tools. Ask your IT team if your device policy blocks a step.",
   },
   {

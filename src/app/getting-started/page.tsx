@@ -62,11 +62,12 @@ export default function GettingStartedPage() {
             className="absolute -top-10 -left-12 -z-10 h-36 w-96 max-w-full rounded-full bg-accent/20 blur-3xl"
           />
           <h1 className="font-display text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-            Install Korza CLI in one command.
+            Set up your Mac with Korza CLI.
           </h1>
           <p className="max-w-lg text-lg leading-relaxed text-ink-muted">
-            Run this command in Terminal on your Mac. Follow the
-            installer&apos;s instructions to start setup.
+            Run this command in Terminal to install Korza CLI. Then follow the
+            printed setup instructions to choose your tools and sign in when
+            asked.
           </p>
         </div>
 

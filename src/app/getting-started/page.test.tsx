@@ -38,7 +38,7 @@ describe("the Getting Started page", () => {
   it("leads with the one command, built from the configured origin", () => {
     const { container } = render(<GettingStartedPage />);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(
-      /one command/i,
+      /Set up your Mac with Korza CLI/i,
     );
     expect(container.textContent).toContain(
       bootstrapCommand("https://setup.example/setup"),
@@ -48,15 +48,13 @@ describe("the Getting Started page", () => {
   it("directs first-time users to the setup command printed by the installer", () => {
     render(<GettingStartedPage />);
     const hero = screen.getByRole("heading", { level: 1 }).closest("section");
-    expect(hero?.textContent).toMatch(
-      /follow the installer's instructions to start setup/i,
-    );
+    expect(hero?.textContent).toMatch(/follow the printed setup instructions/i);
   });
 
   it("points questions about a broken step or missing tool at #devx", () => {
     render(<GettingStartedPage />);
     const support = screen
-      .getByText(/Something is broken, or the CLI/)
+      .getByText(/How do I report a problem/)
       .closest("details");
     expect(support?.querySelector("p")?.textContent).toContain("#devx");
   });
