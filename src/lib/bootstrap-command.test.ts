@@ -68,7 +68,7 @@ describe("bootstrap command", () => {
     const url = "https://preview.example/it's-a-preview/setup";
     const result = runBootstrap({ url });
     expect(result.status).toBe(0);
-    expect(result.args).toBe(`-fsSL\n--max-redirs\n0\n${url}\n`);
+    expect(result.args).toBe(`-fsSL\n${url}\n`);
   });
 
   it.each(["http://localhost:3000/setup", "https://preview.example/setup"])(
