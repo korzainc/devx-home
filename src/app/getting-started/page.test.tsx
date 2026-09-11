@@ -8,7 +8,10 @@ import GettingStartedPage from "./page";
 import { bootstrapCommand } from "@/lib/bootstrap-command";
 import { faq, manualCommands } from "@/lib/getting-started";
 
-beforeEach(() => vi.stubEnv("KORZA_PUBLIC_ORIGIN", "https://setup.example"));
+beforeEach(() => {
+  vi.stubEnv("VERCEL_ENV", "preview");
+  vi.stubEnv("VERCEL_URL", "setup.example");
+});
 afterEach(() => {
   cleanup();
   vi.unstubAllEnvs();
@@ -25,7 +28,7 @@ describe("the Getting Started page", () => {
   });
 
   it("keeps manual setup available when the origin is invalid", () => {
-    vi.stubEnv("KORZA_PUBLIC_ORIGIN", "http://untrusted.example");
+    vi.stubEnv("VERCEL_URL", "invalid.example/path");
     render(<GettingStartedPage />);
     expect(screen.getByText(/Installer unavailable/)).toBeDefined();
     expect(
@@ -35,7 +38,7 @@ describe("the Getting Started page", () => {
   it("leads with the one command, built from the configured origin", () => {
     const { container } = render(<GettingStartedPage />);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(
-      /one command/i,
+      /Install Korza CLI\s*in one command/i,
     );
     expect(container.textContent).toContain(
       bootstrapCommand("https://setup.example/setup"),
@@ -46,14 +49,14 @@ describe("the Getting Started page", () => {
     render(<GettingStartedPage />);
     const hero = screen.getByRole("heading", { level: 1 }).closest("section");
     expect(hero?.textContent).toMatch(
-      /run the exact setup command printed by the installer/i,
+      /follow the installer.s instructions to start setup/i,
     );
   });
 
   it("points questions about a broken step or missing tool at #devx", () => {
     render(<GettingStartedPage />);
     const support = screen
-      .getByText(/Something is broken, or the CLI/)
+      .getByText(/How do I report a problem/)
       .closest("details");
     expect(support?.querySelector("p")?.textContent).toContain("#devx");
   });
@@ -82,17 +85,20 @@ describe("the Getting Started page", () => {
     const disclosures = [...container.querySelectorAll("#manual details")];
     const expected = [
       ["Xcode tools", "xcode-select --install"],
-      ["git", 'git config --global user.name "Your Name"'],
-      ["gh", "gh auth login --hostname github.com --git-protocol https --web"],
-      ["SSH access", "ssh -T git@github.com"],
-      ["claude", "claude plugin marketplace add korzainc/marketplace"],
+      ["Git", 'git config --global user.name "Your Name"'],
       [
-        "homebrew",
+        "GitHub CLI",
+        "gh auth login --hostname github.com --git-protocol https --web",
+      ],
+      ["SSH access", "ssh -T git@github.com"],
+      ["Claude Code", "claude plugin marketplace add korzainc/marketplace"],
+      [
+        "Homebrew",
         "https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh",
       ],
       ["Python (uv)", "uv python install"],
       [
-        "Node (fnm)",
+        "Node.js (fnm)",
         "curl -fsSL https://fnm.vercel.app/install | bash -s -- --force-install",
       ],
     ];
@@ -107,6 +113,24 @@ describe("the Getting Started page", () => {
     }
   });
 
+  it("puts Claude sign-in before plugins and activates the installed Node version", () => {
+    const claude = manualCommands.find((entry) =>
+      entry.title.includes("Claude Code"),
+    )!;
+    const login = claude.commands.indexOf("claude auth login");
+    const marketplace = claude.commands.findIndex((command) =>
+      command.startsWith("claude plugin marketplace add"),
+    );
+    expect(login).toBeGreaterThan(0);
+    expect(marketplace).toBeGreaterThan(login);
+    const node = manualCommands.find((entry) =>
+      entry.title.startsWith("Node"),
+    )!;
+    expect(node.commands.indexOf("fnm use lts-latest")).toBeGreaterThan(
+      node.commands.indexOf("fnm install --lts"),
+    );
+  });
+
   it("authorizes the SSH upload and loads the key before checking access", () => {
     const { container } = render(<GettingStartedPage />);
     const ssh = [...container.querySelectorAll("#manual details")].find(
@@ -116,7 +140,7 @@ describe("the Getting Started page", () => {
     expect(ssh).toBeDefined();
     expect(
       ssh!
-        .querySelector("p")!
+        .querySelector("ul")!
         .compareDocumentPosition(ssh!.querySelector("code")!) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();

@@ -8,7 +8,7 @@
 # macOS ships: sh, curl, tar, mktemp. No Homebrew, no Xcode, no sudo.
 set -eu
 
-REPO="${KORZA_REPO:-korzainc/devx-cli}"
+REPO="${KORZA_REPO:-korzainc/korza-cli}"
 # $HOME is only needed for the default. Under `set -u` a bare $HOME would abort
 # with a raw "parameter not set" instead of one of this script's own messages.
 if [ -z "${KORZA_BIN_DIR:-}" ] && [ -z "${HOME:-}" ]; then
@@ -24,8 +24,8 @@ case "$(uname -s)" in
   *) printf '  korza supports macOS only for now.\n' >&2; exit 1 ;;
 esac
 
-# KORZA_DIST_URL points the installer at a local tarball, so the whole
-# entry path can be rehearsed before anything is published.
+# /setup supplies its bundled archive URL. An explicit URL also supports
+# installing a candidate before a GitHub release is published.
 if [ -n "${KORZA_DIST_URL:-}" ]; then
   URL="$KORZA_DIST_URL"
 else

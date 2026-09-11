@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { bootstrapCommand } from "./bootstrap-command";
 
 function runBootstrap({
@@ -43,59 +43,8 @@ function runBootstrap({
   return { ...result, args: readFileSync(join(fixture, "arguments"), "utf8") };
 }
 
-afterEach(() => vi.unstubAllEnvs());
-
 describe("bootstrap command", () => {
-  it.each(["localhost", "127.0.0.1", "[::1]"])(
-    "uses the compact command for %s in local development",
-    (host) => {
-      vi.stubEnv("NODE_ENV", "development");
-      const url = `http://${host}:3000/setup`;
-      expect(bootstrapCommand(url)).toBe(
-        `sh -c 's=$(curl -fsSL --max-redirs 0 "$1") && sh -c "$s"' sh '${url}'`,
-      );
-      const result = runBootstrap({ url });
-      expect(result.status).toBe(0);
-      expect(result.stdout).toBe("installer ran\n");
-    },
-  );
-
   it.each([18, 22, 47])(
-    "keeps local download failure %i from executing",
-    (status) => {
-      vi.stubEnv("NODE_ENV", "development");
-      const result = runBootstrap({
-        url: "http://localhost:3000/setup",
-        fetchStatus: status,
-      });
-      expect(result.status).toBe(status);
-      expect(result.stdout).toBe("");
-    },
-  );
-
-  it("preserves local installer failure and caller stdin", () => {
-    vi.stubEnv("NODE_ENV", "development");
-    const result = runBootstrap({
-      url: "http://localhost:3000/setup",
-      body: "#!/bin/sh\n/bin/cat\nexit 7\n",
-      input: "caller input\n",
-    });
-    expect(result.status).toBe(7);
-    expect(result.stdout).toBe("caller input\n");
-  });
-
-  it.each([
-    ["production", "http://localhost:3000/setup"],
-    ["development", "https://localhost.example/setup"],
-    ["development", "https://localhost@remote.example/setup"],
-  ])("retains the HTML guard in %s for %s", (environment, url) => {
-    vi.stubEnv("NODE_ENV", environment);
-    const result = runBootstrap({ url, body: "<html>login</html>\n" });
-    expect(result.status).toBe(1);
-    expect(result.stderr).toBe("korza: unexpected installer response\n");
-  });
-
-  it.each([18, 22])(
     "does not execute a response when curl exits %i",
     (status) => {
       const result = runBootstrap({ fetchStatus: status });
@@ -122,16 +71,19 @@ describe("bootstrap command", () => {
     expect(result.args).toBe(`-fsSL\n${url}\n`);
   });
 
-  it("rejects a successful HTML response before evaluating shell substitutions", () => {
-    const body = `<!doctype html>
+  it.each(["http://localhost:3000/setup", "https://preview.example/setup"])(
+    "rejects HTML from %s before evaluating shell substitutions",
+    (url) => {
+      const body = `<!doctype html>
 <html><head><title>Authentication Required</title></head>
 <body><p>Sign in to access this preview.</p>
 <p>$(printf 'html sentinel\\n' >&2)</p></body></html>`;
-    const result = runBootstrap({ body });
-    expect(result.status).toBe(1);
-    expect(result.stdout).toBe("");
-    expect(result.stderr).toBe("korza: unexpected installer response\n");
-  });
+      const result = runBootstrap({ body, url });
+      expect(result.status).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("korza: unexpected installer response\n");
+    },
+  );
 
   it.each([
     ["empty body", ""],

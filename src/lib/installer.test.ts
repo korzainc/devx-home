@@ -10,6 +10,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { shellQuote } from "./shell-quote";
 
 type Scenario = {
   env?: Record<string, string>;
@@ -21,6 +22,17 @@ type Scenario = {
   fresh?: boolean;
   path?: "installed" | "shadowed";
 };
+
+// Use a shell wrapper so interpreter paths containing spaces work.
+function commandWrapper(name: string, interpreter: string, script: string) {
+  return [
+    "#!/bin/sh",
+    `FIXTURE_COMMAND=${shellQuote(name)}`,
+    "export FIXTURE_COMMAND",
+    `exec ${shellQuote(interpreter)} ${shellQuote(script)} "$@"`,
+    "",
+  ].join("\n");
+}
 
 const ARCHIVE_PAYLOAD = "inert archive fixture";
 const ARCHIVE_DIGEST = createHash("sha256")
@@ -70,14 +82,13 @@ exit ${scenario.versionFails ? 7 : 0}
   writeFileSync(join(root, "events"), "");
   writeFileSync(join(root, "downloads"), "");
 
-  const stub = String.raw`#!${process.execPath}
-const fs = require("node:fs");
+  const stub = String.raw`const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const root = process.env.FIXTURE_ROOT;
 const stage = path.join(root, "stage");
 const args = process.argv.slice(2);
-const name = path.basename(process.argv[1]);
+const name = process.env.FIXTURE_COMMAND;
 const scenario = ${JSON.stringify(scenario)};
 const event = value => fs.appendFileSync(path.join(root, "events"), value + "\n");
 const check = condition => { if (!condition) throw new Error("Unexpected fixture command: " + name); };
@@ -86,9 +97,17 @@ switch (name) {
   case "mktemp": check(args.join(" ") === "-d"); process.stdout.write(stage + "\n"); break;
   case "rm": event("cleanup-retained"); break;
   case "curl": {
+    if (args[1] === "-o") {
+      check(args.length === 6 && args[0] === "-fsSL" && args[2] === path.join(stage, "release.json") && args[3] === "-w" && args[4] === "%{http_code}");
+      check(args[5] === "https://api.github.com/repos/korzainc/korza-cli/releases/latest");
+      fs.appendFileSync(path.join(root, "downloads"), args[5] + "\n");
+      fs.writeFileSync(args[2], JSON.stringify({assets:[{browser_download_url:"https://fixture.invalid/korza-macos.tar.gz"}]}));
+      process.stdout.write("200");
+      break;
+    }
     check(args.length === 4 && args[0] === "-fsSL" && args[2] === "-o");
-    const checksum = args[1] === "https://fixture.invalid/korza.sha256";
-    check(checksum || args[1] === "https://fixture.invalid/korza" || args[1] === "https://fixture.invalid/korza-new");
+    const checksum = args[1] === "https://fixture.invalid/korza.sha256" || args[1] === "https://fixture.invalid/korza-macos.tar.gz.sha256";
+    check(checksum || args[1] === "https://fixture.invalid/korza-macos.tar.gz" || args[1] === "https://fixture.invalid/korza" || args[1] === "https://fixture.invalid/korza-new");
     check(args[3] === path.join(stage, checksum ? "korza.sha256" : "korza.tar.gz"));
     fs.appendFileSync(path.join(root, "downloads"), args[1] + "\n");
     if (checksum && scenario.checksum === "missing") process.exit(22);
@@ -125,6 +144,8 @@ switch (name) {
   default: throw new Error("Unknown fixture command");
 }
 `;
+  const stubPath = join(root, "fixture-command.cjs");
+  writeFileSync(stubPath, stub);
   for (const name of [
     "uname",
     "mktemp",
@@ -134,7 +155,11 @@ switch (name) {
     "tar",
     "codesign",
   ]) {
-    writeFileSync(join(bin, name), stub, { mode: 0o755 });
+    writeFileSync(
+      join(bin, name),
+      commandWrapper(name, process.execPath, stubPath),
+      { mode: 0o755 },
+    );
   }
   for (const [name, systemPath] of Object.entries({
     chmod: "/bin/chmod",
@@ -144,6 +169,8 @@ switch (name) {
     cut: "/usr/bin/cut",
     grep: "/usr/bin/grep",
     tr: "/usr/bin/tr",
+    head: "/usr/bin/head",
+    sed: "/usr/bin/sed",
   })) {
     symlinkSync(systemPath, join(bin, name));
   }
@@ -192,10 +219,48 @@ switch (name) {
   };
 }
 
+describe("the fixture command wrapper", () => {
+  it("executes when the interpreter path contains a space", () => {
+    const parent = join(process.cwd(), ".claude", "installer-tests");
+    mkdirSync(parent, { recursive: true });
+    const root = mkdtempSync(join(parent, "interpreter-"));
+    const nested = join(root, "node dir");
+    mkdirSync(nested);
+    const interpreter = join(nested, "node");
+    symlinkSync(process.execPath, interpreter);
+    const script = join(root, "report.cjs");
+    writeFileSync(
+      script,
+      'process.stdout.write([process.env.FIXTURE_COMMAND, ...process.argv.slice(2)].join("|"));',
+    );
+    const command = join(root, "uname");
+    writeFileSync(command, commandWrapper("uname", interpreter, script), {
+      mode: 0o755,
+    });
+
+    const result = spawnSync(command, ["-s", "an argument"], {
+      encoding: "utf8",
+    });
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toBe("uname|-s|an argument");
+  });
+});
+
 describe(
   "the vendored installer with inert local fixtures",
   { timeout: 20_000 },
   () => {
+    it("discovers releases from the renamed Korza CLI repository", () => {
+      const result = install({ env: { KORZA_DIST_URL: "" } });
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.downloads).toEqual([
+        "https://api.github.com/repos/korzainc/korza-cli/releases/latest",
+        "https://fixture.invalid/korza-macos.tar.gz",
+        "https://fixture.invalid/korza-macos.tar.gz.sha256",
+      ]);
+      expect(readFileSync(result.target, "utf8")).toBe(result.fixture);
+    });
+
     it.each([ARCHIVE_DIGEST, ARCHIVE_DIGEST.toUpperCase()])(
       "installs against the supplied digest %s without fetching a sidecar",
       (expectedDigest) => {

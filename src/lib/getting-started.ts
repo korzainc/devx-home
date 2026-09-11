@@ -1,23 +1,4 @@
-/** Setup overview and manual commands for the Getting started page. */
-
-/** Guided setup overview. */
-export const walkthrough: { does: string; detail: string }[] = [
-  { does: "Checks your machine", detail: "Nothing changes yet." },
-  {
-    does: "Pauses when you are needed",
-    detail:
-      "For browser sign-in, an administrator password, or a secure SSH confirmation.",
-  },
-  {
-    does: "Installs what is missing",
-    detail: "Reuses configured tools; finishes setup where needed.",
-  },
-  {
-    does: "Proves each tool works",
-    detail: "Runs a real command, not a file check.",
-  },
-  { does: "Shows you what changed", detail: "And what to try next." },
-];
+/** Manual commands and questions for the Getting started page. */
 
 /** The commands themselves, one disclosure per tool. Closed by default. */
 export const manualCommands: {
@@ -25,40 +6,44 @@ export const manualCommands: {
   why: string;
   title: string;
   commands: string[];
-  note: string;
+  note: string | string[];
   noteFirst?: boolean;
+  installUrl?: string;
 }[] = [
   {
     tool: "Xcode tools",
-    why: "ships Apple's own git, no install step needed after",
+    why: "Install Apple’s developer tools, including Git",
     title: "Xcode Command Line Tools",
     commands: ["xcode-select --install"],
-    note: "This is the only step git needs. Apple ships its own git with these tools; there is no separate git install.",
+    note: "Finish the installation in Apple’s dialog before continuing. These tools include Git. Set your commit name and email in the Git step below.",
   },
   {
-    tool: "git",
-    why: "your commit author name and email",
+    tool: "Git",
+    noteFirst: true,
+    why: "Set your commit name and email",
     title: "Git",
     commands: [
       'git config --global user.name "Your Name"',
       'git config --global user.email "you@korza.ai"',
     ],
-    note: "Use the name and email you want recorded on your commits.",
+    note: "Install Xcode tools first. Replace the example name and email with the details you want on your commits. These commands replace your current Git defaults. Korza CLI can suggest details from GitHub for you to review instead.",
   },
   {
-    tool: "gh",
-    why: "user-space install, sign in over HTTPS",
+    tool: "GitHub CLI",
+    noteFirst: true,
+    installUrl: "https://github.com/cli/cli#installation",
+    why: "Sign in to GitHub",
     title: "GitHub CLI",
     commands: [
       "gh auth login --hostname github.com --git-protocol https --web",
       "gh auth setup-git --hostname github.com",
     ],
-    note: "Install gh first from https://github.com/cli/cli#installation, then run these commands to sign in and configure Git's HTTPS credentials. SSH access is set up separately below.",
+    note: "Complete the Xcode tools step first. Install GitHub CLI using the link above. Run these commands to sign in. Git will use your GitHub account over HTTPS.",
   },
   {
     tool: "SSH access",
     noteFirst: true,
-    why: "GitHub SSH access, separate from HTTPS",
+    why: "Connect to GitHub over SSH",
     title: "SSH access",
     commands: [
       'ssh-keygen -t ed25519 -C "you@korza.ai"',
@@ -67,89 +52,105 @@ export const manualCommands: {
       "ssh-add ~/.ssh/id_ed25519",
       "ssh -T git@github.com",
     ],
-    note: 'Skip key creation when reusing an existing key, and adjust the public and private key paths in these commands. ssh-add loads the key so Claude can clone without a passphrase prompt; run it again if the agent forgets the key. The permission step authorizes uploading only the public key; the private key stays on your machine. Check GitHub\'s published fingerprint before accepting the first SSH connection. A successful check prints "successfully authenticated"; GitHub returns exit code 1 because it does not provide shell access.',
+    note: [
+      "Complete the GitHub CLI step first.",
+      "If you already have an SSH key, skip key creation. Use that key's paths in the remaining commands.",
+      "ssh-add loads your key so Claude can use it without another passphrase prompt. Run it again if the SSH agent no longer has the key.",
+      "GitHub needs permission to add the public key. The private key stays on your Mac.",
+      "Check GitHub's published fingerprint before accepting the first connection.",
+      'A successful check prints "successfully authenticated". GitHub returns exit code 1 because it does not provide shell access.',
+    ],
   },
   {
-    tool: "claude",
-    why: "install, sign in, then the Korza marketplace (four plugins)",
-    title: "Claude Code, and the Korza marketplace",
+    tool: "Claude Code",
+    noteFirst: true,
+    why: "Install Claude Code and Korza skills",
+    title: "Claude Code and Korza skills",
     commands: [
       "curl -fsSL https://claude.ai/install.sh | bash",
+      "claude auth login",
       "claude plugin marketplace add korzainc/marketplace",
       "claude plugin install codezen@korza-marketplace",
       "claude plugin install superpowers@korza-marketplace",
       "claude plugin install mattpocock-skills@korza-marketplace",
       "claude plugin install humanizer@korza-marketplace",
     ],
-    note: "After the official installer finishes, follow its PATH instructions and run claude once to sign in before adding the marketplace. GitHub shorthand uses SSH by default, so complete the SSH access steps first. If access fails, check the loaded key and your Korza GitHub membership. See https://code.claude.com/docs/en/setup for installation help.",
+    note: "Run the installer first, then follow its terminal instructions before signing in. The marketplace commands below use SSH, so complete the SSH access step before adding plugins. You also need access to Korza’s GitHub repositories. Korza CLI uses HTTPS for this step.",
   },
   {
-    tool: "homebrew",
-    why: "optional, nothing above needs it",
+    tool: "Homebrew",
+    why: "Optional package manager",
     title: "Homebrew",
     commands: [
       '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"',
     ],
-    note: "Optional. The other tools can be installed without Homebrew.",
+    note: "Follow the installer’s printed shell setup instructions before using brew. The other tools on this page can be installed without Homebrew.",
   },
   {
     tool: "Python (uv)",
-    why: "optional, a uv-managed Python",
-    title: "Python, via uv",
+    noteFirst: true,
+    why: "Optional Python setup",
+    title: "Python with uv",
     commands: [
       "curl -LsSf https://astral.sh/uv/install.sh | sh",
       "uv python install",
     ],
-    note: "Optional. The installer writes PATH setup into your shell config rather than the current shell, so open a new terminal (or run source $HOME/.local/bin/env) before the second command, or uv will not be found. A system or pyenv Python does not count here: this is specifically a uv-managed one, since that is what korza installs and verifies.",
+    note: "Run the installer, then open a new terminal before running uv python install. This adds a Python version managed by uv, as Korza CLI does. Other Python installations stay separate.",
   },
   {
-    tool: "Node (fnm)",
-    why: "optional, an fnm-managed Node LTS",
-    title: "Node, via fnm",
+    tool: "Node.js (fnm)",
+    noteFirst: true,
+    why: "Optional Node.js setup",
+    title: "Node.js with fnm",
     commands: [
       "curl -fsSL https://fnm.vercel.app/install | bash -s -- --force-install",
       "fnm install --lts",
       "fnm default lts-latest",
+      "fnm use lts-latest",
     ],
-    note: "Optional. --force-install downloads fnm directly, so Homebrew is not required. Open a new terminal after the installer, then run the remaining commands so fnm's PATH and shell hook are loaded. This installs an fnm-managed Node LTS independently of nvm or a system Node.",
+    note: "Run the installer, then open a new terminal before the remaining commands. These install and activate the current long-term support (LTS) version of Node.js through fnm. Homebrew is not required. Other Node.js installations stay separate.",
   },
 ];
 
 export const faq: { q: string; a: string }[] = [
   {
+    q: "Where can I find help with Korza CLI?",
+    a: "Run korza --help for commands or korza setup --help for setup options. The installer also adds kz as a short name for korza when that name is available.",
+  },
+  {
     q: "What does it change on my machine?",
-    a: "korza setup installs missing tools and configures Git and GitHub access. It keeps its shell configuration in one marked block in ~/.zshrc. korza setup --remove removes only that block; installed tools, the korza binary and the kz alias remain. The manual installers manage their own shell configuration separately.",
+    a: "Korza CLI installs and configures the tools you choose and any tools they need. It saves progress and logs in ~/.korza and adds a marked block to ~/.zshrc. korza setup --remove removes only that block; installed tools and the CLI remain. Manual installers may add their own shell settings.",
   },
   {
-    q: "I installed the earlier devx CLI. What should I do?",
-    a: "Use korza from now on. The installer does not delete an older devx executable. Run command -v devx to locate it. Once korza --version works and you have confirmed that path is the earlier Korza CLI, you can delete that old executable. Keep ~/.devx and the existing shell markers: Korza still uses them. If you are unsure which file to remove, ask in #devx.",
+    q: "How do I change my Git name or email?",
+    a: "Run korza setup. Select Git & GitHub and press r, then Enter. Review your current details and choose Edit.",
   },
   {
-    q: "Can I run it more than once?",
-    a: "Yes. Run korza setup to reopen the tool catalogue. Enter starts an unfinished tool or opens details for a ready tool. To reinstall a ready tool, press r, then Enter. Run korza doctor whenever you want to check the installed toolchain.",
+    q: "Can I stop and come back later?",
+    a: "Yes. Press Esc from the tool list to let running installs finish and skip waiting tools. Run korza setup when you want to continue. Apple’s installer may keep running after you leave setup.",
   },
   {
     q: "What happens if a step fails?",
-    a: "The independent steps still run. The summary names the step that failed, the reason, and what to try next.",
+    a: "Independent steps can continue. Korza CLI shows what needs attention and how to retry.",
   },
   {
-    q: "It is not letting me in, is that my machine?",
-    a: "Not always. Some blockers are access, not software, for example not yet being in the Korza GitHub org. Ask in #devx rather than retrying.",
+    q: "What if I cannot sign in or access a repository?",
+    a: "Check that you are using the right account and have access to Korza’s GitHub organisation. Ask in #devx if access is missing.",
   },
   {
-    q: "Something is broken, or the CLI does not do this yet.",
-    a: "Post in #devx. That is the DevX team's support channel for exactly this: a broken step, a missing tool, a question about the setup itself.",
+    q: "How do I report a problem or request a tool?",
+    a: "Ask in #devx. Include the tool name and any error message.",
   },
   {
-    q: "I already have some of these tools installed.",
-    a: "Configured tools are skipped by default. An installed tool may still need sign-in or configuration. Reinstalling it is an explicit choice.",
+    q: "What if I already have some tools installed?",
+    a: "Configured tools are skipped by default. An installed tool may still need sign-in or configuration. Run korza doctor to check your tools without installing anything.",
   },
   {
-    q: "My laptop is managed and I do not have admin rights.",
-    a: "Some steps need administrator approval. You can defer them and continue with independent tools. Ask your IT team about the steps your device policy blocks.",
+    q: "What if I do not have administrator access?",
+    a: "Some steps need administrator approval. You can leave those steps for later and continue with other tools. Ask the IT team if device policy blocks a step.",
   },
   {
     q: "When am I actually done?",
-    a: "Not when every tool shows a checkmark. You are done when you can finish the first real task, for example installing the Korza Marketplace plugins.",
+    a: "When the tools you chose are ready, follow the next steps shown. You can return later to set up other tools.",
   },
 ];

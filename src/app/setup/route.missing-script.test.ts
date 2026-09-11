@@ -25,7 +25,8 @@ afterEach(() => vi.unstubAllEnvs());
 
 describe("GET /setup when the vendored install.sh is missing", () => {
   it("answers with runnable shell that exits non-zero, not an HTML error page", async () => {
-    vi.stubEnv("KORZA_PUBLIC_ORIGIN", "https://setup.example");
+    vi.stubEnv("VERCEL_ENV", "preview");
+    vi.stubEnv("VERCEL_URL", "setup.example");
     const { GET } = await import("./route");
     const res = GET();
 

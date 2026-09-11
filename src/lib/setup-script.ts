@@ -2,9 +2,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { shellQuote } from "@/lib/shell-quote";
 
-// Serve the vendored installer with this deployment's interim bundled distribution,
-// including in production. DX-161 replaces this distribution path.
-// Reconcile installer fixes with devx-cli when updating the script, archive and checksum.
+// Serve this deployment's bundle until /setup switches to GitHub releases.
+// Update the installer, archive and checksum together from korza-cli.
 
 /** Bump this alongside the files committed under public/korza/. */
 export const BUNDLED_ARTIFACT_VERSION = "0.1.0";

@@ -2,8 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getSetupOrigin } from "./setup-origin";
 
 beforeEach(() => {
-  vi.stubEnv("KORZA_PUBLIC_ORIGIN", undefined);
-  vi.stubEnv("DEVX_PUBLIC_ORIGIN", undefined);
   vi.stubEnv("VERCEL_URL", undefined);
   vi.stubEnv("VERCEL_PROJECT_PRODUCTION_URL", undefined);
   vi.stubEnv("VERCEL_ENV", undefined);
@@ -13,23 +11,6 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("installer origin", () => {
-  it("ignores the retired DevX override and uses the deployment URL", () => {
-    vi.stubEnv("DEVX_PUBLIC_ORIGIN", "https://legacy.example");
-    vi.stubEnv("VERCEL_URL", "deployment.vercel.app");
-    expect(getSetupOrigin()).toBe("https://deployment.vercel.app");
-  });
-
-  it("does not fall back when the Korza override is explicitly empty", () => {
-    vi.stubEnv("KORZA_PUBLIC_ORIGIN", "");
-    vi.stubEnv("VERCEL_URL", "deployment.vercel.app");
-    expect(getSetupOrigin()).toBeNull();
-  });
-  it("prefers an explicit public origin over deployment defaults", () => {
-    vi.stubEnv("KORZA_PUBLIC_ORIGIN", "https://setup.example/");
-    vi.stubEnv("VERCEL_URL", "deployment.vercel.app");
-    expect(getSetupOrigin()).toBe("https://setup.example");
-  });
-
   it("uses the deployment URL in preview without borrowing production", () => {
     vi.stubEnv("VERCEL_ENV", "preview");
     vi.stubEnv("VERCEL_URL", "preview.vercel.app");
@@ -56,29 +37,12 @@ describe("installer origin", () => {
   });
 
   it.each([
-    "",
-    "not-an-origin",
-    "http://public.example",
-    "http://localhost:3000",
-    "https://user:password@example.com",
-    "https://example.com/path",
-    "https://example.com?query=value",
-    "https://example.com#fragment",
-  ])(
-    "rejects invalid production configuration %s without falling back",
-    (origin) => {
-      vi.stubEnv("KORZA_PUBLIC_ORIGIN", origin);
-      vi.stubEnv("VERCEL_URL", "valid.vercel.app");
-      expect(getSetupOrigin()).toBeNull();
-    },
-  );
-
-  it.each(["localhost", "127.0.0.1", "[::1]"])(
-    "permits explicit HTTP loopback %s for local development",
-    (host) => {
-      vi.stubEnv("NODE_ENV", "development");
-      vi.stubEnv("KORZA_PUBLIC_ORIGIN", `http://${host}:4000`);
-      expect(getSetupOrigin()).toBe(`http://${host}:4000`);
-    },
-  );
+    "user:password@example.com",
+    "example.com/path",
+    "example.com?query=value",
+    "example.com#fragment",
+  ])("rejects an invalid deployment host %s", (host) => {
+    vi.stubEnv("VERCEL_URL", host);
+    expect(getSetupOrigin()).toBeNull();
+  });
 });
