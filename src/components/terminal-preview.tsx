@@ -54,7 +54,7 @@ export function TerminalPreview() {
         tabIndex={0}
         className="overflow-x-auto rounded-lg border border-white/10 bg-[#0e0e10] px-3 py-5 font-mono text-[12.5px] leading-[1.75] text-[#d6d6d6] sm:px-6 sm:py-[22px] sm:text-sm"
       >
-        <div className="max-w-[60ch]">
+        <div className="w-full">
           <pre
             aria-hidden="true"
             className="mb-5 overflow-x-auto text-[10px] leading-tight text-[#f0594c] sm:text-xs"
@@ -110,7 +110,7 @@ export function TerminalPreview() {
               </p>
             </div>
           </div>
-          <p className="mt-2 flex flex-wrap gap-x-[1ch] border-t border-[#7a7a82] pt-2 text-[#d9a441]">
+          <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 border-t border-[#7a7a82] pt-2 text-[#d9a441]">
             {[
               "↑↓ Move",
               "[Enter] Details",
@@ -118,9 +118,8 @@ export function TerminalPreview() {
               "[Escape] Finish",
               "[←/→] Collapse/expand",
               "[?] Help",
-            ].map((action, index) => (
+            ].map((action) => (
               <span key={action} className="whitespace-nowrap">
-                {index > 0 && <span aria-hidden>· </span>}
                 {action}
               </span>
             ))}
