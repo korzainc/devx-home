@@ -108,17 +108,31 @@ function Block({ block }: { block: InstallBlock }) {
             </code>
           </div>
           <div className="flex items-start gap-2 py-2.5 pr-2 pl-4">
-            <pre className="min-w-0 flex-1 overflow-x-auto font-mono text-sm text-ink select-all">
-              {block.content}
-            </pre>
+            <div
+              role="region"
+              aria-label={block.name}
+              tabIndex={0}
+              className="min-w-0 flex-1 overflow-x-auto"
+            >
+              <pre className="font-mono text-sm text-ink select-all">
+                {block.content}
+              </pre>
+            </div>
             {button}
           </div>
         </div>
       ) : (
-        <div className="flex items-center gap-2 rounded-lg border border-line bg-canvas py-2.5 pr-2 pl-4">
-          <code className="min-w-0 flex-1 overflow-x-auto font-mono text-sm whitespace-nowrap text-ink select-all">
-            {block.content}
-          </code>
+        <div className="flex items-start gap-2 rounded-lg border border-line bg-canvas py-2.5 pr-2 pl-4">
+          <div
+            role="region"
+            aria-label={block.name}
+            tabIndex={0}
+            className="min-w-0 flex-1 overflow-x-auto"
+          >
+            <code className="block font-mono text-sm whitespace-pre text-ink select-all">
+              {block.content}
+            </code>
+          </div>
           {button}
         </div>
       )}
@@ -127,6 +141,43 @@ function Block({ block }: { block: InstallBlock }) {
       <span role="status" className="sr-only">
         {copied ? `${block.name} copied` : ""}
       </span>
+    </div>
+  );
+}
+
+/** Split at user interaction boundaries, with one copy control per block. */
+export function CommandGroup({
+  commands,
+  comments = {},
+  breakBefore = [],
+}: {
+  commands: string[];
+  comments?: Record<string, string>;
+  breakBefore?: string[];
+}) {
+  const groups: string[][] = [];
+  for (const command of commands) {
+    if (!groups.length || breakBefore.includes(command)) groups.push([]);
+    groups[groups.length - 1].push(command);
+  }
+  return (
+    <div className="flex min-w-0 flex-col gap-4">
+      {groups.map((group) => {
+        const instruction = group
+          .map((command) => comments[command])
+          .filter(Boolean)
+          .join(" ");
+        // Default interactive zsh treats # as a command, which can break the && chain.
+        const content = group.join(" &&\n\n");
+        return (
+          <div key={group[0]} className="flex min-w-0 flex-col gap-2">
+            {instruction && (
+              <p className="max-w-2xl text-sm text-ink-muted">{instruction}</p>
+            )}
+            <Block block={{ content, name: "Terminal command" }} />
+          </div>
+        );
+      })}
     </div>
   );
 }

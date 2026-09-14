@@ -6,6 +6,8 @@ export const manualCommands: {
   why: string;
   title: string;
   commands: string[];
+  comments?: Record<string, string>;
+  breakBefore?: string[];
   note: string | string[];
   noteFirst?: boolean;
   installUrl?: string;
@@ -15,7 +17,7 @@ export const manualCommands: {
     why: "Install Apple’s developer tools, including Git",
     title: "Xcode Command Line Tools",
     commands: ["xcode-select --install"],
-    note: "Finish the installation in Apple’s dialog before continuing. These tools include Git. Set your commit name and email in the Git step below.",
+    note: "Finish the installation in Apple’s dialog before continuing.",
   },
   {
     tool: "Git",
@@ -26,38 +28,49 @@ export const manualCommands: {
       'git config --global user.name "Your Name"',
       'git config --global user.email "you@korza.ai"',
     ],
-    note: "Install Xcode tools first. Replace the example name and email with the details you want on your commits. These commands replace your current Git defaults. Korza CLI can suggest details from GitHub for you to review instead.",
+    note: "Install Xcode tools first. Replace the example name and email with yours, using an email linked to your GitHub account. These commands change the default author name and email for your Git commits.",
   },
   {
     tool: "GitHub CLI",
     noteFirst: true,
-    installUrl: "https://github.com/cli/cli#installation",
+    installUrl: "https://github.com/cli/cli#macos",
     why: "Sign in to GitHub",
     title: "GitHub CLI",
     commands: [
       "gh auth login --hostname github.com --git-protocol https --web",
       "gh auth setup-git --hostname github.com",
     ],
-    note: "Complete the Xcode tools step first. Install GitHub CLI using the link above. Run these commands to sign in. Git will use your GitHub account over HTTPS.",
+    note: "Complete the Xcode tools step, then install GitHub CLI using the link above. Run these commands to sign in and let Git use your GitHub account.",
   },
   {
     tool: "SSH access",
     noteFirst: true,
-    why: "Connect to GitHub over SSH",
+    why: "Optional GitHub access over SSH",
     title: "SSH access",
     commands: [
       'ssh-keygen -t ed25519 -C "you@korza.ai"',
-      "gh auth refresh --hostname github.com --scopes write:public_key",
+      "gh auth refresh --hostname github.com --scopes admin:public_key",
       'gh ssh-key add ~/.ssh/id_ed25519.pub --title "$(hostname)"',
       "ssh-add ~/.ssh/id_ed25519",
       "ssh -T git@github.com",
     ],
+    breakBefore: [
+      "gh auth refresh --hostname github.com --scopes admin:public_key",
+      "ssh -T git@github.com",
+    ],
+    comments: {
+      "gh auth refresh --hostname github.com --scopes admin:public_key":
+        "Finish key creation first, or use your existing key.",
+      "ssh-add ~/.ssh/id_ed25519":
+        "Load the key. Enter its passphrase if asked.",
+      "ssh -T git@github.com":
+        "Check GitHub’s fingerprint before accepting a new connection.",
+    },
     note: [
-      "Complete the GitHub CLI step first.",
-      "If you already have an SSH key, skip key creation. Use that key's paths in the remaining commands.",
-      "ssh-add loads your key so Claude can use it without another passphrase prompt. Run it again if the SSH agent no longer has the key.",
+      "Optional. Set up an SSH key if you use SSH clone URLs. Complete the GitHub CLI step first. The Claude plugin commands below use HTTPS.",
+      "If you already have an SSH key, skip key creation and use its paths below. Skip the upload if that key is already on GitHub.",
+      "ssh-add loads your key for SSH commands. Run it again if the SSH agent no longer has the key.",
       "GitHub needs permission to add the public key. The private key stays on your Mac.",
-      "Check GitHub's published fingerprint before accepting the first connection.",
       'A successful check prints "successfully authenticated". GitHub returns exit code 1 because it does not provide shell access.',
     ],
   },
@@ -69,13 +82,21 @@ export const manualCommands: {
     commands: [
       "curl -fsSL https://claude.ai/install.sh | bash",
       "claude auth login",
-      "claude plugin marketplace add korzainc/marketplace",
-      "claude plugin install codezen@korza-marketplace",
-      "claude plugin install superpowers@korza-marketplace",
-      "claude plugin install mattpocock-skills@korza-marketplace",
-      "claude plugin install humanizer@korza-marketplace",
+      "CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1 claude plugin marketplace add korzainc/marketplace",
+      "CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1 claude plugin marketplace update korza-marketplace",
+      "CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1 claude plugin install codezen@korza-marketplace",
+      "CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1 claude plugin install superpowers@korza-marketplace",
+      "CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1 claude plugin install mattpocock-skills@korza-marketplace",
+      "CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1 claude plugin install humanizer@korza-marketplace",
     ],
-    note: "Run the installer first, then follow its terminal instructions before signing in. The marketplace commands below use SSH, so complete the SSH access step before adding plugins. You also need access to Korza’s GitHub repositories. Korza CLI uses HTTPS for this step.",
+    breakBefore: ["claude auth login"],
+    comments: {
+      "claude auth login":
+        "Finish installation and any shell setup first. Complete the GitHub CLI step before adding plugins.",
+      "CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1 claude plugin install codezen@korza-marketplace":
+        "Install the four plugins included by Korza CLI.",
+    },
+    note: "Sign in to GitHub with access to Korza's repositories. These plugin commands use HTTPS, so you don't need an SSH key.",
   },
   {
     tool: "Homebrew",
@@ -84,7 +105,7 @@ export const manualCommands: {
     commands: [
       '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"',
     ],
-    note: "Follow the installer’s printed shell setup instructions before using brew. The other tools on this page can be installed without Homebrew.",
+    note: "Follow the installer’s shell setup instructions before using brew.",
   },
   {
     tool: "Python (uv)",
@@ -95,7 +116,11 @@ export const manualCommands: {
       "curl -LsSf https://astral.sh/uv/install.sh | sh",
       "uv python install",
     ],
-    note: "Run the installer, then open a new terminal before running uv python install. This adds a Python version managed by uv, as Korza CLI does. Other Python installations stay separate.",
+    breakBefore: ["uv python install"],
+    comments: {
+      "uv python install": "Open a new terminal after installing uv.",
+    },
+    note: "Install uv, then use it to install Python.",
   },
   {
     tool: "Node.js (fnm)",
@@ -108,7 +133,11 @@ export const manualCommands: {
       "fnm default lts-latest",
       "fnm use lts-latest",
     ],
-    note: "Run the installer, then open a new terminal before the remaining commands. These install and activate the current long-term support (LTS) version of Node.js through fnm. Homebrew is not required. Other Node.js installations stay separate.",
+    breakBefore: ["fnm install --lts"],
+    comments: {
+      "fnm install --lts": "Open a new terminal after installing fnm.",
+    },
+    note: "Install fnm, then use it to install and select Node.js LTS.",
   },
 ];
 
@@ -119,7 +148,7 @@ export const faq: { q: string; a: string }[] = [
   },
   {
     q: "What does it change on my machine?",
-    a: "Korza CLI installs and configures the tools you choose and any tools they need. It saves progress and logs in ~/.korza and adds a marked block to ~/.zshrc. korza setup --remove removes only that block; installed tools and the CLI remain. Manual installers may add their own shell settings.",
+    a: "Korza CLI installs and configures the tools you choose and any tools they need. It saves your tool selection and logs in ~/.korza and adds a marked block to ~/.zshrc. korza setup --remove removes only that block. Installed tools and the CLI remain. Manual installers may add their own shell settings.",
   },
   {
     q: "How do I change my Git name or email?",
@@ -143,7 +172,7 @@ export const faq: { q: string; a: string }[] = [
   },
   {
     q: "What if I already have some tools installed?",
-    a: "Configured tools are skipped by default. An installed tool may still need sign-in or configuration. Run korza doctor to check your tools without installing anything.",
+    a: "Configured tools are skipped by default. An installed tool may still need sign-in or configuration. Run korza doctor to check your tools.",
   },
   {
     q: "What if I do not have administrator access?",

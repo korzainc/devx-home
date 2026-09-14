@@ -45,11 +45,11 @@ describe("the Getting Started page", () => {
     );
   });
 
-  it("directs first-time users to the setup command printed by the installer", () => {
+  it("directs first-time users to follow the installer instructions", () => {
     render(<GettingStartedPage />);
     const hero = screen.getByRole("heading", { level: 1 }).closest("section");
     expect(hero?.textContent).toMatch(
-      /follow the installer.s instructions to start setup/i,
+      /follow the installer.s instructions/i,
     );
   });
 
@@ -119,7 +119,7 @@ describe("the Getting Started page", () => {
     )!;
     const login = claude.commands.indexOf("claude auth login");
     const marketplace = claude.commands.findIndex((command) =>
-      command.startsWith("claude plugin marketplace add"),
+      command.includes("claude plugin marketplace add"),
     );
     expect(login).toBeGreaterThan(0);
     expect(marketplace).toBeGreaterThan(login);
@@ -144,11 +144,17 @@ describe("the Getting Started page", () => {
         .compareDocumentPosition(ssh!.querySelector("code")!) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    const commands = [...ssh!.querySelectorAll("code")].map(
-      (field) => field.textContent,
+    const commands = [...ssh!.querySelectorAll("code")].flatMap((field) =>
+      (field.textContent ?? "").split(/\s*&&\s*/).map((command) =>
+        command
+          .split("\n")
+          .filter((line) => !line.startsWith("#"))
+          .join("\n")
+          .trim(),
+      ),
     );
     const permissionIndex = commands.indexOf(
-      "gh auth refresh --hostname github.com --scopes write:public_key",
+      "gh auth refresh --hostname github.com --scopes admin:public_key",
     );
     const uploadIndex = commands.findIndex((command) =>
       command?.startsWith("gh ssh-key add "),
@@ -173,15 +179,22 @@ describe("the Getting Started page", () => {
     }
   });
 
-  it("carries every manual command, each in its own copyable field", () => {
-    render(<GettingStartedPage />);
-    const commands = manualCommands.flatMap((entry) => entry.commands);
-    for (const command of commands) {
-      expect(screen.getAllByText(command).length).toBeGreaterThan(0);
+  it("keeps every manual command available with one copy control per block", () => {
+    const { container } = render(<GettingStartedPage />);
+    const fields = [...container.querySelectorAll("#manual code")];
+    for (const command of manualCommands.flatMap((entry) => entry.commands)) {
+      expect(fields.some((field) => field.textContent?.includes(command))).toBe(
+        true,
+      );
     }
     expect(
       screen.getAllByRole("button", { name: /copy terminal command/i }),
-    ).toHaveLength(commands.length);
+    ).toHaveLength(
+      manualCommands.reduce(
+        (count, entry) => count + 1 + (entry.breakBefore?.length ?? 0),
+        0,
+      ),
+    );
   });
 
   it("links the walkthrough to the manual steps and to the questions", () => {
