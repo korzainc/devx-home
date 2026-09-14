@@ -64,7 +64,7 @@ export function TerminalPreview() {
             }
           </pre>
           <span className="sr-only">Korza CLI</span>
-          <p>Setup</p>
+          <p className="font-bold">Setup</p>
           <p>Let&apos;s get your tools ready.</p>
           <p className={muted}>9 tools</p>
           <div className="my-[1.75em]">
@@ -98,7 +98,6 @@ export function TerminalPreview() {
           <div className="mt-5 mb-4">
             <p>Next steps</p>
             <div className="pl-3">
-              <p>Press Escape to finish setup.</p>
               <p>Open a new terminal.</p>
               <p>
                 Check your tools:{" "}
