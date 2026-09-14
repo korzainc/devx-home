@@ -35,17 +35,11 @@ describe("the Getting Started page", () => {
       screen.getAllByRole("button", { name: /copy terminal command/i }).length,
     ).toBeGreaterThan(0);
   });
-  it("uses the shared page heading and keeps the install command prominent", () => {
+  it("leads with the one command, built from the configured origin", () => {
     const { container } = render(<GettingStartedPage />);
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
-      "Getting started",
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(
+      /Install Korza CLI\s*in one command/i,
     );
-    expect(
-      screen.getByRole("link", { name: /Home/ }).getAttribute("href"),
-    ).toBe("/");
-    expect(
-      screen.getByRole("heading", { level: 2, name: /Install Korza CLI/ }),
-    ).toBeDefined();
     expect(container.textContent).toContain(
       bootstrapCommand("https://setup.example/setup"),
     );
@@ -53,9 +47,7 @@ describe("the Getting Started page", () => {
 
   it("directs first-time users to follow the installer instructions", () => {
     render(<GettingStartedPage />);
-    const hero = screen
-      .getByRole("heading", { level: 2, name: /Install Korza CLI/ })
-      .closest("section");
+    const hero = screen.getByRole("heading", { level: 1 }).closest("section");
     expect(hero?.textContent).toMatch(/follow the installer.s instructions/i);
   });
 

@@ -10,8 +10,10 @@ export function GettingStartedEntrance() {
     if (!motion || motion.matches || !root) return;
 
     const sections = [
-      ...root.querySelectorAll<HTMLElement>(":scope > section"),
-    ].slice(1);
+      ...root.querySelectorAll<HTMLElement>(
+        ":scope > section:not(:first-child)",
+      ),
+    ];
     let shown = false;
     let frame = 0;
 

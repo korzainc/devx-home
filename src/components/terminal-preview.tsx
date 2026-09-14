@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
-const muted = "text-[#a39d91]";
-const ready = "text-[#7fce9e]";
+const muted = "text-[#7a7a82]";
+const ready = "text-[#5fd07a]";
 
 function ToolRow({
   name,
@@ -17,7 +17,7 @@ function ToolRow({
   expandable?: boolean;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-x-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+    <div className="grid grid-cols-[minmax(0,1fr)_16ch] gap-x-3 sm:grid-cols-[minmax(0,26ch)_minmax(0,1fr)]">
       <span className="flex min-w-0 gap-[1ch]">
         <span aria-hidden className="w-[1ch] shrink-0 text-[#e5484d]">
           {selected ? "❯" : ""}
@@ -30,9 +30,7 @@ function ToolRow({
           {expandable ? " ▸" : ""}
         </span>
       </span>
-      <span className={`pl-[4ch] sm:pl-0 ${installed ? ready : muted}`}>
-        {status}
-      </span>
+      <span className={installed ? ready : muted}>{status}</span>
     </div>
   );
 }
@@ -54,7 +52,7 @@ export function TerminalPreview() {
         role="region"
         aria-label="Example Korza CLI setup screen"
         tabIndex={0}
-        className="overflow-x-auto rounded-lg border border-white/10 bg-[#222d3b] px-3 py-5 font-mono text-[12.5px] leading-[1.75] text-[#d6d6d6] sm:px-6 sm:py-[22px] sm:text-sm"
+        className="overflow-x-auto rounded-lg border border-white/10 bg-[#0e0e10] px-3 py-5 font-mono text-[12.5px] leading-[1.75] text-[#d6d6d6] sm:px-6 sm:py-[22px] sm:text-sm"
       >
         <div className="max-w-[60ch]">
           <pre
@@ -129,7 +127,7 @@ export function TerminalPreview() {
           </p>
         </div>
       </div>
-      <figcaption className="mt-3 text-xs text-ink-faint">
+      <figcaption className="sr-only">
         Example of completed setup. Versions may differ.
       </figcaption>
     </figure>
