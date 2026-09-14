@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { GettingStartedEntrance } from "@/components/getting-started-entrance";
 import { CommandGroup } from "@/components/install-panel";
 import { TerminalPreview } from "@/components/terminal-preview";
@@ -34,12 +35,23 @@ export default function GettingStartedPage() {
   return (
     <div className="getting-started flex w-full flex-col">
       <GettingStartedEntrance />
+      <header className="mb-10 flex max-w-2xl flex-col gap-4">
+        <Link
+          href="/"
+          className="w-fit font-mono text-xs text-ink-faint hover:text-accent"
+        >
+          ← Home
+        </Link>
+        <h1 className="font-display text-3xl font-semibold tracking-tight">
+          Getting started
+        </h1>
+      </header>
       <section className="grid grid-cols-1 items-center gap-8 pb-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-14">
         <div className="gs-hero-copy flex flex-col gap-4">
-          <h1 className="font-display text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+          <h2 className="font-display text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
             Install Korza CLI <br />
             in one command.
-          </h1>
+          </h2>
           <p className="max-w-lg text-lg leading-relaxed text-ink-muted">
             Run this command in Terminal on your Mac, then follow the
             installer&apos;s instructions.
