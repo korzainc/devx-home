@@ -66,7 +66,7 @@ export function TerminalPreview() {
           <span className="sr-only">Korza CLI</span>
           <p className="font-bold">Setup</p>
           <p>Let&apos;s get your tools ready.</p>
-          <p className={muted}>9 tools</p>
+          <p className={muted}>5 tools</p>
           <div className="my-[1.75em]">
             <Group title="Essentials">
               <ToolRow
@@ -74,25 +74,22 @@ export function TerminalPreview() {
                 status="Ready · 2.50.1"
                 installed
                 selected
+                expandable
               />
-              <ToolRow
-                name="└ Git toolchain"
-                status="Ready · 2.50.1"
-                installed
-              />
-              <ToolRow name="└ GitHub CLI" status="Ready · 2.100.0" installed />
-              <ToolRow name="└ GitHub SSH access" status="Ready" installed />
               <ToolRow name="Homebrew" status="Ready · 7.0.1" installed />
             </Group>
             <Group title="AI tools">
-              <ToolRow name="Claude Code" status="Ready · 2.1.270" installed />
-              <ToolRow name="└ Korza skills" status="Ready" installed />
+              <ToolRow
+                name="Claude Code"
+                status="Ready · 2.1.270"
+                installed
+                expandable
+              />
             </Group>
             <Group title="Languages">
               <ToolRow name="Python" status="Ready · uv 0.12.13" installed />
               <ToolRow name="Node.js" status="Ready · 24.21.0" installed />
             </Group>
-            <p className={muted}>9 ready</p>
           </div>
           <p className={ready}>✓ Your tools are ready.</p>
           <div className="mt-5 mb-4">
