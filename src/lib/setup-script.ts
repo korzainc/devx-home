@@ -5,7 +5,11 @@ import { shellQuote } from "@/lib/shell-quote";
 // Serve this deployment's bundle until /setup switches to GitHub releases.
 // Update the installer, archive and checksum together from korza-cli.
 
-/** Bump this alongside the files committed under public/korza/. */
+/**
+ * The bundled CLI's own version, which `korza version` prints. It names the archive, so it
+ * tracks that binary rather than the commit it was built from: refreshing the bundle from a
+ * newer korza-cli commit at the same CLI version reuses this name and this URL.
+ */
 export const BUNDLED_ARTIFACT_VERSION = "0.1.0";
 const TARBALL_NAME = `korza-${BUNDLED_ARTIFACT_VERSION}-macos.tar.gz`;
 
