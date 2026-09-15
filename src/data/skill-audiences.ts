@@ -76,7 +76,7 @@ export const skillAudiences: Record<string, Audience[]> = {
  *  rather than collapsing to "All": the reader picking Sales wants the two entries that hold
  *  something for them, not the four that hold something for someone. */
 export const pluginAudiences: Record<string, Audience[]> = {
-  codezen: ["Engineering"],
+  codezen: ["Engineering", "Business"],
   humanizer: ["All"],
   "mattpocock-skills": ["Engineering", "Business", "Sales"],
   superpowers: ["Engineering"],
