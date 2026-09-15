@@ -53,7 +53,7 @@ export default function GettingStartedPage() {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-8 border-t border-line py-12">
+      <section className="hidden grid-cols-1 gap-8 border-t border-line py-12 md:grid">
         <div className="flex min-w-0 flex-col gap-3">
           <h2 className="font-display text-2xl font-semibold tracking-tight">
             Guided setup.
