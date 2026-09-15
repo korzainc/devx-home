@@ -46,7 +46,7 @@ jobs:
             -e CI=true -e CI_SCRATCH_DIR=/scratch \
             -v "$RUNNER_TEMP/ci-scratch:/scratch" \
             -e TRIVY_CACHE_DIR=/scratch/trivy-db \
-            -e CI_PARALLEL_LEAVES=true \
+            -e CI_PARALLEL_LEAVES=false \
             -e CI_SCA_BLOCKING=true -e CI_IAC_CONFIG_BLOCKING=true -e CI_IAC_DOCKERFILE_BLOCKING=true \
             -e GITHUB_STEP_SUMMARY=/step-summary \
             -v "$GITHUB_STEP_SUMMARY:/step-summary" \
