@@ -11,7 +11,11 @@ import type { Analysis, CapabilityReport, RecommendedTool } from "./types";
 
 type Gap = CapabilityReport & { category: string };
 
-/** Per-capability placement fact, standing in for a real detector this round (DX-198 demo). */
+/** Per-capability placement fact, standing in for a real detector this round (DX-198 demo).
+ * Hand-typed by the caller, never repo-derived - buildFixPrompt renders both fields unescaped.
+ * A future detector supplying `candidate` from repo content would need to escape it the same
+ * way evidence strings elsewhere in this file are escaped, or a crafted CI step could inject
+ * markdown into a document a coding agent treats as ground truth. */
 export type Placement = {
   /** What must exist first, phrased for the brief: "a built container image to scan". */
   needs: string;
@@ -204,31 +208,34 @@ export function buildFixPrompt(
       ? `| # | Check | Category | Tools that would cover it |\n| --- | --- | --- | --- |\n${gapRows.join("\n")}`
       : "Nothing. Every check the baseline expects is already running.";
 
-  // notes.needs/notes.candidate are hand-typed by whoever calls buildFixPrompt for this demo,
-  // never repo-controlled content, so they skip cell() - cell() is a table-cell escaper (rewrites
-  // backtick to ' and pipe to \|), which would mangle a candidate string's own backticks. Only
-  // gap.label goes through cell(), matching every other catalogue-sourced label in this file.
-  const placementParagraphs = gaps
-    .filter((gap) => notes[gap.id])
-    .map((gap) => {
-      const note = notes[gap.id];
-      const label = cell(gap.label);
-      return note.candidate
+  // notes.needs/notes.candidate skip cell() - cell() is a table-cell escaper (rewrites backtick
+  // to ' and pipe to \|), which would mangle a candidate string's own backticks. Only gap.label
+  // goes through cell(), matching every other catalogue-sourced label in this file. Safe only
+  // because Placement is hand-typed for this demo (see its doc comment) - a real detector-fed
+  // candidate would be repo-controlled content and need the same escaping evidence strings get.
+  //
+  // Wording below is image-scan specific ("the build producing the image", "no image on it").
+  // Fine for this round - every fixture is image-scan - but a generic capability (an install
+  // step, say) would need its own phrasing rather than reusing these two paragraphs verbatim.
+  const placementParagraphs = gaps.flatMap((gap) => {
+    const note = notes[gap.id];
+    if (!note) return [];
+    const label = cell(gap.label);
+    return [
+      note.candidate
         ? `**${label}** needs ${note.needs}. A candidate: ${note.candidate}. Verify that is ` +
-          `really the build producing the image this check should scan, then add the check to ` +
-          `that same job, after that step. Not a new job: a new job gets a fresh runner with no ` +
-          `image on it.`
-        : `**${label}** needs ${note.needs}. Nothing in the files the portal read builds one. ` +
-          `Search the repo before accepting that, since it may happen somewhere the portal ` +
-          `could not see. If there is genuinely no build in CI, it has to be added first, ahead ` +
-          `of the check, in the same job. If this repo does not ship an image at all, skip the ` +
-          `check and say so.`;
-    });
+          `really the build producing the image this check should scan, then add the check ` +
+          `to that same job, after that step. Not a new job: a new job gets a fresh runner ` +
+          `with no image on it.`
+        : `**${label}** needs ${note.needs}. Nothing in the files the portal read builds ` +
+          `one. Search the repo before accepting that, since it may happen somewhere the ` +
+          `portal could not see. If there is genuinely no build in CI, it has to be added ` +
+          `first, ahead of the check, in the same job. If this repo does not ship an image ` +
+          `at all, skip the check and say so.`,
+    ];
+  });
 
   // Renders nothing when there is nothing to say - a repo with no notes gets no new section.
-  // The heading rename two paragraphs below is a separate, unconditional fix applied regardless
-  // of notes, so buildFixPrompt's output is not byte-identical to before this change for every
-  // call - only this section and the closing-line addition below are gated on notes.
   const placementSection =
     placementParagraphs.length > 0
       ? `\n### Where these go in the pipeline\n\nSome checks cannot stand alone. They need ` +
@@ -237,7 +244,7 @@ export function buildFixPrompt(
 
   const placementClosingLine =
     placementParagraphs.length > 0
-      ? `\n\nFor a check named in the "Where these go in the pipeline" section, name the job it ` +
+      ? `\n\nFor a check named in the 'Where these go in the pipeline' section, name the job it ` +
         `went into and the step it now runs after.`
       : "";
 
