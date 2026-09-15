@@ -110,7 +110,7 @@ export function TerminalPreview() {
               </p>
             </div>
           </div>
-          <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 border-t border-[#7a7a82] pt-2 text-[#d9a441]">
+          <p className="mt-2 flex flex-wrap gap-x-[3ch] gap-y-1 overflow-hidden border-t border-[#7a7a82] pt-2 text-[#d9a441]">
             {[
               "↑↓ Move",
               "[Enter] Details",
@@ -118,8 +118,16 @@ export function TerminalPreview() {
               "[Escape] Finish",
               "[←/→] Collapse/expand",
               "[?] Help",
-            ].map((action) => (
-              <span key={action} className="whitespace-nowrap">
+            ].map((action, index) => (
+              <span key={action} className="relative whitespace-nowrap">
+                {index > 0 && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute -left-[2ch] text-[#7a7a82]"
+                  >
+                    |
+                  </span>
+                )}
                 {action}
               </span>
             ))}
