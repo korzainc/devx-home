@@ -41,8 +41,7 @@ export default function GettingStartedPage() {
             in one command.
           </h1>
           <p className="max-w-lg text-lg leading-relaxed text-ink-muted">
-            Run this command in Terminal on your Mac, then follow the
-            installer&apos;s instructions.
+            Run this command in Terminal on your Mac, then follow the prompts.
           </p>
         </div>
 
@@ -78,8 +77,8 @@ export default function GettingStartedPage() {
             Set up manually
           </h2>
           <p className="text-ink-muted">
-            Open a tool to see its setup commands. Follow the installer&apos;s
-            instructions. Open a new terminal when asked.
+            Expand a tool for setup commands. Follow the prompts and open a new
+            terminal when asked.
           </p>
         </div>
         <div className="w-full min-w-0 rounded-xl border border-line bg-surface">

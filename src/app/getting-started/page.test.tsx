@@ -45,10 +45,10 @@ describe("the Getting Started page", () => {
     );
   });
 
-  it("directs first-time users to follow the installer instructions", () => {
+  it("directs first-time users to follow the prompts", () => {
     render(<GettingStartedPage />);
     const hero = screen.getByRole("heading", { level: 1 }).closest("section");
-    expect(hero?.textContent).toMatch(/follow the installer.s instructions/i);
+    expect(hero?.textContent).toMatch(/follow the prompts/i);
   });
 
   it("points questions about a broken step or missing tool at #devx", () => {

@@ -152,11 +152,11 @@ export const faq: { q: string; a: string }[] = [
   },
   {
     q: "How do I change my Git name or email?",
-    a: "Run korza setup. Select Git & GitHub and press r, then Enter. Review your current details and choose Edit.",
+    a: "Run korza setup. Select Git & GitHub and press [r], then [Enter]. Review your current details and choose Edit.",
   },
   {
     q: "Can I stop and come back later?",
-    a: "Yes. Press Esc from the tool list to let running installs finish and skip waiting tools. Run korza setup when you want to continue. Apple’s installer may keep running after you leave setup.",
+    a: "Yes. Press [Escape] from the tool list to let running installs finish and skip waiting tools. Run korza setup when you want to continue. Apple’s installer may keep running after you leave setup.",
   },
   {
     q: "What happens if a step fails?",
@@ -179,7 +179,7 @@ export const faq: { q: string; a: string }[] = [
     a: "Some steps need administrator approval. You can leave those steps for later and continue with other tools. Ask the IT team if device policy blocks a step.",
   },
   {
-    q: "When am I actually done?",
+    q: "When is setup complete?",
     a: "When the tools you chose are ready, follow the next steps shown. You can return later to set up other tools.",
   },
 ];
