@@ -182,17 +182,6 @@ export function CommandGroup({
   );
 }
 
-/** Standalone command field used by the getting-started manual steps. */
-export function CommandField({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return <Block block={{ label, content: value, name: `${label} command` }} />;
-}
-
 /**
  * The install section both detail pages render. It owns the chrome, the tab row and the copy
  * behaviour; what a tab means and what its blocks contain is the caller's business, which is why

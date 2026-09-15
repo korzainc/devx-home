@@ -624,10 +624,7 @@ html {
     opacity: 1;
     transform: none;
   }
-}
 
-/* Keep native details controls and use instant motion when requested or unsupported. */
-@media (prefers-reduced-motion: no-preference) {
   html:has(.getting-started) {
     scroll-behavior: smooth;
   }
