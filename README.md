@@ -62,8 +62,10 @@ Vercel's deployment URL and supplies the bundled download and checksum.
 Local development uses `localhost` and the server port (default `3000`).
 The installer installs to `~/.local/bin` by default.
 The copied command downloads the complete script and checks its shell header
-before running it. Failed downloads, redirects and unexpected responses stop
-installation. These checks do not authenticate the server.
+before running it. Failed downloads and unexpected responses stop
+installation. Redirects are followed: the command uses `curl -fsSL`, and the
+legacy `/devx/install.sh` path depends on a redirect to `/setup`. These checks
+do not authenticate the server.
 
 ### Release handoff and validation
 
