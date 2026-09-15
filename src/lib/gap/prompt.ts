@@ -11,6 +11,17 @@ import type { Analysis, CapabilityReport, RecommendedTool } from "./types";
 
 type Gap = CapabilityReport & { category: string };
 
+/** Per-capability placement fact, standing in for a real detector this round (DX-198 demo). */
+export type Placement = {
+  /** What must exist first, phrased for the brief: "a built container image to scan". */
+  needs: string;
+  /** Where it might already happen, phrased as evidence to verify. Null when nothing found. */
+  candidate: string | null;
+};
+
+/** Keyed by capability id. Empty/omitted renders no new section (see buildFixPrompt). */
+export type PlacementNotes = Record<string, Placement>;
+
 // Evidence strings carry repo-controlled paths and, via a quoted YAML scalar in a workflow
 // file, can carry a real newline. A pipe would end the table row early, a backtick would close
 // the code span the value sits in, and an unescaped newline would let the rest write fresh
@@ -133,7 +144,10 @@ function suggestion(gap: Gap): string {
   );
 }
 
-export function buildFixPrompt(analysis: Analysis): string {
+export function buildFixPrompt(
+  analysis: Analysis,
+  notes: PlacementNotes = {},
+): string {
   const expected = analysis.satisfiedCount + analysis.gapCount;
 
   const running = analysis.categories.flatMap((category) =>
@@ -190,6 +204,43 @@ export function buildFixPrompt(analysis: Analysis): string {
       ? `| # | Check | Category | Tools that would cover it |\n| --- | --- | --- | --- |\n${gapRows.join("\n")}`
       : "Nothing. Every check the baseline expects is already running.";
 
+  // notes.needs/notes.candidate are hand-typed by whoever calls buildFixPrompt for this demo,
+  // never repo-controlled content, so they skip cell() - cell() is a table-cell escaper (rewrites
+  // backtick to ' and pipe to \|), which would mangle a candidate string's own backticks. Only
+  // gap.label goes through cell(), matching every other catalogue-sourced label in this file.
+  const placementParagraphs = gaps
+    .filter((gap) => notes[gap.id])
+    .map((gap) => {
+      const note = notes[gap.id];
+      const label = cell(gap.label);
+      return note.candidate
+        ? `**${label}** needs ${note.needs}. A candidate: ${note.candidate}. Verify that is ` +
+          `really the build producing the image this check should scan, then add the check to ` +
+          `that same job, after that step. Not a new job: a new job gets a fresh runner with no ` +
+          `image on it.`
+        : `**${label}** needs ${note.needs}. Nothing in the files the portal read builds one. ` +
+          `Search the repo before accepting that, since it may happen somewhere the portal ` +
+          `could not see. If there is genuinely no build in CI, it has to be added first, ahead ` +
+          `of the check, in the same job. If this repo does not ship an image at all, skip the ` +
+          `check and say so.`;
+    });
+
+  // Renders nothing when there is nothing to say - a repo with no notes gets no new section.
+  // The heading rename two paragraphs below is a separate, unconditional fix applied regardless
+  // of notes, so buildFixPrompt's output is not byte-identical to before this change for every
+  // call - only this section and the closing-line addition below are gated on notes.
+  const placementSection =
+    placementParagraphs.length > 0
+      ? `\n### Where these go in the pipeline\n\nSome checks cannot stand alone. They need ` +
+        `something else to have already run, in the same job.\n\n${placementParagraphs.join("\n\n")}\n`
+      : "";
+
+  const placementClosingLine =
+    placementParagraphs.length > 0
+      ? `\n\nFor a check named in the "Where these go in the pipeline" section, name the job it ` +
+        `went into and the step it now runs after.`
+      : "";
+
   // A git ref permits both backticks and pipes, which is why this goes through the same escape
   // as every repo-controlled string here rather than being trusted as GitHub API output.
   const defaultBranch = cell(analysis.defaultBranch);
@@ -225,7 +276,7 @@ Score: ${analysis.satisfiedCount} of ${expected} recommended checks are running$
 
 ${runningTable}
 
-### Missing, in the order to work through them
+### Missing checks
 
 ${gapTable}
 
@@ -234,7 +285,7 @@ one) or each required for a different part of the repo (install every one named)
 
 The tool column is a suggestion from a catalogue, not a decision. If the repo already has a house
 tool for the same job, use that one and say so.
-
+${placementSection}
 ## Rules of engagement
 
 **Verify before you build.** For each gap, search the repo first. If the check already runs
@@ -277,6 +328,6 @@ add a blanket ignore to make a run go green.
 
 Report a table of every check above with one of: added, already present, skipped. For added, name
 the file and the config decisions you made. For skipped, say what blocked it. List every finding
-the new checks surfaced and what you did with it.
+the new checks surfaced and what you did with it.${placementClosingLine}
 `;
 }
