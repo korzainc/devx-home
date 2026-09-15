@@ -17,7 +17,7 @@
   {
     "id": "superpowers",
     "name": "superpowers",
-    "summary": "Core skills library: TDD, debugging, collaboration.",
+    "summary": "Core skills library: planning, verification, finishing work.",
     "problem": "Left to itself, an agent writes code first and reasons about it afterwards. The result reads well and fails under test.",
     "benefits": [
       "A vetted library of planning, verification and branch-completion patterns, so the approach is not improvised on every task.",
