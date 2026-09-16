@@ -3,6 +3,8 @@ import Link from "next/link";
 import { Suspense } from "react";
 import korzaLogo from "@/assets/korza-logo.png";
 import { AccountMenu } from "@/components/account-menu";
+import { NavLink } from "@/components/nav-link";
+import { navLinkClass } from "@/components/nav-link-styles";
 import { NavMenu } from "@/components/nav-menu";
 import { ProductsMenu } from "@/components/products-menu";
 import { signOut } from "@/lib/auth-actions";
@@ -39,8 +41,9 @@ export function SiteHeader() {
         </Link>
 
         {/* The same items twice, once along the row and once inside the menu. Only one is ever
-            visible, and getSession is memoised per request, so the pair costs one query. */}
-        <nav className="ml-auto hidden items-center gap-5 sm:flex">
+            visible, and getSession is memoised per request, so the pair costs one query.
+            `h-full`, so a current item's rule reaches the header's border. */}
+        <nav className="ml-auto hidden h-full items-center gap-5 sm:flex">
           <NavLinks />
           {/* Reading the session queries Postgres, so it stays behind its own boundary and the
               rest of the header paints without waiting on it. The fallback stays null: the
@@ -54,7 +57,7 @@ export function SiteHeader() {
 
         <NavMenu>
           <NavLinks inMenu />
-          <NoScriptLoginLink />
+          <NoScriptLoginLink inMenu />
           <Suspense fallback={null}>
             <AuthControl inMenu />
           </Suspense>
@@ -64,8 +67,9 @@ export function SiteHeader() {
   );
 }
 
-const navLink =
-  "text-sm whitespace-nowrap text-ink-muted transition-colors hover:text-ink";
+// For the controls that are not navigation and so are never "current": login and sign-out.
+const navLink = navLinkClass("row");
+const navLinkPanel = navLinkClass("panel");
 
 /**
  * What the site sells, then the way in. Roadmap and Updates stay in the footer: they are read
@@ -76,32 +80,31 @@ const navLink =
  * under a heading instead.
  */
 function NavLinks({ inMenu = false }: { inMenu?: boolean }) {
-  const gettingStarted = (
-    <Link href="/getting-started" className={navLink}>
-      Getting started
-    </Link>
-  );
-
   if (!inMenu)
     return (
       <>
         <ProductsMenu />
-        {gettingStarted}
+        <NavLink href="/getting-started" shape="row">
+          Getting started
+        </NavLink>
       </>
     );
 
+  // The panel shape: stacked rows with a plate to fill, like the dropdown's.
   return (
     <>
-      <p className="font-mono text-xs tracking-wide text-ink-faint uppercase">
+      <p className="px-2.5 pt-1.5 pb-1 font-mono text-xs tracking-wide text-ink-faint uppercase">
         Products
       </p>
       {PRODUCTS.map((product) => (
-        <Link key={product.href} href={product.href} className={navLink}>
+        <NavLink key={product.href} href={product.href} shape="panel">
           {product.label}
-        </Link>
+        </NavLink>
       ))}
-      <span aria-hidden className="h-px w-full bg-line" />
-      {gettingStarted}
+      <span aria-hidden className="mx-2.5 my-1 h-px bg-line" />
+      <NavLink href="/getting-started" shape="panel">
+        Getting started
+      </NavLink>
     </>
   );
 }
@@ -109,9 +112,9 @@ function NavLinks({ inMenu = false }: { inMenu?: boolean }) {
 const loginHref = "/login";
 const loginLabel = "Log in";
 
-function LoginLink() {
+function LoginLink({ inMenu = false }: { inMenu?: boolean }) {
   return (
-    <Link href={loginHref} className={navLink}>
+    <Link href={loginHref} className={inMenu ? navLinkPanel : navLink}>
       {loginLabel}
     </Link>
   );
@@ -120,11 +123,11 @@ function LoginLink() {
 // Boundary content is moved into place by an inline `$RC` call, so a client that runs no script
 // never sees it. Set as markup, not elements: a browser with scripts on parses <noscript> as
 // text, which would mismatch on hydration. Shares its constants with `LoginLink`.
-function NoScriptLoginLink() {
+function NoScriptLoginLink({ inMenu = false }: { inMenu?: boolean }) {
   return (
     <noscript
       dangerouslySetInnerHTML={{
-        __html: `<a class="${navLink}" href="${loginHref}">${loginLabel}</a>`,
+        __html: `<a class="${inMenu ? navLinkPanel : navLink}" href="${loginHref}">${loginLabel}</a>`,
       }}
     />
   );
@@ -140,7 +143,7 @@ function NoScriptLoginLink() {
 async function AuthControl({ inMenu = false }: { inMenu?: boolean }) {
   const session = await getSession();
 
-  if (!session) return <LoginLink />;
+  if (!session) return <LoginLink inMenu={inMenu} />;
 
   const { name, email, image } = session.user;
   const avatar = <Avatar image={image} name={name} />;
@@ -148,11 +151,12 @@ async function AuthControl({ inMenu = false }: { inMenu?: boolean }) {
   if (inMenu)
     return (
       <>
-        <span className="flex items-center gap-2">
+        <span aria-hidden className="mx-2.5 my-1 h-px bg-line" />
+        <span className="flex items-center gap-2 px-2.5 py-1.5">
           {avatar}
           <span className="truncate text-sm text-ink-muted">{name}</span>
         </span>
-        <SignOut className={navLink} />
+        <SignOut className={`${navLinkPanel} text-left`} />
       </>
     );
 
