@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { SkillsIntroSeen } from "@/components/skills-intro-seen";
 import Link from "next/link";
+import { NavArrow } from "@/components/nav-arrow";
 import {
   SkillsGlossaryNote,
   SkillsIntroPanes,
@@ -26,7 +27,7 @@ export default function SkillsIntroPage() {
         href="/skills"
         className="w-fit font-mono text-xs text-ink-faint hover:text-accent"
       >
-        ← Skills
+        <NavArrow direction="left" /> Skills
       </Link>
 
       <SkillsIntroPanes />
