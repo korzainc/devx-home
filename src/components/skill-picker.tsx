@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { AUDIENCE_ANY, type Audience } from "@/data/skill-audiences";
+import { NavArrow } from "@/components/nav-arrow";
 
 /** Only the fields the cards draw. A `SkillEntry` also carries `ref`, the git ref the skill is
  *  pinned to, and spreading that into a component hands React a real ref. */
@@ -112,7 +113,7 @@ export function SkillPicker({ cards }: { cards: SkillCard[] }) {
             href="/skills"
             className="font-display text-lg font-semibold tracking-tight text-accent transition-colors hover:text-ink"
           >
-            Browse the marketplace →
+            Browse the marketplace <NavArrow direction="right" />
           </Link>
         </div>
       </div>

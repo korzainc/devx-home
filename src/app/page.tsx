@@ -4,6 +4,7 @@ import { SkillPicker, type SkillCard } from "@/components/skill-picker";
 import { SnapScroll } from "@/components/snap-scroll";
 import { capabilityLabel, skills, type CapabilityId } from "@/lib/catalogue";
 import { getUpdates } from "@/lib/updates";
+import { NavArrow } from "@/components/nav-arrow";
 
 /**
  * One panel, one screenful, one snap target.
@@ -275,7 +276,7 @@ function Door({
 }: {
   eyebrow: string;
   title: string;
-  action: string;
+  action: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -326,7 +327,7 @@ export default function Home() {
               href="/getting-started"
               className="rounded-lg bg-surface-raised px-5 py-2.5 text-sm font-medium text-ink shadow-[inset_0_1px_0_color-mix(in_oklab,var(--ink)_16%,transparent)] transition-colors hover:bg-line"
             >
-              Set up your machine →
+              Set up your machine <NavArrow direction="right" />
             </Link>
             <p className="text-sm text-ink-faint">
               One command installs the Korza CLI. It sets up the toolchain and
@@ -353,7 +354,7 @@ export default function Home() {
                 href="/tools"
                 className="text-sm font-medium text-accent hover:underline"
               >
-                Browse the catalogue →
+                Browse the catalogue <NavArrow direction="right" />
               </Link>
             </>
           }
@@ -472,7 +473,11 @@ export default function Home() {
               <Door
                 eyebrow="Updates"
                 title="See what has changed"
-                action="Read all updates →"
+                action={
+                  <>
+                    Read all updates <NavArrow direction="right" />
+                  </>
+                }
               >
                 {/* The three newest entries, read from content/updates at build time, so this
                     stops being true only if nobody writes an update. */}
@@ -501,7 +506,11 @@ export default function Home() {
               <Door
                 eyebrow="Roadmap"
                 title="Decide what comes next"
-                action="Open the roadmap →"
+                action={
+                  <>
+                    Open the roadmap <NavArrow direction="right" />
+                  </>
+                }
               >
                 <p className="text-sm leading-relaxed text-ink-muted">
                   Everything being considered is listed, and every item takes a
@@ -516,7 +525,11 @@ export default function Home() {
               <Door
                 eyebrow="Slack"
                 title="Talk to the DevX team"
-                action="Join the channel →"
+                action={
+                  <>
+                    Join the channel <NavArrow direction="right" />
+                  </>
+                }
               >
                 <p className="text-sm leading-relaxed text-ink-muted">
                   The fastest way to reach us. Ask a question, or bring

@@ -23,6 +23,7 @@ import {
 } from "@/lib/catalogue-entries";
 import { filterEntries, matchesAudience } from "@/lib/filter";
 import { useCatalogueFilters } from "@/lib/use-catalogue-filters";
+import { NavArrow } from "@/components/nav-arrow";
 
 // Module scope, not inline: the filter memoises on facet identity.
 const facets: Facet<PluginEntry>[] = [
@@ -64,7 +65,7 @@ function PluginCard({
       footerLeft={<span className="shrink-0">{agents.join(" · ")}</span>}
       footerRight={
         <span className="shrink-0 transition-colors group-hover:text-accent">
-          why use it →
+          why use it <NavArrow direction="right" />
         </span>
       }
     />
