@@ -385,8 +385,8 @@ it("resumes the remaining frame time instead of restarting the frame", () => {
 it("shows qualified estimates and measured download detail without losing controls", () => {
   render(<TerminalPreview />);
   intersect(0.7);
-  advanceTo("Machine work: about 6s");
-  expect(output()).toContain("sign-in may add time");
+  advanceTo("Installing fnm: about 6s");
+  expect(output()).toContain("Installing Node.js takes extra time");
   advanceTo("60% of 3.0 MB, about 4s left");
   expect(output()).toContain("elapsed");
   expect(document.querySelector(".terminal-preview-spinner")).not.toBeNull();
