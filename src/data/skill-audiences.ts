@@ -17,6 +17,10 @@ export type Audience = (typeof AUDIENCES)[number];
  *  catalogue panels and the match rule have to agree on it, so it is named once. */
 export const AUDIENCE_ANY: Audience = "All";
 
+/** Display label only; the stored value stays "All", which beside three roles read as "no filter".
+ *  Named for the dimension rather than the breadth, as `/tools` does with "Language-agnostic". */
+export const AUDIENCE_ANY_LABEL = "Role-agnostic";
+
 /** The query-string key, shared because both panels draw the row and a reader may edit it. */
 export const AUDIENCE_PARAM = "for";
 
