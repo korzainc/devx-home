@@ -10,7 +10,11 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CatalogueTabs } from "@/components/catalogue-tabs";
-import { AUDIENCES, skillAudiences } from "@/data/skill-audiences";
+import {
+  AUDIENCE_ANY_LABEL,
+  AUDIENCES,
+  skillAudiences,
+} from "@/data/skill-audiences";
 import { PluginsCatalogue } from "@/components/plugins-catalogue";
 import { SkillsCatalogue } from "@/components/skills-catalogue";
 import { entryHaystack, matchesQuery } from "@/lib/search";
@@ -156,9 +160,10 @@ describe("the skills catalogue", () => {
     // Audience is the chip row, so the row carries the label and the values are the buttons.
     expect(screen.getByText("For")).toBeTruthy();
     for (const value of AUDIENCES) {
+      const label = value === "All" ? AUDIENCE_ANY_LABEL : value;
       expect(
-        screen.getByRole("button", { name: value }),
-        `${value} is not a chip`,
+        screen.getByRole("button", { name: label }),
+        `${label} is not a chip`,
       ).toBeTruthy();
     }
     for (const label of ["Agent", "Plugin", "Origin"]) {
@@ -312,11 +317,11 @@ describe("the skills catalogue", () => {
     expect(cardCount()).toBe(withAll.length);
   });
 
-  it("shows only the cross-functional rows when All is picked on its own", () => {
-    // Asking for All is asking to see fewer, so the union cannot apply to the value that drives
+  it("shows only the role-agnostic rows when that chip is picked on its own", () => {
+    // Asking for it is asking to see fewer, so the union cannot apply to the value that drives
     // it: every row would satisfy it.
     renderPage();
-    pick(AUDIENCE, "All");
+    pick(AUDIENCE, AUDIENCE_ANY_LABEL);
 
     const expected = skills.filter((skill) =>
       skillAudiences[skill.id].includes("All"),

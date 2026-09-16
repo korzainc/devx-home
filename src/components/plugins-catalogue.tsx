@@ -11,6 +11,7 @@ import { CardGrid, NoMatches } from "@/components/catalogue-results";
 import { FacetMenu } from "@/components/facet-menu";
 import {
   AUDIENCE_ANY,
+  AUDIENCE_ANY_LABEL,
   AUDIENCE_PARAM,
   AUDIENCES,
 } from "@/data/skill-audiences";
@@ -170,6 +171,9 @@ export function PluginsCatalogue({
         options={[...audienceOptions]}
         picked={pickedAudiences}
         onToggle={(value) => toggle(AUDIENCE_PARAM, value)}
+        labelFor={(value) =>
+          value === AUDIENCE_ANY ? AUDIENCE_ANY_LABEL : value
+        }
         setApart={(value) => value === AUDIENCE_ANY}
       />
 
