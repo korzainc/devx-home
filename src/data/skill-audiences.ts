@@ -62,8 +62,9 @@ export const skillAudiences: Record<string, Audience[]> = {
   // Turns a question you cannot answer into one someone else fills in, which is the shape of a
   // discovery call as much as an internal decision.
   // Builds a course on any topic in the current directory, not a code explainer: its own
-  // description says "within this workspace" and its worked examples are physics and yoga.
-  "mattpocock-skills:skills/productivity/teach": ["Engineering"],
+  // description says "within this workspace" and its worked examples are physics and yoga. So
+  // "All" rather than "Engineering": the subject is whatever the reader wants to learn.
+  "mattpocock-skills:skills/productivity/teach": ["All"],
   "mattpocock-skills:skills/productivity/to-questionnaire": [
     "Sales",
     "Business",
