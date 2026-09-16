@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Arrive } from "@/components/arrive";
+import { Roll } from "@/components/roll";
 import { SkillPicker, type SkillCard } from "@/components/skill-picker";
 import { SnapScroll } from "@/components/snap-scroll";
 import { capabilityLabel, skills, type CapabilityId } from "@/lib/catalogue";
@@ -20,41 +21,6 @@ function Panel({ children }: { children: React.ReactNode }) {
     <section className="flex min-h-[calc(100svh-4rem)] snap-start flex-col justify-center py-16">
       {children}
     </section>
-  );
-}
-
-/**
- * The rolling list that stands in for the gap report.
- *
- * The window is a fixed height so the track has something to travel through, and the track holds
- * the list twice so there is no gap at the wrap. The second copy is hidden from assistive tech,
- * which reads the first and stops.
- */
-function Roll({
-  title,
-  meta,
-  children,
-}: {
-  title: string;
-  meta: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="report-ground flex flex-col gap-1 p-5">
-      <div className="flex items-baseline justify-between gap-3 pb-1">
-        <span className="font-mono text-sm text-ink">{title}</span>
-        <span className="font-mono text-xs text-ink-faint">{meta}</span>
-      </div>
-      <div className="report-window h-[19rem] overflow-hidden">
-        <div className="report-roll">
-          {[0, 1].map((copy) => (
-            <div key={copy} aria-hidden={copy === 1 ? true : undefined}>
-              {children}
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -155,9 +121,6 @@ const check = (id: CapabilityId, evidence: string | null): Check => ({
 
 const exampleRun: Check[] = [
   check("secrets", "kingfisher.yml"),
-  // TODO: not a capability in catalogue.json, so nothing checks for it. It has to reach the
-  // baseline in shared-workflows before this row can claim otherwise.
-  { label: "Commit Signing", evidence: null },
   check("sca", "trivy fs in ci.yml"),
   check("sast", null),
   check("image-scan", null),

@@ -5,6 +5,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import Home from "@/app/page";
 import { AUDIENCES, AUDIENCE_ANY } from "@/data/skill-audiences";
+import { capabilityLabels } from "@/lib/catalogue";
 import { getUpdates } from "@/lib/updates";
 
 /**
@@ -93,14 +94,24 @@ describe("the home page", () => {
     }
   });
 
-  it("reads the example report's labels from the catalogue", () => {
-    render(<Home />);
+  it("reads every one of the example report's labels from the catalogue", () => {
+    const { container } = render(<Home />);
 
-    // Written here instead, the preview could name a check differently from the analysis that
-    // runs it. `capabilityLabel` throws on an id the catalogue has retired.
-    expect(
-      screen.getAllByText("Dependency Vulnerabilities").length,
-    ).toBeGreaterThan(0);
+    // Every row, not a sample of one. The preview used to carry a hand-written `Commit Signing`
+    // row, which is not a capability the catalogue has, so the report claimed a gap the analysis
+    // behind it could never look for. A label written here rather than looked up can always drift
+    // that way, and `capabilityLabel` throws on an id the catalogue has retired.
+    const rows = [
+      ...container.querySelectorAll(".report-roll > div")[0]!.children,
+    ];
+    const labels = rows.map((row) => row.firstElementChild?.textContent);
+    expect(labels.length).toBeGreaterThan(5);
+    for (const label of labels) {
+      expect(
+        Object.values(capabilityLabels),
+        `"${label}" is not a capability the catalogue knows`,
+      ).toContain(label);
+    }
   });
 
   it("names a repository that cannot exist", () => {
