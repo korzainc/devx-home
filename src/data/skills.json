@@ -854,6 +854,40 @@
     },
     {
       "agents": ["Claude Code"],
+      "argumentHint": "What would you like to learn about?",
+      "category": "Coordinate",
+      "description": "Teach the user a new skill or concept, within this workspace.",
+      "id": "mattpocock-skills:skills/productivity/teach",
+      "install": {
+        "claudeCode": "/plugin install mattpocock-skills@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "User only",
+      "jobs": [
+        "learn a new concept in this workspace",
+        "get taught how something works"
+      ],
+      "kind": "meta",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at main",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "teach",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/productivity/teach",
+      "pinned": false,
+      "plugin": "mattpocock-skills",
+      "ref": "main",
+      "sourceRepo": "mattpocock/skills",
+      "sourceUrl": "https://github.com/mattpocock/skills/tree/main/skills/productivity/teach",
+      "status": "Live",
+      "summary": "Builds a multi-session course on a topic in this directory."
+    },
+    {
+      "agents": ["Claude Code"],
       "argumentHint": null,
       "category": "Document",
       "description": "Turn a decision you can't fully answer into a questionnaire for someone else to fill in.",
@@ -885,6 +919,40 @@
       "sourceUrl": "https://github.com/mattpocock/skills/tree/main/skills/productivity/to-questionnaire",
       "status": "Live",
       "summary": "Turns a decision you cannot make into questions for someone who can."
+    },
+    {
+      "agents": ["Claude Code"],
+      "argumentHint": null,
+      "category": "Coordinate",
+      "description": "Stop. That last message did not land: re-pitch it.",
+      "id": "mattpocock-skills:skills/productivity/wait-what",
+      "install": {
+        "claudeCode": "/plugin install mattpocock-skills@korza-marketplace",
+        "kind": "catalog"
+      },
+      "invocation": "User only",
+      "jobs": [
+        "re-pitch a message that did not land",
+        "get an explanation restated"
+      ],
+      "kind": "meta",
+      "licence": {
+        "osiApproved": true,
+        "source": "LICENSE at main",
+        "spdx": "MIT"
+      },
+      "maturity": null,
+      "name": "wait-what",
+      "origin": "Third party",
+      "ownerTeam": null,
+      "path": "skills/productivity/wait-what",
+      "pinned": false,
+      "plugin": "mattpocock-skills",
+      "ref": "main",
+      "sourceRepo": "mattpocock/skills",
+      "sourceUrl": "https://github.com/mattpocock/skills/tree/main/skills/productivity/wait-what",
+      "status": "Live",
+      "summary": "Re-pitches a message that did not land the first time."
     },
     {
       "agents": ["Claude Code"],
