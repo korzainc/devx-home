@@ -13,7 +13,6 @@ import {
   tools,
   type CapabilityId,
 } from "@/lib/catalogue";
-import { docsLabel } from "@/lib/docs-label";
 
 // The catalogue is a static JSON file, so every tool/bundle page is prerendered at build time.
 export function generateStaticParams() {
@@ -130,9 +129,10 @@ export default async function ToolPage({ params }: PageProps<"/tools/[id]">) {
               href={entry.docsUrl}
               target="_blank"
               rel="noreferrer"
+              title={entry.docsUrl}
               className="font-mono text-accent hover:underline"
             >
-              {docsLabel(entry.docsUrl)} →
+              {entry.name} docs <NavArrow direction="right" />
             </a>
           </MetaRow>
         </div>
