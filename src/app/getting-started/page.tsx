@@ -34,7 +34,7 @@ export default function GettingStartedPage() {
   return (
     <div className="getting-started flex w-full flex-col">
       <GettingStartedEntrance />
-      <section className="grid grid-cols-1 items-center gap-8 pb-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-14">
+      <section className="grid grid-cols-1 items-center gap-8 pb-12 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-14">
         <div className="gs-hero-copy flex flex-col gap-4">
           <h1 className="font-display text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
             Install Korza CLI <br />
@@ -48,7 +48,7 @@ export default function GettingStartedPage() {
         <div className="gs-hero-command flex w-full min-w-0 flex-col gap-3">
           <PreviewInstallCommand key={command} command={command} />
           <a href="#manual" className={cta}>
-            Set up manually ↓
+            Set up manually
           </a>
         </div>
       </section>
@@ -62,7 +62,7 @@ export default function GettingStartedPage() {
             Choose your tools. Korza CLI guides you through setup.
           </p>
           <a href="#questions" className={cta}>
-            Need help? →
+            Need help?
           </a>
         </div>
         <TerminalPreview />

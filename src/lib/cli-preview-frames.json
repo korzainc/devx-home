@@ -1,0 +1,3323 @@
+{
+  "sourceCommit": "98cf8719e9a12970bed2437a288d84d98183e705",
+  "terminalColumns": 100,
+  "terminalRows": 45,
+  "scenario": "Korza skills and Node.js missing; GitHub and Claude Code already configured and signed in. Shell input is illustrative. CLI frames use the production renderer and real navigation/Enter handlers with controlled states and sample versions. Download sizes, percentages, ETA and elapsed times are simulated inputs, not installation measurements. Worker commands never run. No real installation. Existing playback timing is preserved.",
+  "lines": [
+    [
+      {
+        "text": "$ ",
+        "color": "#E8E1D5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "$ k",
+        "color": "#E8E1D5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "$ ko",
+        "color": "#E8E1D5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "$ kor",
+        "color": "#E8E1D5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "$ korz",
+        "color": "#E8E1D5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "$ korza",
+        "color": "#E8E1D5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "$ korza ",
+        "color": "#E8E1D5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "$ korza s",
+        "color": "#E8E1D5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "$ korza se",
+        "color": "#E8E1D5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "$ korza set",
+        "color": "#E8E1D5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "$ korza setu",
+        "color": "#E8E1D5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "$ korza setup",
+        "color": "#E8E1D5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  Checking this machine…",
+        "color": "#E8E1D5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": " _  __  ___  ____  _____    _",
+        "color": "#f0594c",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "text": "| |/ / / _ \\|  _ \\|__  /   / \\",
+        "color": "#f0594c",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "text": "| ' / | | | | |_) | / /   / _ \\",
+        "color": "#f0594c",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "text": "| . \\ | |_| |  _ < / /_  / ___ \\",
+        "color": "#f0594c",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "text": "|_|\\_\\ \\___/|_| \\_/____|/_/   \\_\\",
+        "color": "#f0594c",
+        "bold": true
+      }
+    ],
+    [],
+    [
+      {
+        "text": "Setup",
+        "color": "#e8e1d5",
+        "bold": true
+      }
+    ],
+    [
+      {
+        "text": "This tool is ready. Enter shows details.",
+        "color": "#e8e1d5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "5 tools",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "── Essentials",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "✓",
+        "color": "#7fce9e",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Git & GitHub ▸           ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Ready · 2.50.1",
+        "color": "#7fce9e",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "✓",
+        "color": "#7fce9e",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Homebrew                 ",
+        "color": "#e8e1d5",
+        "bold": false
+      },
+      {
+        "text": "Ready · 7.0.1",
+        "color": "#7fce9e",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "── AI tools",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "●",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Claude Code ▸            ",
+        "color": "#e8e1d5",
+        "bold": false
+      },
+      {
+        "text": "Finish included setup",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "── Languages",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "✓",
+        "color": "#7fce9e",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Python                   ",
+        "color": "#e8e1d5",
+        "bold": false
+      },
+      {
+        "text": "Ready · uv 0.12.13",
+        "color": "#7fce9e",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "●",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": false
+      },
+      {
+        "text": "Install · optional",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "3 ready",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "Next steps",
+        "color": "#E8E1D5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  Open a new terminal.",
+        "color": "#E8E1D5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  Check your tools: korza doctor",
+        "color": "#E8E1D5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  Start Claude Code: claude",
+        "color": "#E8E1D5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "Connect GitHub and choose the name and email used on your commits.",
+        "color": "#E8E1D5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "────────────────────────────────────────────────────────────────",
+        "color": "#5e584c",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "↑↓ Move",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " | ",
+        "color": "#5e584c",
+        "bold": false
+      },
+      {
+        "text": "[Enter] Details",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " | ",
+        "color": "#5e584c",
+        "bold": false
+      },
+      {
+        "text": "[r] Reinstall",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " | ",
+        "color": "#5e584c",
+        "bold": false
+      },
+      {
+        "text": "[Escape] Finish",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " | ",
+        "color": "#5e584c",
+        "bold": false
+      },
+      {
+        "text": "[←/→] Collapse/expand",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " | ",
+        "color": "#5e584c",
+        "bold": false
+      },
+      {
+        "text": "[?] Help",
+        "color": "#e3ba69",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "✓",
+        "color": "#7fce9e",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Git & GitHub ▸           ",
+        "color": "#e8e1d5",
+        "bold": false
+      },
+      {
+        "text": "Ready · 2.50.1",
+        "color": "#7fce9e",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "✓",
+        "color": "#7fce9e",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Homebrew                 ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Ready · 7.0.1",
+        "color": "#7fce9e",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "Install and update apps and command-line tools.",
+        "color": "#E8E1D5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "↑↓ Move",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " | ",
+        "color": "#5e584c",
+        "bold": false
+      },
+      {
+        "text": "[Enter] Details",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " | ",
+        "color": "#5e584c",
+        "bold": false
+      },
+      {
+        "text": "[r] Reinstall",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " | ",
+        "color": "#5e584c",
+        "bold": false
+      },
+      {
+        "text": "[Escape] Finish",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " | ",
+        "color": "#5e584c",
+        "bold": false
+      },
+      {
+        "text": "[?] Help",
+        "color": "#e3ba69",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "Enter starts this tool. Then choose another.",
+        "color": "#e8e1d5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "●",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Claude Code ▸            ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Finish included setup",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "Get help writing and reviewing code.",
+        "color": "#E8E1D5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "Includes Korza skills.",
+        "color": "#E8E1D5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "Complete sign-in in your browser when prompted.",
+        "color": "#E8E1D5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "↑↓ Move",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " | ",
+        "color": "#5e584c",
+        "bold": false
+      },
+      {
+        "text": "[Enter] Set up",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " | ",
+        "color": "#5e584c",
+        "bold": false
+      },
+      {
+        "text": "[Escape] Finish",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " | ",
+        "color": "#5e584c",
+        "bold": false
+      },
+      {
+        "text": "[←/→] Collapse/expand",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " | ",
+        "color": "#5e584c",
+        "bold": false
+      },
+      {
+        "text": "[?] Help",
+        "color": "#e3ba69",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "6 tools",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "●",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Claude Code              ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Finish included setup",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "●",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "└ Korza skills           ",
+        "color": "#e8e1d5",
+        "bold": false
+      },
+      {
+        "text": "Install skills",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "●",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Claude Code              ",
+        "color": "#e8e1d5",
+        "bold": false
+      },
+      {
+        "text": "Finish included setup",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "●",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "└ Korza skills           ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Install skills",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "Add the team's skills for planning, coding and reviews to Claude Code.",
+        "color": "#E8E1D5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "↑↓ Move",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " | ",
+        "color": "#5e584c",
+        "bold": false
+      },
+      {
+        "text": "[Enter] Set up",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " | ",
+        "color": "#5e584c",
+        "bold": false
+      },
+      {
+        "text": "[Escape] Finish",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " | ",
+        "color": "#5e584c",
+        "bold": false
+      },
+      {
+        "text": "[?] Help",
+        "color": "#e3ba69",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "Keep choosing tools while setup continues.",
+        "color": "#e8e1d5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "|",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "└ Korza skills           ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Installing · 0s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "3 ready · 1 running",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "Korza skills is being set up. You can keep choosing other tools.",
+        "color": "#E8E1D5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "↑↓ Move",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " | ",
+        "color": "#5e584c",
+        "bold": false
+      },
+      {
+        "text": "[l] Details",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " | ",
+        "color": "#5e584c",
+        "bold": false
+      },
+      {
+        "text": "[Escape] Finish after installs",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " | ",
+        "color": "#5e584c",
+        "bold": false
+      },
+      {
+        "text": "[?] Help",
+        "color": "#e3ba69",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "/",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "└ Korza skills           ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Installing · 0s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "-",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "└ Korza skills           ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Installing · 0s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "\\",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "└ Korza skills           ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Installing · 0s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "|",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "└ Korza skills           ",
+        "color": "#e8e1d5",
+        "bold": false
+      },
+      {
+        "text": "Installing · 0s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "✓",
+        "color": "#7fce9e",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Python                   ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Ready · uv 0.12.13",
+        "color": "#7fce9e",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "Run Python projects. uv manages Python versions and packages for you.",
+        "color": "#E8E1D5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "↑↓ Move",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " | ",
+        "color": "#5e584c",
+        "bold": false
+      },
+      {
+        "text": "[Enter] Details",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " | ",
+        "color": "#5e584c",
+        "bold": false
+      },
+      {
+        "text": "[r] Reinstall",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " | ",
+        "color": "#5e584c",
+        "bold": false
+      },
+      {
+        "text": "[Escape] Finish after installs",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " | ",
+        "color": "#5e584c",
+        "bold": false
+      },
+      {
+        "text": "[?] Help",
+        "color": "#e3ba69",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "/",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "└ Korza skills           ",
+        "color": "#e8e1d5",
+        "bold": false
+      },
+      {
+        "text": "Installing · 1s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "-",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "└ Korza skills           ",
+        "color": "#e8e1d5",
+        "bold": false
+      },
+      {
+        "text": "Installing · 1s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "●",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Install · optional",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "Machine work: about 6s; dependencies, runtimes and sign-in may add time.",
+        "color": "#E8E1D5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "Run JavaScript projects. fnm manages Node.js versions for you.",
+        "color": "#E8E1D5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "↑↓ Move",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " | ",
+        "color": "#5e584c",
+        "bold": false
+      },
+      {
+        "text": "[Enter] Set up",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " | ",
+        "color": "#5e584c",
+        "bold": false
+      },
+      {
+        "text": "[Escape] Finish after installs",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " | ",
+        "color": "#5e584c",
+        "bold": false
+      },
+      {
+        "text": "[?] Help",
+        "color": "#e3ba69",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "\\",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "└ Korza skills           ",
+        "color": "#e8e1d5",
+        "bold": false
+      },
+      {
+        "text": "Installing · 1s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "|",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "└ Korza skills           ",
+        "color": "#e8e1d5",
+        "bold": false
+      },
+      {
+        "text": "Installing · 1s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "|",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Installing · 0s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "3 ready · 2 running",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "Node.js is being set up. You can keep choosing other tools.",
+        "color": "#E8E1D5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "/",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "└ Korza skills           ",
+        "color": "#e8e1d5",
+        "bold": false
+      },
+      {
+        "text": "Installing · 2s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "/",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Installing · Download [>         ] 5% of 3.0 MB · 0s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "-",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "└ Korza skills           ",
+        "color": "#e8e1d5",
+        "bold": false
+      },
+      {
+        "text": "Installing · 2s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "-",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Installing · Download [=>        ] 15% of 3.0 MB · 0s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "\\",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "└ Korza skills           ",
+        "color": "#e8e1d5",
+        "bold": false
+      },
+      {
+        "text": "Installing · 2s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "\\",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Installing · Download [===>      ] 30% of 3.0 MB · 0s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "|",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "└ Korza skills           ",
+        "color": "#e8e1d5",
+        "bold": false
+      },
+      {
+        "text": "Installing · 2s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "|",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Installing · Download [====>     ] 45% of 3.0 MB · 0s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "/",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "└ Korza skills           ",
+        "color": "#e8e1d5",
+        "bold": false
+      },
+      {
+        "text": "Installing · 3s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "/",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Installing · Download [======>   ] 60% · 1s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "Download 60% of 3.0 MB, about 4s left.",
+        "color": "#E8E1D5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "-",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "└ Korza skills           ",
+        "color": "#e8e1d5",
+        "bold": false
+      },
+      {
+        "text": "Installing · 3s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "-",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Installing · Download [=======>  ] 75% · 1s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "Download 75% of 3.0 MB, about 3s left.",
+        "color": "#E8E1D5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "\\",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "└ Korza skills           ",
+        "color": "#e8e1d5",
+        "bold": false
+      },
+      {
+        "text": "Installing · 3s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "\\",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Installing · Download [=========>] 90% · 1s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "Download 90% of 3.0 MB, about 2s left.",
+        "color": "#E8E1D5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "|",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "└ Korza skills           ",
+        "color": "#e8e1d5",
+        "bold": false
+      },
+      {
+        "text": "Installing · 3s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "|",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Installing · Download [==========] 100% of 3.0 MB · 1s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "/",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "└ Korza skills           ",
+        "color": "#e8e1d5",
+        "bold": false
+      },
+      {
+        "text": "Verifying · 4s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "/",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Installing Node LTS · 2s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "-",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "└ Korza skills           ",
+        "color": "#e8e1d5",
+        "bold": false
+      },
+      {
+        "text": "Verifying · 4s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "-",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Installing Node LTS · 2s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "\\",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "└ Korza skills           ",
+        "color": "#e8e1d5",
+        "bold": false
+      },
+      {
+        "text": "Verifying · 4s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "\\",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Installing Node LTS · 2s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "|",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "└ Korza skills           ",
+        "color": "#e8e1d5",
+        "bold": false
+      },
+      {
+        "text": "Verifying · 4s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "|",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Installing Node LTS · 2s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "/",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "└ Korza skills           ",
+        "color": "#e8e1d5",
+        "bold": false
+      },
+      {
+        "text": "Verifying · 5s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "/",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Installing Node LTS · 3s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "-",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "└ Korza skills           ",
+        "color": "#e8e1d5",
+        "bold": false
+      },
+      {
+        "text": "Verifying · 5s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "-",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Installing Node LTS · 3s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "\\",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "└ Korza skills           ",
+        "color": "#e8e1d5",
+        "bold": false
+      },
+      {
+        "text": "Verifying · 5s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "\\",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Installing Node LTS · 3s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "|",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "└ Korza skills           ",
+        "color": "#e8e1d5",
+        "bold": false
+      },
+      {
+        "text": "Verifying · 5s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "|",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Installing Node LTS · 3s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "✓",
+        "color": "#7fce9e",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Claude Code              ",
+        "color": "#e8e1d5",
+        "bold": false
+      },
+      {
+        "text": "Ready · 2.1.270",
+        "color": "#7fce9e",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "✓",
+        "color": "#7fce9e",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "└ Korza skills           ",
+        "color": "#e8e1d5",
+        "bold": false
+      },
+      {
+        "text": "Ready",
+        "color": "#7fce9e",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "/",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Installing Node LTS · 4s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "5 ready · 1 running",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "-",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Installing Node LTS · 4s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "\\",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Installing Node LTS · 4s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "|",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Installing Node LTS · 4s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "/",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Installing Node LTS · 5s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "-",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Installing Node LTS · 5s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "\\",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Installing Node LTS · 5s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "|",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Installing Node LTS · 5s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "/",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Verifying · 6s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "Checking that Node.js is ready to use.",
+        "color": "#E8E1D5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "-",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Verifying · 6s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "\\",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Verifying · 6s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "|",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Verifying · 6s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "/",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Verifying · 7s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "❯ ",
+        "color": "#f0594c",
+        "bold": true
+      },
+      {
+        "text": "-",
+        "color": "#e3ba69",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": true
+      },
+      {
+        "text": "Verifying · 7s elapsed",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "Let's get your tools ready.",
+        "color": "#e8e1d5",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "  ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "✓",
+        "color": "#7fce9e",
+        "bold": false
+      },
+      {
+        "text": " ",
+        "color": "#E8E1D5",
+        "bold": false
+      },
+      {
+        "text": "Node.js                  ",
+        "color": "#e8e1d5",
+        "bold": false
+      },
+      {
+        "text": "Ready · 24.21.0",
+        "color": "#7fce9e",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "6 ready",
+        "color": "#8a8375",
+        "bold": false
+      }
+    ],
+    [
+      {
+        "text": "✓ Your tools are ready.",
+        "color": "#7fce9e",
+        "bold": false
+      }
+    ]
+  ],
+  "frames": [
+    {
+      "name": "command",
+      "durationMs": 75,
+      "lineIds": [0],
+      "origin": "shell-input",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "command",
+      "durationMs": 75,
+      "lineIds": [1],
+      "origin": "shell-input",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "command",
+      "durationMs": 75,
+      "lineIds": [2],
+      "origin": "shell-input",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "command",
+      "durationMs": 75,
+      "lineIds": [3],
+      "origin": "shell-input",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "command",
+      "durationMs": 75,
+      "lineIds": [4],
+      "origin": "shell-input",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "command",
+      "durationMs": 75,
+      "lineIds": [5],
+      "origin": "shell-input",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "command",
+      "durationMs": 75,
+      "lineIds": [6],
+      "origin": "shell-input",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "command",
+      "durationMs": 75,
+      "lineIds": [7],
+      "origin": "shell-input",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "command",
+      "durationMs": 75,
+      "lineIds": [8],
+      "origin": "shell-input",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "command",
+      "durationMs": 75,
+      "lineIds": [9],
+      "origin": "shell-input",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "command",
+      "durationMs": 75,
+      "lineIds": [10],
+      "origin": "shell-input",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "command",
+      "durationMs": 700,
+      "lineIds": [11],
+      "origin": "shell-input",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "checking",
+      "durationMs": 1200,
+      "lineIds": [11, 12],
+      "origin": "shell-input-and-cli-stdout",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "catalogue",
+      "durationMs": 900,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 20, 21, 18, 22, 23, 24, 25, 26, 27, 28, 29,
+        30, 18, 18, 31, 32, 33, 34, 18, 35, 36, 37
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "select-homebrew",
+      "durationMs": 500,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 20, 21, 18, 22, 38, 39, 25, 26, 27, 28, 29,
+        30, 18, 18, 31, 32, 33, 34, 18, 40, 36, 41
+      ],
+      "origin": "cli-renderer",
+      "key": "down",
+      "focusedTool": "brew"
+    },
+    {
+      "name": "select-claude",
+      "durationMs": 650,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 42, 21, 18, 22, 38, 24, 25, 43, 27, 28, 29,
+        30, 18, 18, 31, 32, 33, 34, 18, 44, 45, 18, 46, 36, 47
+      ],
+      "origin": "cli-renderer",
+      "key": "down",
+      "focusedTool": "claude"
+    },
+    {
+      "name": "expand-claude",
+      "durationMs": 600,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 42, 48, 18, 22, 38, 24, 25, 49, 50, 27, 28,
+        29, 30, 18, 18, 31, 32, 33, 34, 18, 44, 45, 18, 46, 36, 47
+      ],
+      "origin": "cli-renderer",
+      "key": "right",
+      "focusedTool": "claude"
+    },
+    {
+      "name": "select-skills",
+      "durationMs": 900,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 42, 48, 18, 22, 38, 24, 25, 51, 52, 27, 28,
+        29, 30, 18, 18, 31, 32, 33, 34, 18, 53, 36, 54
+      ],
+      "origin": "cli-renderer",
+      "key": "down",
+      "focusedTool": "korza"
+    },
+    {
+      "name": "install-skills",
+      "durationMs": 400,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 51, 56, 27, 28,
+        29, 57, 18, 58, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": "enter",
+      "focusedTool": "korza"
+    },
+    {
+      "name": "skills-installing",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 51, 60, 27, 28,
+        29, 57, 18, 58, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "skills-installing",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 51, 61, 27, 28,
+        29, 57, 18, 58, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "skills-installing",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 51, 62, 27, 28,
+        29, 57, 18, 58, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "skills-installing",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 51, 56, 27, 28,
+        29, 57, 18, 58, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "select-python",
+      "durationMs": 500,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 51, 63, 27, 64,
+        29, 57, 18, 65, 36, 66
+      ],
+      "origin": "cli-renderer",
+      "key": "down",
+      "focusedTool": "uv"
+    },
+    {
+      "name": "python-selected",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 51, 67, 27, 64,
+        29, 57, 18, 65, 36, 66
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "python-selected",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 51, 68, 27, 64,
+        29, 57, 18, 65, 36, 66
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "select-node",
+      "durationMs": 700,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 51, 68, 27, 28,
+        69, 57, 18, 70, 71, 36, 72
+      ],
+      "origin": "cli-renderer",
+      "key": "down",
+      "focusedTool": "fnm"
+    },
+    {
+      "name": "node-selected",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 51, 73, 27, 28,
+        69, 57, 18, 70, 71, 36, 72
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "node-selected",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 51, 74, 27, 28,
+        69, 57, 18, 70, 71, 36, 72
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "install-node",
+      "durationMs": 400,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 51, 74, 27, 28,
+        75, 76, 18, 77, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": "enter",
+      "focusedTool": "fnm"
+    },
+    {
+      "name": "both-installing",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 51, 78, 27, 28,
+        79, 76, 18, 77, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "both-installing",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 51, 80, 27, 28,
+        81, 76, 18, 77, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "both-installing",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 51, 82, 27, 28,
+        83, 76, 18, 77, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "both-installing",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 51, 84, 27, 28,
+        85, 76, 18, 77, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "both-installing",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 51, 86, 27, 28,
+        87, 76, 18, 88, 77, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "both-installing",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 51, 89, 27, 28,
+        90, 76, 18, 91, 77, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "both-installing",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 51, 92, 27, 28,
+        93, 76, 18, 94, 77, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "both-installing",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 51, 95, 27, 28,
+        96, 76, 18, 77, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "skills-verifying",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 51, 97, 27, 28,
+        98, 76, 18, 77, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "skills-verifying",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 51, 99, 27, 28,
+        100, 76, 18, 77, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "skills-verifying",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 51, 101, 27, 28,
+        102, 76, 18, 77, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "skills-verifying",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 51, 103, 27, 28,
+        104, 76, 18, 77, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "skills-verifying",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 51, 105, 27, 28,
+        106, 76, 18, 77, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "skills-verifying",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 51, 107, 27, 28,
+        108, 76, 18, 77, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "skills-verifying",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 51, 109, 27, 28,
+        110, 76, 18, 77, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "skills-verifying",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 51, 111, 27, 28,
+        112, 76, 18, 77, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "node-configuring",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 113, 114, 27,
+        28, 115, 116, 18, 77, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "node-configuring",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 113, 114, 27,
+        28, 117, 116, 18, 77, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "node-configuring",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 113, 114, 27,
+        28, 118, 116, 18, 77, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "node-configuring",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 113, 114, 27,
+        28, 119, 116, 18, 77, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "node-configuring",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 113, 114, 27,
+        28, 120, 116, 18, 77, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "node-configuring",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 113, 114, 27,
+        28, 121, 116, 18, 77, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "node-configuring",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 113, 114, 27,
+        28, 122, 116, 18, 77, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "node-configuring",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 113, 114, 27,
+        28, 123, 116, 18, 77, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "node-verifying",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 113, 114, 27,
+        28, 124, 116, 18, 125, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "node-verifying",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 113, 114, 27,
+        28, 126, 116, 18, 125, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "node-verifying",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 113, 114, 27,
+        28, 127, 116, 18, 125, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "node-verifying",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 113, 114, 27,
+        28, 128, 116, 18, 125, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "node-verifying",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 113, 114, 27,
+        28, 129, 116, 18, 125, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "node-verifying",
+      "durationMs": 250,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 55, 48, 18, 22, 38, 24, 25, 113, 114, 27,
+        28, 130, 116, 18, 125, 36, 59
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    },
+    {
+      "name": "success",
+      "durationMs": 0,
+      "lineIds": [
+        13, 14, 15, 16, 17, 18, 19, 131, 48, 18, 22, 23, 24, 25, 113, 114, 27,
+        28, 132, 133, 18, 134, 18, 31, 32, 33, 34, 36, 37
+      ],
+      "origin": "cli-renderer",
+      "key": null,
+      "focusedTool": null
+    }
+  ],
+  "sourceState": "committed",
+  "rendererSources": {
+    "internal/ui/catalog_completion.go": "d123c2a75bf04a796f84d0ad7637b2d60ccc3740fc69866b2b5ab1f7b6e405e8",
+    "internal/ui/catalog_experience.go": "1ee081391b72c95e3824fdf691d76f2f71a27e9a6b56c5db3b628fa65f269c05",
+    "internal/ui/catalog_help.go": "cb578b55307687173dd5fe0d4ed724565fa2bb5f94e373c8b46bc63fc2dc38d2",
+    "internal/ui/catalog_motion.go": "fa36dffcb8d1e2b821e1c21adc08702a1e5d37a08ae0319fe0f8d1aa6d21acc0",
+    "internal/ui/catalog_navigation.go": "912c36773566d2919c61da640bc4e163f1ea8d277109763776ba2287b128afc7",
+    "internal/ui/catalog_view.go": "20378951e891efaf87f3fe64808c9b0081789b1ee71dcc6681a51014b770fd8e",
+    "internal/ui/completion_receipt.go": "05518c9064953a0870d1356df0e9fe6d093b83c739b31749d108eb895819d639",
+    "internal/ui/dependency_refresh.go": "4436c4581ce106fac6c3499b7d8a4212b6fee3776e2c63651491eed4ccabd3ed",
+    "internal/ui/detect.go": "423b1098d9501f8ac3ebcf1ddf08371ed523be79e7fccd32adee8948650d1350",
+    "internal/ui/direct_runner.go": "d74feaa59fc393174c48f6eb232a60024eb83c485353252f3261a1507cc4f71c",
+    "internal/ui/included_setup.go": "66eb18a95194b3a49047d8420e98c0f720db72782a7a78f6d534e08897cf2f66",
+    "internal/ui/progress.go": "4d21e45969558cd94a68d34abe9d24683bd9e8f7e2423c8bae7eb6c6fcf67367",
+    "internal/ui/recovery_commands.go": "1b07cea7a2072968a95d8b552c7dab5b1d6e1a66b382d4fc679e848956d6e5f7",
+    "internal/ui/report.go": "0eedd2615c918650f88a25e26109886e7019be69074a5af85393cd1eef95a4e2",
+    "internal/ui/resume.go": "688c36660c2fc761b06c46f146d07877308a8200ca19eed498e294879eb07084",
+    "internal/ui/summary_view.go": "6b67a17b5d732de5c16c775df8f6d950a02afbe439f0ad0713d87cc356e8fcdc",
+    "internal/ui/theme.go": "e4903850829606c351a5c354643707d209997d00466ca0de3370e2090dc99d30",
+    "internal/ui/website_preview_test.go": "484419438232ec08957d41896e9907ba9e85d96f755ee156845083022cb27e74",
+    "internal/ui/wizard.go": "f293eab834b7d2211c6423de8739af8bb462641a116d8bb19f3ce93866c927ca"
+  }
+}
