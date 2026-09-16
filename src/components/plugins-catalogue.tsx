@@ -11,6 +11,7 @@ import { CardGrid, NoMatches } from "@/components/catalogue-results";
 import { FacetMenu } from "@/components/facet-menu";
 import {
   AUDIENCE_ANY,
+  AUDIENCE_ANY_LABEL,
   AUDIENCE_PARAM,
   AUDIENCES,
 } from "@/data/skill-audiences";
@@ -22,6 +23,7 @@ import {
 } from "@/lib/catalogue-entries";
 import { filterEntries, matchesAudience } from "@/lib/filter";
 import { useCatalogueFilters } from "@/lib/use-catalogue-filters";
+import { NavArrow } from "@/components/nav-arrow";
 
 // Module scope, not inline: the filter memoises on facet identity.
 const facets: Facet<PluginEntry>[] = [
@@ -63,7 +65,7 @@ function PluginCard({
       footerLeft={<span className="shrink-0">{agents.join(" · ")}</span>}
       footerRight={
         <span className="shrink-0 transition-colors group-hover:text-accent">
-          why use it →
+          why use it <NavArrow direction="right" />
         </span>
       }
     />
@@ -170,6 +172,9 @@ export function PluginsCatalogue({
         options={[...audienceOptions]}
         picked={pickedAudiences}
         onToggle={(value) => toggle(AUDIENCE_PARAM, value)}
+        labelFor={(value) =>
+          value === AUDIENCE_ANY ? AUDIENCE_ANY_LABEL : value
+        }
         setApart={(value) => value === AUDIENCE_ANY}
       />
 

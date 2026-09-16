@@ -5,6 +5,7 @@ import { PluginInstall } from "@/components/plugin-install";
 import { MetaRow } from "@/components/meta-row";
 import { PluginSkills } from "@/components/plugin-skills";
 import { SkillContextStrip } from "@/components/skill-context-strip";
+import { NavArrow } from "@/components/nav-arrow";
 import {
   getPlugin,
   installCommands,
@@ -44,7 +45,7 @@ export default async function PluginPage({
           href="/skills"
           className="w-fit font-mono text-xs text-ink-faint hover:text-accent"
         >
-          ← Skills
+          <NavArrow direction="left" /> Skills
         </Link>
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="font-mono text-3xl font-semibold tracking-tight">
@@ -111,7 +112,7 @@ export default async function PluginPage({
               rel="noreferrer"
               className="font-mono text-accent hover:underline"
             >
-              {plugin.sourceRepo} →
+              {plugin.sourceRepo} <NavArrow direction="right" />
             </a>
           </MetaRow>
         </div>

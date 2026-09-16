@@ -5,6 +5,7 @@ import { CatalogueTabs } from "@/components/catalogue-tabs";
 import { SkillsFirstRunNudge } from "@/components/skills-first-run";
 import { plugins, skills } from "@/lib/catalogue";
 import { parseFilterParam } from "@/lib/filter";
+import { NavArrow } from "@/components/nav-arrow";
 
 export const metadata: Metadata = {
   title: "Skills",
@@ -46,7 +47,7 @@ export default function SkillsPage({ searchParams }: Params) {
           href="/"
           className="w-fit font-mono text-xs text-ink-faint hover:text-accent"
         >
-          ← Home
+          <NavArrow direction="left" /> Home
         </Link>
         {/* The fallback is the same tabs with no initial selection, so the prerendered shell
             already shows a usable catalogue and only the picks stream in. */}

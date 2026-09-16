@@ -10,6 +10,7 @@ import type {
   RoadmapStage,
 } from "@/lib/roadmap";
 import type { BoardState } from "@/lib/roadmap-discussion";
+import { NavArrow } from "@/components/nav-arrow";
 
 /* Colour says how committed we are: quiet while it is still a question, ink once it is agreed,
    accent while it is being built, green once it has landed. Same chip shape as the gap report's
@@ -105,7 +106,7 @@ export function RoadmapCard({
       <div className="mt-auto flex items-center justify-between gap-3">
         {isShipped ? (
           <span className="text-sm font-medium text-accent">
-            Read the update →
+            Read the update <NavArrow direction="right" />
           </span>
         ) : (
           <Suspense fallback={<RoadmapCardFooterFallback />}>

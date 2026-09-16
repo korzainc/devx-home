@@ -11,6 +11,7 @@ import { CatalogueResults } from "@/components/catalogue-results";
 import { FacetMenu } from "@/components/facet-menu";
 import {
   AUDIENCE_ANY,
+  AUDIENCE_ANY_LABEL,
   AUDIENCE_PARAM,
   AUDIENCES,
 } from "@/data/skill-audiences";
@@ -206,6 +207,9 @@ export function SkillsCatalogue({
         onToggle={(value) => toggle(AUDIENCE_PARAM, value)}
         // Pulled to the end and marked, the way `any` is on the language row: a reader
         // scanning three teams needs to see that the fourth chip is not one.
+        labelFor={(value) =>
+          value === AUDIENCE_ANY ? AUDIENCE_ANY_LABEL : value
+        }
         setApart={(value) => value === AUDIENCE_ANY}
       />
 

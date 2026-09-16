@@ -1,3 +1,5 @@
+import { config } from "@fortawesome/fontawesome-svg-core";
+import "@fortawesome/fontawesome-svg-core/styles.css";
 import { Analytics } from "@vercel/analytics/next";
 import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Inter, Work_Sans } from "next/font/google";
@@ -5,6 +7,9 @@ import { HomeOnly } from "@/components/home-only";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import "./globals.css";
+
+// The stylesheet is imported above, so FA must not also inject it at runtime.
+config.autoAddCss = false;
 
 // Work Sans is the face korza.com uses, so headings carry the brand. Inter takes the dense UI
 // text, where its narrower, more neutral figures hold up better at 13-14px than Work Sans does.

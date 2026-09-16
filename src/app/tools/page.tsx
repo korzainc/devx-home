@@ -8,6 +8,7 @@ import {
   visibleTools,
 } from "@/lib/catalogue";
 import { parseFilterParam } from "@/lib/filter";
+import { NavArrow } from "@/components/nav-arrow";
 
 export const metadata: Metadata = {
   title: "CI Tools",
@@ -38,7 +39,7 @@ export default function ToolsPage({ searchParams }: Params) {
           href="/"
           className="w-fit font-mono text-xs text-ink-faint hover:text-accent"
         >
-          ← Home
+          <NavArrow direction="left" /> Home
         </Link>
         <h1 className="font-display text-3xl font-semibold tracking-tight">
           CI Tools

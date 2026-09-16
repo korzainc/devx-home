@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { NavArrow } from "@/components/nav-arrow";
 import { RoadmapComments } from "@/components/roadmap-comments";
 import { CategoryTag, StageChip } from "@/components/roadmap-card";
 import { VoteButtons } from "@/components/roadmap-vote";
@@ -35,7 +36,7 @@ export default async function RoadmapEntryPage(
         href="/roadmap"
         className="text-sm font-medium text-accent hover:underline"
       >
-        ← Roadmap
+        <NavArrow direction="left" /> Roadmap
       </Link>
 
       <header className="flex flex-col gap-4">
