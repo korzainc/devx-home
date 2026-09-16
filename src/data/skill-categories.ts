@@ -68,7 +68,9 @@ export const skillCategories: Record<string, SkillCategory> = {
   "mattpocock-skills:skills/engineering/to-tickets": "Hand over",
   "mattpocock-skills:skills/engineering/triage": "Hand over",
   "mattpocock-skills:skills/productivity/grilling": "Pressure-test", // meta
+  "mattpocock-skills:skills/productivity/teach": "Understand", // meta
   "mattpocock-skills:skills/productivity/to-questionnaire": "Hand over", // meta
+  "mattpocock-skills:skills/productivity/wait-what": "Hand over", // meta
   "mattpocock-skills:skills/productivity/writing-for-agents": "Make",
   "superpowers:skills/executing-plans": "Make",
   "superpowers:skills/finishing-a-development-branch": "Hand over", // meta

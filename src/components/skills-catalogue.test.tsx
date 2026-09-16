@@ -252,12 +252,8 @@ describe("the skills catalogue", () => {
     );
     // A setup or meta row the query does NOT match, or this cannot tell "search reaches them"
     // from "they are always listed in full".
-    expect(TOOLCHAIN.some((skill) => skill.name === "writing-for-agents")).toBe(
-      true,
-    );
-    expect(shown.some((skill) => skill.name === "writing-for-agents")).toBe(
-      false,
-    );
+    expect(TOOLCHAIN.some((skill) => skill.name === "teach")).toBe(true);
+    expect(shown.some((skill) => skill.name === "teach")).toBe(false);
   });
 
   it("finds a skill by the job it does, not only by its name", () => {
@@ -491,8 +487,7 @@ describe("a search that only the setup and meta rows match", () => {
         `${skills.length} of ${skills.length} skills shown.`,
       );
 
-      // Matches sut-bootstrap and nothing else, so the count is pinned at exactly one.
-      fireEvent.change(search(), { target: { value: "bootstrap" } });
+      fireEvent.change(search(), { target: { value: "teach" } });
       expect(cardCount()).toBe(1);
       expect(settledCount()).toBe(`1 of ${skills.length} skills shown.`);
       expect(screen.queryByText("No skill matches those filters.")).toBeNull();
