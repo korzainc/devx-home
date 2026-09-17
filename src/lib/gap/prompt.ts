@@ -214,24 +214,24 @@ export function buildFixPrompt(
   // because Placement is hand-typed for this demo (see its doc comment) - a real detector-fed
   // candidate would be repo-controlled content and need the same escaping evidence strings get.
   //
-  // Wording below is image-scan specific ("the build producing the image", "no image on it").
-  // Fine for this round - every fixture is image-scan - but a generic capability (an install
-  // step, say) would need its own phrasing rather than reusing these two paragraphs verbatim.
+  // note.needs is a phrase like "a built container image to scan" or "installed dependencies
+  // to scan" - both paragraphs below reference it generically ("produces it") rather than
+  // assuming image-scan's specific vocabulary, so this works for any capability with a
+  // placement note, not just the one this round happens to test most.
   const placementParagraphs = gaps.flatMap((gap) => {
     const note = notes[gap.id];
     if (!note) return [];
     const label = cell(gap.label);
     return [
       note.candidate
-        ? `**${label}** needs ${note.needs}. A candidate: ${note.candidate}. Verify that is ` +
-          `really the build producing the image this check should scan, then add the check ` +
-          `to that same job, after that step. Not a new job: a new job gets a fresh runner ` +
-          `with no image on it.`
-        : `**${label}** needs ${note.needs}. Nothing in the files the portal read builds ` +
-          `one. Search the repo before accepting that, since it may happen somewhere the ` +
-          `portal could not see. If there is genuinely no build in CI, it has to be added ` +
-          `first, ahead of the check, in the same job. If this repo does not ship an image ` +
-          `at all, skip the check and say so.`,
+        ? `**${label}** needs ${note.needs}. A candidate: ${note.candidate}. Verify that ` +
+          `candidate really produces it before relying on it, then add the check to that ` +
+          `same job, after that step. Not a new job: a new job gets a fresh runner without it.`
+        : `**${label}** needs ${note.needs}. Nothing in the files the portal read produces ` +
+          `it. Search the repo before accepting that, since it may happen somewhere the ` +
+          `portal could not see. If there is genuinely nothing that produces it in CI, that ` +
+          `has to be added first, ahead of the check, in the same job. If this repo has no ` +
+          `real need for it at all, skip the check and say so.`,
     ];
   });
 

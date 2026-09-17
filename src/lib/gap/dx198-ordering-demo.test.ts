@@ -110,7 +110,7 @@ describe("DX-198 ordering demo (scratch, delete after review)", () => {
       expect(analysis.repo).toBe("scratch/b-dockerfile-no-build");
       expect(withNotes).toContain("Where these go in the pipeline");
       expect(withNotes).toContain(
-        "Nothing in the files the portal read builds one",
+        "Nothing in the files the portal read produces it",
       );
     },
   );
@@ -159,6 +159,37 @@ describe("DX-198 ordering demo (scratch, delete after review)", () => {
       console.log(
         `\n=== REAL REPO (${path.basename(repoRoot)}): WITH PLACEMENT NOTES ===\n` +
           buildFixPrompt(analysis, realNotes),
+      );
+    },
+  );
+
+  // TEMP, not part of the reviewed demo - fixture D2: install and build as two separate jobs,
+  // notes attached for both sca (needs install) and image-scan (needs build), to test the SCA
+  // side which nothing else in this file has covered yet. Remove after this run.
+  test.skipIf(!process.env.DX198_FIXTURE_D2)(
+    "fixture D2 - install and build separate",
+    () => {
+      const repoRoot = process.env.DX198_FIXTURE_D2;
+      if (!repoRoot) return;
+      const analysis = analyze(
+        loadSnapshotFromDisk(repoRoot, path.basename(repoRoot)),
+        catalogue,
+      );
+      console.log(`\n=== FIXTURE D2: TODAY ===\n` + buildFixPrompt(analysis));
+      const notes: PlacementNotes = {
+        sca: {
+          needs: "installed dependencies to scan",
+          candidate: "`npm ci` in `.github/workflows/ci.yml`, job `install`",
+        },
+        "image-scan": {
+          needs: "a built container image to scan",
+          candidate:
+            "`docker build` in `.github/workflows/ci.yml`, job `build`",
+        },
+      };
+      console.log(
+        `\n=== FIXTURE D2: WITH PLACEMENT NOTES ===\n` +
+          buildFixPrompt(analysis, notes),
       );
     },
   );
