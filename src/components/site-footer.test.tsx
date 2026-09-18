@@ -21,6 +21,7 @@ const UNLISTED = new Set([
   "api", // route handlers
   "setup", // the install script, a route handler
   "login", // the header's own control, and only for the signed out
+  "no-access", // reached by redirect from the gate, and a dead end on purpose
 ]);
 
 const routes = readdirSync("src/app", { withFileTypes: true })

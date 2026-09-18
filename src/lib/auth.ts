@@ -33,6 +33,18 @@ function create() {
       // Tied to BETTER_AUTH_SECRET: changing that secret orphans every stored token.
       encryptOAuthTokens: true,
     },
+    user: {
+      // Declared here so `getSession` returns them on the user it already fetched. Reading the
+      // column separately would be a second query on every gated request to learn something the
+      // first one had in hand.
+      //
+      // `input: false` on both: these are the gate's own verdict, and a field the client can send
+      // is a field the client can set to true.
+      additionalFields: {
+        orgMember: { type: "boolean", defaultValue: false, input: false },
+        orgCheckedAt: { type: "date", required: false, input: false },
+      },
+    },
     // Lets the sign-in and sign-out server actions set and clear the session cookie, which keeps
     // both a plain form post rather than a client component.
     plugins: [nextCookies()],
