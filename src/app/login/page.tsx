@@ -12,7 +12,21 @@ export const metadata: Metadata = {
 
 const comingSoon = ["GitLab", "Azure DevOps"];
 
-export default function LoginPage() {
+type Params = Pick<PageProps<"/login">, "searchParams">;
+
+// The gate sends everyone here with the path they were asking for, so signing in has to end up
+// there rather than on the home page. Awaited in the body rather than behind a boundary, for the
+// same reason the coverage report's field is: the value has to reach the form in the first
+// response, or a visitor without script signs in and loses the page they came for. `instant =
+// false` only stops Next reporting the lost static shell, it is not what costs it.
+export const instant = false;
+
+export default async function LoginPage({ searchParams }: Params) {
+  const { next } = await searchParams;
+  // Passed on as it arrives. `callbackFrom` in `auth-actions.ts` discards anything that is not a
+  // same-origin path, and checking it here as well would leave two rules to keep in step.
+  const target = Array.isArray(next) ? next[0] : next;
+
   return (
     <div className="mx-auto flex max-w-sm flex-col items-center gap-7 py-10 text-center">
       {/* Not `priority`: the header renders this same file at the same width on every page, so
@@ -33,6 +47,7 @@ export default function LoginPage() {
 
       <div className="flex w-full flex-col gap-3">
         <form action={signInWithGitHub}>
+          {target ? <input type="hidden" name="next" value={target} /> : null}
           <button
             type="submit"
             className="flex w-full items-center justify-center gap-2.5 rounded-lg border border-line-strong bg-surface-raised px-4 py-3 text-sm font-medium text-ink transition-colors hover:border-ink-faint"
