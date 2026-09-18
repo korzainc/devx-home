@@ -15,6 +15,11 @@ vi.mock("@/lib/session", () => ({
   getSession: () => new Promise(() => {}),
 }));
 
+// `ExceptOn` reads the path to decide whether the nav is drawn at all, and there is no router
+// here. Reassigned by the last test rather than fixed, so both answers are exercised.
+let pathname = "/";
+vi.mock("next/navigation", () => ({ usePathname: () => pathname }));
+
 // Node, not jsdom: the subject is the server-rendered document. Necessary but not sufficient --
 // presence and position only, never visibility, which needs a real engine.
 const html = () => renderToString(<SiteHeader />);
@@ -84,5 +89,22 @@ describe("the header, with the session boundary unresolved", () => {
     );
 
     expect(withoutNoscript).not.toContain('href="/login"');
+  });
+
+  // Last, because it changes the path for good and everything above wants the nav drawn.
+  it("draws no nav where every link leads back to the same page", () => {
+    // `/no-access` is reached by a reader the gate refuses, so Products, Getting started and the
+    // account menu all redirect straight back to it. The wordmark stays: it is the page's only
+    // remaining way to say which site this is.
+    pathname = "/no-access";
+    const markup = html();
+
+    expect(markup).not.toContain("<nav");
+    expect(markup).not.toContain("<details");
+    for (const product of PRODUCTS) {
+      expect(markup).not.toContain(`href="${product.href}"`);
+    }
+    expect(markup).not.toContain('href="/getting-started"');
+    expect(markup).toContain('href="/"');
   });
 });

@@ -3,12 +3,16 @@ import Link from "next/link";
 import { Suspense } from "react";
 import korzaLogo from "@/assets/korza-logo.png";
 import { AccountMenu } from "@/components/account-menu";
+import { ExceptOn } from "@/components/except-on";
 import { NavMenu } from "@/components/nav-menu";
 import { ProductsMenu } from "@/components/products-menu";
 import { signOut } from "@/lib/auth-actions";
 import { avatarSrc, initials } from "@/lib/avatar";
 import { PRODUCTS } from "@/lib/nav";
 import { getSession } from "@/lib/session";
+
+// Routes whose reader cannot follow a single link in the nav, so it is not drawn for them.
+const NO_NAV = ["/no-access"];
 
 export function SiteHeader() {
   // z-20 because page content goes up to z-10: the roadmap vote controls sit at z-10 to clear
@@ -39,26 +43,30 @@ export function SiteHeader() {
         </Link>
 
         {/* The same items twice, once along the row and once inside the menu. Only one is ever
-            visible, and getSession is memoised per request, so the pair costs one query. */}
-        <nav className="ml-auto hidden items-center gap-5 sm:flex">
-          <NavLinks />
-          {/* Reading the session queries Postgres, so it stays behind its own boundary and the
-              rest of the header paints without waiting on it. The fallback stays null: the
-              signed-out control there would show every signed-in reader "Log in" for the
-              300-1900ms the session takes. The <noscript> covers them instead (DX-100). */}
-          <NoScriptLoginLink />
-          <Suspense fallback={null}>
-            <AuthControl />
-          </Suspense>
-        </nav>
+            visible, and getSession is memoised per request, so the pair costs one query.
 
-        <NavMenu>
-          <NavLinks inMenu />
-          <NoScriptLoginLink />
-          <Suspense fallback={null}>
-            <AuthControl inMenu />
-          </Suspense>
-        </NavMenu>
+            Both are dropped on the routes `ExceptOn` names, which leaves the wordmark alone. */}
+        <ExceptOn paths={NO_NAV}>
+          <nav className="ml-auto hidden items-center gap-5 sm:flex">
+            <NavLinks />
+            {/* Reading the session queries Postgres, so it stays behind its own boundary and the
+                rest of the header paints without waiting on it. The fallback stays null: the
+                signed-out control there would show every signed-in reader "Log in" for the
+                300-1900ms the session takes. The <noscript> covers them instead (DX-100). */}
+            <NoScriptLoginLink />
+            <Suspense fallback={null}>
+              <AuthControl />
+            </Suspense>
+          </nav>
+
+          <NavMenu>
+            <NavLinks inMenu />
+            <NoScriptLoginLink />
+            <Suspense fallback={null}>
+              <AuthControl inMenu />
+            </Suspense>
+          </NavMenu>
+        </ExceptOn>
       </div>
     </header>
   );
