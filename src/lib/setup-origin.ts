@@ -4,13 +4,11 @@ export function getSetupOrigin(): string | null {
     process.env.VERCEL_ENV === "production"
       ? (process.env.VERCEL_PROJECT_PRODUCTION_URL ?? process.env.VERCEL_URL)
       : process.env.VERCEL_URL;
-  const configured =
-    process.env.KORZA_PUBLIC_ORIGIN ??
-    (deployedHost
-      ? `https://${deployedHost}`
-      : process.env.NODE_ENV === "development"
-        ? `http://localhost:${process.env.PORT ?? "3000"}`
-        : null);
+  const configured = deployedHost
+    ? `https://${deployedHost}`
+    : process.env.NODE_ENV === "development"
+      ? `http://localhost:${process.env.PORT ?? "3000"}`
+      : null;
   if (!configured) return null;
 
   try {
