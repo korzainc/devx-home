@@ -53,8 +53,8 @@ export default async function NoAccessPage() {
       <div className="flex flex-col gap-3 text-sm leading-relaxed text-ink-muted">
         <p>
           If you are on the team, ask someone to add this GitHub account to the
-          Korza organisation. Access follows organisation membership, so it
-          works within a few minutes of being added.
+          Korza organisation. Access follows your GitHub access to Korza, so it
+          works within a minute of being added.
         </p>
         <p>
           {/* The reason the account is named above. Two-account confusion is the likeliest way

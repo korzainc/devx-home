@@ -1,5 +1,5 @@
 /**
- * Whether the person signing in belongs to the Korza organisation.
+ * Whether the person signing in can reach Korza's code on GitHub.
  *
  * A session only proves somebody holds a GitHub account, and the portal is on the open internet,
  * so the session on its own lets in all of GitHub. This is the second half of the gate.
@@ -14,12 +14,11 @@
  * - `GET /user/memberships/orgs/{org}` answers 403 "Resource not accessible by integration" for
  *   the same missing permission. Granting it needs an organisation owner.
  *
- * So this is a proxy for membership rather than proof of it, and the gap is worth naming: GitHub
- * returns installations covering repositories reachable *through* an organisation, so an outside
- * collaborator on any repository in the installation also passes. Everyone in that position today
- * is someone already given access to private Korza code, which is why this is the right trade for
- * now, but it is not the same claim as "is an employee". If the App ever gains Members permission,
- * the membership endpoint above replaces `namesOrg` and closes it.
+ * That makes the question this answers "can you reach Korza's code" rather than "are you on the
+ * payroll", because GitHub also returns the installation to an outside collaborator on a single
+ * repository in it. That is deliberate and settled, not a gap waiting on a stricter check: anyone
+ * already trusted with private Korza code is trusted with the portal that documents it. So do not
+ * "tighten" this to a members-only endpoint later thinking it was a compromise. It was the rule.
  */
 
 // The organisation and the App are a pair. Matching the account alone would accept an installation
