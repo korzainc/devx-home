@@ -40,10 +40,13 @@ import { isOrgMember } from "@/lib/membership";
  */
 export const config = {
   matcher: [
-    // The build output only. Every decision about who may read what is in `isOpenPath`, where it
-    // can be tested; this pattern exists because a gate that redirects the stylesheet renders the
-    // sign-in page unstyled, which is not a policy question.
-    "/((?!_next/static|_next/image).*)",
+    // Build and platform output only. Every decision about who may read what is in `isOpenPath`,
+    // where it can be tested; this pattern exists because a gate that redirects the stylesheet
+    // renders the sign-in page unstyled, which is not a policy question.
+    //
+    // `_vercel` is the platform's own namespace, and the Analytics script the layout loads is
+    // served from it. Gated, it 307s to /login and the page silently stops reporting.
+    "/((?!_next/static|_next/image|_vercel).*)",
   ],
 };
 
