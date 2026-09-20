@@ -186,9 +186,10 @@ export function ToolsCatalogue({
     [stackOptions],
   );
 
-  const { query, setQuery, pickedFor, toggle, filtering } = useCatalogueFilters(
-    { axes, initial: { stack: initialStacks, check: initialChecks } },
-  );
+  const { query, setQuery, pickedFor, toggle } = useCatalogueFilters({
+    axes,
+    initial: { stack: initialStacks, check: initialChecks },
+  });
   const pickedStacks = pickedFor("stack");
   const pickedChecks = pickedFor("check");
 
@@ -285,9 +286,15 @@ export function ToolsCatalogue({
 
       <CatalogueResults
         sections={sections}
-        // Capability, the main facet here, lines up with the category headings closely enough that
-        // a filtered view crowds nearly every match under one of them.
-        layout={filtering ? "grid" : "sections"}
+        // Only the Check axis flattens. It lines up with the category headings closely enough
+        // that a filtered view crowds nearly every match under one of them: five of the seven
+        // groups reach a single category.
+        //
+        // Stack and the search box do not. Every language in the catalogue spans two or three
+        // categories, so grouping still answers "which kinds of check cover Python?" — the
+        // question the filter was picked to ask. Flattening those was DX-202: the headings
+        // vanished on `?stack=python` and took the grouping with them.
+        layout={pickedChecks.length > 0 ? "grid" : "sections"}
         noun="tool"
         renderCard={(tool) => (
           <ToolCard tool={tool} labels={capabilityLabels} />

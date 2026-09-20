@@ -232,22 +232,60 @@ describe("the tools catalogue", () => {
     expect(card("biome")).toBeTruthy();
   });
 
-  it("collapses to one flat grid while filtering, with no section headings", () => {
-    renderPage();
-    // eslint/biome are the only two tools "ESLint" matches, and both are Code Quality - see
-    // Step 0's verification against the real catalogue.
-    search("ESLint");
+  it("collapses to one flat grid on a Check pick, with no section headings", () => {
+    // Check is the axis that restates the headings: five of the seven groups reach a single
+    // category, so grouping a checked view puts nearly every match under one heading and
+    // leaves the rest with nothing to show.
+    renderWithInitial({ checks: ["linting"] });
 
-    // The sections are the capability categories, so grouping a filtered view puts every match
-    // under one heading and leaves the rest with nothing to show. None render while filtering.
     for (const label of SECTION_LABELS) {
       expect(screen.queryByRole("heading", { name: label })).toBeNull();
     }
     expect(screen.queryByText(/^Nothing in /)).toBeNull();
+    expect(cardCount()).toBeGreaterThan(0);
+  });
+
+  it("restores the section headings once the Check pick is cleared", () => {
+    // Opened from the checked state and cleared through the menu, so the restore is exercised
+    // as a reader would reach it rather than by re-rendering unfiltered.
+    renderWithInitial({ checks: ["linting"] });
+    fireEvent.click(screen.getByRole("button", { name: /Check/ }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Code Linting/ }));
+
+    for (const label of SECTION_LABELS) {
+      expect(screen.getByRole("heading", { name: label })).toBeTruthy();
+    }
+    expect(cardCount()).toBe(visibleTools.length);
+  });
+
+  /**
+   * DX-202. Stack and the search box are orthogonal to the headings in a way Check is not: every
+   * language in the catalogue spans two or three categories, so the grouping still answers
+   * "which kinds of check cover Python?" — the question the filter was picked to ask. Both used
+   * to flatten anyway, because one `filtering` flag stood for all three axes.
+   */
+  it("keeps the section headings on a stack pick", () => {
+    renderWithInitial({ stacks: ["python"] });
+
+    const headings = SECTION_LABELS.filter((label) =>
+      screen.queryByRole("heading", { name: label }),
+    );
+    // More than one, or there would be no grouping left to keep.
+    expect(headings.length).toBeGreaterThan(1);
+    expect(cardCount()).toBeGreaterThan(0);
+  });
+
+  it("keeps the section headings while searching", () => {
+    renderPage();
+    search("ESLint");
+
+    // eslint/biome, both Code Quality, so exactly one heading survives — but it survives as a
+    // heading rather than the whole grid going flat.
+    expect(screen.getByRole("heading", { name: "Code Quality" })).toBeTruthy();
     expect(cardCount()).toBe(2);
   });
 
-  it("restores the section headings once the filter is cleared", () => {
+  it("restores every heading once the search is cleared", () => {
     renderPage();
     search("ESLint");
     search("");
