@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { BackLink } from "@/components/back-link";
 import { CollapsibleGrid } from "@/components/collapsible-grid";
 import { MetaRow } from "@/components/meta-row";
 import { ToolInstall } from "@/components/tool-install";
@@ -44,12 +45,12 @@ export default async function ToolPage({ params }: PageProps<"/tools/[id]">) {
   return (
     <article className="flex flex-col gap-8">
       <header className="flex flex-col gap-4">
-        <Link
+        <BackLink
           href="/tools"
           className="w-fit font-mono text-xs text-ink-faint hover:text-accent"
         >
-          <NavArrow direction="left" /> CI Tools
-        </Link>
+          CI Tools
+        </BackLink>
         <h1 className="font-mono text-3xl font-semibold tracking-tight">
           {entry.name}
         </h1>

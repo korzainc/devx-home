@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/next";
 import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Inter, Work_Sans } from "next/font/google";
 import { HomeOnly } from "@/components/home-only";
+import { NavDepth } from "@/components/nav-depth";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import "./globals.css";
@@ -48,6 +49,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${workSans.variable} ${inter.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-canvas font-sans text-ink">
+        {/* Renders no markup: it only counts in-app navigations, so a back link can tell a
+            reader who walked here from one who arrived on a deep link. */}
+        <NavDepth />
         <SiteHeader />
         <main className="relative isolate mx-auto w-full max-w-6xl flex-1 px-6 py-12">
           {/* Accent bloom behind whatever heading a page opens with. `isolate` keeps the

@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Suspense } from "react";
+import { BackLink } from "@/components/back-link";
 import { CatalogueTabs } from "@/components/catalogue-tabs";
 import { SkillsFirstRunNudge } from "@/components/skills-first-run";
 import { plugins, skills } from "@/lib/catalogue";
 import { parseFilterParam } from "@/lib/filter";
-import { NavArrow } from "@/components/nav-arrow";
 
 export const metadata: Metadata = {
   title: "Skills",
@@ -43,12 +42,12 @@ export default function SkillsPage({ searchParams }: Params) {
       {/* Grouped with the title, so the link sits the same distance above it as "← Skills"
           does on the plugin page. As a direct child it inherited the section gap instead. */}
       <div className="flex flex-col gap-4">
-        <Link
+        <BackLink
           href="/"
           className="w-fit font-mono text-xs text-ink-faint hover:text-accent"
         >
-          <NavArrow direction="left" /> Home
-        </Link>
+          Home
+        </BackLink>
         {/* The fallback is the same tabs with no initial selection, so the prerendered shell
             already shows a usable catalogue and only the picks stream in. */}
         <Suspense

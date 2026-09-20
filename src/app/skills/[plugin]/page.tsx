@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import { BackLink } from "@/components/back-link";
 import { PluginInstall } from "@/components/plugin-install";
 import { MetaRow } from "@/components/meta-row";
 import { PluginSkills } from "@/components/plugin-skills";
@@ -41,12 +41,12 @@ export default async function PluginPage({
   return (
     <article className="flex flex-col gap-8">
       <header className="flex flex-col gap-4">
-        <Link
+        <BackLink
           href="/skills"
           className="w-fit font-mono text-xs text-ink-faint hover:text-accent"
         >
-          <NavArrow direction="left" /> Skills
-        </Link>
+          Skills
+        </BackLink>
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="font-mono text-3xl font-semibold tracking-tight">
             {plugin.name}
