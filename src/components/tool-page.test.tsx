@@ -2,12 +2,20 @@
  * @vitest-environment jsdom
  */
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import ToolPage, {
   generateMetadata,
   generateStaticParams,
 } from "@/app/tools/[id]/page";
 import { bundles, toolInstallMethods, tools } from "@/lib/catalogue";
+
+// The page's back link is a client component that reads the router, which this suite renders
+// outside one.
+vi.mock("next/navigation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/navigation")>()),
+  useRouter: () => ({ back: vi.fn() }),
+  usePathname: () => "/tools/biome",
+}));
 
 function renderTool(id: string) {
   return ToolPage({

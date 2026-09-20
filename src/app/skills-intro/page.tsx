@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
+import { BackLink } from "@/components/back-link";
 import { SkillsIntroSeen } from "@/components/skills-intro-seen";
-import Link from "next/link";
-import { NavArrow } from "@/components/nav-arrow";
 import {
   SkillsGlossaryNote,
   SkillsIntroPanes,
@@ -23,12 +22,12 @@ export default function SkillsIntroPage() {
   return (
     <div className="flex min-h-[70vh] flex-col gap-10">
       <SkillsIntroSeen />
-      <Link
+      <BackLink
         href="/skills"
         className="w-fit font-mono text-xs text-ink-faint hover:text-accent"
       >
-        <NavArrow direction="left" /> Skills
-      </Link>
+        Skills
+      </BackLink>
 
       <SkillsIntroPanes />
 

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Suspense } from "react";
+import { BackLink } from "@/components/back-link";
 import { ToolsCatalogue } from "@/components/tools-catalogue";
 import {
   capabilityLabels,
@@ -8,7 +8,6 @@ import {
   visibleTools,
 } from "@/lib/catalogue";
 import { parseFilterParam } from "@/lib/filter";
-import { NavArrow } from "@/components/nav-arrow";
 
 export const metadata: Metadata = {
   title: "CI Tools",
@@ -35,12 +34,12 @@ export default function ToolsPage({ searchParams }: Params) {
   return (
     <div className="flex flex-col gap-10">
       <header className="flex max-w-2xl flex-col gap-4">
-        <Link
+        <BackLink
           href="/"
           className="w-fit font-mono text-xs text-ink-faint hover:text-accent"
         >
-          <NavArrow direction="left" /> Home
-        </Link>
+          Home
+        </BackLink>
         <h1 className="font-display text-3xl font-semibold tracking-tight">
           CI Tools
         </h1>
