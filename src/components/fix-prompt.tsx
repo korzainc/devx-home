@@ -100,6 +100,20 @@ function PromptOverlay({
     ref.current?.showModal();
   }, []);
 
+  /**
+   * Body scroll is locked while this is open, the way `skills-first-run.tsx` does it.
+   * `overscroll-contain` on the <pre> only stops the chaining out of that box: the panel is
+   * `max-h-[80vh] max-w-3xl`, so a wheel over the header row, the footer note or the visible
+   * backdrop still scrolled the report underneath. `showModal` does not imply a scroll lock.
+   */
+  useEffect(() => {
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, []);
+
   return (
     <dialog
       ref={ref}

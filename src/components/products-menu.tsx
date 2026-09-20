@@ -26,6 +26,9 @@ export function ProductsMenu() {
   return (
     <details ref={ref} className="group relative h-full">
       <summary
+        // The visible current marker on a product page is this trigger, not the panel `NavLink`
+        // naming the same page: that one sits inside a shut `details` and is hidden with it.
+        aria-current={holdsCurrent ? "page" : undefined}
         className={`relative flex h-full cursor-pointer list-none items-center gap-1 text-sm whitespace-nowrap transition-colors group-open:text-ink hover:text-ink [&::-webkit-details-marker]:hidden ${
           holdsCurrent ? "font-medium text-ink" : "text-ink-muted"
         }`}

@@ -156,6 +156,17 @@ describe("the products dropdown", () => {
     );
   });
 
+  it("announces the trigger as current, where the marking is visible", () => {
+    // The panel's own link says so too, but it is inside a shut `details` and hidden with it,
+    // so on a product page the trigger was the only visible marker making no such claim.
+    expect(summary(at("/skills", <ProductsMenu />))).toContain(
+      'aria-current="page"',
+    );
+    expect(summary(at("/getting-started", <ProductsMenu />))).not.toContain(
+      "aria-current",
+    );
+  });
+
   it("names it from a detail route too", () => {
     expect(summary(at("/tools/biome", <ProductsMenu />))).toContain("CI Tools");
   });
