@@ -32,6 +32,7 @@ export default async function RoadmapEntryPage(
   return (
     <div className="flex max-w-3xl flex-col gap-8">
       <BackLink
+        followHistory
         href="/roadmap"
         className="text-sm font-medium text-accent hover:underline"
       >

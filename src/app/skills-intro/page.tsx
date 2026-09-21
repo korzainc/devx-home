@@ -23,6 +23,7 @@ export default function SkillsIntroPage() {
     <div className="flex min-h-[70vh] flex-col gap-10">
       <SkillsIntroSeen />
       <BackLink
+        followHistory
         href="/skills"
         className="w-fit font-mono text-xs text-ink-faint hover:text-accent"
       >

@@ -46,6 +46,7 @@ export default async function ToolPage({ params }: PageProps<"/tools/[id]">) {
     <article className="flex flex-col gap-8">
       <header className="flex flex-col gap-4">
         <BackLink
+          followHistory
           href="/tools"
           className="w-fit font-mono text-xs text-ink-faint hover:text-accent"
         >
