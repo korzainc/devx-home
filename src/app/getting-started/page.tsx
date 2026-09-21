@@ -53,13 +53,13 @@ export default function GettingStartedPage() {
           <a href="#manual" className={cta}>
             Set up manually
           </a>
-          <a href="#questions" className={cta}>
+          <a href="#questions" className={`${cta} md:hidden`}>
             Need help?
           </a>
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-8 border-t border-line py-12">
+      <section className="hidden grid-cols-1 gap-8 border-t border-line py-12 md:grid">
         <div className="flex min-w-0 flex-col gap-3">
           <h2 className="font-display text-2xl font-semibold tracking-tight">
             Guided setup.
@@ -67,10 +67,11 @@ export default function GettingStartedPage() {
           <p className="text-ink-muted">
             Choose your tools. Korza CLI guides you through setup.
           </p>
+          <a href="#questions" className={cta}>
+            Need help?
+          </a>
         </div>
-        <div className="hidden md:block">
-          <TerminalPreview />
-        </div>
+        <TerminalPreview />
       </section>
 
       <section

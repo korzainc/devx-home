@@ -222,6 +222,12 @@ describe("the Getting Started page", () => {
 
 it("keeps the help shortcut outside desktop-only sections", () => {
   render(<GettingStartedPage />);
-  const help = screen.getByRole("link", { name: "Need help?" });
-  expect(help.closest("section")?.classList.contains("hidden")).toBe(false);
+  const helpLinks = screen.getAllByRole("link", { name: "Need help?" });
+  const mobileHelp = helpLinks.find((link) =>
+    link.classList.contains("md:hidden"),
+  );
+  expect(mobileHelp).toBeDefined();
+  expect(mobileHelp?.closest("section")?.classList.contains("hidden")).toBe(
+    false,
+  );
 });
