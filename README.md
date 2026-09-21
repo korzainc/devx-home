@@ -55,6 +55,21 @@ repository is `korzainc/korza-cli`; this portal and `#devx` keep their names.
 `korza setup --remove` removes the managed shell block, not installed tools,
 the CLI binary or the `kz` alias. The FAQ explains what setup changes.
 
+### Update manifest
+
+`/korza/release.json` describes the single current macOS bundle: `version`,
+archive `url`, checksum `sum_url`, and `notes`. It uses the same version and paths
+as `/setup`, with absolute URLs for this deployment and no HTTP caching.
+An unconfigured deployment returns 503 instead of advertising a release.
+
+This endpoint does not switch existing clients away from GitHub Releases.
+The CLI currently reads it only when `KORZA_UPDATE_MANIFEST` points to its URL;
+default client wiring is a separate change. For each future update, bump the
+binary version and refresh the archive, checksum and bundle version together.
+Replacing an archive at the same version does not trigger the version comparison.
+When distribution moves to GitHub Releases, retain this endpoint for older clients
+and point its download and checksum URLs at the published assets.
+
 ### Installer deployment
 
 No custom installer environment variables are needed in Vercel. `/setup` uses
