@@ -59,7 +59,10 @@ export function cameFromApp(): boolean {
  *  Spreads the existing state because Next keeps its own router keys there. */
 export function markCameFromApp(): void {
   try {
-    window.history.replaceState({ ...(readState() ?? {}), [MARK_KEY]: true }, "");
+    window.history.replaceState(
+      { ...(readState() ?? {}), [MARK_KEY]: true },
+      "",
+    );
     window.dispatchEvent(new Event(DEPTH_EVENT));
   } catch {
     // A browser refusing replaceState just means every back link stays an ordinary link.
