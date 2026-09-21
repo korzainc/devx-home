@@ -31,6 +31,7 @@ export default function SkillsDemoPage() {
       <SkillsIntroSeen />
 
       <BackLink
+        followHistory
         href="/skills-intro"
         className="w-fit font-mono text-xs text-ink-faint hover:text-accent"
       >
