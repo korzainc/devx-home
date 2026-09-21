@@ -1147,8 +1147,8 @@
       "state": "unpinned"
     },
     "superpowers": {
-      "behind": 1,
-      "latest": "v6.3.0",
+      "behind": 2,
+      "latest": "v6.4.1",
       "pinned": "v6.2.0",
       "state": "behind"
     }
