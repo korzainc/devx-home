@@ -150,10 +150,12 @@ function Block({ block }: { block: InstallBlock }) {
 /** Split at user interaction boundaries, with one copy control per block. */
 export function CommandGroup({
   commands,
+  label,
   comments = {},
   breakBefore = [],
 }: {
   commands: string[];
+  label?: string;
   comments?: Record<string, string>;
   breakBefore?: string[];
 }) {
@@ -164,7 +166,7 @@ export function CommandGroup({
   }
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      {groups.map((group) => {
+      {groups.map((group, index) => {
         const instruction = group
           .map((command) => comments[command])
           .filter(Boolean)
@@ -176,7 +178,14 @@ export function CommandGroup({
             {instruction && (
               <p className="max-w-2xl text-sm text-ink-muted">{instruction}</p>
             )}
-            <Block block={{ content, name: "Terminal command" }} />
+            <Block
+              block={{
+                content,
+                name: label
+                  ? `${label} command${groups.length > 1 ? ` ${index + 1}` : ""}`
+                  : "Terminal command",
+              }}
+            />
           </div>
         );
       })}

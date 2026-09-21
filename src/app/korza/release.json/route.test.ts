@@ -3,6 +3,7 @@ import { artifactPaths, BUNDLED_ARTIFACT_VERSION } from "@/lib/setup-script";
 import { GET } from "./route";
 
 beforeEach(() => {
+  vi.stubEnv("KORZA_PUBLIC_ORIGIN", undefined);
   vi.stubEnv("NODE_ENV", "production");
   vi.stubEnv("VERCEL_ENV", "production");
   vi.stubEnv("VERCEL_PROJECT_PRODUCTION_URL", "devx.example");
@@ -36,4 +37,13 @@ it("fails closed without a trusted deployment origin", async () => {
   expect(response.status).toBe(503);
   expect(response.headers.get("Cache-Control")).toBe("no-store");
   expect(await response.json()).not.toHaveProperty("version");
+});
+
+it("keeps manifest URLs on the explicit origin and fails closed for invalid overrides", async () => {
+  vi.stubEnv("KORZA_PUBLIC_ORIGIN", "https://custom.example");
+  expect((await GET().json()).url).toBe(
+    `https://custom.example${artifactPaths().tarball}`,
+  );
+  vi.stubEnv("KORZA_PUBLIC_ORIGIN", "https://custom.example/path");
+  expect(GET().status).toBe(503);
 });

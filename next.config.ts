@@ -1,7 +1,11 @@
 import type { NextConfig } from "next";
+import { getSetupOrigin } from "./src/lib/setup-origin";
+
+const setupOrigin = getSetupOrigin();
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
+  allowedDevOrigins: setupOrigin ? [new URL(setupOrigin).hostname] : [],
   async redirects() {
     return [
       // Configured here rather than as a page, so the route walk in `site-footer.test.tsx` does

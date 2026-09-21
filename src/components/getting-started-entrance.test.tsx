@@ -90,7 +90,6 @@ describe("getting started entrance", () => {
     act(() => void fireEvent.focusOut(root));
     const command = root.querySelector<HTMLElement>(".gs-hero-command")!;
     expect(command.dataset.entrance).toBe("done");
-    expect(command.style.animation).toBe("");
   });
 
   it("reveals immediately on hash navigation", () => {

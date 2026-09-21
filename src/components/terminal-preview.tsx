@@ -20,7 +20,6 @@ export function TerminalPreview() {
   const frameClock = useRef({ frame: -1, remaining: 0 });
   // Useful server/no-JS fallback, also used for reduced motion.
   const [frame, setFrame] = useState(finalFrame);
-  const [pending, setPending] = useState(true);
   const [visible, setVisible] = useState(false);
   const [tabVisible, setTabVisible] = useState(true);
   const [canAnimate, setCanAnimate] = useState(false);
@@ -31,7 +30,6 @@ export function TerminalPreview() {
     const card = figure.current;
     const marker = startMarker.current;
     if (!motion || !card || !marker || !("IntersectionObserver" in window)) {
-      setPending(false);
       return;
     }
 
@@ -62,7 +60,6 @@ export function TerminalPreview() {
       )
         return;
       started.current = true;
-      setPending(false);
       setCanAnimate(true);
       setFrame(0);
     };
@@ -184,9 +181,6 @@ export function TerminalPreview() {
       }
       className="terminal-preview relative isolate w-full min-w-0 rounded-xl border border-line bg-surface shadow-[0_12px_32px_-14px_rgb(0_0_0/0.8)]"
     >
-      <noscript>
-        <style>{`.terminal-preview-output { visibility: visible !important; }`}</style>
-      </noscript>
       <span
         ref={startMarker}
         aria-hidden="true"
@@ -225,7 +219,7 @@ export function TerminalPreview() {
         className="overflow-x-auto px-5 py-5"
       >
         <pre
-          className={`terminal-preview-output m-0 whitespace-pre font-mono text-[11px] leading-[1.6] lg:text-xs${pending ? " motion-safe:invisible" : ""}`}
+          className="terminal-preview-output m-0 whitespace-pre font-mono text-[11px] leading-[1.6] lg:text-xs"
           data-reveal={reveal || undefined}
           data-depart={departing || undefined}
           data-paused={paused || !visible || !tabVisible || undefined}

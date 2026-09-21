@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getSetupOrigin } from "./setup-origin";
 
 beforeEach(() => {
+  vi.stubEnv("KORZA_PUBLIC_ORIGIN", undefined);
   vi.stubEnv("VERCEL_URL", undefined);
   vi.stubEnv("VERCEL_PROJECT_PRODUCTION_URL", undefined);
   vi.stubEnv("VERCEL_ENV", undefined);
@@ -45,4 +46,29 @@ describe("installer origin", () => {
     vi.stubEnv("VERCEL_URL", host);
     expect(getSetupOrigin()).toBeNull();
   });
+});
+
+it("preserves an explicit public origin ahead of deployment defaults", () => {
+  vi.stubEnv("VERCEL_URL", "preview.vercel.app");
+  vi.stubEnv("KORZA_PUBLIC_ORIGIN", "https://tools.example/");
+  expect(getSetupOrigin()).toBe("https://tools.example");
+});
+it.each([
+  "",
+  "invalid",
+  "http://tools.example",
+  "https://user:secret@tools.example",
+  "https://tools.example/path",
+  "https://tools.example?key=value",
+  "https://tools.example#fragment",
+])("fails closed for explicit invalid origin %s", (origin) => {
+  vi.stubEnv("VERCEL_URL", "preview.vercel.app");
+  vi.stubEnv("KORZA_PUBLIC_ORIGIN", origin);
+  expect(getSetupOrigin()).toBeNull();
+});
+it("supports an explicit local origin only outside production", () => {
+  vi.stubEnv("KORZA_PUBLIC_ORIGIN", "http://127.0.0.1:4000");
+  expect(getSetupOrigin()).toBeNull();
+  vi.stubEnv("NODE_ENV", "development");
+  expect(getSetupOrigin()).toBe("http://127.0.0.1:4000");
 });

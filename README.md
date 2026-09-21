@@ -75,6 +75,12 @@ and point its download and checksum URLs at the published assets.
 No custom installer environment variables are needed in Vercel. `/setup` uses
 Vercel's deployment URL and supplies the bundled download and checksum.
 Local development uses `localhost` and the server port (default `3000`).
+`KORZA_PUBLIC_ORIGIN` remains an optional override for another host or a development
+tunnel. Use an HTTPS origin without credentials, path, query or fragment. HTTP is
+allowed only for loopback hosts outside production. An empty or invalid override
+fails closed: `/setup` and `/korza/release.json` return 503 rather than falling back
+to a different download host. The validated hostname is also allowed for Next.js
+development assets.
 The installer installs to `~/.local/bin` by default.
 The copied command downloads the complete script and checks its shell header
 before running it. Failed downloads and unexpected responses stop

@@ -73,3 +73,61 @@ describe("install command", () => {
     expect(screen.getByText(/Installer unavailable/)).toBeDefined();
   });
 });
+
+it("updates keyboard access when a disclosure resizes and disconnects on unmount", () => {
+  const observers: {
+    callback: ResizeObserverCallback;
+    targets: Element[];
+    disconnect: ReturnType<typeof vi.fn>;
+  }[] = [];
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      record;
+      constructor(callback: ResizeObserverCallback) {
+        this.record = {
+          callback,
+          targets: [] as Element[],
+          disconnect: vi.fn(),
+        };
+        observers.push(this.record);
+      }
+      observe(target: Element) {
+        this.record.targets.push(target);
+      }
+      disconnect() {
+        this.record.disconnect();
+      }
+    },
+  );
+  const view = render(<PreviewInstallCommand command={command} />);
+  const group = screen.getByRole("group", { name: "Install command" });
+  expect(group.tabIndex).toBe(-1);
+  Object.defineProperty(group, "scrollWidth", {
+    configurable: true,
+    value: 800,
+  });
+  Object.defineProperty(group, "clientWidth", {
+    configurable: true,
+    value: 300,
+  });
+  const resize = () =>
+    act(() => {
+      for (const observer of observers)
+        observer.callback([], {} as ResizeObserver);
+    });
+  expect(observers.some((observer) => observer.targets.includes(group))).toBe(
+    true,
+  );
+  resize();
+  expect(group.tabIndex).toBe(0);
+  Object.defineProperty(group, "clientWidth", {
+    configurable: true,
+    value: 900,
+  });
+  resize();
+  expect(group.tabIndex).toBe(-1);
+  view.unmount();
+  for (const observer of observers)
+    expect(observer.disconnect).toHaveBeenCalledOnce();
+});

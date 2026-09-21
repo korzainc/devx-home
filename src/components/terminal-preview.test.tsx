@@ -312,6 +312,12 @@ it("does not start while an initial deep link scrolls past the preview", () => {
     intersect(0.8);
     expect(output()).toContain("Your tools are ready");
     expect(screen.queryAllByRole("button")).toHaveLength(0);
+    expect(
+      screen
+        .getByRole("region")
+        .querySelector("pre")!
+        .classList.contains("motion-safe:invisible"),
+    ).toBe(false);
     intersect(0, false);
     intersect(0.2, true);
     expect(output()).toBe("$ ");
@@ -320,11 +326,11 @@ it("does not start while an initial deep link scrolls past the preview", () => {
   }
 });
 
-it("hides the fallback until the first playback frame without changing reserved height", () => {
+it("keeps the fallback visible until playback without changing reserved height", () => {
   const { container } = render(<TerminalPreview />);
   const terminal = container.querySelector("pre")!;
   const height = terminal.style.minHeight;
-  expect(terminal.classList.contains("motion-safe:invisible")).toBe(true);
+  expect(terminal.classList.contains("motion-safe:invisible")).toBe(false);
   intersect(0.2);
   expect(terminal.classList.contains("motion-safe:invisible")).toBe(false);
   expect(terminal.textContent).toBe("$ ");

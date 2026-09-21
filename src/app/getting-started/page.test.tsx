@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToString } from "react-dom/server";
 import GettingStartedPage from "./page";
@@ -9,6 +9,7 @@ import { bootstrapCommand } from "@/lib/bootstrap-command";
 import { faq, manualCommands } from "@/lib/getting-started";
 
 beforeEach(() => {
+  vi.stubEnv("KORZA_PUBLIC_ORIGIN", undefined);
   vi.stubEnv("VERCEL_ENV", "preview");
   vi.stubEnv("VERCEL_URL", "setup.example");
 });
@@ -32,7 +33,12 @@ describe("the Getting Started page", () => {
     render(<GettingStartedPage />);
     expect(screen.getByText(/Installer unavailable/)).toBeDefined();
     expect(
-      screen.getAllByRole("button", { name: /copy terminal command/i }).length,
+      within(
+        screen
+          .getByRole("heading", { name: "Set up manually" })
+          .closest("section")!,
+      ).getAllByRole("button", { name: /^copy .+ command(?: [0-9]+)?$/i })
+        .length,
     ).toBeGreaterThan(0);
   });
   it("leads with the one command, built from the configured origin", () => {
@@ -186,7 +192,11 @@ describe("the Getting Started page", () => {
       );
     }
     expect(
-      screen.getAllByRole("button", { name: /copy terminal command/i }),
+      within(
+        screen
+          .getByRole("heading", { name: "Set up manually" })
+          .closest("section")!,
+      ).getAllByRole("button", { name: /^copy .+ command(?: [0-9]+)?$/i }),
     ).toHaveLength(
       manualCommands.reduce(
         (count, entry) => count + 1 + (entry.breakBefore?.length ?? 0),

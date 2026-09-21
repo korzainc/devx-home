@@ -47,6 +47,9 @@ export default function GettingStartedPage() {
 
         <div className="gs-hero-command flex w-full min-w-0 flex-col gap-3">
           <PreviewInstallCommand key={command} command={command} />
+          <p className="text-xs text-ink-muted">
+            Preview macOS build. Ad-hoc signed; not notarized.
+          </p>
           <a href="#manual" className={cta}>
             Set up manually
           </a>
@@ -56,7 +59,7 @@ export default function GettingStartedPage() {
         </div>
       </section>
 
-      <section className="hidden grid-cols-1 gap-8 border-t border-line py-12 md:grid">
+      <section className="grid grid-cols-1 gap-8 border-t border-line py-12">
         <div className="flex min-w-0 flex-col gap-3">
           <h2 className="font-display text-2xl font-semibold tracking-tight">
             Guided setup.
@@ -65,7 +68,9 @@ export default function GettingStartedPage() {
             Choose your tools. Korza CLI guides you through setup.
           </p>
         </div>
-        <TerminalPreview />
+        <div className="hidden md:block">
+          <TerminalPreview />
+        </div>
       </section>
 
       <section
@@ -105,6 +110,7 @@ export default function GettingStartedPage() {
                 )}
                 {entry.noteFirst && <ManualNote note={entry.note} />}
                 <CommandGroup
+                  label={entry.tool}
                   commands={entry.commands}
                   comments={entry.comments}
                   breakBefore={entry.breakBefore}

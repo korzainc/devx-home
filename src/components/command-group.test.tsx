@@ -259,3 +259,19 @@ it.each([false, true])(
     expect(group.tabIndex).toBe(-1);
   },
 );
+
+it("names each copy control by tool and step", () => {
+  render(
+    <CommandGroup
+      label="Claude Code"
+      commands={["claude auth login", "claude plugin list"]}
+      breakBefore={["claude plugin list"]}
+    />,
+  );
+  expect(
+    screen.getByRole("button", { name: "Copy claude code command 1" }),
+  ).toBeDefined();
+  expect(
+    screen.getByRole("button", { name: "Copy claude code command 2" }),
+  ).toBeDefined();
+});
