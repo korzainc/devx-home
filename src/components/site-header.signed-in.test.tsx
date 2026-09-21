@@ -25,6 +25,9 @@ vi.mock("@/lib/session", () => ({
 
 vi.mock("@/lib/auth-actions", () => ({ signOut: async () => {} }));
 
+// `ExceptOn` reads the path to decide whether the nav is drawn, and there is no router here.
+vi.mock("next/navigation", () => ({ usePathname: () => "/" }));
+
 const render = (node: React.ReactElement) =>
   renderStream(node, { ready: "all" });
 

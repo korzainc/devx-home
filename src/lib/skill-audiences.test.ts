@@ -63,6 +63,30 @@ describe("skill audiences", () => {
     expect(empty).toEqual([]);
   });
 
+  // A plugin card and the skills it bundles are filtered by the same chips, off two separate
+  // lists. Where the plugin's list is narrower, the chip surfaces a skill while hiding the
+  // plugin that ships it -- a reader who finds the row cannot find what to install.
+  it("carries every audience its bundled skills claim", () => {
+    const short = plugins
+      .map((plugin) => {
+        const mine = new Set(pluginAudiences[plugin.id]);
+        const bundled = skills
+          .filter((skill) => skill.plugin === plugin.id)
+          .flatMap((skill) => skillAudiences[skill.id] as Audience[])
+          // "All" is not a fourth audience: it already matches every chip but its own, so it
+          // says nothing about which of the three the plugin serves.
+          .filter((audience) => audience !== "All");
+        const uncovered = [...new Set(bundled)].filter(
+          (audience) => !mine.has(audience),
+        );
+        return uncovered.length
+          ? `${plugin.id}: ${uncovered.join(", ")}`
+          : null;
+      })
+      .filter(Boolean);
+    expect(short).toEqual([]);
+  });
+
   it("reaches every skill from some chip, so no row is unreachable", () => {
     // Picking each audience in turn has to account for all 51: a row tagged with nothing the row
     // draws would sit in the grid unfiltered and vanish the moment anyone touched the filter.

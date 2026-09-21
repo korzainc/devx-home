@@ -43,7 +43,7 @@ describe("the skill context strip", () => {
   });
 
   it("names the skill the page was opened for, and where it sits in the plugin", () => {
-    const target = named("wizard");
+    const target = named("to-questionnaire");
     openedFor(target.name);
 
     render(<SkillContextStrip plugin="mattpocock-skills" skills={skills} />);
@@ -77,9 +77,10 @@ describe("the skill context strip", () => {
   });
 
   it("still explains a stale link on a plugin that ships nothing", () => {
-    // pyright-lsp resolves to zero skills, and is where a stale link most needs explaining.
+    // A plugin resolving to zero skills is where a stale link most needs explaining. The fixture
+    // is synthetic: the catalogue has no such entry today, and the guard has to outlive that.
     openedFor("anything");
-    render(<SkillContextStrip plugin="pyright-lsp" skills={[]} />);
+    render(<SkillContextStrip plugin="ships-nothing" skills={[]} />);
 
     expect(screen.getByText(/not in the plugin/i)).toBeTruthy();
     expect(screen.queryByRole("button")).toBeNull();
@@ -88,7 +89,7 @@ describe("the skill context strip", () => {
   it("clamps the summary so the install panel stays on the first screen", () => {
     // The fallback is upstream SKILL.md prose, ~890 chars at its longest, and unclamped it
     // filled a 390px viewport.
-    const target = named("wizard");
+    const target = named("to-questionnaire");
     openedFor(target.name);
     render(<SkillContextStrip plugin="mattpocock-skills" skills={skills} />);
 
@@ -99,7 +100,7 @@ describe("the skill context strip", () => {
 
   it("clamps the skill name too, and keeps the full value for the lookup", () => {
     // The name comes from the URL, so it is as unbounded as the summary was.
-    const target = named("wizard");
+    const target = named("to-questionnaire");
     openedFor(target.name);
     render(<SkillContextStrip plugin="mattpocock-skills" skills={skills} />);
 
@@ -109,7 +110,7 @@ describe("the skill context strip", () => {
   });
 
   it("keeps the arrow out of the control's accessible name", () => {
-    openedFor(named("wizard").name);
+    openedFor(named("to-questionnaire").name);
     render(<SkillContextStrip plugin="mattpocock-skills" skills={skills} />);
 
     expect(screen.getByRole("button", { name: "Show in list" })).toBeTruthy();
@@ -119,7 +120,7 @@ describe("the skill context strip", () => {
     // contrast.test.ts proves --accent-strong and --ink-muted clear 4.5 on --accent-wash.
     // This is the other half: that the strip actually reaches for those and not the two that
     // measure 4.38 and 4.41 there.
-    openedFor(named("wizard").name);
+    openedFor(named("to-questionnaire").name);
     const { container } = render(
       <SkillContextStrip plugin="mattpocock-skills" skills={skills} />,
     );

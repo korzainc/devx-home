@@ -46,3 +46,34 @@ describe("the accent wash", () => {
     },
   );
 });
+
+/**
+ * The stroke behind a marked phrase in the home page headings. Drawn over the glyphs it put --ink
+ * on the stroke at 2.83:1, sampled from a screenshot, under the 3:1 large text has to clear. It now
+ * hangs below the words, where nothing sits on it.
+ *
+ * The arithmetic below is against the --highlight token itself, so it reads lower than that: the
+ * stroke is a gradient of the token at 52-82% over the canvas, and this cannot composite. Being the
+ * stricter of the two is the right way round for a guard.
+ *
+ * It deliberately does not pin the geometry, because a darker stroke that carries the text is just
+ * as correct. It asserts the trade instead, so whoever moves the stroke back over the glyphs owes
+ * the ratio, which is the part that was wrong rather than the position.
+ */
+describe("the brush stroke", () => {
+  const rule = css.match(/\.mark::before\s*\{([^}]*)\}/);
+
+  it("has a rule to read", () => {
+    // Or everything below passes on a stylesheet that no longer draws a stroke at all.
+    expect(rule, ".mark::before is gone or renamed").not.toBeNull();
+  });
+
+  it("clears 3:1 whenever it is drawn behind the glyphs", () => {
+    // `inset: auto` leaves the top edge unset, which is what makes it an underline: the stroke is
+    // placed from the bottom of the phrase and never reaches up over the text.
+    if (/inset:\s*auto/.test(rule![1]!)) return;
+    expect(contrast(token("ink"), token("highlight"))).toBeGreaterThanOrEqual(
+      3,
+    );
+  });
+});

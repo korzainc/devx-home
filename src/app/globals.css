@@ -243,8 +243,13 @@ html {
   .report-roll {
     animation: report-roll 28s linear infinite;
   }
-  /* The evidence column is worth reading, so hovering stops the list rather than slowing it. */
-  .report-roll:hover {
+  /* The evidence column is worth reading, so hovering stops the list rather than slowing it.
+
+     Hovering is not a mechanism a keyboard or a phone has, though, and this runs for as long as
+     the panel is open. `[data-paused]` is the button in the report's header, which is the one
+     everybody can reach. */
+  .report-roll:hover,
+  .report-roll[data-paused] {
     animation-play-state: paused;
   }
 }
@@ -414,9 +419,16 @@ html {
 
 /* The stroke itself.
 
-   Sized in `em` so it tracks whatever heading it lands in, and placed to cover the glyphs from
-   about the x-height down to just past the baseline, which is where a real stroke falls. Anything
-   shorter or lower reads as an underline.
+   Under the words rather than behind them, and that is a contrast decision rather than a stylistic
+   one. Laid over the glyphs it covered them from the x-height down, where a real stroke falls, and
+   `--ink` on it measured 2.83:1 against the 3:1 large text has to clear. Every way of fixing that
+   in place cost the marker its brightness: a deeper amber cleared 6.43:1 but read as a stain, and
+   the same yellow thinned out cleared 7.37:1 and barely read at all. Down here nothing sits on the
+   stroke, so there is no ratio to clear and the yellow keeps full strength.
+
+   Sized in `em` so it tracks whatever heading it lands in, and tall enough that the bristle gaps in
+   the silhouette still read as a brush instead of a rule. It keeps the negative z-index it had when
+   it was a highlight, so a descender crossing it is drawn over the stroke rather than under it.
 
    The silhouette is an SVG mask rather than a gradient, because the things that make a stroke look
    painted are an uneven edge and a ragged end, and a gradient can only make a lens. The mask
@@ -428,8 +440,8 @@ html {
   content: "";
   position: absolute;
   z-index: -1;
-  inset: 0.16em -0.24em auto -0.24em;
-  height: 0.88em;
+  inset: auto -0.24em -0.08em -0.24em;
+  height: 0.42em;
   background: linear-gradient(
     100deg,
     color-mix(in oklab, var(--highlight) 58%, transparent),

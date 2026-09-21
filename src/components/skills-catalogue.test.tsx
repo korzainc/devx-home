@@ -368,7 +368,8 @@ describe("the plugins catalogue", () => {
       ["code review", "mattpocock-skills"],
       ["Wikipedia", "humanizer"],
       ["domain modeling", "mattpocock-skills"],
-      ["python", "pyright-lsp"],
+      // Matches `problem` and nothing else, so the field stays in the haystack on its own.
+      ["diagnosing", "mattpocock-skills"],
     ] as const) {
       fireEvent.change(search, { target: { value: query } });
       expect(
@@ -455,7 +456,9 @@ describe("the tabs switch panels", () => {
 describe("a search that only the setup and meta rows match", () => {
   it("shows those rows rather than an empty grid", () => {
     renderPage();
-    const onlyToolchain = "superpowers";
+    // "superpowers" until the catalogue cut removed the using-superpowers meta row, after
+    // which it matched nothing; "toolchain" reaches the two setup rows and no ordinary skill.
+    const onlyToolchain = "toolchain";
     const matched = skills.filter((skill) =>
       matchesQuery(onlyToolchain, entryHaystack(skill)),
     );
