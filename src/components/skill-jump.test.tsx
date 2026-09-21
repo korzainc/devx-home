@@ -48,7 +48,7 @@ const cardOf = (name: string) =>
 const inside = skills[1];
 const boundary = skills[PREVIEW];
 // The last row, rather than a fixed offset past PREVIEW: `PREVIEW + 12` assumed a plugin
-// shipping 23 skills and read as undefined once the catalogue was cut to 25 rows total.
+// shipping 23 skills and read as undefined once the catalogue was cut to 27 rows total.
 const past = skills[skills.length - 1];
 if (skills.length <= PREVIEW)
   throw new Error(

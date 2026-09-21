@@ -54,7 +54,7 @@ describe("catalogue search", () => {
 
   it("does not join two inflections of the same stem", () => {
     expect(matchesQuery("testing", "unit tests")).toBe(false);
-    // Six of the 25 published rows, so the floor moves with the catalogue rather than the
+    // Six of the 27 published rows, so the floor moves with the catalogue rather than the
     // matcher. It guards breadth: a matcher this narrow would drop to one or two.
     expect(hits("testing").length).toBeGreaterThanOrEqual(6);
   });
