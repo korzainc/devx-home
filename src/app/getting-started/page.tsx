@@ -50,6 +50,9 @@ export default function GettingStartedPage() {
           <a href="#manual" className={cta}>
             Set up manually
           </a>
+          <a href="#questions" className={cta}>
+            Need help?
+          </a>
         </div>
       </section>
 
@@ -61,9 +64,6 @@ export default function GettingStartedPage() {
           <p className="text-ink-muted">
             Choose your tools. Korza CLI guides you through setup.
           </p>
-          <a href="#questions" className={cta}>
-            Need help?
-          </a>
         </div>
         <TerminalPreview />
       </section>

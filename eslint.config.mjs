@@ -16,6 +16,7 @@ const eslintConfig = defineConfig([
     // Local agent state. Scratch worktrees under here carry a whole .next of their own, which the
     // root-anchored pattern above does not reach.
     ".claude/**",
+    ".codezen/**",
   ]),
   {
     rules: {

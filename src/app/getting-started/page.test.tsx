@@ -152,7 +152,7 @@ describe("the Getting Started page", () => {
       ),
     );
     const permissionIndex = commands.indexOf(
-      "gh auth refresh --hostname github.com --scopes admin:public_key",
+      "gh auth refresh --hostname github.com --scopes write:public_key",
     );
     const uploadIndex = commands.findIndex((command) =>
       command?.startsWith("gh ssh-key add "),
@@ -208,4 +208,10 @@ describe("the Getting Started page", () => {
       ).toBeTruthy();
     }
   });
+});
+
+it("keeps the help shortcut outside desktop-only sections", () => {
+  render(<GettingStartedPage />);
+  const help = screen.getByRole("link", { name: "Need help?" });
+  expect(help.closest("section")?.classList.contains("hidden")).toBe(false);
 });

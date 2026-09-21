@@ -49,17 +49,18 @@ export const manualCommands: {
     title: "SSH access",
     commands: [
       'ssh-keygen -t ed25519 -C "you@korza.ai"',
-      "gh auth refresh --hostname github.com --scopes admin:public_key",
+      "gh auth refresh --hostname github.com --scopes write:public_key",
       'gh ssh-key add ~/.ssh/id_ed25519.pub --title "$(hostname)"',
       "ssh-add ~/.ssh/id_ed25519",
       "ssh -T git@github.com",
     ],
     breakBefore: [
-      "gh auth refresh --hostname github.com --scopes admin:public_key",
+      "gh auth refresh --hostname github.com --scopes write:public_key",
+      "ssh-add ~/.ssh/id_ed25519",
       "ssh -T git@github.com",
     ],
     comments: {
-      "gh auth refresh --hostname github.com --scopes admin:public_key":
+      "gh auth refresh --hostname github.com --scopes write:public_key":
         "Finish key creation first, or use your existing key.",
       "ssh-add ~/.ssh/id_ed25519":
         "Load the key. Enter its passphrase if asked.",
@@ -83,7 +84,6 @@ export const manualCommands: {
       "curl -fsSL https://claude.ai/install.sh | bash",
       "claude auth login",
       "CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1 claude plugin marketplace add korzainc/marketplace",
-      "CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1 claude plugin marketplace update korza-marketplace",
       "CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1 claude plugin install codezen@korza-marketplace",
       "CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1 claude plugin install superpowers@korza-marketplace",
       "CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1 claude plugin install mattpocock-skills@korza-marketplace",
@@ -142,6 +142,10 @@ export const manualCommands: {
 ];
 
 export const faq: { q: string; a: string }[] = [
+  {
+    q: "How do I keep Claude plugin commands on HTTPS?",
+    a: 'The HTTPS setting above applies to each copied command. To keep it for future Claude sessions, add "CLAUDE_CODE_PLUGIN_PREFER_HTTPS": "1" to the env object in your existing ~/.claude/settings.json, preserving its other settings. Restart Claude afterwards. If the marketplace is already registered, skip marketplace add and run the plugin install commands; marketplace update is a separate refresh when needed.',
+  },
   {
     q: "Where can I find help with Korza CLI?",
     a: "Run korza --help for commands or korza setup --help for setup options. The installer also adds kz as a short name for korza when that name is available.",

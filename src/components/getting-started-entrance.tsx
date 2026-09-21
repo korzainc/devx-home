@@ -32,7 +32,7 @@ export function GettingStartedEntrance() {
     const onFocus = () => {
       // Keep the entrance finished after focus leaves the command.
       const command = root.querySelector<HTMLElement>(".gs-hero-command");
-      if (command) command.style.animation = "none";
+      if (command) command.dataset.entrance = "done";
       reveal(true);
     };
     const onHash = () => reveal(true);

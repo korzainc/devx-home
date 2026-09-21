@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useHorizontalOverflow } from "./use-horizontal-overflow";
 
 /** One thing to copy. `target` names the file a snippet is pasted into, and switches the block
  *  from a single-line command to a `pre` that keeps its indentation: a Maven block or a workflow
@@ -66,6 +67,7 @@ function CopyIcon({ copied }: { copied: boolean }) {
 
 /** Keyed on its content by the panel, so switching tabs remounts it and clears `copied`. */
 function Block({ block }: { block: InstallBlock }) {
+  const scroll = useHorizontalOverflow(block.content);
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -109,9 +111,9 @@ function Block({ block }: { block: InstallBlock }) {
           </div>
           <div className="flex items-start gap-2 py-2.5 pr-2 pl-4">
             <div
-              role="region"
+              role="group"
               aria-label={block.name}
-              tabIndex={0}
+              {...scroll}
               className="min-w-0 flex-1 overflow-x-auto"
             >
               <pre className="font-mono text-sm text-ink select-all">
@@ -124,9 +126,9 @@ function Block({ block }: { block: InstallBlock }) {
       ) : (
         <div className="flex items-start gap-2 rounded-lg border border-line bg-canvas py-2.5 pr-2 pl-4">
           <div
-            role="region"
+            role="group"
             aria-label={block.name}
-            tabIndex={0}
+            {...scroll}
             className="min-w-0 flex-1 overflow-x-auto"
           >
             <code className="block font-mono text-sm whitespace-pre text-ink select-all">

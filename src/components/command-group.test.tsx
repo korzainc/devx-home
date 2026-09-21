@@ -12,7 +12,7 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { manualCommands } from "@/lib/getting-started";
-import { CommandGroup } from "./install-panel";
+import { CommandGroup, InstallPanel } from "./install-panel";
 
 const shells = [
   { shell: "/bin/sh", args: [] as string[] },
@@ -126,12 +126,12 @@ it.each(shells)(
 
 it.each(
   shells.flatMap((shell) => [
-    { ...shell, failUpdate: false },
-    { ...shell, failUpdate: true },
+    { ...shell, failMarketplace: false },
+    { ...shell, failMarketplace: true },
   ]),
 )(
-  "scopes HTTPS to every copied plugin command in $shell (fail update: $failUpdate)",
-  async ({ shell, args, failUpdate }) => {
+  "scopes HTTPS to every copied plugin command in $shell (fail marketplace: $failMarketplace)",
+  async ({ shell, args, failMarketplace }) => {
     const entry = manualCommands.find((entry) => entry.tool === "Claude Code")!;
     const writeText = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal("navigator", { clipboard: { writeText } });
@@ -155,7 +155,7 @@ it.each(
         join(dir, "claude"),
         `#!/bin/sh
 printf '%s|%s\n' "\${CLAUDE_CODE_PLUGIN_PREFER_HTTPS-unset}" "$*"
-if [ "\${FAIL_UPDATE-}" = 1 ] && [ "$*" = "plugin marketplace update korza-marketplace" ]; then
+if [ "\${FAIL_MARKETPLACE-}" = 1 ] && [ "$*" = "plugin marketplace add korzainc/marketplace" ]; then
   exit 23
 fi
 `,
@@ -169,15 +169,14 @@ fi
           HOME: dir,
           ZDOTDIR: dir,
           PATH: dir,
-          FAIL_UPDATE: failUpdate ? "1" : "0",
+          FAIL_MARKETPLACE: failMarketplace ? "1" : "0",
         },
       });
       const operations = [
         "unset|auth login",
         "1|plugin marketplace add korzainc/marketplace",
-        "1|plugin marketplace update korza-marketplace",
       ];
-      if (!failUpdate)
+      if (!failMarketplace)
         operations.push(
           "1|plugin install codezen@korza-marketplace",
           "1|plugin install superpowers@korza-marketplace",
@@ -185,11 +184,78 @@ fi
           "1|plugin install humanizer@korza-marketplace",
           "unset|verify-scope",
         );
-      expect(result.status, result.stderr).toBe(failUpdate ? 23 : 0);
+      expect(result.status, result.stderr).toBe(failMarketplace ? 23 : 0);
       expect(result.stdout.trim().split("\n")).toEqual(operations);
       expect(result.stderr).not.toMatch(/command not found/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  },
+);
+
+it("keeps instructions attached to commands that exist", () => {
+  for (const entry of manualCommands) {
+    for (const command of [
+      ...Object.keys(entry.comments ?? {}),
+      ...(entry.breakBefore ?? []),
+    ]) {
+      expect(entry.commands, `${entry.tool}: ${command}`).toContain(command);
+    }
+  }
+});
+
+it("places key loading instructions beside a separate copyable step", () => {
+  const entry = manualCommands.find((entry) => entry.tool === "SSH access")!;
+  const { container } = render(<CommandGroup {...entry} />);
+  const instruction = screen.getByText(
+    "Load the key. Enter its passphrase if asked.",
+  );
+  expect(instruction.parentElement?.querySelector("code")?.textContent).toBe(
+    "ssh-add ~/.ssh/id_ed25519",
+  );
+  expect(container.textContent).not.toContain("admin:public_key");
+});
+
+it.each([false, true])(
+  "only adds a scroll tab stop when content overflows (snippet: %s)",
+  (snippet) => {
+    render(
+      <InstallPanel
+        tabs={[
+          {
+            id: "test",
+            label: "Test",
+            blocks: [
+              {
+                name: "Example command",
+                content: "a long command",
+                target: snippet ? "example.yml" : undefined,
+              },
+            ],
+          },
+        ]}
+      />,
+    );
+    expect(
+      screen.queryByRole("region", { name: "Example command" }),
+    ).toBeNull();
+    const group = screen.getByRole("group", { name: "Example command" });
+    expect(group.tabIndex).toBe(-1);
+    Object.defineProperty(group, "scrollWidth", {
+      configurable: true,
+      value: 800,
+    });
+    Object.defineProperty(group, "clientWidth", {
+      configurable: true,
+      value: 300,
+    });
+    fireEvent(window, new Event("resize"));
+    expect(group.tabIndex).toBe(0);
+    Object.defineProperty(group, "clientWidth", {
+      configurable: true,
+      value: 900,
+    });
+    fireEvent(window, new Event("resize"));
+    expect(group.tabIndex).toBe(-1);
   },
 );

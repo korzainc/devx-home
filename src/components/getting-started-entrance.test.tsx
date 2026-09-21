@@ -87,6 +87,10 @@ describe("getting started entrance", () => {
     render(<GettingStartedEntrance />);
     act(() => void fireEvent.focusIn(root));
     for (const section of later) expect(section.dataset.entry).toBeUndefined();
+    act(() => void fireEvent.focusOut(root));
+    const command = root.querySelector<HTMLElement>(".gs-hero-command")!;
+    expect(command.dataset.entrance).toBe("done");
+    expect(command.style.animation).toBe("");
   });
 
   it("reveals immediately on hash navigation", () => {

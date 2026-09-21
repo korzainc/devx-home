@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useHorizontalOverflow } from "./use-horizontal-overflow";
 
 export function PreviewInstallCommand({ command }: { command: string | null }) {
   const [copied, setCopied] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
-  const scrollRegion = useRef<HTMLDivElement>(null);
+  const { ref: scrollRegion, tabIndex } = useHorizontalOverflow(command);
   useEffect(() => {
     const region = scrollRegion.current;
     if (!region) return;
@@ -25,7 +26,7 @@ export function PreviewInstallCommand({ command }: { command: string | null }) {
       window.removeEventListener("resize", update);
       region.removeEventListener("scroll", update);
     };
-  }, [command]);
+  }, [command, scrollRegion]);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
 
@@ -47,9 +48,9 @@ export function PreviewInstallCommand({ command }: { command: string | null }) {
       <div className="relative min-w-0 flex-1">
         <div
           ref={scrollRegion}
-          role="region"
+          role="group"
           aria-label="Install command"
-          tabIndex={0}
+          tabIndex={tabIndex}
           className="min-w-0 flex-1 overflow-x-auto whitespace-pre [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#454950] [&::-webkit-scrollbar-thumb:hover]:bg-[#9ca3af] [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-white/10"
         >
           <span className="text-ink-faint">$</span>{" "}

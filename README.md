@@ -43,7 +43,7 @@ when PATH selects that binary, otherwise a safely quoted full path. It creates
 `kz` only when that name is available.
 
 The current archive and checksum are in [public/korza/](public/korza/).
-This candidate was built on 2026-09-10 from `korza-cli` commit `843b368`.
+This candidate was built on 2026-09-16 from `korza-cli` commit `7415747522e9d4760f12f1e75801ead18183ec12`.
 It is ad-hoc signed; clean-VM acceptance is pending. Production builds exclude
 demo and sandbox modes.
 Later CLI changes do not update this bundle automatically.

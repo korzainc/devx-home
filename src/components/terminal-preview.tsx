@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useHorizontalOverflow } from "./use-horizontal-overflow";
 import cliPreview from "@/lib/cli-preview-frames.json";
 
 // Captured from Korza's production renderer with controlled tool states and versions.
@@ -168,6 +169,7 @@ export function TerminalPreview() {
     };
   }, [canAnimate, visible, tabVisible, paused, frame]);
 
+  const scroll = useHorizontalOverflow(frame);
   const complete = frame === finalFrame;
   const reveal = canAnimate && frames[frame].origin === "cli-renderer";
   const departing = canAnimate && frames[frame].name === "checking";
@@ -196,7 +198,7 @@ export function TerminalPreview() {
             <button
               type="button"
               aria-label={`${paused ? "Resume" : "Pause"} setup preview`}
-              className="min-h-11 rounded px-1 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+              className="min-h-11 rounded px-1 hover:text-ink"
               onClick={() => setPaused((value) => !value)}
             >
               {paused ? "Resume" : "Pause"}
@@ -205,7 +207,7 @@ export function TerminalPreview() {
             <button
               type="button"
               aria-label="Replay setup preview"
-              className="min-h-11 rounded px-1 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
+              className="min-h-11 rounded px-1 hover:text-ink"
               onClick={() => {
                 setFrame(0);
                 setPaused(false);
@@ -219,7 +221,8 @@ export function TerminalPreview() {
       <div
         role="region"
         aria-label="Example Korza CLI setup screen"
-        className="px-5 py-5"
+        {...scroll}
+        className="overflow-x-auto px-5 py-5"
       >
         <pre
           className={`terminal-preview-output m-0 whitespace-pre font-mono text-[11px] leading-[1.6] lg:text-xs${pending ? " motion-safe:invisible" : ""}`}

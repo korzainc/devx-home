@@ -619,7 +619,8 @@ html {
 
   /* Keyboard users should never land on a fading or invisible control. */
   .getting-started > section:focus-within,
-  .getting-started .gs-hero-command:focus-within {
+  .getting-started .gs-hero-command:focus-within,
+  .getting-started .gs-hero-command[data-entrance="done"] {
     animation: none;
     opacity: 1;
     transform: none;
