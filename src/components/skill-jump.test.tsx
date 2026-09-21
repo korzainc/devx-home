@@ -47,7 +47,13 @@ const cardOf = (name: string) =>
 // on it, which hid a jump that does nothing for exactly one skill.
 const inside = skills[1];
 const boundary = skills[PREVIEW];
-const past = skills[PREVIEW + 12];
+// The last row, rather than a fixed offset past PREVIEW: `PREVIEW + 12` assumed a plugin
+// shipping 23 skills and read as undefined once the catalogue was cut to 25 rows total.
+const past = skills[skills.length - 1];
+if (skills.length <= PREVIEW)
+  throw new Error(
+    `${PLUGIN} ships ${skills.length} skills, so none is past a preview of ${PREVIEW}`,
+  );
 const position = (skill: (typeof skills)[number]) =>
   `${skills.indexOf(skill) + 1} of ${skills.length} in this plugin`;
 
