@@ -37,6 +37,7 @@ describe("the gate", () => {
   it("opens the installer, which is fetched by curl and carries no cookie", () => {
     expect(isOpenPath("/setup")).toBe(true);
     expect(isOpenPath("/korza/install.sh")).toBe(true);
+    expect(isOpenPath("/korza/release.json")).toBe(true);
     // The script fetches both, so gating either leaves an install that starts and cannot finish.
     expect(isOpenPath("/korza/korza-0.1.0-macos.tar.gz")).toBe(true);
     expect(isOpenPath("/korza/korza-0.1.0-macos.tar.gz.sha256")).toBe(true);
@@ -66,7 +67,14 @@ describe("the gate", () => {
     // Walked rather than listed, so a page added next month is covered without an edit. These
     // are the `OPEN` entries that are route folders; everything else has to be shut, and adding
     // a name here is the deliberate act that opening a page should take.
-    const open = new Set(["login", "no-access", "api", "setup", "ci-coverage"]);
+    const open = new Set([
+      "login",
+      "no-access",
+      "api",
+      "setup",
+      "ci-coverage",
+      "korza", // CLI assets and manifest must work without a browser session.
+    ]);
     const routes = readdirSync("src/app", { withFileTypes: true })
       .filter((entry) => entry.isDirectory() && !open.has(entry.name))
       .map((entry) => `/${entry.name}`);
