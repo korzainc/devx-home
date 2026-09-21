@@ -132,7 +132,7 @@ html {
   /* On a field the halo is the quieter half of the signal, because the border it sits against
      has just brightened. These have no border to brighten, so the halo is the whole signal, and
      at 10% it lands around 1.1:1 against both the canvas outside it and the button fill inside.
-     A scrollable `region` belongs here for the same reason: it takes focus so a keyboard can
+     A scrollable `region` or `group` belongs here too: it takes focus so a keyboard can
      scroll it, and the border a reader sees around it belongs to its parent.
 
      60% rather than the 55% that first clears the 3:1 non-text contrast bar: the halo is 4px of
@@ -141,7 +141,7 @@ html {
      `:where()` contributes no specificity, so this is still one pseudo-class and wins on order
      alone, which keeps it a colour swap on the rule above rather than a second rule to hold in
      step with it. */
-  :where(button, a, summary, [role="region"]):focus-visible {
+  :where(button, a, summary, [role="region"], [role="group"]):focus-visible {
     outline-color: color-mix(in oklab, var(--ink-muted) 60%, transparent);
   }
 }
