@@ -77,9 +77,10 @@ describe("the skill context strip", () => {
   });
 
   it("still explains a stale link on a plugin that ships nothing", () => {
-    // pyright-lsp resolves to zero skills, and is where a stale link most needs explaining.
+    // A plugin resolving to zero skills is where a stale link most needs explaining. The fixture
+    // is synthetic: the catalogue has no such entry today, and the guard has to outlive that.
     openedFor("anything");
-    render(<SkillContextStrip plugin="pyright-lsp" skills={[]} />);
+    render(<SkillContextStrip plugin="ships-nothing" skills={[]} />);
 
     expect(screen.getByText(/not in the plugin/i)).toBeTruthy();
     expect(screen.queryByRole("button")).toBeNull();

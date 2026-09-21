@@ -130,8 +130,8 @@ export function problemsWithPluginSet(
     }
   }
 
-  // A plugin that ships no skills is not a fault: pyright-lsp is a real entry that resolves to
-  // nothing. Only a plugin whose skills contradict it is.
+  // A plugin that ships no skills is not a fault: an entry may carry a language server or another
+  // payload instead. Only a plugin whose skills contradict it is.
   for (const plugin of plugins) {
     const rows = skills.filter((skill) => skill.plugin === plugin.id);
     for (const field of ["ref", "sourceRepo"] as const) {
