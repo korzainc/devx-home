@@ -117,6 +117,26 @@ function stackLabel(value: string): string {
   return STACK_LABELS[value] ?? value;
 }
 
+// Stack is a union, not an intersection: 3 of the 5 universal tools carry a `required: true`
+// capability in the docker, go, java, javascript and python baselines, so exact-matching would
+// drop mandatory checks out of a stack-filtered view. A universal tool (stacks: ["any"]) only
+// counts as a match for a picked stack if that stack's own baseline actually names one of its
+// capabilities (stackCapabilities, from catalogue.ts), not merely because the tool applies
+// everywhere. Shared by `visible` and `checkOptions` so the two can never drift the way
+// `checkOptions` once did by ignoring `pickedStacks` entirely.
+function matchesStackFilter(
+  entry: PublicToolEntry | PublicBundleEntry,
+  pickedStacks: string[],
+  stackCapabilities: Record<string, string[]>,
+): boolean {
+  if (pickedStacks.length === 0) return true;
+  if (entry.stacks.some((stack) => pickedStacks.includes(stack))) return true;
+  if (!entry.stacks.includes(ANY)) return false;
+  return pickedStacks.some((stack) =>
+    isRelevantToStack(entry, stackCapabilities[stack] ?? []),
+  );
+}
+
 function ToolCard({
   tool,
   labels,
@@ -211,13 +231,9 @@ export function ToolsCatalogue({
           const matchesGroup = facetValues(entry, "capabilities").some(
             (value) => group.capabilities.includes(value),
           );
-          if (!matchesGroup) return false;
-          if (pickedStacks.length === 0) return true;
-          if (entry.stacks.some((stack) => pickedStacks.includes(stack)))
-            return true;
-          if (!entry.stacks.includes(ANY)) return false;
-          return pickedStacks.some((stack) =>
-            isRelevantToStack(entry, stackCapabilities[stack] ?? []),
+          return (
+            matchesGroup &&
+            matchesStackFilter(entry, pickedStacks, stackCapabilities)
           );
         }).length,
       ]),
@@ -237,24 +253,12 @@ export function ToolsCatalogue({
       selected: { capabilities: wanted },
       query,
     });
-    // Stack is a union, not an intersection, and is handled here rather than through
-    // filterEntries's generic facet path because of it: 3 of the 5 universal tools carry a
-    // `required: true` capability in the docker, go, java, javascript and python baselines, so
-    // exact-matching would drop mandatory checks out of a stack-filtered view. A universal tool
-    // (stacks: ["any"]) only counts as a match for a picked stack if that stack's own baseline
-    // actually names one of its capabilities (stackCapabilities, from catalogue.ts), not merely
-    // because the tool applies everywhere, that's the bug this replaced.
-    // One `.filter` over one list, so a tool that matches two of the picked languages is still
-    // returned once.
-    return byCapAndQuery.filter((entry) => {
-      if (pickedStacks.length === 0) return true;
-      if (entry.stacks.some((stack) => pickedStacks.includes(stack)))
-        return true;
-      if (!entry.stacks.includes(ANY)) return false;
-      return pickedStacks.some((stack) =>
-        isRelevantToStack(entry, stackCapabilities[stack] ?? []),
-      );
-    });
+    // Stack matching itself lives in `matchesStackFilter`, shared with `checkOptions`, rather
+    // than through filterEntries's generic facet path or repeated here. One `.filter` over one
+    // list, so a tool that matches two of the picked languages is still returned once.
+    return byCapAndQuery.filter((entry) =>
+      matchesStackFilter(entry, pickedStacks, stackCapabilities),
+    );
   }, [shown, pickedChecks, query, pickedStacks, stackCapabilities]);
 
   const sections = SECTIONS.map((section) => ({

@@ -147,18 +147,22 @@ describe("the tools catalogue", () => {
 
     // Go's baseline names secrets/sast/sca/iac-config/dependency-updates, a real capability
     // of all 5 visible universal tools, so nothing should be dropped here. This is the
-    // no-regression case for the other 5 languages this fix must not touch.
-    const inStack = visibleTools.filter(
-      (tool) =>
-        tool.stacks.includes("go") ||
-        (tool.stacks.includes("any") &&
-          tool.capabilities.some((capability) =>
-            (stackCapabilities.go ?? []).includes(capability),
-          )),
-    );
-    expect(cardCount()).toBe(inStack.length);
-    for (const tool of inStack) {
-      expect(card(tool.id), `${tool.id} should still be listed`).toBeTruthy();
+    // no-regression case for the other 5 languages this fix must not touch. Hardcoded against
+    // real data, not derived from stackCapabilities/isRelevantToStack, so this doesn't just
+    // test the production logic against itself.
+    const expected = [
+      "ci-base-checks",
+      "codeql",
+      "dependabot",
+      "gitleaks",
+      "go-test",
+      "golangci-lint",
+      "renovate",
+    ];
+    expect(expected.length).toBeGreaterThan(0);
+    expect(cardCount()).toBe(expected.length);
+    for (const id of expected) {
+      expect(card(id), `${id} should still be listed`).toBeTruthy();
     }
   });
 
