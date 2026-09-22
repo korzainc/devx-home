@@ -16,6 +16,7 @@ import {
   type PublicToolEntry,
 } from "@/lib/catalogue-entries";
 import { filterEntries } from "@/lib/filter";
+import { isRelevantToStack } from "@/lib/gap/relevance";
 import { useCatalogueFilters } from "@/lib/use-catalogue-filters";
 
 // Fixed order: the two sections an engineer touches on every PR come first. Never derived,
@@ -146,6 +147,7 @@ function ToolCard({
 export function ToolsCatalogue({
   entries,
   capabilityLabels = {},
+  stackCapabilities,
   initialStacks = [],
   initialChecks = [],
 }: {
@@ -153,6 +155,10 @@ export function ToolsCatalogue({
   /** Handed down from the server: `@/lib/catalogue` is server-only, so this cannot be looked up
    *  here. An id with no entry falls back to showing itself. */
   capabilityLabels?: Record<string, string>;
+  /** Which capability ids each stack's baseline actually names, from `@/lib/catalogue`.
+   *  Required with no default: a missing value would silently drop every universal tool from
+   *  every stack filter rather than degrade visibly. */
+  stackCapabilities: Record<string, string[]>;
   initialStacks?: string[];
   initialChecks?: string[];
 }): ReactNode {
@@ -201,13 +207,21 @@ export function ToolsCatalogue({
     (): [string, number][] =>
       CHECK_GROUPS.map((group) => [
         group.id,
-        shown.filter((entry) =>
-          facetValues(entry, "capabilities").some((value) =>
-            group.capabilities.includes(value),
-          ),
-        ).length,
+        shown.filter((entry) => {
+          const matchesGroup = facetValues(entry, "capabilities").some(
+            (value) => group.capabilities.includes(value),
+          );
+          if (!matchesGroup) return false;
+          if (pickedStacks.length === 0) return true;
+          if (entry.stacks.some((stack) => pickedStacks.includes(stack)))
+            return true;
+          if (!entry.stacks.includes(ANY)) return false;
+          return pickedStacks.some((stack) =>
+            isRelevantToStack(entry, stackCapabilities[stack] ?? []),
+          );
+        }).length,
       ]),
-    [shown],
+    [shown, pickedStacks, stackCapabilities],
   );
 
   const visible = useMemo(() => {
@@ -226,17 +240,22 @@ export function ToolsCatalogue({
     // Stack is a union, not an intersection, and is handled here rather than through
     // filterEntries's generic facet path because of it: 3 of the 5 universal tools carry a
     // `required: true` capability in the docker, go, java, javascript and python baselines, so
-    // exact-matching would drop mandatory checks out of a stack-filtered view. The one baseline
-    // that would survive it is typescript, which pins only `typecheck`.
+    // exact-matching would drop mandatory checks out of a stack-filtered view. A universal tool
+    // (stacks: ["any"]) only counts as a match for a picked stack if that stack's own baseline
+    // actually names one of its capabilities (stackCapabilities, from catalogue.ts), not merely
+    // because the tool applies everywhere, that's the bug this replaced.
     // One `.filter` over one list, so a tool that matches two of the picked languages is still
     // returned once.
-    return byCapAndQuery.filter(
-      (entry) =>
-        pickedStacks.length === 0 ||
-        entry.stacks.some((stack) => pickedStacks.includes(stack)) ||
-        entry.stacks.includes(ANY),
-    );
-  }, [shown, pickedChecks, query, pickedStacks]);
+    return byCapAndQuery.filter((entry) => {
+      if (pickedStacks.length === 0) return true;
+      if (entry.stacks.some((stack) => pickedStacks.includes(stack)))
+        return true;
+      if (!entry.stacks.includes(ANY)) return false;
+      return pickedStacks.some((stack) =>
+        isRelevantToStack(entry, stackCapabilities[stack] ?? []),
+      );
+    });
+  }, [shown, pickedChecks, query, pickedStacks, stackCapabilities]);
 
   const sections = SECTIONS.map((section) => ({
     label: section.label,

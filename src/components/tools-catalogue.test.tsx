@@ -14,6 +14,7 @@ import { CHECK_GROUPS, ToolsCatalogue } from "@/components/tools-catalogue";
 import {
   capabilityLabels,
   publicToolEntry,
+  stackCapabilities,
   visibleTools,
 } from "@/lib/catalogue";
 
@@ -36,6 +37,7 @@ function renderPage() {
     <ToolsCatalogue
       entries={visibleTools.map(publicToolEntry)}
       capabilityLabels={capabilityLabels}
+      stackCapabilities={stackCapabilities}
     />,
   );
 }
@@ -47,6 +49,7 @@ function renderWithInitial(
     <ToolsCatalogue
       entries={visibleTools.map(publicToolEntry)}
       capabilityLabels={capabilityLabels}
+      stackCapabilities={stackCapabilities}
       initialStacks={props.stacks ?? []}
       initialChecks={props.checks ?? []}
     />,
@@ -121,37 +124,42 @@ describe("the tools catalogue", () => {
     }
   });
 
-  it("narrows to a stack via the chip row, keeping universal tools visible regardless", () => {
+  it("drops a universal tool from a stack whose baseline never names its capability", () => {
+    renderPage();
+    toggleStack("Shell");
+
+    // Real, hard assertions, not a soft guard: shell's baseline names secrets/sast/iac-config
+    // (satisfied by gitleaks/codeql/ci-base-checks) but never dependency-updates (dependabot,
+    // renovate), so those two, and only those two, must disappear.
+    expect(card("dependabot")).toBeUndefined();
+    expect(card("renovate")).toBeUndefined();
+    expect(card("gitleaks")).toBeTruthy();
+    expect(card("codeql")).toBeTruthy();
+    expect(card("ci-base-checks")).toBeTruthy();
+    expect(card("shellcheck")).toBeTruthy();
+    expect(card("shfmt")).toBeTruthy();
+    expect(cardCount()).toBe(5);
+  });
+
+  it("keeps every universal tool visible for a stack whose baseline names all of them", () => {
     renderPage();
     toggleStack("Go");
 
+    // Go's baseline names secrets/sast/sca/iac-config/dependency-updates, a real capability
+    // of all 5 visible universal tools, so nothing should be dropped here. This is the
+    // no-regression case for the other 5 languages this fix must not touch.
     const inStack = visibleTools.filter(
-      (tool) => tool.stacks.includes("go") || tool.stacks.includes("any"),
+      (tool) =>
+        tool.stacks.includes("go") ||
+        (tool.stacks.includes("any") &&
+          tool.capabilities.some((capability) =>
+            (stackCapabilities.go ?? []).includes(capability),
+          )),
     );
-    expect(inStack.length).toBeGreaterThan(0);
     expect(cardCount()).toBe(inStack.length);
-
     for (const tool of inStack) {
       expect(card(tool.id), `${tool.id} should still be listed`).toBeTruthy();
     }
-
-    // Universal tools (stacks: ["any"]) always show, regardless of which stack chips are
-    // active - this is the opposite of exact-matching, deliberately: mandatory checks shouldn't
-    // silently drop out of a stack-filtered view.
-    const universal = visibleTools.find((tool) => tool.stacks.includes("any"));
-    expect(universal, "fixture must contain a universal tool").toBeTruthy();
-    expect(
-      card(universal!.id),
-      `${universal!.id} is universal and must stay visible while "go" is picked`,
-    ).toBeTruthy();
-
-    const outOfStack = visibleTools.find(
-      (tool) => !tool.stacks.includes("go") && !tool.stacks.includes("any"),
-    );
-    expect(
-      card(outOfStack!.id),
-      `${outOfStack!.id} should be filtered out`,
-    ).toBeUndefined();
   });
 
   it("spells each language its own way and keeps the language-agnostic chip last", () => {
@@ -179,6 +187,9 @@ describe("the tools catalogue", () => {
     expect(cardCount()).toBe(universal.length);
   });
 
+  // This holds for Go because Go's baseline names every universal tool's capability already; it
+  // is not a general claim, see the Shell test in this file for the case where picking
+  // language-agnostic genuinely does add tools back.
   it("adds nothing when the language-agnostic chip joins a language, since those tools were already in", () => {
     renderPage();
     toggleStack("Go");
@@ -298,7 +309,7 @@ describe("the tools catalogue", () => {
 
   it("groups every tool under a heading when nothing is filtering", () => {
     renderPage();
-    // All 19 visible tools fall in exactly these 4 categories today, so an unfiltered page shows
+    // All 21 visible tools fall in exactly these 4 categories today, so an unfiltered page shows
     // four headings and no empty state at all.
     expect(screen.queryByText(/matches those filters\./)).toBeNull();
     const headed = SECTION_LABELS.reduce((sum, label) => {
@@ -628,6 +639,7 @@ describe("the tools catalogue", () => {
       <ToolsCatalogue
         entries={[...visibleTools.map(publicToolEntry), stray]}
         capabilityLabels={capabilityLabels}
+        stackCapabilities={stackCapabilities}
       />,
     );
 

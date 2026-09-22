@@ -94,6 +94,44 @@ export type RealCatalogue = {
 
 const realCatalogue = realCatalogueData as RealCatalogue;
 
+/** Stacks whose baseline is a delta over another's in practice: typescript's baseline names
+ * only `typecheck`, but a real TypeScript repo always also matches JavaScript's marker
+ * (tsconfig.json never appears without package.json), and analyze() already unions their
+ * expects at detection time. This makes the static /tools filter agree with that, explicitly,
+ * rather than silently losing every universal tool under the TypeScript chip. The real fix is
+ * giving typescript.json its own expects upstream, tracked as follow-up, not done here. */
+const STACK_CAPABILITY_INHERITS: Record<string, string> = {
+  typescript: "javascript",
+};
+
+/**
+ * Which capability ids each real baseline names, keyed by stack id. Used to decide whether a
+ * universal tool (applicability "*") is actually relevant to a given stack filter, not merely
+ * applicable everywhere. Derived from the raw catalogue data directly, not through
+ * getBaseline(): that function is deliberately lazy so an unpinned ecosystem label only fails
+ * the routes that read the baseline, and routing this through it at module scope would throw
+ * for every route that merely imports this module.
+ */
+export const stackCapabilities: Record<string, string[]> = Object.fromEntries(
+  Object.values(realCatalogue.baselines).map((ecosystem) => [
+    ecosystem.ecosystem,
+    Object.keys(ecosystem.baseline),
+  ]),
+);
+for (const [stack, inheritsFrom] of Object.entries(STACK_CAPABILITY_INHERITS)) {
+  if (!stackCapabilities[stack] || !stackCapabilities[inheritsFrom]) {
+    throw new Error(
+      `stackCapabilities inheritance for "${stack}" names a stack that doesn't exist: "${inheritsFrom}".`,
+    );
+  }
+  stackCapabilities[stack] = [
+    ...new Set([
+      ...stackCapabilities[stack],
+      ...stackCapabilities[inheritsFrom],
+    ]),
+  ];
+}
+
 /** Every real capability id, straight off the raw import - not the `as RealCatalogue` cast
  * above, which widens the keys to `string`. A caller naming one by hand (the homepage's sample
  * run) gets a compile error the moment the taxonomy drops or renames it, instead of a runtime
