@@ -222,6 +222,10 @@ describe("flattenBaseline", () => {
     expect(ecosystemLabel("go")).toBe("Go");
   });
 
+  it("has a display label for shell", () => {
+    expect(ecosystemLabel("shell")).toBe("Shell");
+  });
+
   it("throws rather than shipping a raw id for an unpinned ecosystem", () => {
     expect(() => ecosystemLabel("rust")).toThrow(/rust/);
   });

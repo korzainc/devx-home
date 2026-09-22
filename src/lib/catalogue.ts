@@ -166,6 +166,7 @@ const ECOSYSTEM_LABELS: Record<string, string> = {
   go: "Go",
   python: "Python",
   docker: "Docker",
+  shell: "Shell",
 };
 
 export function ecosystemLabel(id: string): string {
