@@ -16,6 +16,7 @@ import {
   tools,
   visibleTools,
 } from "./catalogue";
+import { analyze } from "./gap/analyze";
 
 const baseline = getBaseline();
 
@@ -349,6 +350,40 @@ describe("install commands", () => {
   it("looks a plugin up by id", () => {
     expect(getPlugin("superpowers")?.id).toBe("superpowers");
     expect(getPlugin("not-a-plugin")).toBeUndefined();
+  });
+});
+
+describe("shell detection against the real catalogue", () => {
+  const realBaseline = getBaseline();
+
+  it("detects shell and recommends shellcheck and shfmt for a repo with .sh files", () => {
+    const snapshot = {
+      ref: { provider: "github" as const, owner: "korzainc", repo: "example" },
+      defaultBranch: "main",
+      paths: ["deploy.sh", "README.md"],
+      files: {},
+    };
+    const analysis = analyze(snapshot, { tools, baseline: realBaseline });
+
+    expect(analysis.stacks.map((s) => s.id)).toContain("shell");
+    const recommendedIds = analysis.categories
+      .flatMap((c) => c.capabilities)
+      .filter((capability) => !capability.satisfied)
+      .flatMap((capability) => capability.recommended.map((r) => r.id));
+    expect(recommendedIds).toContain("shellcheck");
+    expect(recommendedIds).toContain("shfmt");
+  });
+
+  it("does not detect shell for a repo with no .sh files", () => {
+    const snapshot = {
+      ref: { provider: "github" as const, owner: "korzainc", repo: "example" },
+      defaultBranch: "main",
+      paths: ["package.json", "README.md"],
+      files: { "package.json": "{}" },
+    };
+    const analysis = analyze(snapshot, { tools, baseline: realBaseline });
+
+    expect(analysis.stacks.map((s) => s.id)).not.toContain("shell");
   });
 });
 
