@@ -222,7 +222,7 @@ describe("flattenBaseline", () => {
     expect(ecosystemLabel("go")).toBe("Go");
   });
 
-  it("has a display label for shell", () => {
+  it("resolves shell to its label", () => {
     expect(ecosystemLabel("shell")).toBe("Shell");
   });
 
@@ -231,9 +231,6 @@ describe("flattenBaseline", () => {
   });
 
   it("carries a baseline's extensions through, not just its markers", () => {
-    // Uses "go", already pinned in ECOSYSTEM_LABELS, rather than a hypothetical "shell"
-    // ecosystem: flattenBaseline resolves every ecosystem's label unconditionally, so an
-    // unpinned id would throw here for a reason unrelated to what this test checks.
     const catalogue = {
       taxonomy: { categories: {}, capabilities: {} },
       tools: [],
