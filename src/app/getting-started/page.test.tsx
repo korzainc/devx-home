@@ -220,14 +220,15 @@ describe("the Getting Started page", () => {
   });
 });
 
-it("keeps the help shortcut outside desktop-only sections", () => {
+it("puts the support channel and FAQs beside the install command", () => {
   render(<GettingStartedPage />);
-  const helpLinks = screen.getAllByRole("link", { name: "Need help?" });
-  const mobileHelp = helpLinks.find((link) =>
-    link.classList.contains("md:hidden"),
-  );
-  expect(mobileHelp).toBeDefined();
-  expect(mobileHelp?.closest("section")?.classList.contains("hidden")).toBe(
-    false,
-  );
+  const hero = screen.getByRole("heading", { level: 1 }).closest("section")!;
+  expect(
+    within(hero).getByRole("link", { name: "#devx" }).getAttribute("href"),
+  ).toBe("https://korzaworkspace.slack.com/archives/C0BR0RQD0UC");
+  expect(
+    within(hero).getByRole("link", { name: "FAQs" }).getAttribute("href"),
+  ).toBe("#questions");
+  expect(hero.classList.contains("hidden")).toBe(false);
+  expect(screen.queryByRole("link", { name: "Need help?" })).toBeNull();
 });

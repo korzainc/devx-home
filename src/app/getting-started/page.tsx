@@ -50,12 +50,20 @@ export default function GettingStartedPage() {
           <p className="text-xs text-ink-muted">
             Preview macOS build. Ad-hoc signed; not notarized.
           </p>
-          <a href="#manual" className={cta}>
-            Set up manually
-          </a>
-          <a href="#questions" className={`${cta} md:hidden`}>
-            Need help?
-          </a>
+          <p className="text-sm text-ink-muted">
+            Need help? Ask in{" "}
+            <a
+              href="https://korzaworkspace.slack.com/archives/C0BR0RQD0UC"
+              className={cta}
+            >
+              #devx
+            </a>{" "}
+            or read the{" "}
+            <a href="#questions" className={cta}>
+              FAQs
+            </a>
+            .
+          </p>
         </div>
       </section>
 
@@ -67,8 +75,8 @@ export default function GettingStartedPage() {
           <p className="text-ink-muted">
             Choose your tools. Korza CLI guides you through setup.
           </p>
-          <a href="#questions" className={cta}>
-            Need help?
+          <a href="#manual" className={cta}>
+            Set up manually
           </a>
         </div>
         <TerminalPreview />
