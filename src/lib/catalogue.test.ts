@@ -324,6 +324,23 @@ describe("visibleTools", () => {
       shell: ["ci-base-checks", "codeql", "gitleaks"].sort(),
     });
   });
+
+  it("gives every stack a tool visibility relies on a real capability list", () => {
+    // stackOptions (the chip row) comes from tool applicability; stackCapabilities comes from
+    // realCatalogue.baselines independently. A stack with tools but no baseline entry would
+    // silently fall back to `[]` in matchesStackFilter and drop every universal tool.
+    const stackIds = new Set(
+      visibleTools
+        .flatMap((tool) => tool.stacks)
+        .filter((stack) => stack !== "any"),
+    );
+    for (const stackId of stackIds) {
+      expect(
+        stackCapabilities[stackId],
+        `stackCapabilities is missing "${stackId}"`,
+      ).toBeDefined();
+    }
+  });
 });
 
 describe("publicToolEntry", () => {

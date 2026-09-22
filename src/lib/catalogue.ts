@@ -119,9 +119,14 @@ export const stackCapabilities: Record<string, string[]> = Object.fromEntries(
   ]),
 );
 for (const [stack, inheritsFrom] of Object.entries(STACK_CAPABILITY_INHERITS)) {
-  if (!stackCapabilities[stack] || !stackCapabilities[inheritsFrom]) {
+  const missing = !stackCapabilities[stack]
+    ? stack
+    : !stackCapabilities[inheritsFrom]
+      ? inheritsFrom
+      : undefined;
+  if (missing) {
     throw new Error(
-      `stackCapabilities inheritance for "${stack}" names a stack that doesn't exist: "${inheritsFrom}".`,
+      `stackCapabilities inheritance for "${stack}" names a stack that doesn't exist: "${missing}".`,
     );
   }
   stackCapabilities[stack] = [

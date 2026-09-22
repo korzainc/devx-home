@@ -159,7 +159,6 @@ describe("the tools catalogue", () => {
       "golangci-lint",
       "renovate",
     ];
-    expect(expected.length).toBeGreaterThan(0);
     expect(cardCount()).toBe(expected.length);
     for (const id of expected) {
       expect(card(id), `${id} should still be listed`).toBeTruthy();
@@ -226,6 +225,8 @@ describe("the tools catalogue", () => {
       ).toHaveLength(1);
     }
     // The union of both languages, counted once each - not the sum of the two filters.
+    // `|| includes("any")` only holds here because JavaScript's and TypeScript's baselines both
+    // name every universal tool's capability already; it is not a general claim.
     const union = visibleTools.filter(
       (tool) =>
         tool.stacks.includes("javascript") ||
