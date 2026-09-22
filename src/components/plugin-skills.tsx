@@ -7,6 +7,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { CollapsibleGrid, PREVIEW } from "@/components/collapsible-grid";
+import type { SkillUsage } from "@/lib/skill-usage";
 import type { SkillEntry } from "@/lib/catalogue-entries";
 import {
   readOpenedSkill,
@@ -19,9 +20,11 @@ import {
 export function PluginSkills({
   plugin,
   skills,
+  usage,
 }: {
   plugin: string;
   skills: SkillEntry[];
+  usage?: Record<string, SkillUsage>;
 }) {
   // Nothing happens on arrival: the strip above already names the skill. Unfolding here would
   // make what you see depend on how you got here.
@@ -88,6 +91,33 @@ export function PluginSkills({
               <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-ink-muted">
                 {skill.summary ?? skill.description}
               </p>
+              {usage?.[skill.name] && (
+                <div
+                  className="mt-3 rounded-lg border border-accent/50 bg-accent-wash px-3 py-2 text-sm font-medium text-ink"
+                  aria-label={`Recorded usage for ${skill.name}`}
+                >
+                  {[
+                    usage[skill.name].claude !== undefined
+                      ? `${usage[skill.name].claude} activations via Claude Code`
+                      : null,
+                    usage[skill.name].codex !== undefined
+                      ? `${usage[skill.name].codex} skill loads via Codex`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                  <details className="mt-1 text-ink-faint">
+                    <summary className="w-fit cursor-pointer hover:text-ink-muted">
+                      About this count
+                    </summary>
+                    <p className="mt-1">
+                      Recorded from participating installations. Activations and
+                      skill loads do not measure completed tasks or unique
+                      users.
+                    </p>
+                  </details>
+                </div>
+              )}
             </div>
           ),
         };

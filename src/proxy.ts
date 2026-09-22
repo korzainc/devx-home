@@ -1,3 +1,7 @@
+import {
+  localSkillsPreview,
+  skillsPreviewPath,
+} from "@/lib/local-skills-preview";
 import { NextResponse, type NextRequest } from "next/server";
 import { getAuth } from "@/lib/auth";
 import { isTelemetryPath } from "@/lib/telemetry-path";
@@ -65,6 +69,13 @@ async function sessionFor(request: NextRequest) {
 export default async function proxy(request: NextRequest) {
   const { pathname, search, origin } = request.nextUrl;
   if (isTelemetryPath(pathname) || isOpenPath(pathname))
+    return NextResponse.next();
+
+  if (
+    ["GET", "HEAD"].includes(request.method) &&
+    skillsPreviewPath(pathname) &&
+    localSkillsPreview(request.headers.get("host"))
+  )
     return NextResponse.next();
 
   const session = await sessionFor(request);

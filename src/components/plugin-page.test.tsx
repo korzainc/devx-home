@@ -164,3 +164,32 @@ describe("the skills in a plugin", () => {
   // Reaching a card from the strip, and the malformed-URL guard, are covered in
   // skill-jump.test.tsx and skill-context-strip.test.tsx, against both components together.
 });
+
+describe("recorded skill usage", () => {
+  it("shows client-specific totals on the matching skill card", () => {
+    render(
+      <PluginSkills
+        plugin="humanizer"
+        skills={skillsForPlugin("humanizer")}
+        usage={{ humanizer: { claude: 2, codex: 3 } }}
+      />,
+    );
+    const usage = screen.getByLabelText("Recorded usage for humanizer");
+    expect(usage.textContent).toContain("2 activations via Claude Code");
+    expect(usage.textContent).toContain("3 skill loads via Codex");
+    expect(usage.textContent).toContain(
+      "Recorded from participating installations",
+    );
+    expect(usage.querySelector("details")?.hasAttribute("open")).toBe(false);
+  });
+  it("does not label missing collection as zero usage", () => {
+    render(
+      <PluginSkills
+        plugin="humanizer"
+        skills={skillsForPlugin("humanizer")}
+        usage={{}}
+      />,
+    );
+    expect(screen.queryByLabelText("Recorded usage for humanizer")).toBeNull();
+  });
+});
