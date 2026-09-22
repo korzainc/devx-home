@@ -47,9 +47,6 @@ export default function GettingStartedPage() {
 
         <div className="gs-hero-command flex w-full min-w-0 flex-col gap-3">
           <PreviewInstallCommand key={command} command={command} />
-          <p className="text-xs text-ink-muted">
-            Preview macOS build. Ad-hoc signed; not notarized.
-          </p>
           <p className="text-sm text-ink-muted">
             Need help? Ask in{" "}
             <a
