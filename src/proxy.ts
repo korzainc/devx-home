@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getAuth } from "@/lib/auth";
+import { isTelemetryPath } from "@/lib/telemetry-path";
 import { isOpenPath } from "@/lib/gate";
 import { isOrgMember } from "@/lib/membership";
 
@@ -63,7 +64,8 @@ async function sessionFor(request: NextRequest) {
 
 export default async function proxy(request: NextRequest) {
   const { pathname, search, origin } = request.nextUrl;
-  if (isOpenPath(pathname)) return NextResponse.next();
+  if (isTelemetryPath(pathname) || isOpenPath(pathname))
+    return NextResponse.next();
 
   const session = await sessionFor(request);
   if (!session) {

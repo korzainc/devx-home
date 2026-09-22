@@ -25,7 +25,8 @@ export async function recordAnalysisRun(
     await getPool().query({
       text: "insert into gap_analysis_runs (run_id, repo_id) values ($1, $2) on conflict (run_id) do nothing",
       values: [runId, repoId],
-      query_timeout: 1000,
+      // pg supports this per-query option; its QueryConfig type omits it.
+      ...{ query_timeout: 1000 },
     });
   } catch {
     console.warn(
@@ -40,7 +41,8 @@ export async function readAnalysisUsage(): Promise<{
 }> {
   const result = await getPool().query<{ runs: number; repositories: number }>({
     text: "select count(*)::int as runs, count(distinct repo_id)::int as repositories from gap_analysis_runs",
-    query_timeout: 1000,
+    // pg supports this per-query option; its QueryConfig type omits it.
+    ...{ query_timeout: 1000 },
   });
   return result.rows[0];
 }
