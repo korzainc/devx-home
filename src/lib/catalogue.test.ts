@@ -218,6 +218,13 @@ describe("flattenBaseline", () => {
     );
   });
 
+  it("gives shell the security floor, not just its linters", () => {
+    const shell = baseline.stacks.find((stack) => stack.id === "shell");
+    expect(Object.keys(shell!.expects).sort()).toEqual(
+      ["format", "iac-config", "lint-style", "sast", "secrets"].sort(),
+    );
+  });
+
   it("labels ecosystems from the pinned map, not title-casing", () => {
     // "typescript" is exactly the case title-casing gets wrong, which is why the label map
     // is pinned rather than derived.
