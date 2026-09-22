@@ -117,13 +117,10 @@ function stackLabel(value: string): string {
   return STACK_LABELS[value] ?? value;
 }
 
-// Stack is a union, not an intersection: 3 of the 5 universal tools carry a `required: true`
-// capability in the docker, go, java, javascript and python baselines, so exact-matching would
-// drop mandatory checks out of a stack-filtered view. A universal tool (stacks: ["any"]) only
-// counts as a match for a picked stack if that stack's own baseline actually names one of its
-// capabilities (stackCapabilities, from catalogue.ts), not merely because the tool applies
-// everywhere. Shared by `visible` and `checkOptions` so the two can never drift the way
-// `checkOptions` once did by ignoring `pickedStacks` entirely.
+// Stack matching is a union, not an intersection: some baselines (docker, go, java,
+// javascript, python) require capabilities that only a universal tool covers, so an exact
+// match would drop them. A universal tool counts as a match only if the picked stack's own
+// baseline names one of its capabilities, from `stackCapabilities` in catalogue.ts.
 function matchesStackFilter(
   entry: PublicToolEntry | PublicBundleEntry,
   pickedStacks: string[],

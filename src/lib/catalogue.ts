@@ -94,23 +94,25 @@ export type RealCatalogue = {
 
 const realCatalogue = realCatalogueData as RealCatalogue;
 
-/** Stacks whose baseline is a delta over another's in practice: typescript's baseline names
- * only `typecheck`, but a real TypeScript repo always also matches JavaScript's marker
- * (tsconfig.json never appears without package.json), and analyze() already unions their
- * expects at detection time. This makes the static /tools filter agree with that, explicitly,
- * rather than silently losing every universal tool under the TypeScript chip. The real fix is
- * giving typescript.json its own expects upstream, tracked as follow-up, not done here. */
+/** Stacks whose baseline is a delta over another's: typescript names only `typecheck`, but a
+ * real TypeScript repo always co-detects as JavaScript too (tsconfig.json never appears
+ * without package.json), and analyze() already unions their expects. This overlay makes the
+ * static /tools filter agree with that.
+ *
+ * The real fix is giving typescript.json its own expects upstream; not done here to keep this
+ * change scoped to the filter. */
 const STACK_CAPABILITY_INHERITS: Record<string, string> = {
   typescript: "javascript",
 };
 
 /**
- * Which capability ids each real baseline names, keyed by stack id. Used to decide whether a
- * universal tool (applicability "*") is actually relevant to a given stack filter, not merely
- * applicable everywhere. Derived from the raw catalogue data directly, not through
- * getBaseline(): that function is deliberately lazy so an unpinned ecosystem label only fails
- * the routes that read the baseline, and routing this through it at module scope would throw
- * for every route that merely imports this module.
+ * Which capability ids each real baseline names, keyed by stack id. Decides whether a
+ * universal tool (applicability "*") is actually relevant to a stack filter, not merely
+ * applicable everywhere.
+ *
+ * Derived directly from the raw catalogue data, not through getBaseline(): that function is
+ * deliberately lazy, so an unpinned ecosystem label only fails routes that read the baseline,
+ * not every route that imports this module.
  */
 export const stackCapabilities: Record<string, string[]> = Object.fromEntries(
   Object.values(realCatalogue.baselines).map((ecosystem) => [

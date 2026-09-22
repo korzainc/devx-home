@@ -145,11 +145,10 @@ describe("the tools catalogue", () => {
     renderPage();
     toggleStack("Go");
 
-    // Go's baseline names secrets/sast/sca/iac-config/dependency-updates, a real capability
-    // of all 5 visible universal tools, so nothing should be dropped here. This is the
-    // no-regression case for the other 5 languages this fix must not touch. Hardcoded against
-    // real data, not derived from stackCapabilities/isRelevantToStack, so this doesn't just
-    // test the production logic against itself.
+    // Go's baseline names secrets, sast, sca, iac-config, and dependency-updates: every
+    // capability behind all 5 visible universal tools, so filtering to Go should drop none of
+    // them. Hardcoded against real data rather than derived from stackCapabilities, so the
+    // test isn't just checking the production logic against itself.
     const expected = [
       "ci-base-checks",
       "codeql",
