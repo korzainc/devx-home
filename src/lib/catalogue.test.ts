@@ -13,6 +13,7 @@ import {
   publicToolEntry,
   type RealCatalogue,
   shortAgents,
+  stackCapabilities,
   tools,
   visibleTools,
 } from "./catalogue";
@@ -285,6 +286,43 @@ describe("visibleTools", () => {
     for (const bundle of bundles) {
       expect(visibleIds.has(bundle.id)).toBe(true);
     }
+  });
+
+  it("shows a universal tool under a stack filter only where that stack's baseline names its capability", () => {
+    const universal = visibleTools.filter((tool) =>
+      tool.stacks.includes("any"),
+    );
+    const shownPerStack = Object.fromEntries(
+      baseline.stacks.map((stack) => [
+        stack.id,
+        universal
+          .filter((tool) =>
+            tool.capabilities.some((capability) =>
+              (stackCapabilities[stack.id] ?? []).includes(capability),
+            ),
+          )
+          .map((tool) => tool.id)
+          .sort(),
+      ]),
+    );
+
+    const allFive = [
+      "ci-base-checks",
+      "codeql",
+      "dependabot",
+      "gitleaks",
+      "renovate",
+    ].sort();
+    expect(shownPerStack).toEqual({
+      docker: allFive,
+      go: allFive,
+      java: allFive,
+      javascript: allFive,
+      python: allFive,
+      typescript: allFive,
+      // Shell's baseline names secrets/sast/iac-config but never dependency-updates.
+      shell: ["ci-base-checks", "codeql", "gitleaks"].sort(),
+    });
   });
 });
 
