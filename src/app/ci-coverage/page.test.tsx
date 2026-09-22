@@ -8,6 +8,8 @@ import type { Analysis } from "@/lib/gap/types";
 import { noscriptBlocks } from "@/test-utils/noscript";
 import { renderStream } from "@/test-utils/render-stream";
 
+vi.mock("next/server", () => ({ connection: async () => {} }));
+
 // Stubbed because reading the session calls `headers()`, which has no request scope here.
 const session = vi.hoisted(() => ({
   throws: false,
@@ -132,7 +134,11 @@ afterEach(() => {
 
 const page = (repo?: string) => (
   <CiCoveragePage
-    searchParams={Promise.resolve(repo === undefined ? {} : { repo })}
+    searchParams={Promise.resolve(
+      repo === undefined
+        ? {}
+        : { repo, run: "12345678-1234-1234-1234-123456789abc" },
+    )}
   />
 );
 

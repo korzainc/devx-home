@@ -126,16 +126,19 @@ function failureFor(response: Response, token: string | null): RepoReadError {
 async function fetchDefaultBranch(
   ref: RepoRef,
   token: string | null,
-): Promise<string> {
+): Promise<{ branch: string; id: number }> {
   const response = await request(
     `${api}/repos/${ref.owner}/${ref.repo}`,
     token,
   );
-  const body = (await response.json()) as { default_branch?: string };
+  const body = (await response.json()) as {
+    default_branch?: string;
+    id: number;
+  };
   if (!body.default_branch) {
     throw new RepoReadError(502, "Repository has no default branch.");
   }
-  return body.default_branch;
+  return { branch: body.default_branch, id: body.id };
 }
 
 async function fetchPaths(
@@ -181,7 +184,10 @@ export async function loadSnapshot(
   token: string | null,
   baseline: Baseline,
 ): Promise<RepoSnapshot> {
-  const defaultBranch = await fetchDefaultBranch(ref, token);
+  const { branch: defaultBranch, id: repoId } = await fetchDefaultBranch(
+    ref,
+    token,
+  );
   const paths = await fetchPaths(ref, defaultBranch, token);
   const wanted = filesToRead(paths, baseline);
 
@@ -202,6 +208,7 @@ export async function loadSnapshot(
 
   return {
     ref,
+    repoId,
     defaultBranch,
     paths,
     files: Object.fromEntries(contents.filter((entry) => entry !== null)),
