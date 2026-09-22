@@ -18,6 +18,7 @@ import {
   visibleTools,
 } from "./catalogue";
 import { analyze } from "./gap/analyze";
+import { isRelevantToStack } from "./gap/relevance";
 
 const baseline = getBaseline();
 
@@ -292,14 +293,13 @@ describe("visibleTools", () => {
     const universal = visibleTools.filter((tool) =>
       tool.stacks.includes("any"),
     );
+    expect(universal).toHaveLength(5);
     const shownPerStack = Object.fromEntries(
       baseline.stacks.map((stack) => [
         stack.id,
         universal
           .filter((tool) =>
-            tool.capabilities.some((capability) =>
-              (stackCapabilities[stack.id] ?? []).includes(capability),
-            ),
+            isRelevantToStack(tool, stackCapabilities[stack.id] ?? []),
           )
           .map((tool) => tool.id)
           .sort(),
