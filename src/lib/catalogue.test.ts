@@ -3,6 +3,7 @@ import skillsData from "@/data/skills.json";
 import {
   bundles,
   ecosystemLabel,
+  flattenBaseline,
   getBaseline,
   getPlugin,
   installCommands,
@@ -10,6 +11,7 @@ import {
   marketplaceRepo,
   plugins,
   publicToolEntry,
+  type RealCatalogue,
   shortAgents,
   tools,
   visibleTools,
@@ -222,6 +224,28 @@ describe("flattenBaseline", () => {
 
   it("throws rather than shipping a raw id for an unpinned ecosystem", () => {
     expect(() => ecosystemLabel("rust")).toThrow(/rust/);
+  });
+
+  it("carries a baseline's extensions through, not just its markers", () => {
+    // Uses "go", already pinned in ECOSYSTEM_LABELS, rather than a hypothetical "shell"
+    // ecosystem: flattenBaseline resolves every ecosystem's label unconditionally, so an
+    // unpinned id would throw here for a reason unrelated to what this test checks.
+    const catalogue = {
+      taxonomy: { categories: {}, capabilities: {} },
+      tools: [],
+      baselines: {
+        go: {
+          ecosystem: "go",
+          markers: [],
+          extensions: [".sh"],
+          baseline: {},
+        },
+      },
+      bundles: [],
+    };
+    const result = flattenBaseline(catalogue as unknown as RealCatalogue);
+    const goStack = result.stacks.find((stack) => stack.id === "go");
+    expect(goStack?.extensions).toEqual([".sh"]);
   });
 });
 

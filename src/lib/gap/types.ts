@@ -48,6 +48,10 @@ export type BaselineStack = {
   /** Filenames, or directories matched as a path prefix. A nested copy counts too, so a
    * monorepo that keeps its manifests in subdirectories still matches. */
   markers: string[];
+  /** File extensions (e.g. ".sh"), for a stack with no fixed manifest filename to key off.
+   * Matched against every path's suffix, vendored/generated directories excluded the same
+   * way a marker's nested match is. Never a candidate for content reads, unlike markers. */
+  extensions?: string[];
   expects: Record<string, BaselineExpectation>;
 };
 

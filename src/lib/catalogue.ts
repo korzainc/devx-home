@@ -78,10 +78,11 @@ type RealBaselineEntry = {
 type RealEcosystemBaseline = {
   ecosystem: string;
   markers: string[];
+  extensions?: string[];
   baseline: Record<string, RealBaselineEntry>;
 };
 
-type RealCatalogue = {
+export type RealCatalogue = {
   taxonomy: {
     categories: Record<string, { label: string }>;
     capabilities: Record<string, { category: string; label: string }>;
@@ -177,7 +178,7 @@ export function ecosystemLabel(id: string): string {
   return label;
 }
 
-function flattenBaseline(catalogue: RealCatalogue): Baseline {
+export function flattenBaseline(catalogue: RealCatalogue): Baseline {
   const ecosystems = Object.values(catalogue.baselines);
   return {
     categories: Object.values(catalogue.taxonomy.categories).map(
@@ -202,6 +203,7 @@ function flattenBaseline(catalogue: RealCatalogue): Baseline {
       id: ecosystem.ecosystem,
       label: ecosystemLabel(ecosystem.ecosystem),
       markers: ecosystem.markers,
+      extensions: ecosystem.extensions,
       // recommended/acceptable pass through unchanged; required doesn't, since devx-home's
       // report only distinguishes "satisfied" from "gap", not required vs optional.
       expects: Object.fromEntries(
