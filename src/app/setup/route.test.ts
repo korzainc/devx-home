@@ -8,7 +8,9 @@ import { artifactPaths } from "@/lib/setup-script";
 const GET: (request: NextRequest) => Response = getSetup;
 
 beforeEach(() => {
-  vi.stubEnv("KORZA_PUBLIC_ORIGIN", "https://setup.example");
+  vi.stubEnv("KORZA_PUBLIC_ORIGIN", undefined);
+  vi.stubEnv("VERCEL_ENV", "preview");
+  vi.stubEnv("VERCEL_URL", "setup.example");
 });
 afterEach(() => vi.unstubAllEnvs());
 
@@ -56,7 +58,8 @@ describe("GET /setup", () => {
 
   it("supports explicitly configured local HTTP rehearsal", async () => {
     vi.stubEnv("NODE_ENV", "development");
-    vi.stubEnv("KORZA_PUBLIC_ORIGIN", "http://localhost:4000");
+    vi.stubEnv("VERCEL_URL", undefined);
+    vi.stubEnv("PORT", "4000");
     const body = await GET(
       new NextRequest("http://localhost:4000/setup"),
     ).text();
@@ -67,7 +70,7 @@ describe("GET /setup", () => {
 
   it("fails closed when the origin is not configured", async () => {
     vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("KORZA_PUBLIC_ORIGIN", undefined);
+    vi.stubEnv("VERCEL_ENV", "production");
     vi.stubEnv("VERCEL_URL", undefined);
     vi.stubEnv("VERCEL_PROJECT_PRODUCTION_URL", undefined);
     const res = GET(new NextRequest("https://untrusted.example/setup"));
@@ -77,4 +80,18 @@ describe("GET /setup", () => {
     expect(body).toContain("exit 1");
     expect(body).not.toContain("KORZA_DIST_URL=");
   });
+});
+
+it("uses the explicit origin and refuses an invalid override", async () => {
+  vi.stubEnv("KORZA_PUBLIC_ORIGIN", "https://custom.example");
+  const body = await GET(
+    new NextRequest("https://ignored.example/setup"),
+  ).text();
+  expect(body).toContain(
+    `KORZA_DIST_URL='https://custom.example${artifactPaths().tarball}'`,
+  );
+  vi.stubEnv("KORZA_PUBLIC_ORIGIN", "");
+  expect(GET(new NextRequest("https://ignored.example/setup")).status).toBe(
+    503,
+  );
 });

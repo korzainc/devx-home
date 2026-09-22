@@ -1,14 +1,18 @@
 /**
  * @vitest-environment jsdom
  */
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToString } from "react-dom/server";
 import GettingStartedPage from "./page";
 import { bootstrapCommand } from "@/lib/bootstrap-command";
 import { faq, manualCommands } from "@/lib/getting-started";
 
-beforeEach(() => vi.stubEnv("KORZA_PUBLIC_ORIGIN", "https://setup.example"));
+beforeEach(() => {
+  vi.stubEnv("KORZA_PUBLIC_ORIGIN", undefined);
+  vi.stubEnv("VERCEL_ENV", "preview");
+  vi.stubEnv("VERCEL_URL", "setup.example");
+});
 afterEach(() => {
   cleanup();
   vi.unstubAllEnvs();
@@ -25,35 +29,38 @@ describe("the Getting Started page", () => {
   });
 
   it("keeps manual setup available when the origin is invalid", () => {
-    vi.stubEnv("KORZA_PUBLIC_ORIGIN", "http://untrusted.example");
+    vi.stubEnv("VERCEL_URL", "invalid.example/path");
     render(<GettingStartedPage />);
     expect(screen.getByText(/Installer unavailable/)).toBeDefined();
     expect(
-      screen.getAllByRole("button", { name: /copy terminal command/i }).length,
+      within(
+        screen
+          .getByRole("heading", { name: "Set up manually" })
+          .closest("section")!,
+      ).getAllByRole("button", { name: /^copy .+ command(?: [0-9]+)?$/i })
+        .length,
     ).toBeGreaterThan(0);
   });
   it("leads with the one command, built from the configured origin", () => {
     const { container } = render(<GettingStartedPage />);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(
-      /one command/i,
+      /Install Korza CLI\s*in one command/i,
     );
     expect(container.textContent).toContain(
       bootstrapCommand("https://setup.example/setup"),
     );
   });
 
-  it("directs first-time users to the setup command printed by the installer", () => {
+  it("directs first-time users to follow the prompts", () => {
     render(<GettingStartedPage />);
     const hero = screen.getByRole("heading", { level: 1 }).closest("section");
-    expect(hero?.textContent).toMatch(
-      /run the exact setup command printed by the installer/i,
-    );
+    expect(hero?.textContent).toMatch(/follow the prompts/i);
   });
 
   it("points questions about a broken step or missing tool at #devx", () => {
     render(<GettingStartedPage />);
     const support = screen
-      .getByText(/Something is broken, or the CLI/)
+      .getByText(/How do I report a problem/)
       .closest("details");
     expect(support?.querySelector("p")?.textContent).toContain("#devx");
   });
@@ -82,17 +89,20 @@ describe("the Getting Started page", () => {
     const disclosures = [...container.querySelectorAll("#manual details")];
     const expected = [
       ["Xcode tools", "xcode-select --install"],
-      ["git", 'git config --global user.name "Your Name"'],
-      ["gh", "gh auth login --hostname github.com --git-protocol https --web"],
-      ["SSH access", "ssh -T git@github.com"],
-      ["claude", "claude plugin marketplace add korzainc/marketplace"],
+      ["Git", 'git config --global user.name "Your Name"'],
       [
-        "homebrew",
+        "GitHub CLI",
+        "gh auth login --hostname github.com --git-protocol https --web",
+      ],
+      ["SSH access", "ssh -T git@github.com"],
+      ["Claude Code", "claude plugin marketplace add korzainc/marketplace"],
+      [
+        "Homebrew",
         "https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh",
       ],
       ["Python (uv)", "uv python install"],
       [
-        "Node (fnm)",
+        "Node.js (fnm)",
         "curl -fsSL https://fnm.vercel.app/install | bash -s -- --force-install",
       ],
     ];
@@ -107,6 +117,24 @@ describe("the Getting Started page", () => {
     }
   });
 
+  it("puts Claude sign-in before plugins and activates the installed Node version", () => {
+    const claude = manualCommands.find((entry) =>
+      entry.title.includes("Claude Code"),
+    )!;
+    const login = claude.commands.indexOf("claude auth login");
+    const marketplace = claude.commands.findIndex((command) =>
+      command.includes("claude plugin marketplace add"),
+    );
+    expect(login).toBeGreaterThan(0);
+    expect(marketplace).toBeGreaterThan(login);
+    const node = manualCommands.find((entry) =>
+      entry.title.startsWith("Node"),
+    )!;
+    expect(node.commands.indexOf("fnm use lts-latest")).toBeGreaterThan(
+      node.commands.indexOf("fnm install --lts"),
+    );
+  });
+
   it("authorizes the SSH upload and loads the key before checking access", () => {
     const { container } = render(<GettingStartedPage />);
     const ssh = [...container.querySelectorAll("#manual details")].find(
@@ -116,12 +144,18 @@ describe("the Getting Started page", () => {
     expect(ssh).toBeDefined();
     expect(
       ssh!
-        .querySelector("p")!
+        .querySelector("ul")!
         .compareDocumentPosition(ssh!.querySelector("code")!) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    const commands = [...ssh!.querySelectorAll("code")].map(
-      (field) => field.textContent,
+    const commands = [...ssh!.querySelectorAll("code")].flatMap((field) =>
+      (field.textContent ?? "").split(/\s*&&\s*/).map((command) =>
+        command
+          .split("\n")
+          .filter((line) => !line.startsWith("#"))
+          .join("\n")
+          .trim(),
+      ),
     );
     const permissionIndex = commands.indexOf(
       "gh auth refresh --hostname github.com --scopes write:public_key",
@@ -149,15 +183,26 @@ describe("the Getting Started page", () => {
     }
   });
 
-  it("carries every manual command, each in its own copyable field", () => {
-    render(<GettingStartedPage />);
-    const commands = manualCommands.flatMap((entry) => entry.commands);
-    for (const command of commands) {
-      expect(screen.getAllByText(command).length).toBeGreaterThan(0);
+  it("keeps every manual command available with one copy control per block", () => {
+    const { container } = render(<GettingStartedPage />);
+    const fields = [...container.querySelectorAll("#manual code")];
+    for (const command of manualCommands.flatMap((entry) => entry.commands)) {
+      expect(fields.some((field) => field.textContent?.includes(command))).toBe(
+        true,
+      );
     }
     expect(
-      screen.getAllByRole("button", { name: /copy terminal command/i }),
-    ).toHaveLength(commands.length);
+      within(
+        screen
+          .getByRole("heading", { name: "Set up manually" })
+          .closest("section")!,
+      ).getAllByRole("button", { name: /^copy .+ command(?: [0-9]+)?$/i }),
+    ).toHaveLength(
+      manualCommands.reduce(
+        (count, entry) => count + 1 + (entry.breakBefore?.length ?? 0),
+        0,
+      ),
+    );
   });
 
   it("links the walkthrough to the manual steps and to the questions", () => {
@@ -173,4 +218,17 @@ describe("the Getting Started page", () => {
       ).toBeTruthy();
     }
   });
+});
+
+it("puts the support channel and FAQs beside the install command", () => {
+  render(<GettingStartedPage />);
+  const hero = screen.getByRole("heading", { level: 1 }).closest("section")!;
+  expect(
+    within(hero).getByRole("link", { name: "#devx" }).getAttribute("href"),
+  ).toBe("https://korzaworkspace.slack.com/archives/C0BR0RQD0UC");
+  expect(
+    within(hero).getByRole("link", { name: "FAQs" }).getAttribute("href"),
+  ).toBe("#questions");
+  expect(hero.classList.contains("hidden")).toBe(false);
+  expect(screen.queryByRole("link", { name: "Need help?" })).toBeNull();
 });

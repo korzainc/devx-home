@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useHorizontalOverflow } from "./use-horizontal-overflow";
 
 /** One thing to copy. `target` names the file a snippet is pasted into, and switches the block
  *  from a single-line command to a `pre` that keeps its indentation: a Maven block or a workflow
@@ -66,6 +67,7 @@ function CopyIcon({ copied }: { copied: boolean }) {
 
 /** Keyed on its content by the panel, so switching tabs remounts it and clears `copied`. */
 function Block({ block }: { block: InstallBlock }) {
+  const scroll = useHorizontalOverflow(block.content);
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -108,17 +110,31 @@ function Block({ block }: { block: InstallBlock }) {
             </code>
           </div>
           <div className="flex items-start gap-2 py-2.5 pr-2 pl-4">
-            <pre className="min-w-0 flex-1 overflow-x-auto font-mono text-sm text-ink select-all">
-              {block.content}
-            </pre>
+            <div
+              role="group"
+              aria-label={block.name}
+              {...scroll}
+              className="min-w-0 flex-1 overflow-x-auto"
+            >
+              <pre className="font-mono text-sm text-ink select-all">
+                {block.content}
+              </pre>
+            </div>
             {button}
           </div>
         </div>
       ) : (
-        <div className="flex items-center gap-2 rounded-lg border border-line bg-canvas py-2.5 pr-2 pl-4">
-          <code className="min-w-0 flex-1 overflow-x-auto font-mono text-sm whitespace-nowrap text-ink select-all">
-            {block.content}
-          </code>
+        <div className="flex items-start gap-2 rounded-lg border border-line bg-canvas py-2.5 pr-2 pl-4">
+          <div
+            role="group"
+            aria-label={block.name}
+            {...scroll}
+            className="min-w-0 flex-1 overflow-x-auto"
+          >
+            <code className="block font-mono text-sm whitespace-pre text-ink select-all">
+              {block.content}
+            </code>
+          </div>
           {button}
         </div>
       )}
@@ -131,15 +147,50 @@ function Block({ block }: { block: InstallBlock }) {
   );
 }
 
-/** Standalone command field used by the getting-started manual steps. */
-export function CommandField({
+/** Split at user interaction boundaries, with one copy control per block. */
+export function CommandGroup({
+  commands,
   label,
-  value,
+  comments = {},
+  breakBefore = [],
 }: {
-  label: string;
-  value: string;
+  commands: string[];
+  label?: string;
+  comments?: Record<string, string>;
+  breakBefore?: string[];
 }) {
-  return <Block block={{ label, content: value, name: `${label} command` }} />;
+  const groups: string[][] = [];
+  for (const command of commands) {
+    if (!groups.length || breakBefore.includes(command)) groups.push([]);
+    groups[groups.length - 1].push(command);
+  }
+  return (
+    <div className="flex min-w-0 flex-col gap-4">
+      {groups.map((group, index) => {
+        const instruction = group
+          .map((command) => comments[command])
+          .filter(Boolean)
+          .join(" ");
+        // Default interactive zsh treats # as a command, which can break the && chain.
+        const content = group.join(" &&\n\n");
+        return (
+          <div key={group[0]} className="flex min-w-0 flex-col gap-2">
+            {instruction && (
+              <p className="max-w-2xl text-sm text-ink-muted">{instruction}</p>
+            )}
+            <Block
+              block={{
+                content,
+                name: label
+                  ? `${label} command${groups.length > 1 ? ` ${index + 1}` : ""}`
+                  : "Terminal command",
+              }}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 /**

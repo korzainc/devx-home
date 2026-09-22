@@ -20,6 +20,7 @@ import { SiteFooter } from "@/components/site-footer";
 const UNLISTED = new Set([
   "api", // route handlers
   "setup", // the install script, a route handler
+  "korza", // CLI assets and update manifest, not a navigable page
   "login", // the header's own control, and only for the signed out
   "no-access", // reached by redirect from the gate, and a dead end on purpose
 ]);
