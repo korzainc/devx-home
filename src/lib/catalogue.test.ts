@@ -223,7 +223,14 @@ describe("flattenBaseline", () => {
   it("gives shell the security floor, not just its linters", () => {
     const shell = baseline.stacks.find((stack) => stack.id === "shell");
     expect(Object.keys(shell!.expects).sort()).toEqual(
-      ["format", "iac-config", "lint-style", "sast", "secrets"].sort(),
+      [
+        "format",
+        "iac-config",
+        "lint-bugs",
+        "lint-style",
+        "sast",
+        "secrets",
+      ].sort(),
     );
   });
 
