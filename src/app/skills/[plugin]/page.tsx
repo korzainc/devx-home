@@ -41,11 +41,7 @@ export default async function PluginPage({
   return (
     <article className="flex flex-col gap-8">
       <header className="flex flex-col gap-4">
-        <BackLink
-          followHistory
-          href="/skills"
-          className="w-fit font-mono text-xs text-ink-faint hover:text-accent"
-        >
+        <BackLink followHistory href="/skills">
           Skills
         </BackLink>
         <div className="flex flex-wrap items-center gap-3">

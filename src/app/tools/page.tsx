@@ -34,12 +34,7 @@ export default function ToolsPage({ searchParams }: Params) {
   return (
     <div className="flex flex-col gap-10">
       <header className="flex max-w-2xl flex-col gap-4">
-        <BackLink
-          href="/"
-          className="w-fit font-mono text-xs text-ink-faint hover:text-accent"
-        >
-          Home
-        </BackLink>
+        <BackLink href="/">Home</BackLink>
         <h1 className="font-display text-3xl font-semibold tracking-tight">
           CI Tools
         </h1>

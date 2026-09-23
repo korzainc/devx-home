@@ -30,11 +30,7 @@ export default function SkillsDemoPage() {
     <div className="flex flex-col gap-10">
       <SkillsIntroSeen />
 
-      <BackLink
-        followHistory
-        href="/skills-intro"
-        className="w-fit font-mono text-xs text-ink-faint hover:text-accent"
-      >
+      <BackLink followHistory href="/skills-intro">
         Introduction to skills
       </BackLink>
 

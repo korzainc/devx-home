@@ -42,12 +42,7 @@ export default function SkillsPage({ searchParams }: Params) {
       {/* Grouped with the title, so the link sits the same distance above it as "← Skills"
           does on the plugin page. As a direct child it inherited the section gap instead. */}
       <div className="flex flex-col gap-4">
-        <BackLink
-          href="/"
-          className="w-fit font-mono text-xs text-ink-faint hover:text-accent"
-        >
-          Home
-        </BackLink>
+        <BackLink href="/">Home</BackLink>
         {/* The fallback is the same tabs with no initial selection, so the prerendered shell
             already shows a usable catalogue and only the picks stream in. */}
         <Suspense
