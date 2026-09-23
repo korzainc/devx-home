@@ -28,6 +28,11 @@ and database-backed features need the existing project credentials and database
 connection. Follow [AGENTS.md](AGENTS.md) for access and database constraints;
 do not overwrite `.env.local` or provision a replacement database.
 
+Use the same host in `BETTER_AUTH_URL` and the GitHub App callback URL.
+Local login and telemetry consent redirect loopback aliases to that host before
+sign-in starts. A stale form on another alias is rejected instead of creating an
+OAuth state cookie that the callback cannot read. Existing sessions are retained.
+
 `pnpm vercel-build` runs migrations only when `VERCEL_ENV=production`, then
 builds Next.js. Previews skip that migration step. `pnpm migrate` runs migrations
 explicitly against `DATABASE_URL_UNPOOLED`; the app uses pooled `DATABASE_URL`.
@@ -142,6 +147,14 @@ Apply migrations through `0006_telemetry_credentials.sql` before enabling
 `DATABASE_URL_UNPOOLED`, `BETTER_AUTH_SECRET` and GitHub App authentication
 configuration. Never edit `.env.local` for this rollout. The flag defaults off;
 the earlier `/api/telemetry/logs` and `/metrics` pilot remains development-only.
+
+The GitHub credentials must belong to the approved `korza-devx` App installed
+on `korzainc`, with repository access for the signing-in user. Replacing a local
+test App's credentials does not convert its stored GitHub user token. Acceptance
+requires a grant from the approved App, a process restart and a matching callback
+URL. Keep `BETTER_AUTH_SECRET` stable so existing encrypted tokens remain readable.
+Changing the GitHub App credentials does not revoke issued telemetry credentials;
+revoke those separately when needed.
 
 The CLI opens `/telemetry/connect` with `redirect_uri`, `state`,
 `code_challenge` and `code_challenge_method=S256`. Browser consent requires a
