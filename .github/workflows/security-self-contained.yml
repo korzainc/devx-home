@@ -55,7 +55,7 @@ jobs:
             -e CI_SCA_BLOCKING=true -e CI_IAC_CONFIG_BLOCKING=true -e CI_IAC_DOCKERFILE_BLOCKING=true \
             -e GITHUB_STEP_SUMMARY=/step-summary \
             -v "$GITHUB_STEP_SUMMARY:/step-summary" \
-            korzacitools.azurecr.io/ci-common:0.2.1-rc13@sha256:b200b296e39ca9ae45371db58dc92f545cf8898561253f6333257611b5b6194c \
+            korzacitools.azurecr.io/ci-common:0.2.1-rc15@sha256:3287ace3a581569494d36a2e45d179e18d29f990c1a40e87346586fceadff7da \
             ci-run scan --out /out --repo-root /src --base-sha "$BASE_SHA" --head-sha "$HEAD_SHA"
 
       - name: Report
@@ -69,7 +69,7 @@ jobs:
             -e GITHUB_ACTIONS=true -e GITHUB_EVENT_NAME \
             -e GITHUB_EVENT_PATH=/event.json -e GITHUB_REPOSITORY \
             -e GITHUB_SHA -e GITHUB_API_URL -e GITHUB_SERVER_URL -e GITHUB_RUN_ID \
-            korzacitools.azurecr.io/ci-common:0.2.1-rc13@sha256:b200b296e39ca9ae45371db58dc92f545cf8898561253f6333257611b5b6194c \
+            korzacitools.azurecr.io/ci-common:0.2.1-rc15@sha256:3287ace3a581569494d36a2e45d179e18d29f990c1a40e87346586fceadff7da \
             ci-run report --in /out --event-file /event.json --repo-root /src
 
       - name: Upload SBOM
