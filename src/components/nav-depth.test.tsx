@@ -1,6 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
+import { StrictMode } from "react";
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cameFromApp } from "@/components/back-link";
@@ -49,7 +50,7 @@ describe("the in-app navigation marker", () => {
     expect(cameFromApp()).toBe(true);
 
     // Back to the arrival: the browser restores that entry's state, then the router catches up.
-    window.history.replaceState(null, "");
+    window.history.replaceState(null, "", "/tools/biome");
     act(() => {
       window.dispatchEvent(new PopStateEvent("popstate"));
     });
@@ -70,7 +71,7 @@ describe("the in-app navigation marker", () => {
       view.rerender(<NavDepth />);
     });
 
-    window.history.replaceState(null, "");
+    window.history.replaceState(null, "", "/tools/biome");
     act(() => {
       window.dispatchEvent(new PopStateEvent("popstate"));
     });
@@ -79,6 +80,46 @@ describe("the in-app navigation marker", () => {
       view.rerender(<NavDepth />);
     });
     expect(cameFromApp()).toBe(false);
+
+    pathname = "/roadmap";
+    act(() => {
+      view.rerender(<NavDepth />);
+    });
+
+    expect(cameFromApp()).toBe(true);
+  });
+
+  it("leaves the arrival unmarked when Strict Mode runs the effect twice", () => {
+    // Development double-invokes effects. A "have we arrived yet" flag cannot survive that: the
+    // second run reads the first run's flag and marks the cold arrival, so anyone hand-verifying
+    // this fix in `next dev` sees the pre-fix behaviour.
+    render(
+      <StrictMode>
+        <NavDepth />
+      </StrictMode>,
+    );
+
+    expect(cameFromApp()).toBe(false);
+  });
+
+  it("does not let a hash-only back step swallow the next forward mark", () => {
+    // A hash link pushes a real history entry but changes no pathname, so stepping back over one
+    // never reaches the effect that spends the popstate note. Latched, it ate the next genuine
+    // navigation.
+    const view = render(<NavDepth />);
+
+    pathname = "/updates";
+    act(() => {
+      view.rerender(<NavDepth />);
+    });
+    expect(cameFromApp()).toBe(true);
+
+    // Back over a `#slug` entry: popstate fires while the URL is still `/updates`, only the
+    // fragment having moved.
+    window.history.replaceState(null, "", "/updates");
+    act(() => {
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
 
     pathname = "/roadmap";
     act(() => {
