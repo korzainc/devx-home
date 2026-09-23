@@ -5,6 +5,10 @@ const setupOrigin = getSetupOrigin();
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
+  // Next normalizes loopback aliases to localhost, which otherwise turns our
+  // local OAuth host redirect into a relative redirect back to the wrong host.
+  skipProxyUrlNormalize:
+    process.env.NODE_ENV === "development" && !process.env.VERCEL,
   allowedDevOrigins: setupOrigin ? [new URL(setupOrigin).hostname] : [],
   async redirects() {
     return [
