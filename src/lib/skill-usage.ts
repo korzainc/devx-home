@@ -14,9 +14,11 @@ export async function readSkillUsage(plugin: string, names: string[]) {
     ...{ query_timeout: 1000 },
   });
   const codexNames = names.map((name) => `${plugin}_${name}`);
+  // Pilot rows predate the plugin column. Retain those only when their exact
+  // catalogue-prefixed skill matches; an explicit different plugin never counts.
   const codex = await getPool().query<{ skill: string; count: string }>({
-    text: "select skill, sum(value)::text as count from telemetry_skill_metrics where skill=any($1::text[]) group by skill",
-    values: [codexNames],
+    text: "select skill, sum(value)::text as count from telemetry_skill_metrics where (plugin=$1 or plugin is null) and skill=any($2::text[]) group by skill",
+    values: [plugin, codexNames],
     ...{ query_timeout: 1000 },
   });
   for (const row of claude.rows) {
@@ -38,14 +40,21 @@ export async function readSkillUsage(plugin: string, names: string[]) {
   return result;
 }
 
-export async function readPluginInstalls(
-  plugin: string,
-): Promise<number | undefined> {
-  const result = await getPool().query<{ count: string }>({
-    text: "select count(*)::text as count from telemetry_events where plugin=$1 and kind='plugin_installed'",
+export async function readPluginInstalls(plugin: string): Promise<SkillUsage> {
+  const result = await getPool().query<{ client: string; count: string }>({
+    text: "select client, count(*)::text as count from telemetry_events where plugin=$1 and kind='plugin_installed' group by client",
     values: [plugin],
     ...{ query_timeout: 1000 },
   });
-  const count = Number(result.rows[0]?.count);
-  return Number.isSafeInteger(count) && count > 0 ? count : undefined;
+  const counts: SkillUsage = {};
+  for (const row of result.rows) {
+    const count = Number(row.count);
+    if (
+      (row.client === "claude" || row.client === "codex") &&
+      Number.isSafeInteger(count) &&
+      count > 0
+    )
+      counts[row.client] = count;
+  }
+  return counts;
 }

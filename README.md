@@ -134,3 +134,46 @@ Use `pnpm-lock.yaml` for the resolved versions; this README does not claim every
 dependency is the latest release. When upgrading the lint toolchain, check
 compatibility with `eslint-config-next` and run formatting, tests, lint, type
 checking and a production build together.
+
+## Opt-in device monitoring backend
+
+Apply migrations through `0006_telemetry_credentials.sql` before enabling
+`TELEMETRY_ENABLED=1`. Use the existing `DATABASE_URL`, migration-only
+`DATABASE_URL_UNPOOLED`, `BETTER_AUTH_SECRET` and GitHub App authentication
+configuration. Never edit `.env.local` for this rollout. The flag defaults off;
+the earlier `/api/telemetry/logs` and `/metrics` pilot remains development-only.
+
+The CLI opens `/telemetry/connect` with `redirect_uri`, `state`,
+`code_challenge` and `code_challenge_method=S256`. Browser consent requires a
+session, same-origin CSRF protection and fresh Korza App access verification.
+Only `http://127.0.0.1:<port>/callback` is accepted. The returned code expires
+after 60 seconds and can be exchanged once at `/api/telemetry/exchange` using
+`{code, code_verifier, redirect_uri}`. The response contains
+`{token, device_id, expires_at}`. Device credentials expire within 12 hours;
+renewal requires another browser authorization. The CLI sends its existing
+`device_id` in the connection request when renewing. Home verifies ownership
+and rotates the token on that same device, preserving cumulative counter
+deduplication and pending event identity. Only credential hashes are stored.
+Expired codes are removed in batches of at most 1,000 during issuance.
+
+`POST /api/telemetry/events` accepts bearer-authenticated normalized
+`{events, metrics}` batches, at most 1,000 records and 256 KiB. Unknown fields,
+unapproved plugins and invalid client/source combinations are rejected. IDs are
+scoped to the device for retry deduplication. No raw OTLP attributes, prompts,
+tool arguments, email or paths are accepted. Browser revocation lives at
+`/telemetry/devices`; the CLI uses idempotent bearer `POST /api/telemetry/revoke`.
+Revocation does not delete recorded counts or their device history.
+
+Validation separates production identity acceptance from protocol evidence:
+
+- Unit tests cover callback/PKCE/CSRF validation, fresh membership failure,
+  strict normalized records and packet bounds.
+- `TEST_TELEMETRY_DATABASE_URL=<local PostgreSQL URL> pnpm exec vitest run src/lib/telemetry-postgres.test.ts`
+  creates and removes a unique schema, checks migration reruns and bounded
+  cleanup, and tests atomic exchange, replay/expiry, deduplication and revocation
+  with actual PostgreSQL and loopback HTTP. It refuses remote database hosts.
+  Browser identity is substituted only in this test harness.
+- Real GitHub sign-in, fresh company access, browser consent through the Next
+  proxy and the eventual deployment still need an authorized-user acceptance
+  test. Passing the harness does not establish that a future credential or
+  environment change will work.

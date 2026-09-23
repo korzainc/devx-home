@@ -9,7 +9,7 @@ export async function AnalysisUsage() {
   }
   return (
     <p
-      className="w-fit rounded-lg border border-accent/50 bg-accent-wash px-4 py-2 text-sm font-medium text-ink"
+      className="w-fit rounded-lg border border-line-strong bg-surface-raised px-4 py-2 text-sm font-medium text-ink"
       aria-label="Analysis usage"
     >
       {usage.repositories} unique repositories analysed · {usage.runs} total

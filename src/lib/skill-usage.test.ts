@@ -42,14 +42,34 @@ it("maps the namespaced skill name emitted by real Claude", async () => {
 });
 
 it("reads installs for only the requested plugin", async () => {
-  query.mockResolvedValue({ rows: [{ count: "4" }] });
-  expect(await readPluginInstalls("humanizer")).toBe(4);
+  query.mockResolvedValue({
+    rows: [
+      { client: "claude", count: "4" },
+      { client: "codex", count: "2" },
+    ],
+  });
+  expect(await readPluginInstalls("humanizer")).toEqual({
+    claude: 4,
+    codex: 2,
+  });
   expect(query.mock.calls[0][0].values).toEqual(["humanizer"]);
   expect(query.mock.calls[0][0].text).toContain("kind='plugin_installed'");
 });
 it("omits zero or invalid install totals", async () => {
   for (const count of ["0", "-1", "invalid"]) {
-    query.mockResolvedValue({ rows: [{ count }] });
-    expect(await readPluginInstalls("humanizer")).toBeUndefined();
+    query.mockResolvedValue({ rows: [{ client: "claude", count }] });
+    expect(await readPluginInstalls("humanizer")).toEqual({});
   }
+});
+
+it("binds Codex counts to their plugin while retaining only matching legacy names", async () => {
+  query.mockResolvedValue({ rows: [] });
+  await readSkillUsage("superpowers", ["brainstorming"]);
+  const metrics = query.mock.calls[1][0];
+  expect(metrics.values).toEqual([
+    "superpowers",
+    ["superpowers_brainstorming"],
+  ]);
+  expect(metrics.text).toContain("(plugin=$1 or plugin is null)");
+  expect(metrics.text).toContain("skill=any($2::text[])");
 });

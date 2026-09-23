@@ -23,12 +23,14 @@ it("does not read install totals without portal access", async () => {
 it("labels the count as recorded installs for Claude Code", async () => {
   mocks.session.mockResolvedValue({ user: { id: "test" } });
   mocks.member.mockResolvedValue(true);
-  mocks.installs.mockResolvedValue(2);
+  mocks.installs.mockResolvedValue({ claude: 2, codex: 3 });
   const html = renderToStaticMarkup(
     await PluginInstallUsage({ plugin: "humanizer" }),
   );
   expect(html).toContain("recorded installs");
   expect(html).toContain("Claude Code");
+  expect(html).toContain("Codex");
+  expect(html).toContain("through Korza CLI");
   expect(html).not.toContain("About this count");
   expect(mocks.installs).toHaveBeenCalledWith("humanizer");
 });

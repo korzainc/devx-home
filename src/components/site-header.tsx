@@ -163,6 +163,11 @@ async function AuthControl({ inMenu = false }: { inMenu?: boolean }) {
           {avatar}
           <span className="truncate text-sm text-ink-muted">{name}</span>
         </span>
+        {process.env.TELEMETRY_ENABLED === "1" && (
+          <NavLink href="/telemetry/devices" shape="panel">
+            Telemetry devices
+          </NavLink>
+        )}
         <SignOut className={`${navLinkPanel} text-left`} />
       </>
     );
@@ -181,6 +186,11 @@ async function AuthControl({ inMenu = false }: { inMenu?: boolean }) {
             and the Log out label do. Left to the panel's `p-1.5` it sat 10px short of all three
             and lined up with nothing. */}
         <hr className="mx-2.5 my-1.5 border-line" />
+        {process.env.TELEMETRY_ENABLED === "1" && (
+          <NavLink href="/telemetry/devices" shape="panel">
+            Telemetry devices
+          </NavLink>
+        )}
         <SignOut className="block w-full rounded-md px-2.5 py-1.5 text-left text-sm text-ink-muted transition-colors hover:bg-surface hover:text-ink" />
       </AccountMenu>
     </>
