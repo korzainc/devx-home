@@ -205,7 +205,15 @@ describe("flattenBaseline", () => {
   it("includes every real ecosystem, none dropped", () => {
     const ids = baseline.stacks.map((stack) => stack.id).sort();
     expect(ids).toEqual(
-      ["docker", "go", "java", "javascript", "python", "typescript"].sort(),
+      [
+        "docker",
+        "go",
+        "java",
+        "javascript",
+        "python",
+        "shell",
+        "typescript",
+      ].sort(),
     );
   });
 
