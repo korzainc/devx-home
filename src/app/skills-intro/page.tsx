@@ -22,13 +22,11 @@ export default function SkillsIntroPage() {
   return (
     <div className="flex min-h-[70vh] flex-col gap-10">
       <SkillsIntroSeen />
-      <BackLink
-        followHistory
-        href="/skills"
-        className="w-fit font-mono text-xs text-ink-faint hover:text-accent"
-      >
-        Skills
-      </BackLink>
+      {/* No `followHistory`: `site-footer.tsx` links this page from every route, so arrival from
+          another section is the common case, not an edge one. The label names a place, and a
+          reader who came from `/tools/biome` would otherwise click "Skills" and land back on
+          `/tools/biome`. */}
+      <BackLink href="/skills">Skills</BackLink>
 
       <SkillsIntroPanes />
 
