@@ -217,9 +217,10 @@ export function ToolsCatalogue({
   const pickedStacks = pickedFor("stack");
   const pickedChecks = pickedFor("check");
 
-  // A tool with two capabilities in one group counts once, so the number beside a group is the
-  // number of cards picking it produces. Left in CHECK_GROUPS order rather than sorted: the row
-  // runs write-time checks first, then security, then the slower supply-chain ones.
+  // A tool with two capabilities in one group counts once. Reflects the stack filter but not the
+  // search query, same as skills' facet counts don't track every filter dimension live either.
+  // Left in CHECK_GROUPS order rather than sorted: the row runs write-time checks first, then
+  // security, then the slower supply-chain ones.
   const checkOptions = useMemo(
     (): [string, number][] =>
       CHECK_GROUPS.map((group) => [
