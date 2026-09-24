@@ -124,23 +124,6 @@ describe("the tools catalogue", () => {
     }
   });
 
-  it("drops a universal tool from a stack whose baseline never names its capability", () => {
-    renderPage();
-    toggleStack("Shell");
-
-    // Real, hard assertions, not a soft guard: shell's baseline names secrets/sast/iac-config
-    // (satisfied by gitleaks/codeql/ci-base-checks) but never dependency-updates (dependabot,
-    // renovate), so those two, and only those two, must disappear.
-    expect(card("dependabot")).toBeUndefined();
-    expect(card("renovate")).toBeUndefined();
-    expect(card("gitleaks")).toBeTruthy();
-    expect(card("codeql")).toBeTruthy();
-    expect(card("ci-base-checks")).toBeTruthy();
-    expect(card("shellcheck")).toBeTruthy();
-    expect(card("shfmt")).toBeTruthy();
-    expect(cardCount()).toBe(5);
-  });
-
   it("keeps every universal tool visible for a stack whose baseline names all of them", () => {
     renderPage();
     toggleStack("Go");

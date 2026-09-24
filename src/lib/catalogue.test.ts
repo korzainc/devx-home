@@ -224,6 +224,7 @@ describe("flattenBaseline", () => {
     const shell = baseline.stacks.find((stack) => stack.id === "shell");
     expect(Object.keys(shell!.expects).sort()).toEqual(
       [
+        "dependency-updates",
         "format",
         "iac-config",
         "lint-bugs",
@@ -327,8 +328,7 @@ describe("visibleTools", () => {
       javascript: allFive,
       python: allFive,
       typescript: allFive,
-      // Shell's baseline names secrets/sast/iac-config but never dependency-updates.
-      shell: ["ci-base-checks", "codeql", "gitleaks"].sort(),
+      shell: allFive,
     });
   });
 
