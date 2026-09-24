@@ -3,10 +3,11 @@ import skillsData from "@/data/skills.json";
 import { AUDIENCES } from "@/data/skill-audiences";
 import {
   CATEGORIES,
+  CATEGORY_FALLBACK,
   CATEGORY_NOTES,
   skillCategories,
 } from "@/data/skill-categories";
-import { skills } from "@/lib/catalogue";
+import { overlaySkills, skills } from "@/lib/catalogue";
 import { matchesAudience } from "@/lib/filter";
 
 // This overlay replaces a field the generator already fills, so it drifts more quietly than one
@@ -36,14 +37,49 @@ describe("skill categories", () => {
     }
   });
 
+  /**
+   * The merge in catalogue.ts spreads the raw row first and overwrites `category`. Drop that line
+   * and every assertion above still passes, because the overlay itself is untouched.
+   *
+   * These run on a fixture rather than on `skills.json`. The check used to name `Build` — a value
+   * the generator emitted and the overlay could not produce — but upstream now emits this same
+   * five-value vocabulary, so the two no longer disagree anywhere and there is nothing left in the
+   * live index to observe. A row this file supplies is what keeps the question askable.
+   */
+  const upstreamRow = (id: string) => ({
+    ...skillsData.skills.find((skill) => skill.status !== "Planned")!,
+    id,
+    // Not in CATEGORIES, so the overlay can never produce it: whatever comes out of the merge
+    // came from the overlay, not from the row.
+    category: "Build",
+  });
+
   it("replaces the generator's taxonomy rather than sitting beside it", () => {
-    // The merge in catalogue.ts spreads the raw row first and overwrites `category`. Drop that
-    // line and every assertion above still passes, because the overlay itself is untouched.
-    const upstream = new Set(skillsData.skills.map((skill) => skill.category));
-    const rendered = new Set(skills.map((skill) => skill.category));
-    expect([...rendered].sort()).toEqual([...CATEGORIES].sort());
-    expect(upstream.has("Build")).toBe(true);
-    expect(rendered.has("Build" as never)).toBe(false);
+    const classified = Object.keys(skillCategories).sort()[0];
+    const [merged] = overlaySkills([upstreamRow(classified)] as Parameters<
+      typeof overlaySkills
+    >[0]);
+
+    expect(merged.category).toBe(skillCategories[classified]);
+    expect(
+      new Set(skills.map((skill) => skill.category)).has("Build" as never),
+    ).toBe(false);
+  });
+
+  it("falls back rather than keeping the generator's value for an id it does not name", () => {
+    // The other half of replacing: an unclassified row renders under the fallback, which is what
+    // makes "covers every live skill" above the test that notices a sync, rather than the page.
+    const [merged] = overlaySkills([
+      upstreamRow("nobody:skills/not-in-the-overlay"),
+    ] as Parameters<typeof overlaySkills>[0]);
+
+    expect(merged.category).toBe(CATEGORY_FALLBACK);
+  });
+
+  it("renders only the values CATEGORIES defines", () => {
+    expect([...new Set(skills.map((skill) => skill.category))].sort()).toEqual(
+      [...CATEGORIES].sort(),
+    );
   });
 
   it("puts at least one skill under every heading", () => {

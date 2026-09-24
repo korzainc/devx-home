@@ -288,16 +288,28 @@ export const plugins: PluginEntry[] = (
   audiences: pluginAudiences[plugin.id] ?? AUDIENCE_FALLBACK,
 }));
 
-export const skills: SkillEntry[] = (
-  skillsData.skills as Omit<SkillEntry, "audiences" | "category">[]
-)
-  .filter((skill) => skill.status !== "Planned")
-  .map((skill) => ({
-    ...skill,
-    audiences: skillAudiences[skill.id] ?? AUDIENCE_FALLBACK,
-    // Spread first, so the generator's own category is overwritten rather than merged beside.
-    category: skillCategories[skill.id] ?? CATEGORY_FALLBACK,
-  }));
+/** Exported so the overwrite can be exercised on a row the live index does not contain.
+ *
+ *  It used to be checked against `skills.json` directly, by naming a category the generator
+ *  emitted and the overlay did not. Upstream now emits this same vocabulary, so there is no
+ *  value left for the two to disagree about and nothing observable to assert. A caller passing
+ *  its own rows is the only way left to tell replacing from merging. */
+export function overlaySkills(
+  rows: Omit<SkillEntry, "audiences" | "category">[],
+): SkillEntry[] {
+  return rows
+    .filter((skill) => skill.status !== "Planned")
+    .map((skill) => ({
+      ...skill,
+      audiences: skillAudiences[skill.id] ?? AUDIENCE_FALLBACK,
+      // Spread first, so the generator's own category is overwritten rather than merged beside.
+      category: skillCategories[skill.id] ?? CATEGORY_FALLBACK,
+    }));
+}
+
+export const skills: SkillEntry[] = overlaySkills(
+  skillsData.skills as Omit<SkillEntry, "audiences" | "category">[],
+);
 
 export function skillsForPlugin(pluginId: string): SkillEntry[] {
   return skills.filter((skill) => skill.plugin === pluginId);
