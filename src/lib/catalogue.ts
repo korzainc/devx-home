@@ -120,21 +120,14 @@ export const stackCapabilities: Record<string, string[]> = Object.fromEntries(
     Object.keys(ecosystem.baseline),
   ]),
 );
+// A broken mapping here (a stack or its inheritsFrom missing from stackCapabilities) is caught
+// by catalogue.test.ts's stack-visibility test, not a throw: this module is deliberately not
+// lazy like getBaseline(), so throwing here would break every route that merely imports it.
 for (const [stack, inheritsFrom] of Object.entries(STACK_CAPABILITY_INHERITS)) {
-  const missing = !stackCapabilities[stack]
-    ? stack
-    : !stackCapabilities[inheritsFrom]
-      ? inheritsFrom
-      : undefined;
-  if (missing) {
-    throw new Error(
-      `stackCapabilities inheritance for "${stack}" names a stack that doesn't exist: "${missing}".`,
-    );
-  }
   stackCapabilities[stack] = [
     ...new Set([
-      ...stackCapabilities[stack],
-      ...stackCapabilities[inheritsFrom],
+      ...(stackCapabilities[stack] ?? []),
+      ...(stackCapabilities[inheritsFrom] ?? []),
     ]),
   ];
 }
