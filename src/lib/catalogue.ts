@@ -122,11 +122,14 @@ export const stackCapabilities: Record<string, string[]> = Object.fromEntries(
 );
 // A broken mapping here (a stack or its inheritsFrom missing from stackCapabilities) is caught
 // by catalogue.test.ts's stack-visibility test, not a throw: this module is deliberately not
-// lazy like getBaseline(), so throwing here would break every route that merely imports it.
+// lazy like getBaseline(), so throwing here would break every route that merely imports it. Only
+// enriching an existing entry, never creating one, is what lets that test still catch a stack
+// whose own baseline disappeared upstream.
 for (const [stack, inheritsFrom] of Object.entries(STACK_CAPABILITY_INHERITS)) {
+  if (!stackCapabilities[stack]) continue;
   stackCapabilities[stack] = [
     ...new Set([
-      ...(stackCapabilities[stack] ?? []),
+      ...stackCapabilities[stack],
       ...(stackCapabilities[inheritsFrom] ?? []),
     ]),
   ];
