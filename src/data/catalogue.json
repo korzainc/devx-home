@@ -1453,6 +1453,11 @@
           "recommended": "shfmt",
           "acceptable": [],
           "required": false
+        },
+        "dependency-updates": {
+          "recommended": "dependabot",
+          "acceptable": ["renovate"],
+          "required": false
         }
       }
     },
