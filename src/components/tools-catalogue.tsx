@@ -16,7 +16,7 @@ import {
   type PublicToolEntry,
 } from "@/lib/catalogue-entries";
 import { filterEntries } from "@/lib/filter";
-import { isRelevantToStack } from "@/lib/gap/relevance";
+import { isRelevantToStack } from "@/lib/relevance";
 import { useCatalogueFilters } from "@/lib/use-catalogue-filters";
 
 // Fixed order: the two sections an engineer touches on every PR come first. Never derived,

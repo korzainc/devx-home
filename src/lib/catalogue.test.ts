@@ -18,7 +18,7 @@ import {
   visibleTools,
 } from "./catalogue";
 import { analyze } from "./gap/analyze";
-import { isRelevantToStack } from "./gap/relevance";
+import { isRelevantToStack } from "./relevance";
 
 const baseline = getBaseline();
 
