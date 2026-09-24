@@ -1,11 +1,12 @@
 {
   "marketplace": "korza-marketplace",
   "placeholder": false,
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "skills": [
     {
       "agents": ["Claude Code", "Codex CLI"],
-      "category": "Document",
+      "audience": ["All"],
+      "category": "Make",
       "description": "Business Requirement Document. Surfaces the specific business problem.",
       "id": "codezen:planned/brd",
       "invocation": "Planned",
@@ -34,7 +35,8 @@
     },
     {
       "agents": ["Claude Code", "Codex CLI"],
-      "category": "Document",
+      "audience": ["All"],
+      "category": "Make",
       "description": "Captures timelines with a high-level breakdown into epics and stories.",
       "id": "codezen:planned/delivery-plan",
       "invocation": "Planned",
@@ -63,7 +65,8 @@
     },
     {
       "agents": ["Claude Code", "Codex CLI"],
-      "category": "Document",
+      "audience": ["Engineering"],
+      "category": "Make",
       "description": "Problem-specific design document, created as needed for a technical challenge.",
       "id": "codezen:planned/design-doc",
       "invocation": "Planned",
@@ -92,7 +95,8 @@
     },
     {
       "agents": ["Claude Code", "Codex CLI"],
-      "category": "Discover",
+      "audience": ["All"],
+      "category": "Understand",
       "description": "High-level domain understanding relevant to the project.",
       "id": "codezen:planned/domain-deep-dive",
       "invocation": "Planned",
@@ -121,7 +125,8 @@
     },
     {
       "agents": ["Claude Code", "Codex CLI"],
-      "category": "Document",
+      "audience": ["All"],
+      "category": "Make",
       "description": "Product Requirement Document. Outlines the solution from a product and user perspective.",
       "id": "codezen:planned/prd",
       "invocation": "Planned",
@@ -150,7 +155,8 @@
     },
     {
       "agents": ["Claude Code", "Codex CLI"],
-      "category": "Document",
+      "audience": ["Engineering"],
+      "category": "Make",
       "description": "Technical Specification. Details the high-level design and technical approach.",
       "id": "codezen:planned/tech-spec",
       "invocation": "Planned",
@@ -180,7 +186,8 @@
     {
       "agents": ["Claude Code", "Codex CLI"],
       "argumentHint": null,
-      "category": "Verify",
+      "audience": ["Engineering"],
+      "category": "Pressure-test",
       "description": "Portable agentic end-to-end testing pipeline. Use when asked to E2E-test a change against the live system — a PR, a branch, a commit range, or uncommitted working-tree changes, of any type (bug fix, feature, refactor, perf optimization, docs/comments) — \"test my PR end-to-end\", \"run agentic e2e\", \"verify this change/diff against the running stack\", \"check this PR for regressions\", \"test my uncommitted changes\". Analyzes a diff (plus any linked ticket/PR context), classifies the change to select the right proof obligation, generates a targeted test, has an isolated auditor agent quality-gate it, executes it against a real local environment with a bounded healing loop, and reports mechanically-verified evidence. Fully project-agnostic — every repo-specific fact is derived live from the repo's own files and cached per-machine, never hardcoded in this document or shipped beside it.",
       "id": "codezen:skills/agentic-e2e",
       "install": {
@@ -216,6 +223,7 @@
     {
       "agents": ["Claude Code", "Codex CLI"],
       "argumentHint": "<feature-description | github-issue-URL | filepath>",
+      "audience": ["All"],
       "category": "Decide",
       "description": "Use when starting a new feature, designing a new system, or refining an underspecified ask — any time a spec is needed before implementation. Symptoms include \"build me X\" without \"for whom\" or \"why now\", missing success criteria, multiple stakeholders with possibly-conflicting intent, or being tempted to write code on implicit assumptions.",
       "id": "codezen:skills/brainstorm",
@@ -252,7 +260,8 @@
     {
       "agents": ["Claude Code", "Codex CLI"],
       "argumentHint": "[spec-file] [PR# | branch | file paths] (all optional)",
-      "category": "Verify",
+      "audience": ["Engineering"],
+      "category": "Pressure-test",
       "description": "Multi-agent parallel code review — spec adherence, standards and best practices, code quality, test coverage, performance, and bug detection.",
       "id": "codezen:skills/code-review",
       "install": {
@@ -288,7 +297,8 @@
     {
       "agents": ["Claude Code", "Codex CLI"],
       "argumentHint": "(no arguments — reads .codezen-review/latest.yaml)",
-      "category": "Build",
+      "audience": ["Engineering"],
+      "category": "Make",
       "description": "Fix findings from /code-review — classifies issues, runs complex fixes in the TDD container on the reviewed branch, applies simple fixes directly. Run after /code-review.",
       "id": "codezen:skills/fix",
       "install": {
@@ -324,7 +334,8 @@
     {
       "agents": ["Claude Code", "Codex CLI"],
       "argumentHint": "[PR# | branch | file paths] (all optional)",
-      "category": "Verify",
+      "audience": ["Engineering"],
+      "category": "Pressure-test",
       "description": "Use when reviewing changed code for security risk before merging — flags injection, auth/authz issues, secrets in source, weak crypto, vulnerable deps, and STRIDE threats on a diff, PR, or file list.",
       "id": "codezen:skills/security-review",
       "install": {
@@ -360,7 +371,8 @@
     {
       "agents": ["Claude Code", "Codex CLI"],
       "argumentHint": "[add|update|status] or empty for interactive",
-      "category": "Coordinate",
+      "audience": ["Engineering"],
+      "category": "Make",
       "description": "Credential manager for CodeZen — set up or update Anthropic key, GitHub auth, git identity, and any project-specific secrets (AWS, DB, Azure, custom tokens). Run any time to add new credentials.",
       "id": "codezen:skills/setup",
       "install": {
@@ -396,7 +408,8 @@
     {
       "agents": ["Claude Code", "Codex CLI"],
       "argumentHint": null,
-      "category": "Coordinate",
+      "audience": ["Engineering"],
+      "category": "Make",
       "description": "Portable system-under-test environment bootstrap. Use when a repo's SUT environment needs to be set up, verified, or diagnosed on this machine (toolchain, runtimes, services, and health — not account credentials or API keys) — \"set up this repo so I can run it\", \"bootstrap my local environment\", \"is my machine ready to run this stack?\", \"install the tools this project needs\", \"connect me to the <env> environment\" — or when another skill (e.g. agentic-e2e) needs the SUT ready before driving it. Discovers requirements from the repo's own manifests, closes tool/version gaps (user-space first, suggest-only for privileged), authenticates to remote targets, and verifies the environment is actually usable. Fully project-agnostic — every repo-specific fact is derived live from the repo's own files and cached per-machine, never hardcoded in this document or shipped beside it.",
       "id": "codezen:skills/sut-bootstrap",
       "install": {
@@ -432,7 +445,8 @@
     {
       "agents": ["Claude Code", "Codex CLI"],
       "argumentHint": "<feature-description | github-issue-URL | filepath> [--use_real_infra=true]",
-      "category": "Build",
+      "audience": ["Engineering"],
+      "category": "Make",
       "description": "Use when implementing any feature or bugfix for a codezen project — accepts a feature description, GitHub issue URL, or file path.",
       "id": "codezen:skills/tdd",
       "install": {
@@ -468,7 +482,8 @@
     {
       "agents": ["Claude Code", "Codex CLI"],
       "argumentHint": "[what the issue is about] [--team NAME] [--project NAME] [--detail] [--dry-run]",
-      "category": "Coordinate",
+      "audience": ["Engineering", "Business"],
+      "category": "Hand over",
       "description": "Use when filing ONE issue to Linear, engineering or not — both when you are about to create an issue mid-task, and when a user asks for one. Writes it so whoever picks it up, person or pipeline, needs nothing else. Triggers on \"file an issue\", \"create a Linear ticket\", \"raise this as an issue\", and on your own decision to record work you are not doing now. For splitting a plan into many issues, use to-tickets instead.",
       "id": "codezen:skills/to-issue",
       "install": {
@@ -504,7 +519,8 @@
     {
       "agents": ["Claude Code", "Codex CLI"],
       "argumentHint": "FILEPATH [--to PARENT_PAGE_URL] [--update PAGE_URL] [--title TITLE] [--dry-run]",
-      "category": "Document",
+      "audience": ["All"],
+      "category": "Hand over",
       "description": "Use when a local markdown document needs to exist as a Notion page — publishes any markdown file to Notion, converting to Notion-flavored markdown, and reports the page URL. Never modifies the file it publishes. Triggers on \"publish to Notion\", \"mirror this to Notion\", \"put this doc in Notion\". Works standalone, and can be called by any skill that produces a document worth mirroring — designs, specs, ADRs, review reports.",
       "id": "codezen:skills/to-notion",
       "install": {
@@ -540,7 +556,8 @@
     {
       "agents": ["Claude Code", "Codex CLI"],
       "argumentHint": "[PR number or branch] [--dry-run]",
-      "category": "Document",
+      "audience": ["Engineering"],
+      "category": "Hand over",
       "description": "Use when writing or rewriting a pull request description — when opening a pull request, when asked to write or shorten a PR body, or when a reviewer says a description is too long or hard to follow. Writes for the reviewer who is about to read the diff. To file an issue instead, use to-issue.",
       "id": "codezen:skills/to-pr",
       "install": {
@@ -576,7 +593,8 @@
     {
       "agents": ["Claude Code"],
       "argumentHint": null,
-      "category": "Document",
+      "audience": ["All"],
+      "category": "Make",
       "description": "Remove signs of AI-generated writing from text. Use when editing or reviewing text to make it sound more natural and human-written. Based on Wikipedia's comprehensive \"Signs of AI writing\" guide. Detects and fixes patterns including: inflated symbolism, promotional language, superficial -ing analyses, vague attributions, em dash overuse, rule of three, AI vocabulary words, passive voice, negative parallelisms, and filler phrases.",
       "id": "humanizer:.",
       "install": {
@@ -611,7 +629,8 @@
     {
       "agents": ["Claude Code"],
       "argumentHint": null,
-      "category": "Decide",
+      "audience": ["Engineering"],
+      "category": "Understand",
       "description": "Shared vocabulary for designing deep modules. Use when the user wants to design or improve a module's interface, find deepening opportunities, decide where a seam goes, make code more testable or AI-navigable, or when another skill needs the deep-module vocabulary.",
       "id": "mattpocock-skills:skills/engineering/codebase-design",
       "install": {
@@ -646,7 +665,8 @@
     {
       "agents": ["Claude Code"],
       "argumentHint": null,
-      "category": "Build",
+      "audience": ["Engineering"],
+      "category": "Understand",
       "description": "Diagnosis loop for hard bugs and performance regressions. Use when the user says \"diagnose\"/\"debug this\", or reports something broken/throwing/failing/slow.",
       "id": "mattpocock-skills:skills/engineering/diagnosing-bugs",
       "install": {
@@ -681,7 +701,8 @@
     {
       "agents": ["Claude Code"],
       "argumentHint": null,
-      "category": "Decide",
+      "audience": ["Engineering"],
+      "category": "Understand",
       "description": "Build and sharpen a project's domain model. Use when discussing codebase terminology, writing or editing a CONTEXT.md, or recording or editing an ADR.",
       "id": "mattpocock-skills:skills/engineering/domain-modeling",
       "install": {
@@ -716,7 +737,8 @@
     {
       "agents": ["Claude Code"],
       "argumentHint": null,
-      "category": "Discover",
+      "audience": ["All"],
+      "category": "Understand",
       "description": "Investigate a question against high-trust primary sources and capture the findings as a Markdown file in the repo. Use when the user wants a topic researched, docs or API facts gathered, or reading legwork delegated to a background agent.",
       "id": "mattpocock-skills:skills/engineering/research",
       "install": {
@@ -751,7 +773,8 @@
     {
       "agents": ["Claude Code"],
       "argumentHint": null,
-      "category": "Coordinate",
+      "audience": ["Engineering", "Business"],
+      "category": "Hand over",
       "description": "Break a plan, spec, or the current conversation into a set of tracer-bullet tickets, each declaring its blocking edges, published to the configured tracker (edges as text in one file per ticket locally, or native blocking links on a real tracker).",
       "id": "mattpocock-skills:skills/engineering/to-tickets",
       "install": {
@@ -786,7 +809,8 @@
     {
       "agents": ["Claude Code"],
       "argumentHint": null,
-      "category": "Coordinate",
+      "audience": ["Engineering", "Business"],
+      "category": "Hand over",
       "description": "Move issues and external PRs through a state machine of triage roles, categorise, verify, grill if needed, and write agent-ready briefs.",
       "id": "mattpocock-skills:skills/engineering/triage",
       "install": {
@@ -821,7 +845,8 @@
     {
       "agents": ["Claude Code"],
       "argumentHint": null,
-      "category": "Decide",
+      "audience": ["All"],
+      "category": "Pressure-test",
       "description": "Grill the user relentlessly about a plan, decision, or idea. Use when the user wants to stress-test their thinking, or uses any 'grill' trigger phrases.",
       "id": "mattpocock-skills:skills/productivity/grilling",
       "install": {
@@ -855,7 +880,8 @@
     {
       "agents": ["Claude Code"],
       "argumentHint": "What would you like to learn about?",
-      "category": "Coordinate",
+      "audience": ["All"],
+      "category": "Understand",
       "description": "Teach the user a new skill or concept, within this workspace.",
       "id": "mattpocock-skills:skills/productivity/teach",
       "install": {
@@ -889,7 +915,8 @@
     {
       "agents": ["Claude Code"],
       "argumentHint": null,
-      "category": "Document",
+      "audience": ["Sales", "Business"],
+      "category": "Hand over",
       "description": "Turn a decision you can't fully answer into a questionnaire for someone else to fill in.",
       "id": "mattpocock-skills:skills/productivity/to-questionnaire",
       "install": {
@@ -923,7 +950,8 @@
     {
       "agents": ["Claude Code"],
       "argumentHint": null,
-      "category": "Coordinate",
+      "audience": ["All"],
+      "category": "Hand over",
       "description": "Stop. That last message did not land: re-pitch it.",
       "id": "mattpocock-skills:skills/productivity/wait-what",
       "install": {
@@ -957,7 +985,8 @@
     {
       "agents": ["Claude Code"],
       "argumentHint": null,
-      "category": "Document",
+      "audience": ["All"],
+      "category": "Make",
       "description": "Writing documents for agents. Use when creating or editing skills, or modifying AGENTS.md or CLAUDE.md.",
       "id": "mattpocock-skills:skills/productivity/writing-for-agents",
       "install": {
@@ -992,7 +1021,8 @@
     {
       "agents": ["Claude Code", "Codex CLI"],
       "argumentHint": null,
-      "category": "Build",
+      "audience": ["Engineering"],
+      "category": "Make",
       "description": "Use when you have a written implementation plan to execute in a separate session with review checkpoints",
       "id": "superpowers:skills/executing-plans",
       "install": {
@@ -1027,7 +1057,8 @@
     {
       "agents": ["Claude Code", "Codex CLI"],
       "argumentHint": null,
-      "category": "Coordinate",
+      "audience": ["Engineering"],
+      "category": "Hand over",
       "description": "Use when implementation is complete, all tests pass, and you need to decide how to integrate the work",
       "id": "superpowers:skills/finishing-a-development-branch",
       "install": {
@@ -1059,7 +1090,8 @@
     {
       "agents": ["Claude Code", "Codex CLI"],
       "argumentHint": null,
-      "category": "Verify",
+      "audience": ["Engineering"],
+      "category": "Pressure-test",
       "description": "Use when about to claim work is complete, fixed, or passing, before committing or creating PRs - requires running verification commands and confirming output before making any success claims; evidence before assertions always",
       "id": "superpowers:skills/verification-before-completion",
       "install": {
@@ -1094,7 +1126,8 @@
     {
       "agents": ["Claude Code", "Codex CLI"],
       "argumentHint": null,
-      "category": "Document",
+      "audience": ["All"],
+      "category": "Make",
       "description": "Use when you have a spec or requirements for a multi-step task, before touching code",
       "id": "superpowers:skills/writing-plans",
       "install": {
