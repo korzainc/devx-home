@@ -288,12 +288,8 @@ export const plugins: PluginEntry[] = (
   audiences: pluginAudiences[plugin.id] ?? AUDIENCE_FALLBACK,
 }));
 
-/** Exported so the overwrite can be exercised on a row the live index does not contain.
- *
- *  It used to be checked against `skills.json` directly, by naming a category the generator
- *  emitted and the overlay did not. Upstream now emits this same vocabulary, so there is no
- *  value left for the two to disagree about and nothing observable to assert. A caller passing
- *  its own rows is the only way left to tell replacing from merging. */
+/** Exported so the overwrite can be tested on a row the live index does not contain: upstream
+ *  emits this same vocabulary now, so no live row disagrees with the overlay. */
 export function overlaySkills(
   rows: Omit<SkillEntry, "audiences" | "category">[],
 ): SkillEntry[] {

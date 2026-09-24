@@ -37,21 +37,12 @@ describe("skill categories", () => {
     }
   });
 
-  /**
-   * The merge in catalogue.ts spreads the raw row first and overwrites `category`. Drop that line
-   * and every assertion above still passes, because the overlay itself is untouched.
-   *
-   * These run on a fixture rather than on `skills.json`. The check used to name `Build` — a value
-   * the generator emitted and the overlay could not produce — but upstream now emits this same
-   * five-value vocabulary, so the two no longer disagree anywhere and there is nothing left in the
-   * live index to observe. A row this file supplies is what keeps the question askable.
-   */
+  // A fixture, not the live index: upstream emits the same five values now, so no live row
+  // disagrees with the overlay and nothing there can show the overwrite happening.
   const upstreamRow = (id: string) => ({
     ...skillsData.skills.find((skill) => skill.status !== "Planned")!,
     id,
-    // Not in CATEGORIES, so the overlay can never produce it: whatever comes out of the merge
-    // came from the overlay, not from the row.
-    category: "Build",
+    category: "Build", // outside CATEGORIES, so the overlay can never produce it
   });
 
   it("replaces the generator's taxonomy rather than sitting beside it", () => {
@@ -67,8 +58,6 @@ describe("skill categories", () => {
   });
 
   it("falls back rather than keeping the generator's value for an id it does not name", () => {
-    // The other half of replacing: an unclassified row renders under the fallback, which is what
-    // makes "covers every live skill" above the test that notices a sync, rather than the page.
     const [merged] = overlaySkills([
       upstreamRow("nobody:skills/not-in-the-overlay"),
     ] as Parameters<typeof overlaySkills>[0]);
