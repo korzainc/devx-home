@@ -332,16 +332,27 @@ export const plugins: PluginEntry[] = (
   audiences: pluginAudiences[plugin.id] ?? AUDIENCE_FALLBACK,
 }));
 
-export const skills: SkillEntry[] = (
-  skillsData.skills as Omit<SkillEntry, "audiences" | "category">[]
-)
-  .filter((skill) => skill.status !== "Planned")
-  .map((skill) => ({
-    ...skill,
-    audiences: skillAudiences[skill.id] ?? AUDIENCE_FALLBACK,
-    // Spread first, so the generator's own category is overwritten rather than merged beside.
-    category: skillCategories[skill.id] ?? CATEGORY_FALLBACK,
-  }));
+/** A row as the generator emits it: carrying its own `category`, which the overlay replaces. */
+export type GeneratedSkill = Omit<SkillEntry, "audiences" | "category"> & {
+  category: string;
+};
+
+/** Exported so the overwrite can be tested on a row the live index does not contain: upstream
+ *  emits this same vocabulary now, so no live row disagrees with the overlay. */
+export function overlaySkills(rows: GeneratedSkill[]): SkillEntry[] {
+  return rows
+    .filter((skill) => skill.status !== "Planned")
+    .map((skill) => ({
+      ...skill,
+      audiences: skillAudiences[skill.id] ?? AUDIENCE_FALLBACK,
+      // Spread first, so the generator's own category is overwritten rather than merged beside.
+      category: skillCategories[skill.id] ?? CATEGORY_FALLBACK,
+    }));
+}
+
+export const skills: SkillEntry[] = overlaySkills(
+  skillsData.skills as GeneratedSkill[],
+);
 
 export function skillsForPlugin(pluginId: string): SkillEntry[] {
   return skills.filter((skill) => skill.plugin === pluginId);

@@ -3,10 +3,11 @@ import skillsData from "@/data/skills.json";
 import { AUDIENCES } from "@/data/skill-audiences";
 import {
   CATEGORIES,
+  CATEGORY_FALLBACK,
   CATEGORY_NOTES,
   skillCategories,
 } from "@/data/skill-categories";
-import { skills } from "@/lib/catalogue";
+import { overlaySkills, skills, type GeneratedSkill } from "@/lib/catalogue";
 import { matchesAudience } from "@/lib/filter";
 
 // This overlay replaces a field the generator already fills, so it drifts more quietly than one
@@ -36,14 +37,35 @@ describe("skill categories", () => {
     }
   });
 
+  // A fixture, not the live index: upstream emits the same five values now, so no live row
+  // disagrees with the overlay and nothing there can show the overwrite happening.
+  const upstreamRow = (id: string) =>
+    ({
+      ...skillsData.skills.find((skill) => skill.status !== "Planned")!,
+      id,
+      category: "Build", // outside CATEGORIES, so the overlay can never produce it
+    }) as GeneratedSkill;
+
   it("replaces the generator's taxonomy rather than sitting beside it", () => {
-    // The merge in catalogue.ts spreads the raw row first and overwrites `category`. Drop that
-    // line and every assertion above still passes, because the overlay itself is untouched.
-    const upstream = new Set(skillsData.skills.map((skill) => skill.category));
-    const rendered = new Set(skills.map((skill) => skill.category));
-    expect([...rendered].sort()).toEqual([...CATEGORIES].sort());
-    expect(upstream.has("Build")).toBe(true);
-    expect(rendered.has("Build" as never)).toBe(false);
+    const classified = Object.keys(skillCategories).sort()[0];
+    const [merged] = overlaySkills([upstreamRow(classified)]);
+
+    expect(merged.category).toBe(skillCategories[classified]);
+  });
+
+  it("falls back rather than keeping the generator's value for an id it does not name", () => {
+    const [merged] = overlaySkills([
+      upstreamRow("nobody:skills/not-in-the-overlay"),
+    ]);
+
+    expect(merged.category).toBe(CATEGORY_FALLBACK);
+  });
+
+  it("renders no value CATEGORIES does not define", () => {
+    const foreign = [...new Set(skills.map((skill) => skill.category))].filter(
+      (category) => !CATEGORIES.includes(category),
+    );
+    expect(foreign).toEqual([]);
   });
 
   it("puts at least one skill under every heading", () => {
