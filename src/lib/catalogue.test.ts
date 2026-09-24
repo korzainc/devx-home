@@ -3,6 +3,7 @@ import skillsData from "@/data/skills.json";
 import {
   bundles,
   ecosystemLabel,
+  flattenBaseline,
   getBaseline,
   getPlugin,
   installCommands,
@@ -10,10 +11,12 @@ import {
   marketplaceRepo,
   plugins,
   publicToolEntry,
+  type RealCatalogue,
   shortAgents,
   tools,
   visibleTools,
 } from "./catalogue";
+import { analyze } from "./gap/analyze";
 
 const baseline = getBaseline();
 
@@ -203,7 +206,15 @@ describe("flattenBaseline", () => {
   it("includes every real ecosystem, none dropped", () => {
     const ids = baseline.stacks.map((stack) => stack.id).sort();
     expect(ids).toEqual(
-      ["docker", "go", "java", "javascript", "python", "typescript"].sort(),
+      [
+        "docker",
+        "go",
+        "java",
+        "javascript",
+        "python",
+        "shell",
+        "typescript",
+      ].sort(),
     );
   });
 
@@ -220,8 +231,31 @@ describe("flattenBaseline", () => {
     expect(ecosystemLabel("go")).toBe("Go");
   });
 
+  it("resolves shell to its label", () => {
+    expect(ecosystemLabel("shell")).toBe("Shell");
+  });
+
   it("throws rather than shipping a raw id for an unpinned ecosystem", () => {
     expect(() => ecosystemLabel("rust")).toThrow(/rust/);
+  });
+
+  it("carries a baseline's extensions through, not just its markers", () => {
+    const catalogue = {
+      taxonomy: { categories: {}, capabilities: {} },
+      tools: [],
+      baselines: {
+        go: {
+          ecosystem: "go",
+          markers: [],
+          extensions: [".sh"],
+          baseline: {},
+        },
+      },
+      bundles: [],
+    };
+    const result = flattenBaseline(catalogue as unknown as RealCatalogue);
+    const goStack = result.stacks.find((stack) => stack.id === "go");
+    expect(goStack?.extensions).toEqual([".sh"]);
   });
 });
 
@@ -316,6 +350,40 @@ describe("install commands", () => {
   it("looks a plugin up by id", () => {
     expect(getPlugin("superpowers")?.id).toBe("superpowers");
     expect(getPlugin("not-a-plugin")).toBeUndefined();
+  });
+});
+
+describe("shell detection against the real catalogue", () => {
+  const realBaseline = getBaseline();
+
+  it("detects shell and recommends shellcheck and shfmt for a repo with .sh files", () => {
+    const snapshot = {
+      ref: { provider: "github" as const, owner: "korzainc", repo: "example" },
+      defaultBranch: "main",
+      paths: ["deploy.sh", "README.md"],
+      files: {},
+    };
+    const analysis = analyze(snapshot, { tools, baseline: realBaseline });
+
+    expect(analysis.stacks.map((s) => s.id)).toContain("shell");
+    const recommendedIds = analysis.categories
+      .flatMap((c) => c.capabilities)
+      .filter((capability) => !capability.satisfied)
+      .flatMap((capability) => capability.recommended.map((r) => r.id));
+    expect(recommendedIds).toContain("shellcheck");
+    expect(recommendedIds).toContain("shfmt");
+  });
+
+  it("does not detect shell for a repo with no .sh files", () => {
+    const snapshot = {
+      ref: { provider: "github" as const, owner: "korzainc", repo: "example" },
+      defaultBranch: "main",
+      paths: ["package.json", "README.md"],
+      files: { "package.json": "{}" },
+    };
+    const analysis = analyze(snapshot, { tools, baseline: realBaseline });
+
+    expect(analysis.stacks.map((s) => s.id)).not.toContain("shell");
   });
 });
 

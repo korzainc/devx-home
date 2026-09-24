@@ -106,6 +106,7 @@ const STACK_LABELS: Record<string, string> = {
   javascript: "JavaScript",
   python: "Python",
   typescript: "TypeScript",
+  shell: "Shell",
   any: "Language-agnostic",
 };
 

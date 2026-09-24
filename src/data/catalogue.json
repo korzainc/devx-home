@@ -72,7 +72,15 @@
         "label": "Automated Dependency Updates"
       }
     },
-    "languages": ["java", "javascript", "typescript", "go", "python", "*"],
+    "languages": [
+      "java",
+      "javascript",
+      "typescript",
+      "go",
+      "python",
+      "shell",
+      "*"
+    ],
     "buildSystems": ["maven", "gradle", "npm", "*"]
   },
   "tools": {
@@ -85,7 +93,7 @@
         "Lints and formats JS/TS in one tool instead of maintaining ESLint and Prettier configs side by side",
         "Runs as a single native binary, so checks and formatting stay fast even on large repos"
       ],
-      "capabilities": ["lint-style", "format"],
+      "capabilities": ["lint-style", "format", "lint-bugs"],
       "applicability": {
         "languages": ["javascript", "typescript"],
         "buildSystems": ["npm"]
@@ -284,7 +292,7 @@
         "Enforces one Go style and lint ruleset across a repo instead of relying on review comments",
         "Runs the same linters locally and in CI through one config file"
       ],
-      "capabilities": ["lint-style"],
+      "capabilities": ["lint-style", "lint-bugs"],
       "applicability": {
         "languages": ["go"],
         "buildSystems": ["*"]
@@ -737,7 +745,7 @@
         "Its format subcommand is Black-compatible, which is why there's no separate Black entry in this catalogue",
         "Replaces a stack of older tools (Flake8, isort, pyupgrade) with one config surface"
       ],
-      "capabilities": ["lint-style", "format"],
+      "capabilities": ["lint-style", "format", "lint-bugs"],
       "applicability": {
         "languages": ["python"],
         "buildSystems": ["*"]
@@ -828,6 +836,82 @@
       },
       "overlaps": ["codeql"],
       "docsUrl": "https://semgrep.dev"
+    },
+    "shellcheck": {
+      "id": "shellcheck",
+      "name": "ShellCheck",
+      "summary": "Static analysis for shell scripts, catches bugs and portability issues a shell interpreter would only surface at runtime.",
+      "problem": "Shell scripts fail in ways the shell itself won't warn about until the failing line actually runs, like an unquoted expansion or an unchecked cd.",
+      "benefits": [
+        "Catches real bugs (unquoted expansions, unchecked cd, indirect exit-code checks) before a script ever runs",
+        "The de-facto standard for shell static analysis, pre-installed on GitHub-hosted runners",
+        "Catches bug patterns and style issues in one pass, so a separate shell style linter isn't needed"
+      ],
+      "capabilities": ["lint-style", "lint-bugs"],
+      "applicability": {
+        "languages": ["shell"],
+        "buildSystems": ["*"]
+      },
+      "install": [
+        {
+          "type": "brew",
+          "formula": "shellcheck"
+        },
+        {
+          "type": "docker",
+          "image": "koalaman/shellcheck",
+          "tag": "v0.11.0"
+        }
+      ],
+      "detection": {
+        "github": {
+          "ciUses": ["ludeeus/action-shellcheck"],
+          "commands": ["shellcheck"]
+        },
+        "azureDevops": {},
+        "configFiles": [".shellcheckrc", "shellcheckrc"],
+        "manifestDeps": []
+      },
+      "overlaps": [],
+      "docsUrl": "https://www.shellcheck.net"
+    },
+    "shfmt": {
+      "id": "shfmt",
+      "name": "shfmt",
+      "summary": "Formatter for shell scripts, built on a real shell parser rather than regexes.",
+      "problem": "Shell scripts with no canonical style make reformat-only churn indistinguishable from a real change in review.",
+      "benefits": [
+        "Diff mode (-d) reports formatting drift without rewriting files, the right mode for CI",
+        "Built on a real POSIX/bash parser, not line-based regex heuristics"
+      ],
+      "capabilities": ["format"],
+      "applicability": {
+        "languages": ["shell"],
+        "buildSystems": ["*"]
+      },
+      "install": [
+        {
+          "type": "script",
+          "url": "https://github.com/mvdan/sh/releases/download/v3.14.1/shfmt_v3.14.1_linux_amd64",
+          "version": "3.14.1",
+          "sha256": "76e77641faa025814b77f153b29796b8e6fa2fca03e0c76a691608b86c7ea7bf"
+        },
+        {
+          "type": "brew",
+          "formula": "shfmt"
+        }
+      ],
+      "detection": {
+        "github": {
+          "ciUses": ["mfinelli/setup-shfmt"],
+          "commands": ["shfmt", "shfmt -d"]
+        },
+        "azureDevops": {},
+        "configFiles": [],
+        "manifestDeps": []
+      },
+      "overlaps": [],
+      "docsUrl": "https://github.com/mvdan/sh"
     },
     "spotbugs": {
       "id": "spotbugs",
@@ -1083,6 +1167,7 @@
     "docker": {
       "ecosystem": "docker",
       "markers": ["Dockerfile"],
+      "extensions": [],
       "baseline": {
         "secrets": {
           "recommended": "ci-base-checks",
@@ -1124,6 +1209,7 @@
     "go": {
       "ecosystem": "go",
       "markers": ["go.mod"],
+      "extensions": [],
       "baseline": {
         "secrets": {
           "recommended": "ci-base-checks",
@@ -1150,6 +1236,11 @@
           "acceptable": [],
           "required": true
         },
+        "lint-bugs": {
+          "recommended": "golangci-lint",
+          "acceptable": [],
+          "required": true
+        },
         "unit-tests": {
           "recommended": "go-test",
           "acceptable": [],
@@ -1170,6 +1261,7 @@
     "java": {
       "ecosystem": "java",
       "markers": ["pom.xml", "build.gradle", "build.gradle.kts"],
+      "extensions": [],
       "baseline": {
         "secrets": {
           "recommended": "ci-base-checks",
@@ -1216,6 +1308,7 @@
     "javascript": {
       "ecosystem": "javascript",
       "markers": ["package.json"],
+      "extensions": [],
       "baseline": {
         "secrets": {
           "recommended": "ci-base-checks",
@@ -1272,6 +1365,7 @@
     "python": {
       "ecosystem": "python",
       "markers": ["pyproject.toml", "setup.py", "requirements.txt", "Pipfile"],
+      "extensions": [],
       "baseline": {
         "secrets": {
           "recommended": "ci-base-checks",
@@ -1298,6 +1392,11 @@
           "acceptable": [],
           "required": true
         },
+        "lint-bugs": {
+          "recommended": "ruff",
+          "acceptable": [],
+          "required": true
+        },
         "format": {
           "recommended": "ruff",
           "acceptable": [],
@@ -1320,9 +1419,47 @@
         }
       }
     },
+    "shell": {
+      "ecosystem": "shell",
+      "markers": [],
+      "extensions": [".sh", ".bash"],
+      "baseline": {
+        "secrets": {
+          "recommended": "ci-base-checks",
+          "acceptable": ["gitleaks"],
+          "required": true
+        },
+        "sast": {
+          "recommended": "ci-base-checks",
+          "acceptable": ["codeql"],
+          "required": true
+        },
+        "iac-config": {
+          "recommended": "ci-base-checks",
+          "acceptable": [],
+          "required": true
+        },
+        "lint-style": {
+          "recommended": "shellcheck",
+          "acceptable": [],
+          "required": true
+        },
+        "lint-bugs": {
+          "recommended": "shellcheck",
+          "acceptable": [],
+          "required": true
+        },
+        "format": {
+          "recommended": "shfmt",
+          "acceptable": [],
+          "required": false
+        }
+      }
+    },
     "typescript": {
       "ecosystem": "typescript",
       "markers": ["tsconfig.json"],
+      "extensions": [],
       "baseline": {
         "typecheck": {
           "recommended": "typescript",
