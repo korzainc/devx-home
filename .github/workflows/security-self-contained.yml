@@ -73,6 +73,19 @@ jobs:
             korzacitools.azurecr.io/ci-common:0.4.0-rc2@sha256:bd59b2d8aec328d2b266847ee1f42a3e7993321f3d1ed8553eae47a24f3de373 \
             ci-run report --in /out --event-file /event.json --repo-root /src
 
+      - name: Check whether the pnpm license-only rootfs scan actually ran
+        if: always()
+        run: |
+          F="$RUNNER_TEMP/ci-scratch/ci-common/sca.node.license.trivy.json"
+          if [ -f "$F" ]; then
+            echo "PRESENT: $F - the dedicated pnpm license rootfs scan ran"
+            ls -la "$F"
+          else
+            echo "ABSENT: $F - the dedicated pnpm license rootfs scan did NOT run"
+          fi
+          echo "--- full scratch dir listing ---"
+          ls -la "$RUNNER_TEMP/ci-scratch/ci-common/" || echo "(scratch dir not found)"
+
       - name: Upload SBOM
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
