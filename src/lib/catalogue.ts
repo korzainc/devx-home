@@ -94,6 +94,47 @@ export type RealCatalogue = {
 
 const realCatalogue = realCatalogueData as RealCatalogue;
 
+/** Stacks whose baseline is a delta over another's: typescript names only `typecheck`, but a
+ * real TypeScript repo always co-detects as JavaScript too (tsconfig.json never appears
+ * without package.json), and analyze() already unions their expects. This overlay makes the
+ * static /tools filter agree with that.
+ *
+ * The real fix is giving typescript.json its own expects upstream; not done here to keep this
+ * change scoped to the filter. */
+const STACK_CAPABILITY_INHERITS: Record<string, string> = {
+  typescript: "javascript",
+};
+
+/**
+ * Which capability ids each real baseline names, keyed by stack id. Decides whether a
+ * universal tool (applicability "*") is actually relevant to a stack filter, not merely
+ * applicable everywhere.
+ *
+ * Derived directly from the raw catalogue data, not through getBaseline(): that function is
+ * deliberately lazy, so an unpinned ecosystem label only fails routes that read the baseline,
+ * not every route that imports this module.
+ */
+export const stackCapabilities: Record<string, string[]> = Object.fromEntries(
+  Object.values(realCatalogue.baselines).map((ecosystem) => [
+    ecosystem.ecosystem,
+    Object.keys(ecosystem.baseline),
+  ]),
+);
+// A broken mapping here (a stack or its inheritsFrom missing from stackCapabilities) is caught
+// by catalogue.test.ts's stack-visibility test, not a throw: this module is deliberately not
+// lazy like getBaseline(), so throwing here would break every route that merely imports it. Only
+// enriching an existing entry, never creating one, is what lets that test still catch a stack
+// whose own baseline disappeared upstream.
+for (const [stack, inheritsFrom] of Object.entries(STACK_CAPABILITY_INHERITS)) {
+  if (!stackCapabilities[stack]) continue;
+  stackCapabilities[stack] = [
+    ...new Set([
+      ...stackCapabilities[stack],
+      ...(stackCapabilities[inheritsFrom] ?? []),
+    ]),
+  ];
+}
+
 /** Every real capability id, straight off the raw import - not the `as RealCatalogue` cast
  * above, which widens the keys to `string`. A caller naming one by hand (the homepage's sample
  * run) gets a compile error the moment the taxonomy drops or renames it, instead of a runtime

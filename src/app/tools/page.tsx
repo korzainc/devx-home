@@ -5,6 +5,7 @@ import { ToolsCatalogue } from "@/components/tools-catalogue";
 import {
   capabilityLabels,
   publicToolEntry,
+  stackCapabilities,
   visibleTools,
 } from "@/lib/catalogue";
 import { parseFilterParam } from "@/lib/filter";
@@ -24,6 +25,7 @@ async function Catalogue({ searchParams }: Params) {
     <ToolsCatalogue
       entries={visibleTools.map(publicToolEntry)}
       capabilityLabels={capabilityLabels}
+      stackCapabilities={stackCapabilities}
       initialStacks={parseFilterParam(params.stack)}
       initialChecks={parseFilterParam(params.check)}
     />
@@ -50,6 +52,7 @@ export default function ToolsPage({ searchParams }: Params) {
           <ToolsCatalogue
             entries={visibleTools.map(publicToolEntry)}
             capabilityLabels={capabilityLabels}
+            stackCapabilities={stackCapabilities}
           />
         }
       >

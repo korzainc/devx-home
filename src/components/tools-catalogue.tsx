@@ -16,6 +16,7 @@ import {
   type PublicToolEntry,
 } from "@/lib/catalogue-entries";
 import { filterEntries } from "@/lib/filter";
+import { isRelevantToStack } from "@/lib/relevance";
 import { useCatalogueFilters } from "@/lib/use-catalogue-filters";
 
 // Fixed order: the two sections an engineer touches on every PR come first. Never derived,
@@ -116,6 +117,23 @@ function stackLabel(value: string): string {
   return STACK_LABELS[value] ?? value;
 }
 
+// Stack matching is a union, not an intersection: some baselines (docker, go, java,
+// javascript, python) require capabilities that only a universal tool covers, so an exact
+// match would drop them. A universal tool counts as a match only if the picked stack's own
+// baseline names one of its capabilities, from `stackCapabilities` in catalogue.ts.
+function matchesStackFilter(
+  entry: PublicToolEntry | PublicBundleEntry,
+  pickedStacks: string[],
+  stackCapabilities: Record<string, string[]>,
+): boolean {
+  if (pickedStacks.length === 0) return true;
+  if (entry.stacks.some((stack) => pickedStacks.includes(stack))) return true;
+  if (!entry.stacks.includes(ANY)) return false;
+  return pickedStacks.some((stack) =>
+    isRelevantToStack(entry, stackCapabilities[stack] ?? []),
+  );
+}
+
 function ToolCard({
   tool,
   labels,
@@ -146,6 +164,7 @@ function ToolCard({
 export function ToolsCatalogue({
   entries,
   capabilityLabels = {},
+  stackCapabilities,
   initialStacks = [],
   initialChecks = [],
 }: {
@@ -153,6 +172,10 @@ export function ToolsCatalogue({
   /** Handed down from the server: `@/lib/catalogue` is server-only, so this cannot be looked up
    *  here. An id with no entry falls back to showing itself. */
   capabilityLabels?: Record<string, string>;
+  /** Which capability ids each stack's baseline actually names, from `@/lib/catalogue`.
+   *  Required with no default: a missing value would silently drop every universal tool from
+   *  every stack filter rather than degrade visibly. */
+  stackCapabilities: Record<string, string[]>;
   initialStacks?: string[];
   initialChecks?: string[];
 }): ReactNode {
@@ -194,20 +217,25 @@ export function ToolsCatalogue({
   const pickedStacks = pickedFor("stack");
   const pickedChecks = pickedFor("check");
 
-  // A tool with two capabilities in one group counts once, so the number beside a group is the
-  // number of cards picking it produces. Left in CHECK_GROUPS order rather than sorted: the row
-  // runs write-time checks first, then security, then the slower supply-chain ones.
+  // A tool with two capabilities in one group counts once. Reflects the stack filter but not the
+  // search query, same as skills' facet counts don't track every filter dimension live either.
+  // Left in CHECK_GROUPS order rather than sorted: the row runs write-time checks first, then
+  // security, then the slower supply-chain ones.
   const checkOptions = useMemo(
     (): [string, number][] =>
       CHECK_GROUPS.map((group) => [
         group.id,
-        shown.filter((entry) =>
-          facetValues(entry, "capabilities").some((value) =>
-            group.capabilities.includes(value),
-          ),
-        ).length,
+        shown.filter((entry) => {
+          const matchesGroup = facetValues(entry, "capabilities").some(
+            (value) => group.capabilities.includes(value),
+          );
+          return (
+            matchesGroup &&
+            matchesStackFilter(entry, pickedStacks, stackCapabilities)
+          );
+        }).length,
       ]),
-    [shown],
+    [shown, pickedStacks, stackCapabilities],
   );
 
   const visible = useMemo(() => {
@@ -223,20 +251,13 @@ export function ToolsCatalogue({
       selected: { capabilities: wanted },
       query,
     });
-    // Stack is a union, not an intersection, and is handled here rather than through
-    // filterEntries's generic facet path because of it: 3 of the 5 universal tools carry a
-    // `required: true` capability in the docker, go, java, javascript and python baselines, so
-    // exact-matching would drop mandatory checks out of a stack-filtered view. The one baseline
-    // that would survive it is typescript, which pins only `typecheck`.
-    // One `.filter` over one list, so a tool that matches two of the picked languages is still
-    // returned once.
-    return byCapAndQuery.filter(
-      (entry) =>
-        pickedStacks.length === 0 ||
-        entry.stacks.some((stack) => pickedStacks.includes(stack)) ||
-        entry.stacks.includes(ANY),
+    // Stack matching itself lives in `matchesStackFilter`, shared with `checkOptions`, rather
+    // than through filterEntries's generic facet path or repeated here. One `.filter` over one
+    // list, so a tool that matches two of the picked languages is still returned once.
+    return byCapAndQuery.filter((entry) =>
+      matchesStackFilter(entry, pickedStacks, stackCapabilities),
     );
-  }, [shown, pickedChecks, query, pickedStacks]);
+  }, [shown, pickedChecks, query, pickedStacks, stackCapabilities]);
 
   const sections = SECTIONS.map((section) => ({
     label: section.label,

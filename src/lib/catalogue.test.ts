@@ -13,10 +13,12 @@ import {
   publicToolEntry,
   type RealCatalogue,
   shortAgents,
+  stackCapabilities,
   tools,
   visibleTools,
 } from "./catalogue";
 import { analyze } from "./gap/analyze";
+import { isRelevantToStack } from "./relevance";
 
 const baseline = getBaseline();
 
@@ -218,6 +220,21 @@ describe("flattenBaseline", () => {
     );
   });
 
+  it("gives shell the security floor, not just its linters", () => {
+    const shell = baseline.stacks.find((stack) => stack.id === "shell");
+    expect(Object.keys(shell!.expects).sort()).toEqual(
+      [
+        "dependency-updates",
+        "format",
+        "iac-config",
+        "lint-bugs",
+        "lint-style",
+        "sast",
+        "secrets",
+      ].sort(),
+    );
+  });
+
   it("labels ecosystems from the pinned map, not title-casing", () => {
     // "typescript" is exactly the case title-casing gets wrong, which is why the label map
     // is pinned rather than derived.
@@ -277,6 +294,58 @@ describe("visibleTools", () => {
     const visibleIds = new Set(visibleTools.map((tool) => tool.id));
     for (const bundle of bundles) {
       expect(visibleIds.has(bundle.id)).toBe(true);
+    }
+  });
+
+  it("shows a universal tool under a stack filter only where that stack's baseline names its capability", () => {
+    const universal = visibleTools.filter((tool) =>
+      tool.stacks.includes("any"),
+    );
+    expect(universal).toHaveLength(5);
+    const shownPerStack = Object.fromEntries(
+      baseline.stacks.map((stack) => [
+        stack.id,
+        universal
+          .filter((tool) =>
+            isRelevantToStack(tool, stackCapabilities[stack.id] ?? []),
+          )
+          .map((tool) => tool.id)
+          .sort(),
+      ]),
+    );
+
+    const allFive = [
+      "ci-base-checks",
+      "codeql",
+      "dependabot",
+      "gitleaks",
+      "renovate",
+    ].sort();
+    expect(shownPerStack).toEqual({
+      docker: allFive,
+      go: allFive,
+      java: allFive,
+      javascript: allFive,
+      python: allFive,
+      typescript: allFive,
+      shell: allFive,
+    });
+  });
+
+  it("gives every stack a tool visibility relies on a real capability list", () => {
+    // stackOptions (the chip row) comes from tool applicability; stackCapabilities comes from
+    // realCatalogue.baselines independently. A stack with tools but no baseline entry would
+    // silently fall back to `[]` in matchesStackFilter and drop every universal tool.
+    const stackIds = new Set(
+      visibleTools
+        .flatMap((tool) => tool.stacks)
+        .filter((stack) => stack !== "any"),
+    );
+    for (const stackId of stackIds) {
+      expect(
+        stackCapabilities[stackId],
+        `stackCapabilities is missing "${stackId}"`,
+      ).toBeDefined();
     }
   });
 });
