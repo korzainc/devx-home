@@ -18,7 +18,8 @@ export async function PluginInstallUsage({ plugin }: { plugin: string }) {
   } catch {
     return null;
   }
-  if (!count.claude && !count.codex) return null;
+  if (!count.claudeNative && !count.claudeKorza && !count.codexKorza)
+    return null;
   return (
     <aside
       className="rounded-xl border border-line-strong bg-surface-raised px-5 py-4"
@@ -26,20 +27,33 @@ export async function PluginInstallUsage({ plugin }: { plugin: string }) {
     >
       <p className="text-xs text-ink-muted">Finding its way into workflows</p>
       <div className="mt-1 flex flex-wrap gap-x-5 gap-y-2 text-sm text-ink">
-        {count.claude !== undefined && (
+        {count.claudeNative !== undefined && (
           <p>
-            <strong className="font-mono text-xl">{count.claude}</strong>{" "}
-            recorded {count.claude === 1 ? "install" : "installs"} via Claude
-            Code
+            <strong className="font-mono text-xl">{count.claudeNative}</strong>{" "}
+            {count.claudeNative === 1 ? "install" : "installs"} reported by
+            Claude Code
           </p>
         )}
-        {count.codex !== undefined && (
+        {count.claudeKorza !== undefined && (
           <p>
-            <strong className="font-mono text-xl">{count.codex}</strong> Codex{" "}
-            {count.codex === 1 ? "install" : "installs"} through Korza CLI
+            <strong className="font-mono text-xl">{count.claudeKorza}</strong>{" "}
+            Claude Code {count.claudeKorza === 1 ? "install" : "installs"}{" "}
+            through Korza CLI
+          </p>
+        )}
+        {count.codexKorza !== undefined && (
+          <p>
+            <strong className="font-mono text-xl">{count.codexKorza}</strong>{" "}
+            Codex {count.codexKorza === 1 ? "install" : "installs"} through
+            Korza CLI
           </p>
         )}
       </div>
+      {count.claudeNative !== undefined && count.claudeKorza !== undefined && (
+        <p className="mt-2 text-xs text-ink-muted">
+          These counts can overlap. They are shown separately.
+        </p>
+      )}
     </aside>
   );
 }

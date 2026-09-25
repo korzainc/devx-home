@@ -44,13 +44,13 @@ it("maps the namespaced skill name emitted by real Claude", async () => {
 it("reads installs for only the requested plugin", async () => {
   query.mockResolvedValue({
     rows: [
-      { client: "claude", count: "4" },
-      { client: "codex", count: "2" },
+      { client: "claude", source: "native_otel", count: "4" },
+      { client: "codex", source: "korza_cli", count: "2" },
     ],
   });
   expect(await readPluginInstalls("humanizer")).toEqual({
-    claude: 4,
-    codex: 2,
+    claudeNative: 4,
+    codexKorza: 2,
   });
   expect(query.mock.calls[0][0].values).toEqual(["humanizer"]);
   expect(query.mock.calls[0][0].text).toContain("kind='plugin_installed'");
@@ -72,4 +72,22 @@ it("binds Codex counts to their plugin while retaining only matching legacy name
   ]);
   expect(metrics.text).toContain("(plugin=$1 or plugin is null)");
   expect(metrics.text).toContain("skill=any($2::text[])");
+});
+
+it("keeps potentially overlapping native and Korza install counts separate", async () => {
+  query.mockResolvedValue({
+    rows: [
+      { client: "claude", source: "native_otel", count: "4" },
+      { client: "claude", source: "korza_cli", count: "3" },
+      { client: "codex", source: "korza_cli", count: "2" },
+      { client: "codex", source: "native_otel", count: "99" },
+      { client: "other", source: "korza_cli", count: "99" },
+    ],
+  });
+  expect(await readPluginInstalls("humanizer")).toEqual({
+    claudeNative: 4,
+    claudeKorza: 3,
+    codexKorza: 2,
+  });
+  expect(query.mock.calls[0][0].text).toContain("group by client, source");
 });
