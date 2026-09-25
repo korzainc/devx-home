@@ -13,6 +13,7 @@ import { CATEGORY_FALLBACK, skillCategories } from "@/data/skill-categories";
 import { toolCardSummaries } from "@/data/tool-card-summaries";
 import {
   isBundle,
+  STATUS_PLANNED,
   type BundleEntry,
   type InstallCommand,
   type PluginEntry,
@@ -341,7 +342,7 @@ export type GeneratedSkill = Omit<SkillEntry, "audiences" | "category"> & {
  *  emits this same vocabulary now, so no live row disagrees with the overlay. */
 export function overlaySkills(rows: GeneratedSkill[]): SkillEntry[] {
   return rows
-    .filter((skill) => skill.status !== "Planned")
+    .filter((skill) => skill.status !== STATUS_PLANNED)
     .map((skill) => ({
       ...skill,
       audiences: skillAudiences[skill.id] ?? AUDIENCE_FALLBACK,
