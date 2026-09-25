@@ -40,21 +40,35 @@ export async function readSkillUsage(plugin: string, names: string[]) {
   return result;
 }
 
-export async function readPluginInstalls(plugin: string): Promise<SkillUsage> {
-  const result = await getPool().query<{ client: string; count: string }>({
-    text: "select client, count(*)::text as count from telemetry_events where plugin=$1 and kind='plugin_installed' group by client",
+// Sources may overlap for one installation. Keep them separate until the clients
+// provide a shared event identity; adding them would overstate adoption.
+export type PluginInstalls = {
+  claudeNative?: number;
+  claudeKorza?: number;
+  codexKorza?: number;
+};
+export async function readPluginInstalls(
+  plugin: string,
+): Promise<PluginInstalls> {
+  const result = await getPool().query<{
+    client: string;
+    source: string;
+    count: string;
+  }>({
+    text: "select client, source, count(*)::text as count from telemetry_events where plugin=$1 and kind='plugin_installed' group by client, source",
     values: [plugin],
     ...{ query_timeout: 1000 },
   });
-  const counts: SkillUsage = {};
+  const counts: PluginInstalls = {};
   for (const row of result.rows) {
     const count = Number(row.count);
-    if (
-      (row.client === "claude" || row.client === "codex") &&
-      Number.isSafeInteger(count) &&
-      count > 0
-    )
-      counts[row.client] = count;
+    if (!Number.isSafeInteger(count) || count <= 0) continue;
+    if (row.client === "claude" && row.source === "native_otel")
+      counts.claudeNative = count;
+    if (row.client === "claude" && row.source === "korza_cli")
+      counts.claudeKorza = count;
+    if (row.client === "codex" && row.source === "korza_cli")
+      counts.codexKorza = count;
   }
   return counts;
 }

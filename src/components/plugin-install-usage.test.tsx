@@ -23,11 +23,11 @@ it("does not read install totals without portal access", async () => {
 it("labels the count as recorded installs for Claude Code", async () => {
   mocks.session.mockResolvedValue({ user: { id: "test" } });
   mocks.member.mockResolvedValue(true);
-  mocks.installs.mockResolvedValue({ claude: 2, codex: 3 });
+  mocks.installs.mockResolvedValue({ claudeNative: 2, codexKorza: 3 });
   const html = renderToStaticMarkup(
     await PluginInstallUsage({ plugin: "humanizer" }),
   );
-  expect(html).toContain("recorded installs");
+  expect(html).toContain("installs reported by Claude Code");
   expect(html).toContain("Claude Code");
   expect(html).toContain("Codex");
   expect(html).toContain("through Korza CLI");
@@ -39,4 +39,30 @@ it("omits unavailable totals without blocking the page", async () => {
   mocks.member.mockResolvedValue(true);
   mocks.installs.mockRejectedValue(new Error("offline"));
   expect(await PluginInstallUsage({ plugin: "humanizer" })).toBeNull();
+});
+
+it("shows Claude native and Korza counts independently without a combined total", async () => {
+  mocks.session.mockResolvedValue({ user: { id: "test" } });
+  mocks.member.mockResolvedValue(true);
+  mocks.installs.mockResolvedValue({ claudeNative: 4, claudeKorza: 3 });
+  const html = renderToStaticMarkup(
+    await PluginInstallUsage({ plugin: "humanizer" }),
+  );
+  expect(html).toContain(">4</strong>");
+  expect(html).toContain(">3</strong>");
+  expect(html).not.toContain(">7</strong>");
+  expect(html).toContain("reported by Claude Code");
+  expect(html).toContain("Claude Code installs through Korza CLI");
+  expect(html).toContain("These counts can overlap");
+});
+it("shows the Korza-only Claude count when native reporting is unavailable", async () => {
+  mocks.session.mockResolvedValue({ user: { id: "test" } });
+  mocks.member.mockResolvedValue(true);
+  mocks.installs.mockResolvedValue({ claudeKorza: 1 });
+  const html = renderToStaticMarkup(
+    await PluginInstallUsage({ plugin: "humanizer" }),
+  );
+  expect(html).toContain(">1</strong>");
+  expect(html).toContain("Claude Code install through Korza CLI");
+  expect(html).not.toContain("reported by Claude Code");
 });

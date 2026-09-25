@@ -39,7 +39,7 @@ import { POST as exchangePOST } from "../app/api/telemetry/exchange/route";
 import { POST as eventsPOST } from "../app/api/telemetry/events/route";
 import { POST as revokePOST } from "../app/api/telemetry/revoke/route";
 import { receiveEvents, revokeDevice } from "./telemetry-http";
-import { readSkillUsage } from "./skill-usage";
+import { readPluginInstalls, readSkillUsage } from "./skill-usage";
 const configured = process.env.TEST_TELEMETRY_DATABASE_URL;
 const run = promisify(execFile);
 describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
@@ -457,5 +457,47 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
     expect(await readSkillUsage("superpowers", ["brainstorming"])).toEqual({
       brainstorming: { codex: 5 },
     });
+  });
+  it("stores replay-safe Claude installs without combining reporting sources", async () => {
+    const credential = (await exchangeCode(
+      db.pool,
+      payload(await issueCode(db.pool, "telemetry-test-user", params)),
+    ))!;
+    const before = await readPluginInstalls("mattpocock-skills");
+    const events = ["native_otel", "korza_cli"].map((source, index) => ({
+      id: (index ? "c" : "e").repeat(64),
+      kind: "plugin_installed",
+      client: "claude",
+      source,
+      occurredAt: "2026-09-25T00:00:00Z",
+      plugin: "mattpocock-skills",
+      skill: null,
+    }));
+    const send = () =>
+      receiveEvents(
+        new Request("http://localhost/api/telemetry/events", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${credential.token}`,
+          },
+          body: JSON.stringify({ events, metrics: [] }),
+        }),
+      );
+    expect((await send()).status).toBe(200);
+    expect((await send()).status).toBe(200);
+    expect(await readPluginInstalls("mattpocock-skills")).toEqual({
+      ...before,
+      claudeNative: (before.claudeNative ?? 0) + 1,
+      claudeKorza: (before.claudeKorza ?? 0) + 1,
+    });
+    const stored = await db.pool.query(
+      "SELECT source, count(*)::int count FROM telemetry_events WHERE device_id=$1 GROUP BY source ORDER BY source",
+      [credential.device_id],
+    );
+    expect(stored.rows).toEqual([
+      { source: "korza_cli", count: 1 },
+      { source: "native_otel", count: 1 },
+    ]);
   });
 });

@@ -177,6 +177,13 @@ tool arguments, email or paths are accepted. Browser revocation lives at
 `/telemetry/devices`; the CLI uses idempotent bearer `POST /api/telemetry/revoke`.
 Revocation does not delete recorded counts or their device history.
 
+Plugin installation totals are grouped by both client and source. Claude's native
+reports and installs verified through Korza CLI are displayed separately because
+they can describe the same installation; they must not be added together. Codex
+installation counts cover only installs verified through Korza CLI. Repeated
+delivery of the same device/event ID is deduplicated. These counts are not unique
+users or download totals.
+
 Validation separates production identity acceptance from protocol evidence:
 
 - Unit tests cover callback/PKCE/CSRF validation, fresh membership failure,

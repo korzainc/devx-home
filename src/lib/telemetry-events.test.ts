@@ -97,3 +97,18 @@ it("accepts RFC3339 timestamp precision and offsets but rejects invalid calendar
       parseBatch({ events: [{ ...event, occurredAt }], metrics: [] }),
     ).toThrow();
 });
+
+it("accepts Korza-verified Claude installs but never Korza skill activations", () => {
+  const install = {
+    ...event,
+    source: "korza_cli",
+    kind: "plugin_installed",
+    skill: null,
+  };
+  expect(parseBatch({ events: [install], metrics: [] }).events).toEqual([
+    install,
+  ]);
+  expect(() =>
+    parseBatch({ events: [{ ...event, source: "korza_cli" }], metrics: [] }),
+  ).toThrow();
+});
