@@ -7,6 +7,15 @@ import type { DetectSignals } from "@/lib/gap/types";
 // component imports its runtime helpers and types from here instead, so bundling one can never
 // pull the raw catalogue (including `detect`) into the browser along with it.
 
+/** "setup" and "meta" configure or describe the toolchain rather than doing the work. Filtered
+ *  and grouped like the rest; they sort last under their heading and the card marks them.
+ *
+ *  A runtime list, not just a union, because `skills-shape` has to check membership on data
+ *  arriving from upstream and a second copy of these names would drift. */
+export const KINDS = ["skill", "setup", "meta"] as const;
+
+export type SkillKind = (typeof KINDS)[number];
+
 export type CatalogueEntry = {
   id: string;
   name: string;
@@ -83,9 +92,7 @@ export type SkillEntry = CatalogueEntry & {
   pinned: boolean;
   /** From the local overlay, which replaces the generator's own taxonomy. */
   category: SkillCategory;
-  /** "setup" and "meta" configure or describe the toolchain rather than doing the work. Filtered
-   *  and grouped like the rest; they sort last under their heading and the card marks them. */
-  kind: "skill" | "setup" | "meta";
+  kind: SkillKind;
   /** Searched, not rendered. */
   jobs: string[];
   /** Upstream's SKILL.md text. Searched, and rendered when `summary` is null. */

@@ -9,10 +9,7 @@
 
 import { AUDIENCES } from "@/data/skill-audiences";
 import { CATEGORIES } from "@/data/skill-categories";
-
-// Mirrors the generator's own enum. A fourth value added upstream reaches the site as a card
-// marked wrong rather than as a crash, which is why membership is checked rather than assumed.
-const KINDS = ["skill", "setup", "meta"] as const;
+import { KINDS } from "@/lib/catalogue-entries";
 
 function isFilled(value: unknown): boolean {
   return typeof value === "string" && value.trim().length > 0;
@@ -24,8 +21,10 @@ export function problemsWithSkill(skill: Record<string, unknown>): string[] {
 
   // A row renders under its category heading. An unrecognised one renders under a heading
   // nothing defines, so the row is on the page but under nothing a reader can filter to.
-  if (!isFilled(skill.category)) {
+  if (!("category" in skill)) {
     problems.push(`${id}: category is missing`);
+  } else if (!isFilled(skill.category)) {
+    problems.push(`${id}: category must be a non-empty string`);
   } else if (
     !(CATEGORIES as readonly string[]).includes(skill.category as string)
   ) {
@@ -34,10 +33,12 @@ export function problemsWithSkill(skill: Record<string, unknown>): string[] {
     );
   }
 
-  // `kind` marks a card and sorts it last under its heading. An unknown value sorts and marks
-  // as though it were an ordinary skill.
-  if (!isFilled(skill.kind)) {
+  // The catalogue branches on `kind !== "skill"`, so an unrecognised value is silently treated
+  // as toolchain: marked on the card and sorted last, under a heading it does belong to.
+  if (!("kind" in skill)) {
     problems.push(`${id}: kind is missing`);
+  } else if (!isFilled(skill.kind)) {
+    problems.push(`${id}: kind must be a non-empty string`);
   } else if (!(KINDS as readonly string[]).includes(skill.kind as string)) {
     problems.push(
       `${id}: kind ${JSON.stringify(skill.kind)} is not one of ${JSON.stringify(KINDS)}`,

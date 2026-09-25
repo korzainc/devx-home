@@ -46,6 +46,22 @@ describe("a skill row", () => {
     },
   );
 
+  // Present but the wrong type is a different problem from absent, and saying "is missing" about
+  // a field the author can see in their file sends them looking for the wrong thing.
+  it.each([
+    ["category", 123],
+    ["kind", null],
+  ])(
+    "tells %s apart from missing when it is present but not a string",
+    (field, value) => {
+      const problems = problemsWithSkill({ ...valid, [field]: value }).join(
+        " ",
+      );
+      expect(problems).toContain(`${field} must be a non-empty string`);
+      expect(problems).not.toContain("is missing");
+    },
+  );
+
   // Every problem is reported, not just the first: an author fixing one at a time learns about
   // the next only on the next run.
   it("reports every problem at once", () => {
