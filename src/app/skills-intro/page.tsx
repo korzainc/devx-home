@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
+import { BackLink } from "@/components/back-link";
 import { SkillsIntroSeen } from "@/components/skills-intro-seen";
-import Link from "next/link";
 import {
   SkillsGlossaryNote,
   SkillsIntroPanes,
@@ -22,12 +22,11 @@ export default function SkillsIntroPage() {
   return (
     <div className="flex min-h-[70vh] flex-col gap-10">
       <SkillsIntroSeen />
-      <Link
-        href="/skills"
-        className="w-fit font-mono text-xs text-ink-faint hover:text-accent"
-      >
-        ← Skills
-      </Link>
+      {/* No `followHistory`: `site-footer.tsx` links this page from every route, so arrival from
+          another section is the common case, not an edge one. The label names a place, and a
+          reader who came from `/tools/biome` would otherwise click "Skills" and land back on
+          `/tools/biome`. */}
+      <BackLink href="/skills">Skills</BackLink>
 
       <SkillsIntroPanes />
 

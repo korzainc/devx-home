@@ -2,7 +2,12 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { AUDIENCE_ANY, type Audience } from "@/data/skill-audiences";
+import {
+  AUDIENCE_ANY,
+  AUDIENCE_ANY_LABEL,
+  type Audience,
+} from "@/data/skill-audiences";
+import { NavArrow } from "@/components/nav-arrow";
 
 /** Only the fields the cards draw. A `SkillEntry` also carries `ref`, the git ref the skill is
  *  pinned to, and spreading that into a component hands React a real ref. */
@@ -86,7 +91,11 @@ export function SkillPicker({ cards }: { cards: SkillCard[] }) {
             style={{ animationDelay: `${i * 70}ms` }}
           >
             <p className="font-mono text-xs tracking-wide text-accent uppercase">
-              {card.audiences.join(", ")}
+              {/* The stored value stays "All"; only the label changes, as both catalogue chip
+                  rows do. Left raw these cards were the last place reading "All" (DX-201). */}
+              {card.audiences
+                .map((a) => (a === AUDIENCE_ANY ? AUDIENCE_ANY_LABEL : a))
+                .join(", ")}
             </p>
             <h3 className="line-clamp-2 font-display text-lg leading-snug font-semibold tracking-tight text-ink">
               {card.title}
@@ -112,7 +121,7 @@ export function SkillPicker({ cards }: { cards: SkillCard[] }) {
             href="/skills"
             className="font-display text-lg font-semibold tracking-tight text-accent transition-colors hover:text-ink"
           >
-            Browse the marketplace →
+            Browse the marketplace <NavArrow direction="right" />
           </Link>
         </div>
       </div>

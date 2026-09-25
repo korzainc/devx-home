@@ -3,6 +3,7 @@ import skillsData from "@/data/skills.json";
 import {
   bundles,
   ecosystemLabel,
+  flattenBaseline,
   getBaseline,
   getPlugin,
   installCommands,
@@ -10,10 +11,14 @@ import {
   marketplaceRepo,
   plugins,
   publicToolEntry,
+  type RealCatalogue,
   shortAgents,
+  stackCapabilities,
   tools,
   visibleTools,
 } from "./catalogue";
+import { analyze } from "./gap/analyze";
+import { isRelevantToStack } from "./relevance";
 
 const baseline = getBaseline();
 
@@ -203,7 +208,30 @@ describe("flattenBaseline", () => {
   it("includes every real ecosystem, none dropped", () => {
     const ids = baseline.stacks.map((stack) => stack.id).sort();
     expect(ids).toEqual(
-      ["docker", "go", "java", "javascript", "python", "typescript"].sort(),
+      [
+        "docker",
+        "go",
+        "java",
+        "javascript",
+        "python",
+        "shell",
+        "typescript",
+      ].sort(),
+    );
+  });
+
+  it("gives shell the security floor, not just its linters", () => {
+    const shell = baseline.stacks.find((stack) => stack.id === "shell");
+    expect(Object.keys(shell!.expects).sort()).toEqual(
+      [
+        "dependency-updates",
+        "format",
+        "iac-config",
+        "lint-bugs",
+        "lint-style",
+        "sast",
+        "secrets",
+      ].sort(),
     );
   });
 
@@ -220,8 +248,31 @@ describe("flattenBaseline", () => {
     expect(ecosystemLabel("go")).toBe("Go");
   });
 
+  it("resolves shell to its label", () => {
+    expect(ecosystemLabel("shell")).toBe("Shell");
+  });
+
   it("throws rather than shipping a raw id for an unpinned ecosystem", () => {
     expect(() => ecosystemLabel("rust")).toThrow(/rust/);
+  });
+
+  it("carries a baseline's extensions through, not just its markers", () => {
+    const catalogue = {
+      taxonomy: { categories: {}, capabilities: {} },
+      tools: [],
+      baselines: {
+        go: {
+          ecosystem: "go",
+          markers: [],
+          extensions: [".sh"],
+          baseline: {},
+        },
+      },
+      bundles: [],
+    };
+    const result = flattenBaseline(catalogue as unknown as RealCatalogue);
+    const goStack = result.stacks.find((stack) => stack.id === "go");
+    expect(goStack?.extensions).toEqual([".sh"]);
   });
 });
 
@@ -243,6 +294,58 @@ describe("visibleTools", () => {
     const visibleIds = new Set(visibleTools.map((tool) => tool.id));
     for (const bundle of bundles) {
       expect(visibleIds.has(bundle.id)).toBe(true);
+    }
+  });
+
+  it("shows a universal tool under a stack filter only where that stack's baseline names its capability", () => {
+    const universal = visibleTools.filter((tool) =>
+      tool.stacks.includes("any"),
+    );
+    expect(universal).toHaveLength(5);
+    const shownPerStack = Object.fromEntries(
+      baseline.stacks.map((stack) => [
+        stack.id,
+        universal
+          .filter((tool) =>
+            isRelevantToStack(tool, stackCapabilities[stack.id] ?? []),
+          )
+          .map((tool) => tool.id)
+          .sort(),
+      ]),
+    );
+
+    const allFive = [
+      "ci-base-checks",
+      "codeql",
+      "dependabot",
+      "gitleaks",
+      "renovate",
+    ].sort();
+    expect(shownPerStack).toEqual({
+      docker: allFive,
+      go: allFive,
+      java: allFive,
+      javascript: allFive,
+      python: allFive,
+      typescript: allFive,
+      shell: allFive,
+    });
+  });
+
+  it("gives every stack a tool visibility relies on a real capability list", () => {
+    // stackOptions (the chip row) comes from tool applicability; stackCapabilities comes from
+    // realCatalogue.baselines independently. A stack with tools but no baseline entry would
+    // silently fall back to `[]` in matchesStackFilter and drop every universal tool.
+    const stackIds = new Set(
+      visibleTools
+        .flatMap((tool) => tool.stacks)
+        .filter((stack) => stack !== "any"),
+    );
+    for (const stackId of stackIds) {
+      expect(
+        stackCapabilities[stackId],
+        `stackCapabilities is missing "${stackId}"`,
+      ).toBeDefined();
     }
   });
 });
@@ -316,6 +419,40 @@ describe("install commands", () => {
   it("looks a plugin up by id", () => {
     expect(getPlugin("superpowers")?.id).toBe("superpowers");
     expect(getPlugin("not-a-plugin")).toBeUndefined();
+  });
+});
+
+describe("shell detection against the real catalogue", () => {
+  const realBaseline = getBaseline();
+
+  it("detects shell and recommends shellcheck and shfmt for a repo with .sh files", () => {
+    const snapshot = {
+      ref: { provider: "github" as const, owner: "korzainc", repo: "example" },
+      defaultBranch: "main",
+      paths: ["deploy.sh", "README.md"],
+      files: {},
+    };
+    const analysis = analyze(snapshot, { tools, baseline: realBaseline });
+
+    expect(analysis.stacks.map((s) => s.id)).toContain("shell");
+    const recommendedIds = analysis.categories
+      .flatMap((c) => c.capabilities)
+      .filter((capability) => !capability.satisfied)
+      .flatMap((capability) => capability.recommended.map((r) => r.id));
+    expect(recommendedIds).toContain("shellcheck");
+    expect(recommendedIds).toContain("shfmt");
+  });
+
+  it("does not detect shell for a repo with no .sh files", () => {
+    const snapshot = {
+      ref: { provider: "github" as const, owner: "korzainc", repo: "example" },
+      defaultBranch: "main",
+      paths: ["package.json", "README.md"],
+      files: { "package.json": "{}" },
+    };
+    const analysis = analyze(snapshot, { tools, baseline: realBaseline });
+
+    expect(analysis.stacks.map((s) => s.id)).not.toContain("shell");
   });
 });
 

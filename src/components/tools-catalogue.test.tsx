@@ -14,6 +14,7 @@ import { CHECK_GROUPS, ToolsCatalogue } from "@/components/tools-catalogue";
 import {
   capabilityLabels,
   publicToolEntry,
+  stackCapabilities,
   visibleTools,
 } from "@/lib/catalogue";
 
@@ -36,6 +37,7 @@ function renderPage() {
     <ToolsCatalogue
       entries={visibleTools.map(publicToolEntry)}
       capabilityLabels={capabilityLabels}
+      stackCapabilities={stackCapabilities}
     />,
   );
 }
@@ -47,6 +49,7 @@ function renderWithInitial(
     <ToolsCatalogue
       entries={visibleTools.map(publicToolEntry)}
       capabilityLabels={capabilityLabels}
+      stackCapabilities={stackCapabilities}
       initialStacks={props.stacks ?? []}
       initialChecks={props.checks ?? []}
     />,
@@ -121,37 +124,27 @@ describe("the tools catalogue", () => {
     }
   });
 
-  it("narrows to a stack via the chip row, keeping universal tools visible regardless", () => {
+  it("keeps every universal tool visible for a stack whose baseline names all of them", () => {
     renderPage();
     toggleStack("Go");
 
-    const inStack = visibleTools.filter(
-      (tool) => tool.stacks.includes("go") || tool.stacks.includes("any"),
-    );
-    expect(inStack.length).toBeGreaterThan(0);
-    expect(cardCount()).toBe(inStack.length);
-
-    for (const tool of inStack) {
-      expect(card(tool.id), `${tool.id} should still be listed`).toBeTruthy();
+    // Go's baseline names secrets, sast, sca, iac-config, and dependency-updates: every
+    // capability behind all 5 visible universal tools, so filtering to Go should drop none of
+    // them. Hardcoded against real data rather than derived from stackCapabilities, so the
+    // test isn't just checking the production logic against itself.
+    const expected = [
+      "ci-base-checks",
+      "codeql",
+      "dependabot",
+      "gitleaks",
+      "go-test",
+      "golangci-lint",
+      "renovate",
+    ];
+    expect(cardCount()).toBe(expected.length);
+    for (const id of expected) {
+      expect(card(id), `${id} should still be listed`).toBeTruthy();
     }
-
-    // Universal tools (stacks: ["any"]) always show, regardless of which stack chips are
-    // active - this is the opposite of exact-matching, deliberately: mandatory checks shouldn't
-    // silently drop out of a stack-filtered view.
-    const universal = visibleTools.find((tool) => tool.stacks.includes("any"));
-    expect(universal, "fixture must contain a universal tool").toBeTruthy();
-    expect(
-      card(universal!.id),
-      `${universal!.id} is universal and must stay visible while "go" is picked`,
-    ).toBeTruthy();
-
-    const outOfStack = visibleTools.find(
-      (tool) => !tool.stacks.includes("go") && !tool.stacks.includes("any"),
-    );
-    expect(
-      card(outOfStack!.id),
-      `${outOfStack!.id} should be filtered out`,
-    ).toBeUndefined();
   });
 
   it("spells each language its own way and keeps the language-agnostic chip last", () => {
@@ -179,6 +172,9 @@ describe("the tools catalogue", () => {
     expect(cardCount()).toBe(universal.length);
   });
 
+  // This holds for Go because Go's baseline names every universal tool's capability already; it
+  // is not a general claim, see the Shell test in this file for the case where picking
+  // language-agnostic genuinely does add tools back.
   it("adds nothing when the language-agnostic chip joins a language, since those tools were already in", () => {
     renderPage();
     toggleStack("Go");
@@ -211,6 +207,8 @@ describe("the tools catalogue", () => {
       ).toHaveLength(1);
     }
     // The union of both languages, counted once each - not the sum of the two filters.
+    // `|| includes("any")` only holds here because JavaScript's and TypeScript's baselines both
+    // name every universal tool's capability already; it is not a general claim.
     const union = visibleTools.filter(
       (tool) =>
         tool.stacks.includes("javascript") ||
@@ -232,22 +230,60 @@ describe("the tools catalogue", () => {
     expect(card("biome")).toBeTruthy();
   });
 
-  it("collapses to one flat grid while filtering, with no section headings", () => {
-    renderPage();
-    // eslint/biome are the only two tools "ESLint" matches, and both are Code Quality - see
-    // Step 0's verification against the real catalogue.
-    search("ESLint");
+  it("collapses to one flat grid on a Check pick, with no section headings", () => {
+    // Check is the axis that restates the headings: five of the seven groups reach a single
+    // category, so grouping a checked view puts nearly every match under one heading and
+    // leaves the rest with nothing to show.
+    renderWithInitial({ checks: ["linting"] });
 
-    // The sections are the capability categories, so grouping a filtered view puts every match
-    // under one heading and leaves the rest with nothing to show. None render while filtering.
     for (const label of SECTION_LABELS) {
       expect(screen.queryByRole("heading", { name: label })).toBeNull();
     }
     expect(screen.queryByText(/^Nothing in /)).toBeNull();
+    expect(cardCount()).toBeGreaterThan(0);
+  });
+
+  it("restores the section headings once the Check pick is cleared", () => {
+    // Opened from the checked state and cleared through the menu, so the restore is exercised
+    // as a reader would reach it rather than by re-rendering unfiltered.
+    renderWithInitial({ checks: ["linting"] });
+    fireEvent.click(screen.getByRole("button", { name: /Check/ }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Code Linting/ }));
+
+    for (const label of SECTION_LABELS) {
+      expect(screen.getByRole("heading", { name: label })).toBeTruthy();
+    }
+    expect(cardCount()).toBe(visibleTools.length);
+  });
+
+  /**
+   * DX-202. Stack and the search box are orthogonal to the headings in a way Check is not: every
+   * language in the catalogue spans two or three categories, so the grouping still answers
+   * "which kinds of check cover Python?" — the question the filter was picked to ask. Both used
+   * to flatten anyway, because one `filtering` flag stood for all three axes.
+   */
+  it("keeps the section headings on a stack pick", () => {
+    renderWithInitial({ stacks: ["python"] });
+
+    const headings = SECTION_LABELS.filter((label) =>
+      screen.queryByRole("heading", { name: label }),
+    );
+    // More than one, or there would be no grouping left to keep.
+    expect(headings.length).toBeGreaterThan(1);
+    expect(cardCount()).toBeGreaterThan(0);
+  });
+
+  it("keeps the section headings while searching", () => {
+    renderPage();
+    search("ESLint");
+
+    // eslint/biome, both Code Quality, so exactly one heading survives — but it survives as a
+    // heading rather than the whole grid going flat.
+    expect(screen.getByRole("heading", { name: "Code Quality" })).toBeTruthy();
     expect(cardCount()).toBe(2);
   });
 
-  it("restores the section headings once the filter is cleared", () => {
+  it("restores every heading once the search is cleared", () => {
     renderPage();
     search("ESLint");
     search("");
@@ -260,7 +296,7 @@ describe("the tools catalogue", () => {
 
   it("groups every tool under a heading when nothing is filtering", () => {
     renderPage();
-    // All 19 visible tools fall in exactly these 4 categories today, so an unfiltered page shows
+    // All 21 visible tools fall in exactly these 4 categories today, so an unfiltered page shows
     // four headings and no empty state at all.
     expect(screen.queryByText(/matches those filters\./)).toBeNull();
     const headed = SECTION_LABELS.reduce((sum, label) => {
@@ -590,6 +626,7 @@ describe("the tools catalogue", () => {
       <ToolsCatalogue
         entries={[...visibleTools.map(publicToolEntry), stray]}
         capabilityLabels={capabilityLabels}
+        stackCapabilities={stackCapabilities}
       />,
     );
 

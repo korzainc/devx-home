@@ -3,12 +3,13 @@ import { PluginInstallUsage } from "@/components/plugin-install-usage";
 import { Suspense } from "react";
 import { PluginSkillsWithUsage } from "@/components/plugin-skills-with-usage";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import { BackLink } from "@/components/back-link";
 import { PluginInstall } from "@/components/plugin-install";
 import { MetaRow } from "@/components/meta-row";
 import { PluginSkills } from "@/components/plugin-skills";
 import { SkillContextStrip } from "@/components/skill-context-strip";
+import { NavArrow } from "@/components/nav-arrow";
 import {
   getPlugin,
   installCommands,
@@ -47,12 +48,9 @@ export default async function PluginPage({
         <LocalSkillsPreviewNotice />
       </Suspense>
       <header className="flex flex-col gap-4">
-        <Link
-          href="/skills"
-          className="w-fit font-mono text-xs text-ink-faint hover:text-accent"
-        >
-          ← Skills
-        </Link>
+        <BackLink followHistory href="/skills">
+          Skills
+        </BackLink>
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="font-mono text-3xl font-semibold tracking-tight">
             {plugin.name}
@@ -118,7 +116,7 @@ export default async function PluginPage({
               rel="noreferrer"
               className="font-mono text-accent hover:underline"
             >
-              {plugin.sourceRepo} →
+              {plugin.sourceRepo} <NavArrow direction="right" />
             </a>
           </MetaRow>
         </div>

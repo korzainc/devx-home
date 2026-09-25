@@ -35,6 +35,9 @@ export const toolCardSummaries: Record<string, string> = {
   renovate: "Opens PRs to keep dependencies current across package managers.",
   ruff: "Fast Python linter and formatter in a single tool.",
   semgrep: "Static analysis for security and correctness across languages.",
+  shellcheck:
+    "Static analysis for shell scripts, catches real bugs before running.",
+  shfmt: "Formats shell scripts with a real parser, not regex heuristics.",
   spotbugs: "Bytecode-level static analysis for JVM projects.",
   trivy: "Vulnerability scanner for filesystems, images and IaC.",
   typescript: "Compile-time type checking for JavaScript and TypeScript.",

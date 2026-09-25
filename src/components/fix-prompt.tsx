@@ -100,6 +100,20 @@ function PromptOverlay({
     ref.current?.showModal();
   }, []);
 
+  /**
+   * Body scroll is locked while this is open, the way `skills-first-run.tsx` does it.
+   * `overscroll-contain` on the <pre> only stops the chaining out of that box: the panel is
+   * `max-h-[80vh] max-w-3xl`, so a wheel over the header row, the footer note or the visible
+   * backdrop still scrolled the report underneath. `showModal` does not imply a scroll lock.
+   */
+  useEffect(() => {
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, []);
+
   return (
     <dialog
       ref={ref}
@@ -128,10 +142,11 @@ function PromptOverlay({
           <CopyButton prompt={prompt} />
         </div>
 
-        {/* Focusable so the overflow can be reached by keyboard, not only by dragging a bar. */}
+        {/* Focusable for keyboard scrolling; `overscroll-contain` stops the wheel handing off to
+            the page behind, which `showModal` leaves scrollable. */}
         <pre
           tabIndex={0}
-          className="min-h-0 flex-1 overflow-auto px-5 py-4 font-mono text-xs leading-relaxed whitespace-pre-wrap text-ink-muted"
+          className="min-h-0 flex-1 overflow-auto overscroll-contain px-5 py-4 font-mono text-xs leading-relaxed whitespace-pre-wrap text-ink-muted"
         >
           {prompt}
         </pre>

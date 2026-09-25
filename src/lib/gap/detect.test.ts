@@ -98,6 +98,50 @@ describe("detectStacks", () => {
     const stacks = detectStacks(["package.json", "go.mod"], baseline);
     expect(stacks.map((stack) => stack.id)).toEqual(["javascript", "go"]);
   });
+
+  const shellBaseline: Baseline = {
+    ...baseline,
+    stacks: [
+      ...baseline.stacks,
+      {
+        id: "shell",
+        label: "Shell",
+        markers: [],
+        extensions: [".sh"],
+        expects: {},
+      },
+    ],
+  };
+
+  it("matches a stack by file extension when it has no manifest marker", () => {
+    const stacks = detectStacks(["deploy.sh", "README.md"], shellBaseline);
+    expect(stacks.map((stack) => stack.id)).toContain("shell");
+  });
+
+  it("does not match an extension stack when no file has that extension", () => {
+    const stacks = detectStacks(["README.md", "package.json"], shellBaseline);
+    expect(stacks.map((stack) => stack.id)).not.toContain("shell");
+  });
+
+  it("excludes a vendored .sh file but still matches a real one in the same repo", () => {
+    const stacks = detectStacks(
+      [
+        "node_modules/some-pkg/install.sh",
+        "vendor/thing/setup.sh",
+        "scripts/deploy.sh",
+      ],
+      shellBaseline,
+    );
+    expect(stacks.map((stack) => stack.id)).toContain("shell");
+  });
+
+  it("excludes an extension match entirely when every hit is vendored", () => {
+    const stacks = detectStacks(
+      ["node_modules/some-pkg/install.sh", "vendor/thing/setup.sh"],
+      shellBaseline,
+    );
+    expect(stacks.map((stack) => stack.id)).not.toContain("shell");
+  });
 });
 
 describe("filesToRead", () => {
@@ -170,6 +214,26 @@ describe("filesToRead", () => {
     );
 
     expect(filesToRead(paths, baseline)).toHaveLength(20);
+  });
+
+  it("never reads a file that only matched by extension, not by marker", () => {
+    const shellBaseline: Baseline = {
+      ...baseline,
+      stacks: [
+        ...baseline.stacks,
+        {
+          id: "shell",
+          label: "Shell",
+          markers: [],
+          extensions: [".sh"],
+          expects: {},
+        },
+      ],
+    };
+
+    expect(filesToRead(["deploy.sh"], shellBaseline)).not.toContain(
+      "deploy.sh",
+    );
   });
 });
 

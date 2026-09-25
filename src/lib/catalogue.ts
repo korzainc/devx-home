@@ -78,10 +78,11 @@ type RealBaselineEntry = {
 type RealEcosystemBaseline = {
   ecosystem: string;
   markers: string[];
+  extensions?: string[];
   baseline: Record<string, RealBaselineEntry>;
 };
 
-type RealCatalogue = {
+export type RealCatalogue = {
   taxonomy: {
     categories: Record<string, { label: string }>;
     capabilities: Record<string, { category: string; label: string }>;
@@ -92,6 +93,47 @@ type RealCatalogue = {
 };
 
 const realCatalogue = realCatalogueData as RealCatalogue;
+
+/** Stacks whose baseline is a delta over another's: typescript names only `typecheck`, but a
+ * real TypeScript repo always co-detects as JavaScript too (tsconfig.json never appears
+ * without package.json), and analyze() already unions their expects. This overlay makes the
+ * static /tools filter agree with that.
+ *
+ * The real fix is giving typescript.json its own expects upstream; not done here to keep this
+ * change scoped to the filter. */
+const STACK_CAPABILITY_INHERITS: Record<string, string> = {
+  typescript: "javascript",
+};
+
+/**
+ * Which capability ids each real baseline names, keyed by stack id. Decides whether a
+ * universal tool (applicability "*") is actually relevant to a stack filter, not merely
+ * applicable everywhere.
+ *
+ * Derived directly from the raw catalogue data, not through getBaseline(): that function is
+ * deliberately lazy, so an unpinned ecosystem label only fails routes that read the baseline,
+ * not every route that imports this module.
+ */
+export const stackCapabilities: Record<string, string[]> = Object.fromEntries(
+  Object.values(realCatalogue.baselines).map((ecosystem) => [
+    ecosystem.ecosystem,
+    Object.keys(ecosystem.baseline),
+  ]),
+);
+// A broken mapping here (a stack or its inheritsFrom missing from stackCapabilities) is caught
+// by catalogue.test.ts's stack-visibility test, not a throw: this module is deliberately not
+// lazy like getBaseline(), so throwing here would break every route that merely imports it. Only
+// enriching an existing entry, never creating one, is what lets that test still catch a stack
+// whose own baseline disappeared upstream.
+for (const [stack, inheritsFrom] of Object.entries(STACK_CAPABILITY_INHERITS)) {
+  if (!stackCapabilities[stack]) continue;
+  stackCapabilities[stack] = [
+    ...new Set([
+      ...stackCapabilities[stack],
+      ...(stackCapabilities[inheritsFrom] ?? []),
+    ]),
+  ];
+}
 
 /** Every real capability id, straight off the raw import - not the `as RealCatalogue` cast
  * above, which widens the keys to `string`. A caller naming one by hand (the homepage's sample
@@ -165,6 +207,7 @@ const ECOSYSTEM_LABELS: Record<string, string> = {
   go: "Go",
   python: "Python",
   docker: "Docker",
+  shell: "Shell",
 };
 
 export function ecosystemLabel(id: string): string {
@@ -177,7 +220,7 @@ export function ecosystemLabel(id: string): string {
   return label;
 }
 
-function flattenBaseline(catalogue: RealCatalogue): Baseline {
+export function flattenBaseline(catalogue: RealCatalogue): Baseline {
   const ecosystems = Object.values(catalogue.baselines);
   return {
     categories: Object.values(catalogue.taxonomy.categories).map(
@@ -202,6 +245,7 @@ function flattenBaseline(catalogue: RealCatalogue): Baseline {
       id: ecosystem.ecosystem,
       label: ecosystemLabel(ecosystem.ecosystem),
       markers: ecosystem.markers,
+      extensions: ecosystem.extensions,
       // recommended/acceptable pass through unchanged; required doesn't, since devx-home's
       // report only distinguishes "satisfied" from "gap", not required vs optional.
       expects: Object.fromEntries(
@@ -288,16 +332,27 @@ export const plugins: PluginEntry[] = (
   audiences: pluginAudiences[plugin.id] ?? AUDIENCE_FALLBACK,
 }));
 
-export const skills: SkillEntry[] = (
-  skillsData.skills as Omit<SkillEntry, "audiences" | "category">[]
-)
-  .filter((skill) => skill.status !== "Planned")
-  .map((skill) => ({
-    ...skill,
-    audiences: skillAudiences[skill.id] ?? AUDIENCE_FALLBACK,
-    // Spread first, so the generator's own category is overwritten rather than merged beside.
-    category: skillCategories[skill.id] ?? CATEGORY_FALLBACK,
-  }));
+/** A row as the generator emits it: carrying its own `category`, which the overlay replaces. */
+export type GeneratedSkill = Omit<SkillEntry, "audiences" | "category"> & {
+  category: string;
+};
+
+/** Exported so the overwrite can be tested on a row the live index does not contain: upstream
+ *  emits this same vocabulary now, so no live row disagrees with the overlay. */
+export function overlaySkills(rows: GeneratedSkill[]): SkillEntry[] {
+  return rows
+    .filter((skill) => skill.status !== "Planned")
+    .map((skill) => ({
+      ...skill,
+      audiences: skillAudiences[skill.id] ?? AUDIENCE_FALLBACK,
+      // Spread first, so the generator's own category is overwritten rather than merged beside.
+      category: skillCategories[skill.id] ?? CATEGORY_FALLBACK,
+    }));
+}
+
+export const skills: SkillEntry[] = overlaySkills(
+  skillsData.skills as GeneratedSkill[],
+);
 
 export function skillsForPlugin(pluginId: string): SkillEntry[] {
   return skills.filter((skill) => skill.plugin === pluginId);

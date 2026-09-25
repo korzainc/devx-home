@@ -31,7 +31,8 @@ export function NavMenu({ children }: { children: React.ReactNode }) {
         </svg>
       </summary>
 
-      <div className="absolute right-0 z-10 mt-2 flex w-44 flex-col items-start gap-3 rounded-lg border border-line bg-canvas p-3 shadow-lg">
+      {/* `items-stretch`: these rows are plates now, so they must reach both edges. */}
+      <div className="absolute right-0 z-10 mt-2 flex w-48 flex-col items-stretch gap-1 rounded-lg border border-line bg-canvas p-1.5 shadow-lg">
         {children}
       </div>
     </details>

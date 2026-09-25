@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BackLink } from "@/components/back-link";
 import { SkillsIntroSeen } from "@/components/skills-intro-seen";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -28,12 +29,10 @@ export default function SkillsDemoPage() {
   return (
     <div className="flex flex-col gap-10">
       <SkillsIntroSeen />
-      <Link
-        href="/skills-intro"
-        className="w-fit font-mono text-xs text-ink-faint hover:text-accent"
-      >
-        ← Introduction to skills
-      </Link>
+
+      <BackLink followHistory href="/skills-intro">
+        Introduction to skills
+      </BackLink>
 
       <div className="flex flex-col gap-3">
         <h1 className="font-display text-3xl font-semibold tracking-tight text-balance">

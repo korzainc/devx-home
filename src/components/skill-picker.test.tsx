@@ -4,7 +4,11 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { SkillPicker, type SkillCard } from "@/components/skill-picker";
-import type { Audience } from "@/data/skill-audiences";
+import {
+  AUDIENCE_ANY,
+  AUDIENCE_ANY_LABEL,
+  type Audience,
+} from "@/data/skill-audiences";
 
 afterEach(cleanup);
 
@@ -107,6 +111,23 @@ describe("the skill picker", () => {
         .getByRole("link", { name: /Browse the marketplace/ })
         .getAttribute("href"),
     ).toBe("/skills");
+  });
+
+  it("labels a role-agnostic card the way both catalogues do", () => {
+    // DX-201: these cards printed the stored value raw, so the home page was the last place on
+    // the site still reading "All" after the catalogue chip rows had been relabelled.
+    render(<SkillPicker cards={[card("any", [AUDIENCE_ANY])]} />);
+
+    expect(screen.getByText(AUDIENCE_ANY_LABEL)).toBeTruthy();
+    expect(screen.queryByText(AUDIENCE_ANY)).toBeNull();
+  });
+
+  it("leaves a named audience alone", () => {
+    render(<SkillPicker cards={[card("eng", ["Engineering"])]} />);
+
+    // `getAllByText`: the filter chip carries the same word, so the card's own label is not the
+    // only match on the page.
+    expect(screen.getAllByText("Engineering").length).toBeGreaterThan(1);
   });
 
   it("draws nothing but the link for an empty pool", () => {

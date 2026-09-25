@@ -50,17 +50,30 @@ function isNestedMarker(path: string, marker: string) {
   return path.endsWith(nested) || path.includes(`${nested}/`);
 }
 
+/**
+ * True when the path ends with this extension and isn't inside a vendored or generated
+ * directory. Applied at every depth, including the root, unlike isRootMarker: a bare
+ * filename can't collide with a dependency's file the way any .sh file can.
+ */
+function isExtensionMarker(path: string, extension: string) {
+  return path.endsWith(extension) && !notOwnedByRepo.test(path);
+}
+
 export function detectStacks(
   paths: string[],
   baseline: Baseline,
 ): BaselineStack[] {
-  return baseline.stacks.filter((stack) =>
-    stack.markers.some((marker) =>
+  return baseline.stacks.filter((stack) => {
+    const matchesMarker = stack.markers.some((marker) =>
       paths.some(
         (path) => isRootMarker(path, marker) || isNestedMarker(path, marker),
       ),
-    ),
-  );
+    );
+    const matchesExtension = (stack.extensions ?? []).some((extension) =>
+      paths.some((path) => isExtensionMarker(path, extension)),
+    );
+    return matchesMarker || matchesExtension;
+  });
 }
 
 function depth(path: string) {

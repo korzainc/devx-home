@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { BackLink } from "@/components/back-link";
 import { RoadmapComments } from "@/components/roadmap-comments";
 import { CategoryTag, StageChip } from "@/components/roadmap-card";
 import { VoteButtons } from "@/components/roadmap-vote";
@@ -31,12 +31,13 @@ export default async function RoadmapEntryPage(
 
   return (
     <div className="flex max-w-3xl flex-col gap-8">
-      <Link
+      <BackLink
+        followHistory
         href="/roadmap"
         className="text-sm font-medium text-accent hover:underline"
       >
-        ← Roadmap
-      </Link>
+        Roadmap
+      </BackLink>
 
       <header className="flex flex-col gap-4">
         <div className="flex flex-wrap items-baseline gap-3">

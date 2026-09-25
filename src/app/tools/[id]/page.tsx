@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { BackLink } from "@/components/back-link";
 import { CollapsibleGrid } from "@/components/collapsible-grid";
 import { MetaRow } from "@/components/meta-row";
 import { ToolInstall } from "@/components/tool-install";
+import { NavArrow } from "@/components/nav-arrow";
 import {
   bundles,
   capabilityLabel,
@@ -12,7 +14,6 @@ import {
   tools,
   type CapabilityId,
 } from "@/lib/catalogue";
-import { docsLabel } from "@/lib/docs-label";
 
 // The catalogue is a static JSON file, so every tool/bundle page is prerendered at build time.
 export function generateStaticParams() {
@@ -44,12 +45,9 @@ export default async function ToolPage({ params }: PageProps<"/tools/[id]">) {
   return (
     <article className="flex flex-col gap-8">
       <header className="flex flex-col gap-4">
-        <Link
-          href="/tools"
-          className="w-fit font-mono text-xs text-ink-faint hover:text-accent"
-        >
-          ← CI Tools
-        </Link>
+        <BackLink followHistory href="/tools">
+          CI Tools
+        </BackLink>
         <h1 className="font-mono text-3xl font-semibold tracking-tight">
           {entry.name}
         </h1>
@@ -95,7 +93,7 @@ export default async function ToolPage({ params }: PageProps<"/tools/[id]">) {
                 href={`/tools/${wrappingBundle.id}`}
                 className="font-mono text-accent hover:underline"
               >
-                {wrappingBundle.name} →
+                {wrappingBundle.name} <NavArrow direction="right" />
               </Link>
             </MetaRow>
           )}
@@ -129,9 +127,10 @@ export default async function ToolPage({ params }: PageProps<"/tools/[id]">) {
               href={entry.docsUrl}
               target="_blank"
               rel="noreferrer"
+              title={entry.docsUrl}
               className="font-mono text-accent hover:underline"
             >
-              {docsLabel(entry.docsUrl)} →
+              {entry.name} docs <NavArrow direction="right" />
             </a>
           </MetaRow>
         </div>

@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Suspense } from "react";
+import { BackLink } from "@/components/back-link";
 import { ToolsCatalogue } from "@/components/tools-catalogue";
 import {
   capabilityLabels,
   publicToolEntry,
+  stackCapabilities,
   visibleTools,
 } from "@/lib/catalogue";
 import { parseFilterParam } from "@/lib/filter";
@@ -24,6 +25,7 @@ async function Catalogue({ searchParams }: Params) {
     <ToolsCatalogue
       entries={visibleTools.map(publicToolEntry)}
       capabilityLabels={capabilityLabels}
+      stackCapabilities={stackCapabilities}
       initialStacks={parseFilterParam(params.stack)}
       initialChecks={parseFilterParam(params.check)}
     />
@@ -34,12 +36,7 @@ export default function ToolsPage({ searchParams }: Params) {
   return (
     <div className="flex flex-col gap-10">
       <header className="flex max-w-2xl flex-col gap-4">
-        <Link
-          href="/"
-          className="w-fit font-mono text-xs text-ink-faint hover:text-accent"
-        >
-          ← Home
-        </Link>
+        <BackLink href="/">Home</BackLink>
         <h1 className="font-display text-3xl font-semibold tracking-tight">
           CI Tools
         </h1>
@@ -55,6 +52,7 @@ export default function ToolsPage({ searchParams }: Params) {
           <ToolsCatalogue
             entries={visibleTools.map(publicToolEntry)}
             capabilityLabels={capabilityLabels}
+            stackCapabilities={stackCapabilities}
           />
         }
       >
