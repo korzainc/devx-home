@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import skillsData from "@/data/skills.json";
 import { CATEGORIES } from "@/data/skill-categories";
+import { KINDS } from "@/lib/catalogue-entries";
 import { plugins, skills, skillsForPlugin } from "./catalogue";
 
 // Quiet failures: an orphan filter nobody can clear, or one card swallowing another.
@@ -124,7 +125,7 @@ describe("skill catalogue", () => {
     const toolchain = skills.filter((skill) => skill.kind !== "skill");
     expect(toolchain.length).toBeGreaterThan(0);
     for (const skill of toolchain) {
-      expect(["setup", "meta"]).toContain(skill.kind);
+      expect(KINDS.filter((kind) => kind !== "skill")).toContain(skill.kind);
     }
   });
 

@@ -7,6 +7,20 @@ import type { DetectSignals } from "@/lib/gap/types";
 // component imports its runtime helpers and types from here instead, so bundling one can never
 // pull the raw catalogue (including `detect`) into the browser along with it.
 
+/** "setup" and "meta" configure the toolchain rather than doing the work: marked on the card,
+ *  sorted last. A runtime list so `skills-shape` can check membership without a second copy. */
+export const KINDS = ["skill", "setup", "meta"] as const;
+
+/** "Planned" rows are filtered off the site. A status outside this list renders as live, since
+ *  `overlaySkills` hides a row only on an exact match. */
+export const STATUSES = ["Live", "Planned"] as const;
+
+export type SkillStatus = (typeof STATUSES)[number];
+
+export const STATUS_PLANNED: SkillStatus = "Planned";
+
+export type SkillKind = (typeof KINDS)[number];
+
 export type CatalogueEntry = {
   id: string;
   name: string;
@@ -83,9 +97,7 @@ export type SkillEntry = CatalogueEntry & {
   pinned: boolean;
   /** From the local overlay, which replaces the generator's own taxonomy. */
   category: SkillCategory;
-  /** "setup" and "meta" configure or describe the toolchain rather than doing the work. Filtered
-   *  and grouped like the rest; they sort last under their heading and the card marks them. */
-  kind: "skill" | "setup" | "meta";
+  kind: SkillKind;
   /** Searched, not rendered. */
   jobs: string[];
   /** Upstream's SKILL.md text. Searched, and rendered when `summary` is null. */
@@ -96,7 +108,7 @@ export type SkillEntry = CatalogueEntry & {
   ownerTeam: string | null;
   /** Null everywhere: every derivable value restates another field. */
   maturity: string | null;
-  status: string;
+  status: SkillStatus;
 };
 
 // The agents install commands are rendered for. One list: `installCommands` builds from it and
