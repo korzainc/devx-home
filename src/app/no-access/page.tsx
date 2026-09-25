@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { isOrgMember } from "@/lib/membership";
 import { signOut } from "@/lib/auth-actions";
 import { getSession } from "@/lib/session";
 
@@ -27,6 +30,8 @@ export const instant = false;
 
 export default async function NoAccessPage() {
   const session = await getSession();
+  if (!session) redirect("/login");
+  if (await isOrgMember(await headers(), session.user)) redirect("/");
   const email = session?.user.email;
   const showEmail = email && !/@users\.noreply\.github\.com$/i.test(email);
 
