@@ -1,13 +1,52 @@
-import { afterEach, expect, it, vi } from "vitest";
-import { renderToString } from "react-dom/server";
-const getSession = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/session", () => ({ getSession }));
+import { beforeEach, expect, it, vi } from "vitest";
+const mocks = vi.hoisted(() => ({
+  session: vi.fn(),
+  member: vi.fn(),
+  redirect: vi.fn(),
+}));
+vi.mock("@/lib/session", () => ({ getSession: mocks.session }));
+vi.mock("@/lib/membership", () => ({ isOrgMember: mocks.member }));
 vi.mock("@/lib/auth-actions", () => ({ signOut: vi.fn() }));
-import NoAccessPage, { metadata } from "./page";
-afterEach(() => vi.clearAllMocks());
+vi.mock("next/headers", () => ({
+  headers: async () => new Headers({ host: "localhost:3000" }),
+}));
+vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
+import Page, { metadata } from "./page";
+import { renderToString } from "react-dom/server";
+beforeEach(() => {
+  vi.resetAllMocks();
+  mocks.redirect.mockImplementation(() => {
+    throw new Error("redirect");
+  });
+});
+it("rechecks a signed-in visitor so a resolved rejection does not trap them", async () => {
+  mocks.session.mockResolvedValue({
+    user: { id: "u", name: "User", orgMember: false },
+  });
+  mocks.member.mockResolvedValue(true);
+  await expect(Page()).rejects.toThrow("redirect");
+  expect(mocks.redirect).toHaveBeenCalledWith("/");
+});
+it("keeps the rejection for a denied account", async () => {
+  mocks.session.mockResolvedValue({
+    user: { id: "u", name: "User", orgMember: false },
+  });
+  mocks.member.mockResolvedValue(false);
+  await Page();
+  expect(mocks.redirect).not.toHaveBeenCalled();
+});
+it("sends a signed-out visitor to login without clearing their session", async () => {
+  mocks.session.mockResolvedValue(null);
+  await expect(Page()).rejects.toThrow("redirect");
+  expect(mocks.redirect).toHaveBeenCalledWith("/login");
+  expect(mocks.member).not.toHaveBeenCalled();
+});
+
 it("explains the GitHub App access check without asserting organisation non-membership", async () => {
-  getSession.mockResolvedValue(null);
-  const html = renderToString(await NoAccessPage());
+  mocks.session.mockResolvedValue({
+    user: { id: "u", name: "person", orgMember: false },
+  });
+  const html = renderToString(await Page());
   expect(html).toContain("Sign-in worked");
   expect(html).toContain("could not confirm Korza access");
   expect(html).toContain("maintainer");
@@ -23,16 +62,16 @@ it.each([
 ])(
   "hides a placeholder email while keeping the account name: %s",
   async (email) => {
-    getSession.mockResolvedValue({ user: { name: "person", email } });
-    const html = renderToString(await NoAccessPage());
+    mocks.session.mockResolvedValue({ user: { name: "person", email } });
+    const html = renderToString(await Page());
     expect(html).toContain("Logged in as");
     expect(html).toContain(">person</p>");
     expect(html).not.toContain(email);
   },
 );
 it("keeps an actual account email visible", async () => {
-  getSession.mockResolvedValue({
+  mocks.session.mockResolvedValue({
     user: { name: "person", email: "person@example.test" },
   });
-  expect(renderToString(await NoAccessPage())).toContain("person@example.test");
+  expect(renderToString(await Page())).toContain("person@example.test");
 });
