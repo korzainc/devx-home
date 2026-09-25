@@ -1,11 +1,6 @@
-// skills.json is generated, so nothing here has ever needed to check it: the values it carried
-// were written by a maintainer editing an overlay in the marketplace repository, and the two
-// fields that drive rendering were replaced by local overlays on the way in anyway.
-//
-// Both halves of that stopped being true. `category` and `audience` now come from a skill
-// author's own SKILL.md frontmatter, and the overlays that were quietly constraining them are
-// going. These are the three fields where a bad value does more than look wrong: each one
-// decides where a row renders, or whether it renders at all.
+// `category` and `audience` now come from a skill author's frontmatter, and the overlays that
+// were constraining them are going. Each of these three decides where a row renders, or whether
+// it renders at all, and each fails silently at render.
 
 import { AUDIENCES } from "@/data/skill-audiences";
 import { CATEGORIES } from "@/data/skill-categories";
@@ -19,8 +14,7 @@ export function problemsWithSkill(skill: Record<string, unknown>): string[] {
   const problems: string[] = [];
   const id = isFilled(skill.id) ? (skill.id as string) : "a skill";
 
-  // A row renders under its category heading. An unrecognised one renders under a heading
-  // nothing defines, so the row is on the page but under nothing a reader can filter to.
+  // An unrecognised value renders under a heading nothing defines.
   if (!("category" in skill)) {
     problems.push(`${id}: category is missing`);
   } else if (!isFilled(skill.category)) {
@@ -33,8 +27,7 @@ export function problemsWithSkill(skill: Record<string, unknown>): string[] {
     );
   }
 
-  // The catalogue branches on `kind !== "skill"`, so an unrecognised value is silently treated
-  // as toolchain: marked on the card and sorted last, under a heading it does belong to.
+  // The catalogue branches on `kind !== "skill"`, so anything unrecognised reads as toolchain.
   if (!("kind" in skill)) {
     problems.push(`${id}: kind is missing`);
   } else if (!isFilled(skill.kind)) {
@@ -45,8 +38,7 @@ export function problemsWithSkill(skill: Record<string, unknown>): string[] {
     );
   }
 
-  // Membership, not just non-empty: `matchesAudience` filters on these names, so a typo makes
-  // the row invisible to every audience a reader can pick, with nothing failing at render.
+  // `matchesAudience` filters on these names, so a typo hides the row from every filter.
   if (!Array.isArray(skill.audience) || skill.audience.length === 0) {
     problems.push(`${id}: audience must be a non-empty list`);
   } else {

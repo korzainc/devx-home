@@ -22,8 +22,7 @@ describe("a skill row", () => {
     },
   );
 
-  // The value the site used before marketplace adopted this vocabulary. It is the shape of the
-  // mistake this file exists to catch: a real category name, retired upstream.
+  // "Build" is the shape of the mistake: a real category name, retired upstream.
   it.each(["Build", "", "make", "Decide "])(
     "is rejected when category is %j",
     (category) => {
@@ -46,8 +45,7 @@ describe("a skill row", () => {
     },
   );
 
-  // Present but the wrong type is a different problem from absent, and saying "is missing" about
-  // a field the author can see in their file sends them looking for the wrong thing.
+  // "is missing" about a field the author can see sends them looking for the wrong thing.
   it.each([
     ["category", 123],
     ["kind", null],
@@ -62,8 +60,7 @@ describe("a skill row", () => {
     },
   );
 
-  // Every problem is reported, not just the first: an author fixing one at a time learns about
-  // the next only on the next run.
+  // Not just the first, or an author learns about the next only on the next run.
   it("reports every problem at once", () => {
     const problems = problemsWithSkill({
       id: "x",
@@ -74,7 +71,7 @@ describe("a skill row", () => {
     expect(problems).toHaveLength(3);
   });
 
-  // Without an id the message still has to say which row, or a reader is left grepping.
+  // Without an id the message still has to say which row.
   it("names an unidentified row rather than saying nothing", () => {
     expect(problemsWithSkill({}).join(" ")).toContain("a skill");
   });
@@ -89,8 +86,7 @@ describe("the published index", () => {
     }
   });
 
-  // Planned rows are filtered off the site but still validated: they are published the moment
-  // someone changes their status upstream, and a check that skips them finds out then.
+  // Filtered off the site, but published the moment someone changes a status upstream.
   it("covers the planned rows too", () => {
     const planned = skills.filter((skill) => skill.status === "Planned");
     expect(planned.length).toBeGreaterThan(0);

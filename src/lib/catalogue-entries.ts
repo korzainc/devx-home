@@ -7,11 +7,8 @@ import type { DetectSignals } from "@/lib/gap/types";
 // component imports its runtime helpers and types from here instead, so bundling one can never
 // pull the raw catalogue (including `detect`) into the browser along with it.
 
-/** "setup" and "meta" configure or describe the toolchain rather than doing the work. Filtered
- *  and grouped like the rest; they sort last under their heading and the card marks them.
- *
- *  A runtime list, not just a union, because `skills-shape` has to check membership on data
- *  arriving from upstream and a second copy of these names would drift. */
+/** "setup" and "meta" configure the toolchain rather than doing the work: marked on the card,
+ *  sorted last. A runtime list so `skills-shape` can check membership without a second copy. */
 export const KINDS = ["skill", "setup", "meta"] as const;
 
 export type SkillKind = (typeof KINDS)[number];
