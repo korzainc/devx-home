@@ -28,6 +28,11 @@ and database-backed features need the existing project credentials and database
 connection. Follow [AGENTS.md](AGENTS.md) for access and database constraints;
 do not overwrite `.env.local` or provision a replacement database.
 
+Use the same host in `BETTER_AUTH_URL` and the GitHub App callback URL.
+Local login and telemetry consent redirect loopback aliases to that host before
+sign-in starts. A stale form on another alias is rejected instead of creating an
+OAuth state cookie that the callback cannot read. Existing sessions are retained.
+
 `pnpm vercel-build` runs migrations only when `VERCEL_ENV=production`, then
 builds Next.js. Previews skip that migration step. `pnpm migrate` runs migrations
 explicitly against `DATABASE_URL_UNPOOLED`; the app uses pooled `DATABASE_URL`.
@@ -134,3 +139,61 @@ Use `pnpm-lock.yaml` for the resolved versions; this README does not claim every
 dependency is the latest release. When upgrading the lint toolchain, check
 compatibility with `eslint-config-next` and run formatting, tests, lint, type
 checking and a production build together.
+
+## Opt-in device monitoring backend
+
+Apply migrations through `0006_telemetry_credentials.sql` before enabling
+`TELEMETRY_ENABLED=1`. Use the existing `DATABASE_URL`, migration-only
+`DATABASE_URL_UNPOOLED`, `BETTER_AUTH_SECRET` and GitHub App authentication
+configuration. Never edit `.env.local` for this rollout. The flag defaults off;
+the earlier `/api/telemetry/logs` and `/metrics` pilot remains development-only.
+
+The GitHub credentials must belong to the approved `korza-devx` App installed
+on `korzainc`, with repository access for the signing-in user. Replacing a local
+test App's credentials does not convert its stored GitHub user token. Acceptance
+requires a grant from the approved App, a process restart and a matching callback
+URL. Keep `BETTER_AUTH_SECRET` stable so existing encrypted tokens remain readable.
+Changing the GitHub App credentials does not revoke issued telemetry credentials;
+revoke those separately when needed.
+
+The CLI opens `/telemetry/connect` with `redirect_uri`, `state`,
+`code_challenge` and `code_challenge_method=S256`. Browser consent requires a
+session, same-origin CSRF protection and fresh Korza App access verification.
+Only `http://127.0.0.1:<port>/callback` is accepted. The returned code expires
+after 60 seconds and can be exchanged once at `/api/telemetry/exchange` using
+`{code, code_verifier, redirect_uri}`. The response contains
+`{token, device_id, expires_at}`. Device credentials expire within 12 hours;
+renewal requires another browser authorization. The CLI sends its existing
+`device_id` in the connection request when renewing. Home verifies ownership
+and rotates the token on that same device, preserving cumulative counter
+deduplication and pending event identity. Only credential hashes are stored.
+Expired codes are removed in batches of at most 1,000 during issuance.
+
+`POST /api/telemetry/events` accepts bearer-authenticated normalized
+`{events, metrics}` batches, at most 1,000 records and 256 KiB. Unknown fields,
+unapproved plugins and invalid client/source combinations are rejected. IDs are
+scoped to the device for retry deduplication. No raw OTLP attributes, prompts,
+tool arguments, email or paths are accepted. Browser revocation lives at
+`/telemetry/devices`; the CLI uses idempotent bearer `POST /api/telemetry/revoke`.
+Revocation does not delete recorded counts or their device history.
+
+Plugin installation totals are grouped by both client and source. Claude's native
+reports and installs verified through Korza CLI are displayed separately because
+they can describe the same installation; they must not be added together. Codex
+installation counts cover only installs verified through Korza CLI. Repeated
+delivery of the same device/event ID is deduplicated. These counts are not unique
+users or download totals.
+
+Validation separates production identity acceptance from protocol evidence:
+
+- Unit tests cover callback/PKCE/CSRF validation, fresh membership failure,
+  strict normalized records and packet bounds.
+- `TEST_TELEMETRY_DATABASE_URL=<local PostgreSQL URL> pnpm exec vitest run src/lib/telemetry-postgres.test.ts`
+  creates and removes a unique schema, checks migration reruns and bounded
+  cleanup, and tests atomic exchange, replay/expiry, deduplication and revocation
+  with actual PostgreSQL and loopback HTTP. It refuses remote database hosts.
+  Browser identity is substituted only in this test harness.
+- Real GitHub sign-in, fresh company access, browser consent through the Next
+  proxy and the eventual deployment still need an authorized-user acceptance
+  test. Passing the harness does not establish that a future credential or
+  environment change will work.

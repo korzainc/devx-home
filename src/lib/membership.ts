@@ -95,9 +95,11 @@ async function store(userId: string, orgMember: boolean) {
 export async function isOrgMember(
   headers: Headers,
   user: { id: string } & StoredMembership,
+  options: { fresh?: boolean } = {},
 ): Promise<boolean> {
   const maxAge = user.orgMember ? RECHECK_AFTER_MS : RETRY_DENIED_AFTER_MS;
-  if (isFresh(user.orgCheckedAt, maxAge)) return user.orgMember;
+  if (!options.fresh && isFresh(user.orgCheckedAt, maxAge))
+    return user.orgMember;
 
   try {
     const token = await tokenFor(headers);
@@ -115,6 +117,6 @@ export async function isOrgMember(
     return member;
   } catch (error) {
     console.error("The gate could not check organisation membership.", error);
-    return user.orgMember;
+    return options.fresh ? false : user.orgMember;
   }
 }

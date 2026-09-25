@@ -101,6 +101,7 @@ export type RepoReader = {
 };
 
 export type RepoSnapshot = {
+  repoId?: number;
   ref: RepoRef;
   defaultBranch: string;
   /** Every tracked path in the tree. Cheap to scan, so config file detection needs no fetches. */

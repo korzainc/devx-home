@@ -90,6 +90,31 @@ describe("isOrgMember", () => {
     expect(fetchOrgMembership).not.toHaveBeenCalled();
   });
 
+  it("fresh grant verification ignores even a current cached yes", async () => {
+    const isOrgMember = await subject();
+    fetchOrgMembership.mockResolvedValue(false);
+    await expect(
+      isOrgMember(
+        headers,
+        { id: "u1", orgMember: true, orgCheckedAt: new Date() },
+        { fresh: true },
+      ),
+    ).resolves.toBe(false);
+    expect(fetchOrgMembership).toHaveBeenCalledOnce();
+  });
+
+  it("fresh grant verification fails closed during an outage", async () => {
+    const isOrgMember = await subject();
+    fetchOrgMembership.mockRejectedValue(new Error("unavailable"));
+    await expect(
+      isOrgMember(
+        headers,
+        { id: "u1", orgMember: true, orgCheckedAt: new Date() },
+        { fresh: true },
+      ),
+    ).resolves.toBe(false);
+  });
+
   it("re-checks a stored yes that has gone stale", async () => {
     // The revocation path. Without this, someone who leaves the organisation keeps access.
     const isOrgMember = await subject();
