@@ -10,11 +10,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CatalogueTabs } from "@/components/catalogue-tabs";
-import {
-  AUDIENCE_ANY_LABEL,
-  AUDIENCES,
-  skillAudiences,
-} from "@/data/skill-audiences";
+import { AUDIENCE_ANY_LABEL, AUDIENCES } from "@/data/skill-audiences";
 import { PluginsCatalogue } from "@/components/plugins-catalogue";
 import { SkillsCatalogue } from "@/components/skills-catalogue";
 import { entryHaystack, matchesQuery } from "@/lib/search";
@@ -304,11 +300,9 @@ describe("the skills catalogue", () => {
     renderPage();
     pick(AUDIENCE, "Sales");
 
-    const tagged = skills.filter((skill) =>
-      skillAudiences[skill.id].includes("Sales"),
-    );
+    const tagged = skills.filter((skill) => skill.audiences.includes("Sales"));
     const withAll = skills.filter((skill) => {
-      const mine = skillAudiences[skill.id];
+      const mine = skill.audiences;
       return mine.includes("Sales") || mine.includes("All");
     });
     // Exact-matching would leave a Sales reader looking at the one card tagged for them, with
@@ -323,9 +317,7 @@ describe("the skills catalogue", () => {
     renderPage();
     pick(AUDIENCE, AUDIENCE_ANY_LABEL);
 
-    const expected = skills.filter((skill) =>
-      skillAudiences[skill.id].includes("All"),
-    );
+    const expected = skills.filter((skill) => skill.audiences.includes("All"));
     expect(expected.length).toBeLessThan(skills.length);
     expect(cardCount()).toBe(expected.length);
   });
