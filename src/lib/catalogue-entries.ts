@@ -3,7 +3,7 @@ import type { SkillCategory } from "@/data/skill-categories";
 import type { DetectSignals } from "@/lib/gap/types";
 
 // Client-safe: no catalogue data import, nothing here reads realCatalogueData or
-// skillsData. `catalogue.ts` carries everything that does, guarded by `server-only` - a client
+// indexData. `catalogue.ts` carries everything that does, guarded by `server-only` - a client
 // component imports its runtime helpers and types from here instead, so bundling one can never
 // pull the raw catalogue (including `detect`) into the browser along with it.
 
