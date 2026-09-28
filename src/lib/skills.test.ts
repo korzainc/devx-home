@@ -90,7 +90,7 @@ describe("skill catalogue", () => {
   });
 
   it("finds the skills a plugin ships", () => {
-    // plugins.json listed zero for codezen.
+    // The hand-typed plugin list reported zero skills for codezen.
     expect(skillsForPlugin("codezen").length).toBeGreaterThan(0);
     expect(skillsForPlugin("not-a-plugin")).toHaveLength(0);
   });
