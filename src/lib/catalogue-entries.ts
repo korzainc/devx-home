@@ -172,7 +172,7 @@ export type InstallCommand = {
 };
 
 /** A plugin card needs its skill count, not the skill rows themselves - computed from whatever
- * list a caller already has, so a client component never needs skills.json to show a number. */
+ * list a caller already has, so a client component never needs the index to show a number. */
 export function skillCountByPlugin(
   skills: SkillEntry[],
 ): Record<string, number> {

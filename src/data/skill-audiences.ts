@@ -2,7 +2,7 @@
  * The audience vocabulary, and who each plugin is for.
  *
  * A skill's audience is its author's: it is declared in their own `SKILL.md`, validated upstream
- * against the same four names below, and arrives in `skills.json`. The per-skill overlay that
+ * against the same four names below, and arrives in `index.json`. The per-skill overlay that
  * used to sit here is gone.
  *
  * A plugin's is still authored here. Its other fields are generated upstream alongside the

@@ -1,5 +1,5 @@
 import "server-only";
-import skillsData from "@/data/skills.json";
+import skillsData from "@/data/index.json";
 import realCatalogueData from "@/data/catalogue.json";
 import { capabilityLabelOverrides } from "@/data/capability-labels";
 import { installConfigs } from "@/data/install-configs";
