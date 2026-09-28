@@ -67,12 +67,9 @@ type RealTool = {
   };
 };
 
-// A bundle's own invocation is one flat recipe (image + steps), not the per-capability shape a
-// wrapped leaf tool's own invocation.<capability> entries use - the two are never read through
-// the same type. Untyped here rather than `BundleInvocation`: this repo's own committed catalogue
-// still predates that shape (its bundles still call a reusable workflow, not a docker image), so
-// asserting the newer shape against today's real data would fail to compile. bundleFromReal casts
-// it, and formatBundleDetails (gap/prompt.ts) checks the real shape before using any of it.
+// Untyped here, not `BundleInvocation`: the real catalogue still predates this shape (its
+// bundles call a reusable workflow, not a docker image), so asserting it here would fail to
+// compile. bundleFromReal casts it; formatBundleDetails checks the real shape before use.
 type RealBundle = RealTool & {
   wraps: { tool: string; capabilities: string[] }[];
   invocation?: unknown;
