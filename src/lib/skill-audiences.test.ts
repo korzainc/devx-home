@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 import { AUDIENCES, pluginAudiences } from "@/data/skill-audiences";
 import { plugins, skills } from "@/lib/catalogue";
 
-// `plugins.json` is hand-authored here, so this overlay can still drift: a sync adds a plugin
-// nobody has classified, or drops one the overlay still names. Both are silent at runtime.
+// A plugin's audience is hand-authored here while the rest of its row is generated, so this
+// overlay can still drift: a sync adds a plugin nobody has classified, or drops one the overlay
+// still names. Both are silent at runtime.
 // Skill audiences arrive from upstream and are checked by `skills-shape` on the way in.
 describe("plugin audiences", () => {
   it("covers every plugin", () => {

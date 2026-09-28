@@ -5,9 +5,9 @@
  * against the same four names below, and arrives in `skills.json`. The per-skill overlay that
  * used to sit here is gone.
  *
- * A plugin's is still authored here. `plugins.json` is hand-authored in this repository and
- * nothing upstream gives a plugin an audience, so `pluginAudiences` remains the only source and
- * can still drift from the entries it names.
+ * A plugin's is still authored here. Its other fields are generated upstream alongside the
+ * skills, but nothing there gives a plugin an audience, so `pluginAudiences` remains the only
+ * source and can still drift from the entries it names.
  *
  * The list is expected to grow. Values are written out per entry rather than derived from holding
  * every audience at once, so adding a fourth later does not silently reclassify a row.
