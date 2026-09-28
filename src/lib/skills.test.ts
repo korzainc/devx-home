@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import skillsData from "@/data/skills.json";
+import skillsData from "@/data/index.json";
 import { CATEGORIES } from "@/data/skill-categories";
 import { KINDS } from "@/lib/catalogue-entries";
 import { plugins, skills, skillsForPlugin } from "./catalogue";

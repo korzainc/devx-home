@@ -1,4 +1,4 @@
-// Shared by the shape checks over the plugin rows and the skill rows arriving in `skills.json`,
+// Shared by the shape checks over the plugin rows and the skill rows arriving in `index.json`,
 // which hold both to the same few rules.
 
 /** A type guard, so callers narrow rather than cast. */
