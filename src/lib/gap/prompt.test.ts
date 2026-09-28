@@ -1,6 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildFixPrompt } from "./prompt";
 import type { Analysis } from "./types";
+import type { BundleEntry } from "@/lib/catalogue-entries";
+
+// Hoisted so the mock factory below can close over it - vitest lifts vi.mock above the imports,
+// so a plain const declared here would not exist yet when the factory runs (see run.test.ts).
+const mockBundleById = vi.hoisted(() => ({}) as Record<string, BundleEntry>);
+
+vi.mock("@/lib/catalogue", () => ({ bundleById: mockBundleById }));
 
 const empty: Analysis = {
   repo: "korzainc/bare",
@@ -394,5 +401,93 @@ describe("buildFixPrompt", () => {
     expect(buildFixPrompt(analysis)).toContain(
       "| Korza CI Base Checks for Docker and Go |",
     );
+  });
+});
+
+describe("buildFixPrompt bundle details", () => {
+  const wellFormedBundle: BundleEntry = {
+    id: "ci-base-checks",
+    name: "Korza CI Base Checks",
+    summary: "test",
+    cardSummary: "test",
+    problem: "",
+    benefits: [],
+    category: "Security",
+    capabilities: ["secrets", "sast"],
+    stacks: ["any"],
+    docsUrl: "https://example.test/ci-base-checks",
+    detect: {},
+    wraps: [
+      { tool: "kingfisher", capabilities: ["secrets"] },
+      { tool: "semgrep", capabilities: ["sast"] },
+    ],
+    invocation: {
+      github: {
+        image: "example.test/ci-common:9.9.9",
+        steps: [{ name: "scan", args: "ci-run scan --out /out" }],
+        env: { CI: { value: "true", note: "Marks a real CI run." } },
+        requires: ["Full working recipe: https://example.test/README.md"],
+      },
+    },
+  };
+
+  beforeEach(() => {
+    for (const id of Object.keys(mockBundleById)) delete mockBundleById[id];
+  });
+
+  it("inlines a bundle's recipe, wraps mapping and env/requires when a gap recommends it", () => {
+    mockBundleById["ci-base-checks"] = wellFormedBundle;
+    const analysis = withGap();
+    analysis.categories[0].capabilities[0].recommended = [
+      { id: "ci-base-checks", name: "Korza CI Base Checks", stackLabels: [] },
+    ];
+
+    const prompt = buildFixPrompt(analysis);
+    expect(prompt).toContain("example.test/ci-common:9.9.9");
+    expect(prompt).toContain("- **secrets**: kingfisher");
+    expect(prompt).toContain("- **sast**: semgrep");
+    expect(prompt).toContain("`ci-run scan --out /out`");
+    expect(prompt).toContain("CI=true");
+    expect(prompt).toContain(
+      "Full working recipe: https://example.test/README.md",
+    );
+    expect(prompt).toContain("its own standalone command");
+  });
+
+  it("renders nothing extra for a bundle still on the older reusable-workflow shape", () => {
+    mockBundleById["ci-base-checks"] = {
+      ...wellFormedBundle,
+      invocation: {
+        github: { args: { some: "old-shape object, not a string" } },
+      } as never,
+    };
+    const analysis = withGap();
+    analysis.categories[0].capabilities[0].recommended = [
+      { id: "ci-base-checks", name: "Korza CI Base Checks", stackLabels: [] },
+    ];
+
+    const prompt = buildFixPrompt(analysis);
+    expect(prompt).not.toContain("wraps several separate checks");
+  });
+
+  it("renders a recommended bundle's details only once, even when two gaps both name it", () => {
+    mockBundleById["ci-base-checks"] = wellFormedBundle;
+    const analysis = withGap();
+    analysis.categories[0].capabilities[0].recommended = [
+      { id: "ci-base-checks", name: "Korza CI Base Checks", stackLabels: [] },
+    ];
+    analysis.categories[0].capabilities.push({
+      id: "sast",
+      label: "Code Security (SAST)",
+      satisfied: false,
+      present: [],
+      recommended: [
+        { id: "ci-base-checks", name: "Korza CI Base Checks", stackLabels: [] },
+      ],
+    });
+    analysis.gapCount = 2;
+
+    const prompt = buildFixPrompt(analysis);
+    expect(prompt.split("example.test/ci-common:9.9.9").length - 1).toBe(1);
   });
 });

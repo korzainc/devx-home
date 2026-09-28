@@ -46,8 +46,23 @@ export type ToolEntry = CatalogueEntry & {
   detect: DetectSignals;
 };
 
+/** A bundle's own recipe for GitHub Actions: one shared image, run through a fixed set of
+ * steps. Not the shape a wrapped leaf tool's own per-capability invocation entries use. */
+export type BundleInvocation = {
+  github?: {
+    image?: string;
+    args?: string;
+    env?: Record<string, { value: string; note?: string }>;
+    requires?: string[];
+    steps?: { name: string; args: string; note?: string }[];
+  };
+};
+
 export type BundleEntry = ToolEntry & {
   wraps: { tool: string; capabilities: string[] }[];
+  /** Inlined into the fix-prompt for a partial match instead of leaving the reader with just
+   * this bundle's name and a link (see formatBundleDetails in gap/prompt.ts). */
+  invocation?: BundleInvocation;
 };
 
 export function isBundle(entry: ToolEntry | BundleEntry): entry is BundleEntry {

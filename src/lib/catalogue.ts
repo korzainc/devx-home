@@ -15,6 +15,7 @@ import {
   isBundle,
   STATUS_PLANNED,
   type BundleEntry,
+  type BundleInvocation,
   type InstallCommand,
   type PluginEntry,
   type SkillEntry,
@@ -66,8 +67,15 @@ type RealTool = {
   };
 };
 
+// A bundle's own invocation is one flat recipe (image + steps), not the per-capability shape a
+// wrapped leaf tool's own invocation.<capability> entries use - the two are never read through
+// the same type. Untyped here rather than `BundleInvocation`: this repo's own committed catalogue
+// still predates that shape (its bundles still call a reusable workflow, not a docker image), so
+// asserting the newer shape against today's real data would fail to compile. bundleFromReal casts
+// it, and formatBundleDetails (gap/prompt.ts) checks the real shape before using any of it.
 type RealBundle = RealTool & {
   wraps: { tool: string; capabilities: string[] }[];
+  invocation?: unknown;
 };
 
 type RealBaselineEntry = {
@@ -198,6 +206,7 @@ function bundleFromReal(bundle: RealBundle): BundleEntry {
   return {
     ...toolFromReal(bundle),
     wraps: bundle.wraps,
+    invocation: bundle.invocation as BundleInvocation | undefined,
   };
 }
 
@@ -267,6 +276,12 @@ export const tools: ToolEntry[] = [...realTools, ...realBundles];
 /** Every bundle, derived from the same `tools` array `visibleTools`/gap-analysis both use,
  * not a second independently-sourced list, so the two can't drift apart. */
 export const bundles: BundleEntry[] = tools.filter(isBundle);
+
+/** Looked up by id rather than iterated, since the fix-prompt only cares about the specific
+ * bundles a gap actually recommends (see formatBundleDetails in gap/prompt.ts). */
+export const bundleById: Record<string, BundleEntry> = Object.fromEntries(
+  bundles.map((bundle) => [bundle.id, bundle]),
+);
 
 const wrappedToolIds = new Set(
   bundles.flatMap((bundle) => bundle.wraps.map((entry) => entry.tool)),
