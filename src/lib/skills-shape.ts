@@ -1,5 +1,5 @@
-// `category`, `audience` and `status` now come from a skill author's frontmatter, and the
-// overlays that were constraining them are going. Each field here fails silently at render.
+// `category`, `audience` and `status` come from a skill author's frontmatter, and the overlays
+// that used to constrain them are gone. Each field here fails silently at render.
 
 import { AUDIENCES, AUDIENCE_ANY } from "@/data/skill-audiences";
 import { CATEGORIES } from "@/data/skill-categories";
@@ -35,7 +35,7 @@ export function problemsWithSkill(skill: Record<string, unknown>): string[] {
   const problems: (string | null)[] = [];
   const id = isFilled(skill.id) ? skill.id : "a skill";
 
-  // Every overlay and lookup keys on it, and it is the card's React key.
+  // Every lookup keys on it, and it is the card's React key.
   problems.push(problemWithText(id, skill, "id"));
 
   // Sections are built from CATEGORIES alone, so an unrecognised value does not render under a
@@ -45,7 +45,7 @@ export function problemsWithSkill(skill: Record<string, unknown>): string[] {
   // The catalogue branches on `kind !== "skill"`, so anything unrecognised reads as toolchain.
   problems.push(problemWithEnum(id, skill, "kind", KINDS));
 
-  // `overlaySkills` hides a row only on an exact "Planned", so any other spelling renders live.
+  // `liveSkills` hides a row only on an exact "Planned", so any other spelling renders live.
   problems.push(problemWithEnum(id, skill, "status", STATUSES));
 
   problems.push(...problemsWithAudience(id, skill.audience));
@@ -76,7 +76,7 @@ function problemsWithAudience(id: string, audience: unknown): string[] {
 
   // `matchesAudience` already unions the AUDIENCE_ANY rows into whichever audience is picked, so
   // a specific value beside it changes nothing. Upstream records this as a convention its schema
-  // cannot express, and nothing else checks it once the overlay goes.
+  // cannot express, so with the overlay gone this is the only thing that checks it.
   if (audience.includes(AUDIENCE_ANY) && audience.length > 1) {
     problems.push(
       `${id}: audience ${JSON.stringify(audience)} pairs ${JSON.stringify(AUDIENCE_ANY)} with a specific audience, which changes nothing`,

@@ -320,11 +320,10 @@ export function toolInstallMethods(id: string): InstallMethod[] {
   ];
 }
 
-// Audience and category both come off local overlays, so they are merged in here rather than read
-// alongside the entry everywhere they are needed. Audience is a field upstream does not carry;
-// category is one it does, and this deliberately replaces it. An id an overlay does not name falls
-// back rather than throwing: a sync that adds one should still show the new row, and the seam test
-// beside the overlay is what fails.
+// Audience is the only field still overlaid, and only for a plugin: a skill carries its author's,
+// but `plugins.json` is hand-authored here and nothing upstream gives a plugin one. An id the
+// overlay does not name falls back rather than throwing -- a sync that adds a plugin should still
+// show it, and the seam test beside the overlay is what fails.
 export const plugins: PluginEntry[] = (
   pluginsData as Omit<PluginEntry, "audiences">[]
 ).map((plugin) => ({

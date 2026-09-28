@@ -1,10 +1,13 @@
 /**
- * Who each skill and plugin is for, authored here rather than synced.
+ * The audience vocabulary, and who each plugin is for.
  *
- * `skills.json` arrives from korzainc/marketplace, which generates it; `plugins.json` is
- * hand-authored here. Neither carries an audience: upstream classifies by `category` and `kind`,
- * both of which describe the work rather than the reader. This overlay sits beside them and
- * survives the next sync, the way `tool-card-summaries.ts` does for the tools catalogue.
+ * A skill's audience is its author's: it is declared in their own `SKILL.md`, validated upstream
+ * against the same four names below, and arrives in `skills.json`. The per-skill overlay that
+ * used to sit here is gone.
+ *
+ * A plugin's is still authored here. `plugins.json` is hand-authored in this repository and
+ * nothing upstream gives a plugin an audience, so `pluginAudiences` remains the only source and
+ * can still drift from the entries it names.
  *
  * The list is expected to grow. Values are written out per entry rather than derived from holding
  * every audience at once, so adding a fourth later does not silently reclassify a row.
@@ -24,11 +27,11 @@ export const AUDIENCE_ANY_LABEL = "Role-agnostic";
 /** The query-string key, shared because both panels draw the row and a reader may edit it. */
 export const AUDIENCE_PARAM = "for";
 
-/** Read by anything that has to place a row when the overlay does not name it. Not "Engineering":
- *  a skill that quietly defaults to the largest audience is hidden from the other two, and a row
- *  missing from two thirds of the catalogue is the harder failure to notice. Showing everywhere is
- *  wrong in a way a reader can see, and the seam test fails on the sync that causes it either
- *  way. */
+/** Read when `pluginAudiences` does not name a plugin, which a new catalogue entry causes. Not
+ *  "Engineering": an entry that quietly defaults to the largest audience is hidden from the other
+ *  two, and one missing from two thirds of the catalogue is the harder failure to notice. Showing
+ *  everywhere is wrong in a way a reader can see, and the seam test fails on the sync that causes
+ *  it either way. */
 export const AUDIENCE_FALLBACK: Audience[] = ["All"];
 
 /** A plugin is read from the skills it bundles, so a mixed one carries each audience it serves

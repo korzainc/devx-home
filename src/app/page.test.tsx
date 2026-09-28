@@ -52,7 +52,7 @@ describe("the home page", () => {
   it("fills the grid for every audience", () => {
     const { container } = render(<Home />);
 
-    // `AUDIENCES` rather than a written-out list, so adding a fourth audience to the overlay
+    // `AUDIENCES` rather than a written-out list, so adding a fourth audience to the vocabulary
     // fails here until the featured pool has enough skills to serve it.
     for (const audience of AUDIENCES) {
       if (audience === AUDIENCE_ANY) continue;

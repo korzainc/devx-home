@@ -1,9 +1,8 @@
 /**
- * Which kind of thinking each skill is, authored here rather than synced.
- *
- * `skills.json` arrives from korzainc/marketplace carrying its own `category`, so this overlay
- * replaces a generated field rather than adding a missing one. Editing the index directly would
- * last until the next sync; this survives it, the way `skill-audiences.ts` does.
+ * The category vocabulary. Which category a skill is in is its author's, declared in their own
+ * `SKILL.md` and validated upstream against this same list; the overlay that used to place every
+ * skill here is gone. What stays is the list itself, which the sections are built from and which
+ * `skills-shape` checks an arriving row against.
  *
  * The cut is by the kind of thinking a skill is, not by the stage of delivery it belongs to. The
  * stage version named three of its six sections after activities only engineers do, so the
