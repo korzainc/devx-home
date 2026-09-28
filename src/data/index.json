@@ -22,7 +22,7 @@
       "benefits": [
         "Edits against Wikipedia's documented \"Signs of AI writing\" list rather than a vague sense of tone.",
         "Worth running on anything customer-facing: docs, release notes, incident writeups.",
-        "Small enough to read end to end before you trust it: one skill, and the whole prompt is in the repository."
+        "Small enough to read end to end before you trust it: the whole prompt is in the repository."
       ],
       "homepage": "https://github.com/blader/humanizer",
       "id": "humanizer",
@@ -52,7 +52,7 @@
       "agents": ["Claude Code", "Codex CLI"],
       "benefits": [
         "A vetted library of planning, verification and branch-completion patterns, so the approach is not improvised on every task.",
-        "Pinned to a tag rather than a branch, so upstream commits cannot land on your machine unreviewed. The trade is that the pin has to be moved deliberately.",
+        "Works on the process rather than the code: how to plan, when to verify, when a branch is done.",
         "codezen builds on it, so the two are designed to run together."
       ],
       "homepage": "https://github.com/obra/superpowers",
