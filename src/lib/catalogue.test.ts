@@ -396,7 +396,11 @@ describe("provenance", () => {
   it("declares the catalogue index as generated", () => {
     // Fails if a hand-extracted file is dropped back in.
     expect(indexData.placeholder).toBe(false);
-    expect(indexData.schemaVersion).toBeGreaterThan(0);
+    // Pinned, not `> 0`: the file is a contract from another repository and `> 0` accepts any
+    // reshape of it. DX-170 bumped this 5 -> 6 because plugin rows were added, and nothing here
+    // would have noticed. Bump it deliberately when taking a new shape, having checked what
+    // moved.
+    expect(indexData.schemaVersion).toBe(6);
   });
 });
 

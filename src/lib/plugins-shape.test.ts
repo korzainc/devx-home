@@ -151,14 +151,39 @@ describe("the plugin set", () => {
   // the direction skills.test.ts does not cover.
   it("is rejected when a row disagrees with its skills about ref", () => {
     const rows = [
-      { plugin: "codezen", ref: "v1.0.0", sourceRepo: "korzainc/codezen" },
+      {
+        plugin: "codezen",
+        ref: "v1.0.0",
+        sourceRepo: "korzainc/codezen",
+        origin: "Korza",
+      },
     ];
     expect(problemsWithPluginSet([valid], rows).join(" ")).toContain("ref");
   });
 
+  // The home page reads `skill.origin === "Korza"` for a card's provenance line, and
+  // skills.test.ts only checks membership in the set of all plugin origins -- which a
+  // flipped-but-valid value passes.
+  it("is rejected when a row disagrees with its skills about origin", () => {
+    const rows = [
+      {
+        plugin: "codezen",
+        ref: "main",
+        sourceRepo: "korzainc/codezen",
+        origin: "Third party",
+      },
+    ];
+    expect(problemsWithPluginSet([valid], rows).join(" ")).toContain("origin");
+  });
+
   it("is rejected when a row disagrees with its skills about sourceRepo", () => {
     const rows = [
-      { plugin: "codezen", ref: "main", sourceRepo: "someone/else" },
+      {
+        plugin: "codezen",
+        ref: "main",
+        sourceRepo: "someone/else",
+        origin: "Korza",
+      },
     ];
     expect(problemsWithPluginSet([valid], rows).join(" ")).toContain(
       "sourceRepo",
@@ -179,6 +204,7 @@ describe("the committed catalogue data", () => {
     plugin: string;
     ref: string;
     sourceRepo: string;
+    origin: string;
   }[];
 
   it("has a well shaped row for every plugin", () => {
