@@ -2,6 +2,7 @@ import { beforeEach, afterEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
   member: vi.fn(),
+  telemetryMember: vi.fn(),
   query: vi.fn(),
   release: vi.fn(),
 }));
@@ -9,6 +10,9 @@ vi.mock("./auth", () => ({
   getAuth: () => ({ api: { getSession: mocks.getSession } }),
 }));
 vi.mock("./membership", () => ({ isOrgMember: mocks.member }));
+vi.mock("./telemetry-membership", () => ({
+  telemetryMembership: mocks.telemetryMember,
+}));
 vi.mock("./db", () => ({
   getPool: () => ({
     query: mocks.query,
@@ -62,6 +66,7 @@ beforeEach(() => {
   vi.stubEnv("BETTER_AUTH_SECRET", "secret");
   mocks.getSession.mockResolvedValue(session);
   mocks.member.mockResolvedValue(true);
+  mocks.telemetryMember.mockResolvedValue(true);
   mocks.query.mockResolvedValue({ rows: [] });
 });
 afterEach(() => {
@@ -146,7 +151,9 @@ it("rejects missing, expired or revoked credentials before accepting telemetry",
   ).toContain("revoked_at IS NULL");
 });
 it("bounds the decoded request stream", async () => {
-  mocks.query.mockResolvedValue({ rows: [{ device_id: "device" }] });
+  mocks.query.mockResolvedValue({
+    rows: [{ device_id: "device", user_id: "user" }],
+  });
   expect(
     (
       await receiveEvents(
@@ -156,7 +163,9 @@ it("bounds the decoded request stream", async () => {
   ).toBe(413);
 });
 it("scopes identities by device and inserts atomically with retry dedupe", async () => {
-  mocks.query.mockResolvedValue({ rows: [{ device_id: "device" }] });
+  mocks.query.mockResolvedValue({
+    rows: [{ device_id: "device", user_id: "user" }],
+  });
   const event = {
     id: "b".repeat(64),
     kind: "plugin_installed",
@@ -177,7 +186,9 @@ it("scopes identities by device and inserts atomically with retry dedupe", async
   expect(mocks.query.mock.calls.at(-1)?.[0]).toBe("COMMIT");
 });
 it("writes a full batch in one database call per record type", async () => {
-  mocks.query.mockResolvedValue({ rows: [{ device_id: "device" }] });
+  mocks.query.mockResolvedValue({
+    rows: [{ device_id: "device", user_id: "user" }],
+  });
   const events = Array.from({ length: 500 }, (_, index) => ({
     id: index.toString(16).padStart(64, "0"),
     kind: "plugin_installed",
@@ -202,10 +213,12 @@ it("writes a full batch in one database call per record type", async () => {
   expect(writes).toHaveLength(2);
   expect(writes[0][1]).toHaveLength(500 * 8);
   expect(writes[1][1]).toHaveLength(500 * 7);
-  expect(mocks.query).toHaveBeenCalledTimes(7);
+  expect(mocks.query).toHaveBeenCalledTimes(8);
 });
 it("coalesces duplicate counters without replacing the first metadata", async () => {
-  mocks.query.mockResolvedValue({ rows: [{ device_id: "device" }] });
+  mocks.query.mockResolvedValue({
+    rows: [{ device_id: "device", user_id: "user" }],
+  });
   const first = {
     id: "c".repeat(64),
     value: 2,
@@ -246,7 +259,11 @@ it("rolls back both bulk writes if the metric statement fails", async () => {
   mocks.query.mockImplementation(async (sql: string) => {
     if (sql.startsWith("INSERT INTO telemetry_skill_metrics"))
       throw Error("injected bulk metric failure");
-    return { rows: sql.startsWith("SELECT") ? [{ device_id: "device" }] : [] };
+    return {
+      rows: sql.startsWith("SELECT")
+        ? [{ device_id: "device", user_id: "user" }]
+        : [],
+    };
   });
   const packet = {
     events: [
@@ -279,7 +296,7 @@ it("rolls back both bulk writes if the metric statement fails", async () => {
 it("allows bearer self-revocation and rejects invalid token", async () => {
   expect((await revokeDevice(ingest({}, "bad"))).status).toBe(401);
   mocks.query.mockResolvedValue({
-    rows: [{ device_id: "device" }],
+    rows: [{ device_id: "device", user_id: "user" }],
     rowCount: 1,
   });
   expect((await revokeDevice(ingest({}))).status).toBe(204);
@@ -318,7 +335,7 @@ it("rechecks revocation inside the ingestion transaction", async () => {
   mocks.query.mockImplementation(async (sql: string) => ({
     rows:
       sql.includes("SELECT device_id") && !sql.includes("FOR SHARE")
-        ? [{ device_id: "device" }]
+        ? [{ device_id: "device", user_id: "user" }]
         : [],
   }));
   expect(
@@ -327,7 +344,9 @@ it("rechecks revocation inside the ingestion transaction", async () => {
   expect(mocks.query.mock.calls.at(-1)?.[0]).toBe("ROLLBACK");
 });
 it("rejects invalid content type, encoded bodies and unknown fields without inserts", async () => {
-  mocks.query.mockResolvedValue({ rows: [{ device_id: "device" }] });
+  mocks.query.mockResolvedValue({
+    rows: [{ device_id: "device", user_id: "user" }],
+  });
   const req = ingest({ events: [], metrics: [] });
   req.headers.set("content-encoding", "gzip");
   expect((await receiveEvents(req)).status).toBe(415);
@@ -421,4 +440,38 @@ it("accepts CSRF-bound renewal only for the current user's device", async () => 
   expect(
     (await connectGet(new Request(base + "/telemetry/connect?" + q))).status,
   ).toBe(400);
+});
+
+it("retries provider failures but refuses confirmed membership removal before writing", async () => {
+  mocks.query.mockResolvedValue({
+    rows: [{ device_id: "device", user_id: "user" }],
+  });
+  mocks.telemetryMember.mockRejectedValueOnce(new Error("provider timed out"));
+  expect(
+    (await receiveEvents(ingest({ events: [], metrics: [] }))).status,
+  ).toBe(503);
+  mocks.telemetryMember.mockResolvedValueOnce(false);
+  expect(
+    (await receiveEvents(ingest({ events: [], metrics: [] }))).status,
+  ).toBe(401);
+  expect(mocks.telemetryMember).toHaveBeenCalledWith("user");
+  expect(mocks.query.mock.calls.some(([sql]) => sql === "BEGIN")).toBe(false);
+});
+it("rechecks membership under a shared user lock before locking the device", async () => {
+  mocks.query.mockImplementation(async (sql: string) => ({
+    rows: sql.includes('SELECT id FROM "user"')
+      ? []
+      : [{ device_id: "device", user_id: "user" }],
+  }));
+  expect(
+    (await receiveEvents(ingest({ events: [], metrics: [] }))).status,
+  ).toBe(401);
+  expect(mocks.query).toHaveBeenCalledWith(
+    expect.stringContaining('FROM "user"'),
+    ["user"],
+  );
+  expect(mocks.query).toHaveBeenCalledWith("ROLLBACK");
+  expect(
+    mocks.query.mock.calls.some(([sql]) => sql.includes("INSERT INTO")),
+  ).toBe(false);
 });

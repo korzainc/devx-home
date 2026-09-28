@@ -14,6 +14,7 @@ import {
   type ConnectParams,
 } from "./telemetry-auth";
 import { parseBatch } from "./telemetry-events";
+import { telemetryMembership } from "./telemetry-membership";
 
 const privateHeaders = {
   "cache-control": "no-store",
@@ -234,7 +235,7 @@ export async function receiveEvents(request: Request) {
   try {
     const pool = getPool();
     const auth = await pool.query(
-      "SELECT device_id FROM telemetry_devices WHERE token_hash=$1 AND revoked_at IS NULL AND expires_at > now()",
+      "SELECT device_id,user_id FROM telemetry_devices WHERE token_hash=$1 AND revoked_at IS NULL AND expires_at > now()",
       [hash],
     );
     if (!auth.rows.length) return empty(401);
@@ -245,13 +246,22 @@ export async function receiveEvents(request: Request) {
     } catch {
       throw new HttpError(400);
     }
+    const userId = auth.rows[0].user_id;
+    if (!(await telemetryMembership(userId))) return empty(401);
     client = await pool.connect();
     await client.query("BEGIN");
     await client.query("SET LOCAL statement_timeout = '3s'");
+    // Always lock user before device. A removal committed before this lock
+    // denies the batch; one racing ingestion waits until the whole batch ends.
+    const membership = await client.query(
+      'SELECT id FROM "user" WHERE id=$1 AND "orgMember"=true AND "orgCheckedAt">now()-interval \'5 minutes\' FOR SHARE',
+      [userId],
+    );
+    if (!membership.rows.length) throw new HttpError(401);
     // Hold a shared row lock through ingestion. Revocation cannot race a partly committed batch.
     const { rows } = await client.query(
-      "SELECT device_id FROM telemetry_devices WHERE token_hash=$1 AND revoked_at IS NULL AND expires_at > now() FOR SHARE",
-      [hash],
+      "SELECT device_id FROM telemetry_devices WHERE token_hash=$1 AND user_id=$2 AND revoked_at IS NULL AND expires_at > now() FOR SHARE",
+      [hash, userId],
     );
     if (!rows.length) throw new HttpError(401);
     const device = rows[0].device_id;

@@ -1,32 +1,5 @@
-// Date.parse alone normalizes impossible dates such as February 30. Validate each
-// calendar/time field before accepting RFC3339 precision from either native exporter.
-function timestamp(value: unknown): boolean {
-  if (typeof value !== "string") return false;
-  const match =
-    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,9})?(?:Z|[+-](\d{2}):(\d{2}))$/.exec(
-      value,
-    );
-  if (!match) return false;
-  const [year, month, day, hour, minute, second, offsetHour, offsetMinute] =
-    match.slice(1).map(Number);
-  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
-  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-  return (
-    year >= 1 &&
-    month >= 1 &&
-    month <= 12 &&
-    day >= 1 &&
-    day <= days[month - 1] &&
-    hour <= 23 &&
-    minute <= 59 &&
-    second <= 59 &&
-    (!match[7] || (offsetHour <= 23 && offsetMinute <= 59)) &&
-    Number.isFinite(Date.parse(value))
-  );
-}
-const plugins = ["codezen", "superpowers", "mattpocock-skills", "humanizer"];
-const name = (x: unknown) =>
-  typeof x === "string" && /^[a-zA-Z0-9_.:-]{1,100}$/.test(x);
+import { telemetryPlugin } from "./telemetry-catalogue";
+import { telemetryName as name, timestamp } from "./telemetry-validation";
 const nullableName = (x: unknown) => x === null || name(x);
 const id = (x: unknown) => typeof x === "string" && /^[a-f0-9]{64}$/.test(x);
 function record(value: unknown, keys: string[]): Record<string, unknown> {
@@ -79,7 +52,7 @@ export function parseBatch(value: unknown): {
     ]);
     if (
       !id(e.id) ||
-      !plugins.includes(e.plugin as string) ||
+      !telemetryPlugin(e.plugin) ||
       !["plugin_installed", "skill_activated"].includes(e.kind as string) ||
       !(
         (e.client === "claude" && e.source === "native_otel") ||
@@ -107,7 +80,7 @@ export function parseBatch(value: unknown): {
       !Number.isSafeInteger(m.value) ||
       m.value < 0 ||
       ![1, 2].includes(m.temporality as number) ||
-      !["codezen", "superpowers"].includes(m.plugin as string) ||
+      !telemetryPlugin(m.plugin, "codex") ||
       !nullableName(m.skill) ||
       !nullableName(m.invokeType)
     )

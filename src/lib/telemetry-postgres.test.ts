@@ -24,6 +24,7 @@ const identity = vi.hoisted(() => ({ member: true }));
 vi.mock("./auth", () => ({
   getAuth: () => ({
     api: {
+      getAccessToken: async () => ({ accessToken: "fixture-github-token" }),
       getSession: async ({ headers }: { headers: Headers }) =>
         headers.get("cookie") === "fixture_session=authorized"
           ? {
@@ -34,7 +35,10 @@ vi.mock("./auth", () => ({
     },
   }),
 }));
-vi.mock("./membership", () => ({ isOrgMember: async () => identity.member }));
+vi.mock("./membership", async (original) => ({
+  ...(await original<typeof import("./membership")>()),
+  isOrgMember: async () => identity.member,
+}));
 import {
   GET as connectGET,
   POST as connectPOST,
@@ -48,6 +52,9 @@ import {
   devicesGet,
   devicesPost,
 } from "./telemetry-http";
+import { storeMembership } from "./membership";
+vi.mock("./org", () => ({ fetchOrgMembership: async () => identity.member }));
+import { telemetryMembership } from "./telemetry-membership";
 import { readPluginInstalls, readSkillUsage } from "./skill-usage";
 const configured = process.env.TEST_TELEMETRY_DATABASE_URL;
 const run = promisify(execFile);
@@ -110,7 +117,7 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
       env: { ...process.env, DATABASE_URL_UNPOOLED: connection },
     });
     await db.pool.query(
-      `INSERT INTO "user"(id,name,email,"emailVerified") VALUES('telemetry-test-user','test','test@example.invalid',false)`,
+      `INSERT INTO "user"(id,name,email,"emailVerified","orgMember","orgCheckedAt") VALUES('telemetry-test-user','test','test@example.invalid',false,true,now())`,
     );
     vi.stubEnv("TELEMETRY_ENABLED", "1");
     vi.stubEnv(
@@ -677,6 +684,9 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
     expect(await readSkillUsage("superpowers", ["brainstorming"])).toEqual({
       brainstorming: { codex: 5 },
     });
+    expect(await readSkillUsage("codezen", ["brainstorming"])).toEqual({
+      brainstorming: { codex: 97 },
+    });
   });
   it("stores replay-safe Claude installs without combining reporting sources", async () => {
     const credential = (await exchangeCode(
@@ -928,7 +938,7 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
 
     const otherOwner = `pagination-other-${randomUUID()}`;
     await db.pool.query(
-      'INSERT INTO "user"(id,name,email,"emailVerified") VALUES($1,$1,$2,false)',
+      'INSERT INTO "user"(id,name,email,"emailVerified","orgMember","orgCheckedAt") VALUES($1,$1,$2,false,true,now())',
       [otherOwner, `${otherOwner}@example.invalid`],
     );
     const other = (await exchangeCode(
@@ -994,5 +1004,242 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
       [first.device_id],
     );
     expect(device.rows[0].revoked_at).not.toBeNull();
+  });
+
+  it("applies the new read indexes once and uses them for selective plugin and skill reads", async () => {
+    const names = (
+      await db.pool.query(
+        "SELECT indexname FROM pg_indexes WHERE schemaname=current_schema() AND indexname LIKE 'telemetry_%'",
+      )
+    ).rows.map((row) => row.indexname);
+    for (const name of [
+      "telemetry_events_plugin_kind_skill_idx",
+      "telemetry_skill_metrics_skill_plugin_idx",
+      "telemetry_events_device_idx",
+      "telemetry_skill_metrics_device_idx",
+      "telemetry_codes_device_idx",
+      "telemetry_codes_user_idx",
+    ])
+      expect(names).toContain(name);
+    await db.pool.query(
+      "INSERT INTO telemetry_events(event_id,kind,occurred_at,plugin,skill) SELECT 'index-probe-'||n,'skill_activated',now(),'unrelated-plugin','unrelated-skill' FROM generate_series(1,20000) n",
+    );
+    await db.pool.query(
+      "INSERT INTO telemetry_skill_metrics(stream_id,value,temporality,skill,plugin) SELECT 'index-probe-'||n,1,2,'unrelated-skill','unrelated-plugin' FROM generate_series(1,20000) n",
+    );
+    await db.pool.query("ANALYZE telemetry_events");
+    await db.pool.query("ANALYZE telemetry_skill_metrics");
+    for (const [sql, index] of [
+      [
+        "SELECT skill,count(*) FROM telemetry_events WHERE plugin='humanizer' AND kind='skill_activated' AND skill=ANY(ARRAY['humanizer']) GROUP BY skill",
+        "telemetry_events_plugin_kind_skill_idx",
+      ],
+      [
+        "SELECT client,source,count(*) FROM telemetry_events WHERE plugin='humanizer' AND kind='plugin_installed' GROUP BY client,source",
+        "telemetry_events_plugin_kind_skill_idx",
+      ],
+      [
+        "SELECT skill,sum(value) FROM telemetry_skill_metrics WHERE (plugin='superpowers' OR plugin IS NULL) AND skill=ANY(ARRAY['superpowers_brainstorming']) GROUP BY skill",
+        "telemetry_skill_metrics_skill_plugin_idx",
+      ],
+    ])
+      expect(
+        JSON.stringify(
+          (await db.pool.query(`EXPLAIN (FORMAT JSON) ${sql}`)).rows,
+        ),
+      ).toContain(index);
+    const rerun = await run(process.execPath, ["scripts/migrate.mjs"], {
+      env: { ...process.env, DATABASE_URL_UNPOOLED: connection },
+    });
+    expect(rerun.stdout.trim()).toBe("nothing to apply");
+    expect(
+      (
+        await db.pool.query(
+          "SELECT name FROM _migration WHERE name='0007_telemetry_read_indexes.sql'",
+        )
+      ).rows,
+    ).toHaveLength(1);
+  });
+
+  async function membershipDevice() {
+    const user = `membership-${randomUUID()}`;
+    await db.pool.query(
+      'INSERT INTO "user"(id,name,email,"emailVerified","orgMember","orgCheckedAt") VALUES($1,$1,$2,false,true,now())',
+      [user, `${user}@example.invalid`],
+    );
+    const credential = (await exchangeCode(
+      db.pool,
+      payload(await issueCode(db.pool, user, params)),
+    ))!;
+    return { user, credential };
+  }
+  const membershipPacket = (token: string) =>
+    new Request("http://localhost/api/telemetry/events", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        events: [
+          {
+            id: "f".repeat(64),
+            kind: "plugin_installed",
+            occurredAt: "2026-09-28T00:00:00Z",
+            plugin: "humanizer",
+            skill: null,
+            client: "claude",
+            source: "korza_cli",
+          },
+        ],
+        metrics: [],
+      }),
+    });
+  it("refreshes a stale positive membership with PostgreSQL microsecond precision", async () => {
+    const { user, credential } = await membershipDevice();
+    await db.pool.query(
+      `INSERT INTO account(id,issuer,"accountId","providerId","userId","updatedAt") VALUES($1,'https://github.com',$1,'github',$1,now())`,
+      [user],
+    );
+    await db.pool.query(
+      `UPDATE "user" SET "orgCheckedAt"=date_trunc('second',now()-interval '6 minutes')+interval '0.123456 seconds' WHERE id=$1`,
+      [user],
+    );
+    expect(
+      (
+        await db.pool.query(
+          'SELECT extract(microseconds from "orgCheckedAt")::int % 1000000 micros FROM "user" WHERE id=$1',
+          [user],
+        )
+      ).rows[0].micros,
+    ).toBe(123456);
+    expect(await telemetryMembership(user)).toBe(true);
+    expect(
+      (await receiveEvents(membershipPacket(credential.token))).status,
+    ).toBe(200);
+  });
+  it("a confirmed membership removal revokes every device and denies its queued batch", async () => {
+    const { user, credential } = await membershipDevice();
+    const second = (await exchangeCode(
+      db.pool,
+      payload(await issueCode(db.pool, user, params)),
+    ))!;
+    await storeMembership(user, false);
+    expect(
+      (await receiveEvents(membershipPacket(credential.token))).status,
+    ).toBe(401);
+    expect((await receiveEvents(membershipPacket(second.token))).status).toBe(
+      401,
+    );
+    expect(
+      (
+        await db.pool.query(
+          "SELECT count(*)::int count FROM telemetry_devices WHERE user_id=$1 AND revoked_at IS NULL",
+          [user],
+        )
+      ).rows,
+    ).toEqual([{ count: 0 }]);
+    expect(
+      (
+        await db.pool.query(
+          "SELECT count(*)::int count FROM telemetry_events WHERE device_id=$1",
+          [credential.device_id],
+        )
+      ).rows,
+    ).toEqual([{ count: 0 }]);
+  });
+  it("membership removal waits for an already locked ingestion batch to finish atomically", async () => {
+    const { user, credential } = await membershipDevice();
+    const original = db.pool;
+    const locked = Promise.withResolvers<void>();
+    const proceed = Promise.withResolvers<void>();
+    db.pool = {
+      query: original.query.bind(original),
+      connect: async () => {
+        const client = await original.connect();
+        return {
+          query: async (sql: string, values?: unknown[]) => {
+            const result = await client.query(sql, values);
+            if (sql.includes('SELECT id FROM "user"')) {
+              locked.resolve();
+              await proceed.promise;
+            }
+            return result;
+          },
+          release: () => client.release(),
+        };
+      },
+    } as unknown as pg.Pool;
+    const ingest = receiveEvents(membershipPacket(credential.token));
+    let removal: Promise<void> | undefined;
+    try {
+      await locked.promise;
+      removal = storeMembership(user, false);
+      await expect
+        .poll(
+          async () =>
+            (
+              await admin.query(
+                "SELECT count(*)::int count FROM pg_stat_activity WHERE wait_event_type='Lock' AND query LIKE 'with verdict as%'",
+              )
+            ).rows[0].count,
+          { timeout: 1000, interval: 10 },
+        )
+        .toBe(1);
+      proceed.resolve();
+      expect((await ingest).status).toBe(200);
+      await removal;
+      expect(
+        (await receiveEvents(membershipPacket(credential.token))).status,
+      ).toBe(401);
+      expect(
+        (
+          await original.query(
+            "SELECT count(*)::int count FROM telemetry_events WHERE device_id=$1",
+            [credential.device_id],
+          )
+        ).rows,
+      ).toEqual([{ count: 1 }]);
+    } finally {
+      proceed.resolve();
+      await Promise.allSettled([ingest, ...(removal ? [removal] : [])]);
+      db.pool = original;
+    }
+  });
+  it("a membership removal that locks first prevents ingestion from committing stale authorization", async () => {
+    const { user, credential } = await membershipDevice();
+    const remover = await db.pool.connect();
+    await remover.query("BEGIN");
+    await remover.query('UPDATE "user" SET "orgMember"=false WHERE id=$1', [
+      user,
+    ]);
+    const ingest = receiveEvents(membershipPacket(credential.token));
+    try {
+      await expect
+        .poll(
+          async () =>
+            (
+              await admin.query(
+                `SELECT count(*)::int count FROM pg_stat_activity WHERE wait_event_type='Lock' AND query LIKE 'SELECT id FROM "user"%'`,
+              )
+            ).rows[0].count,
+          { timeout: 1000, interval: 10 },
+        )
+        .toBe(1);
+      await remover.query("COMMIT");
+      expect((await ingest).status).toBe(401);
+      expect(
+        (
+          await db.pool.query(
+            "SELECT count(*)::int count FROM telemetry_events WHERE device_id=$1",
+            [credential.device_id],
+          )
+        ).rows,
+      ).toEqual([{ count: 0 }]);
+    } finally {
+      await remover.query("ROLLBACK");
+      remover.release();
+      await Promise.allSettled([ingest]);
+    }
   });
 });
