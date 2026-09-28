@@ -23,7 +23,12 @@ const REQUIRED = [
   "homepage",
 ] as const;
 
-type SkillRow = { plugin: string; ref: string; sourceRepo: string };
+type SkillRow = {
+  plugin: string;
+  ref: string;
+  sourceRepo: string;
+  origin: string;
+};
 
 function isFilledList(value: unknown): boolean {
   return Array.isArray(value) && value.length > 0 && value.every(isFilled);
@@ -135,7 +140,12 @@ export function problemsWithPluginSet(
   // a wrong `ref` still reaches a public page, which is why it stays a check and not a comment.
   for (const plugin of plugins) {
     const rows = skills.filter((skill) => skill.plugin === plugin.id);
-    for (const field of ["ref", "sourceRepo"] as const) {
+    // `origin` joins ref/sourceRepo because it is the same shape of fact and has the sharper
+    // failure: the home page reads `skill.origin === "Korza"` to decide a card's provenance
+    // line, so a codezen skill whose origin flipped renders "From korzainc/codezen" instead of
+    // "Built at Korza". skills.test.ts only checks membership in the set of all plugin origins,
+    // which a flipped-but-valid value passes.
+    for (const field of ["ref", "sourceRepo", "origin"] as const) {
       const claimed = new Set(rows.map((row) => row[field]));
       if (
         claimed.size > 0 &&

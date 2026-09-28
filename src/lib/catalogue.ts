@@ -343,6 +343,16 @@ export function toolInstallMethods(id: string): InstallMethod[] {
 // and nothing upstream gives a plugin one. An id the overlay does not name falls back rather than
 // throwing -- a sync that adds a plugin should still show it, and the seam test beside the overlay
 // is what fails.
+//
+// The order is the generator's, alphabetical by name, and this is the render order: nothing
+// downstream sorts. Deliberate, and it matches `skills`, which has been id-sorted since the
+// index shipped.
+//
+// Nothing validates these rows at runtime. `plugins-shape` runs in the test suite only, so CI
+// is the gate and this cast is the rest of it -- and the cast is weaker than it looks: a field
+// missing from *every* row fails `tsc`, but one missing from only *some* widens to optional and
+// passes. Not a module-load throw, for the reason `stackCapabilities` above gives: this module
+// is not lazy, so throwing here breaks every route that merely imports it.
 export const plugins: PluginEntry[] = (
   indexData.plugins as Omit<PluginEntry, "audiences">[]
 ).map((plugin) => ({
