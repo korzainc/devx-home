@@ -3,6 +3,7 @@
 // `name` is pasted into a terminal as part of an install command, and `homepage` becomes an href.
 
 import { AGENTS } from "@/lib/catalogue-entries";
+import { isFilled } from "@/lib/shape";
 
 // Lowercase, digits and hyphens only, so the install command a user copies is a single word and
 // `id` is a usable URL segment.
@@ -22,10 +23,6 @@ const REQUIRED = [
 ] as const;
 
 type SkillRow = { plugin: string; ref: string; sourceRepo: string };
-
-function isFilled(value: unknown): boolean {
-  return typeof value === "string" && value.trim().length > 0;
-}
 
 function isFilledList(value: unknown): boolean {
   return Array.isArray(value) && value.length > 0 && value.every(isFilled);

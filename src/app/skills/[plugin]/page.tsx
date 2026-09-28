@@ -7,7 +7,6 @@ import { notFound } from "next/navigation";
 import { BackLink } from "@/components/back-link";
 import { PluginInstall } from "@/components/plugin-install";
 import { MetaRow } from "@/components/meta-row";
-import { PluginSkills } from "@/components/plugin-skills";
 import { SkillContextStrip } from "@/components/skill-context-strip";
 import { NavArrow } from "@/components/nav-arrow";
 import {
@@ -135,11 +134,7 @@ export default async function PluginPage({
       )}
 
       {skills.length > 0 && (
-        <Suspense
-          fallback={<PluginSkills plugin={plugin.id} skills={skills} />}
-        >
-          <PluginSkillsWithUsage plugin={plugin.id} skills={skills} />
-        </Suspense>
+        <PluginSkillsWithUsage plugin={plugin.id} skills={skills} />
       )}
     </article>
   );

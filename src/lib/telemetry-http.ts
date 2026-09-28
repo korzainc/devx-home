@@ -8,6 +8,7 @@ import {
   consentToken,
   exchangeCode,
   issueCode,
+  revokeCredentials,
   tokenHash,
   verifyConsent,
   type ConnectParams,
@@ -218,11 +219,9 @@ export async function revokeDevice(request: Request) {
   const hash = bearerHash(request);
   if (!hash) return empty(401);
   try {
-    const { rows } = await getPool().query(
-      "UPDATE telemetry_devices SET revoked_at = COALESCE(revoked_at, now()) WHERE token_hash=$1 RETURNING device_id",
-      [hash],
+    return empty(
+      (await revokeCredentials(getPool(), { tokenHash: hash })) ? 204 : 401,
     );
-    return empty(rows.length ? 204 : 401);
   } catch {
     return empty(503);
   }
@@ -256,10 +255,29 @@ export async function receiveEvents(request: Request) {
     );
     if (!rows.length) throw new HttpError(401);
     const device = rows[0].device_id;
-    for (const e of batch.events)
+    // A bulk upsert cannot update the same conflict row twice. Preserve the
+    // first record's metadata and the largest counter, as sequential writes did.
+    const events = new Map<string, (typeof batch.events)[number]>();
+    for (const event of batch.events)
+      if (!events.has(event.id)) events.set(event.id, event);
+    const metrics = new Map<string, (typeof batch.metrics)[number]>();
+    for (const metric of batch.metrics) {
+      const first = metrics.get(metric.id);
+      if (first) first.value = Math.max(first.value, metric.value);
+      else metrics.set(metric.id, { ...metric });
+    }
+    const placeholders = (count: number, columns: number) =>
+      Array.from(
+        { length: count },
+        (_, row) =>
+          `(${Array.from({ length: columns }, (_, column) => `$${row * columns + column + 1}`).join(",")})`,
+      ).join(",");
+    // At most two write round trips while the device lock is held, even for a
+    // full 1,000-record batch. Every value remains a bound SQL parameter.
+    if (events.size)
       await client.query(
-        "INSERT INTO telemetry_events(event_id,kind,occurred_at,plugin,skill,client,source,device_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT DO NOTHING",
-        [
+        `INSERT INTO telemetry_events(event_id,kind,occurred_at,plugin,skill,client,source,device_id) VALUES${placeholders(events.size, 8)} ON CONFLICT DO NOTHING`,
+        [...events.values()].flatMap((e) => [
           tokenHash(JSON.stringify([device, e.id])),
           e.kind,
           e.occurredAt,
@@ -268,12 +286,12 @@ export async function receiveEvents(request: Request) {
           e.client,
           e.source,
           device,
-        ],
+        ]),
       );
-    for (const m of batch.metrics)
+    if (metrics.size)
       await client.query(
-        "INSERT INTO telemetry_skill_metrics(stream_id,value,temporality,skill,invoke_type,plugin,device_id) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(stream_id) DO UPDATE SET value=GREATEST(telemetry_skill_metrics.value,EXCLUDED.value)",
-        [
+        `INSERT INTO telemetry_skill_metrics(stream_id,value,temporality,skill,invoke_type,plugin,device_id) VALUES${placeholders(metrics.size, 7)} ON CONFLICT(stream_id) DO UPDATE SET value=GREATEST(telemetry_skill_metrics.value,EXCLUDED.value)`,
+        [...metrics.values()].flatMap((m) => [
           tokenHash(JSON.stringify([device, m.id])),
           m.value,
           m.temporality,
@@ -281,7 +299,7 @@ export async function receiveEvents(request: Request) {
           m.invokeType,
           m.plugin,
           device,
-        ],
+        ]),
       );
     await client.query("COMMIT");
     return Response.json({}, { headers: privateHeaders });
@@ -301,11 +319,23 @@ export async function devicesGet(request: Request) {
   if (!enabled()) return empty(404);
   try {
     const session = await browserSession(request);
+    const params = new URL(request.url).searchParams;
+    const before = params.get("before");
+    if (
+      [...params.keys()].some((key) => key !== "before") ||
+      params.getAll("before").length > 1 ||
+      (before !== null &&
+        !/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/.test(before))
+    )
+      throw new HttpError(400);
     const { rows } = await getPool().query(
-      "SELECT device_id,created_at,expires_at,revoked_at FROM telemetry_devices WHERE user_id=$1 ORDER BY created_at DESC LIMIT 100",
-      [session.user.id],
+      // The cursor resolves inside the same owner scope and retains PostgreSQL's timestamp
+      // precision. Renewed older devices remain reachable even after 100 newer enrollments.
+      "SELECT device_id,created_at,expires_at,revoked_at FROM telemetry_devices WHERE user_id=$1 AND ($2::uuid IS NULL OR (created_at,device_id) < (SELECT created_at,device_id FROM telemetry_devices WHERE device_id=$2 AND user_id=$1)) ORDER BY created_at DESC,device_id DESC LIMIT 101",
+      [session.user.id, before],
     );
-    const items = rows
+    const page = rows.slice(0, 100);
+    const items = page
       .map((row) => {
         const id = String(row.device_id);
         const active =
@@ -313,8 +343,12 @@ export async function devicesGet(request: Request) {
         return `<li><code>${escape(id)}</code><br>Expires ${escape(new Date(row.expires_at).toISOString())}${active ? `<form method="post" action="/telemetry/devices"><input type="hidden" name="device_id" value="${escape(id)}"><input type="hidden" name="csrf" value="${consentToken(revokeParams(id), session.session.id, secret())}"><button>Revoke device</button></form>` : `<p>${row.revoked_at ? "Revoked" : "Expired"}</p>`}</li>`;
       })
       .join("");
+    const navigation =
+      before !== null || rows.length > 100
+        ? `<nav aria-label="Device history">${before !== null ? '<a href="/telemetry/devices">Newest devices</a>' : ""}${rows.length > 100 ? `<a href="/telemetry/devices?before=${encodeURIComponent(String(page[page.length - 1].device_id))}">Older devices</a>` : ""}</nav>`
+        : "";
     return html(
-      `<h1>Connected monitoring devices</h1><p>Revocation stops this device from sending new counts. To stop the local collector and remove agent configuration, also run the CLI disable command.</p>${items ? `<ul>${items}</ul>` : "<p>No connected devices.</p>"}`,
+      `<h1>Connected monitoring devices</h1><p>Revocation stops this device from sending new counts. To stop the local collector and remove agent configuration, also run the CLI disable command.</p>${items ? `<ul>${items}</ul>` : "<p>No devices on this page.</p>"}${navigation}`,
     );
   } catch (error) {
     return failure(error);
@@ -344,10 +378,10 @@ export async function devicesPost(request: Request) {
       )
     )
       throw new HttpError(403);
-    await getPool().query(
-      "UPDATE telemetry_devices SET revoked_at=now() WHERE device_id=$1 AND user_id=$2 AND revoked_at IS NULL",
-      [input.device_id, session.user.id],
-    );
+    await revokeCredentials(getPool(), {
+      deviceId: input.device_id,
+      userId: session.user.id,
+    });
     return new Response(null, {
       status: 303,
       headers: { ...privateHeaders, location: "/telemetry/devices" },

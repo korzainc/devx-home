@@ -176,6 +176,106 @@ it("scopes identities by device and inserts atomically with retry dedupe", async
   expect(insert?.[1][0]).not.toBe(event.id);
   expect(mocks.query.mock.calls.at(-1)?.[0]).toBe("COMMIT");
 });
+it("writes a full batch in one database call per record type", async () => {
+  mocks.query.mockResolvedValue({ rows: [{ device_id: "device" }] });
+  const events = Array.from({ length: 500 }, (_, index) => ({
+    id: index.toString(16).padStart(64, "0"),
+    kind: "plugin_installed",
+    client: "codex",
+    source: "korza_cli",
+    occurredAt: "2026-09-23T00:00:00Z",
+    plugin: "humanizer",
+    skill: null,
+  }));
+  const metrics = Array.from({ length: 500 }, (_, index) => ({
+    id: index.toString(16).padStart(64, "0"),
+    value: 1,
+    temporality: 2,
+    plugin: "codezen",
+    skill: "codezen_brainstorm",
+    invokeType: null,
+  }));
+  expect((await receiveEvents(ingest({ events, metrics }))).status).toBe(200);
+  const writes = mocks.query.mock.calls.filter(([sql]) =>
+    sql.startsWith("INSERT"),
+  );
+  expect(writes).toHaveLength(2);
+  expect(writes[0][1]).toHaveLength(500 * 8);
+  expect(writes[1][1]).toHaveLength(500 * 7);
+  expect(mocks.query).toHaveBeenCalledTimes(7);
+});
+it("coalesces duplicate counters without replacing the first metadata", async () => {
+  mocks.query.mockResolvedValue({ rows: [{ device_id: "device" }] });
+  const first = {
+    id: "c".repeat(64),
+    value: 2,
+    temporality: 2,
+    plugin: "codezen",
+    skill: "codezen_brainstorm",
+    invokeType: "explicit",
+  };
+  expect(
+    (
+      await receiveEvents(
+        ingest({
+          events: [],
+          metrics: [
+            first,
+            { ...first, value: 8, plugin: "superpowers", skill: null },
+            { ...first, value: 3 },
+          ],
+        }),
+      )
+    ).status,
+  ).toBe(200);
+  const writes = mocks.query.mock.calls.filter(([sql]) =>
+    sql.startsWith("INSERT"),
+  );
+  expect(writes).toHaveLength(1);
+  expect(writes[0][1]).toEqual([
+    expect.any(String),
+    8,
+    2,
+    "codezen_brainstorm",
+    "explicit",
+    "codezen",
+    "device",
+  ]);
+});
+it("rolls back both bulk writes if the metric statement fails", async () => {
+  mocks.query.mockImplementation(async (sql: string) => {
+    if (sql.startsWith("INSERT INTO telemetry_skill_metrics"))
+      throw Error("injected bulk metric failure");
+    return { rows: sql.startsWith("SELECT") ? [{ device_id: "device" }] : [] };
+  });
+  const packet = {
+    events: [
+      {
+        id: "d".repeat(64),
+        kind: "plugin_installed",
+        client: "codex",
+        source: "korza_cli",
+        occurredAt: "2026-09-23T00:00:00Z",
+        plugin: "humanizer",
+        skill: null,
+      },
+    ],
+    metrics: [
+      {
+        id: "e".repeat(64),
+        value: 1,
+        temporality: 2,
+        plugin: "codezen",
+        skill: null,
+        invokeType: null,
+      },
+    ],
+  };
+  expect((await receiveEvents(ingest(packet))).status).toBe(503);
+  expect(mocks.query.mock.calls.at(-1)?.[0]).toBe("ROLLBACK");
+  expect(mocks.query.mock.calls.some(([sql]) => sql === "COMMIT")).toBe(false);
+  expect(mocks.release).toHaveBeenCalledOnce();
+});
 it("allows bearer self-revocation and rejects invalid token", async () => {
   expect((await revokeDevice(ingest({}, "bad"))).status).toBe(401);
   mocks.query.mockResolvedValue({
@@ -183,9 +283,10 @@ it("allows bearer self-revocation and rejects invalid token", async () => {
     rowCount: 1,
   });
   expect((await revokeDevice(ingest({}))).status).toBe(204);
-  expect(mocks.query.mock.calls.at(-1)?.[0]).toContain(
-    "SET revoked_at = COALESCE(revoked_at, now())",
-  );
+  expect(
+    mocks.query.mock.calls.find(([sql]) => sql.startsWith("UPDATE"))?.[0],
+  ).toContain("SET revoked_at = COALESCE(revoked_at, now())");
+  expect(mocks.query.mock.calls.at(-1)?.[0]).toBe("COMMIT");
 });
 
 it("browser revocation binds CSRF and updates only the session owner's device", async () => {
@@ -207,8 +308,11 @@ it("browser revocation binds CSRF and updates only the session owner's device", 
   expect((await devicesPost(make("bad"))).status).toBe(403);
   expect(mocks.query).not.toHaveBeenCalled();
   expect((await devicesPost(make(csrf))).status).toBe(303);
-  expect(mocks.query.mock.calls[0][1]).toEqual([device, "user"]);
-  expect(mocks.query.mock.calls[0][0]).toContain("user_id=$2");
+  const ownership = mocks.query.mock.calls.find(([sql]) =>
+    sql.startsWith("SELECT device_id"),
+  )!;
+  expect(ownership[1]).toEqual([device, "user"]);
+  expect(ownership[0]).toContain("user_id=$2");
 });
 it("rechecks revocation inside the ingestion transaction", async () => {
   mocks.query.mockImplementation(async (sql: string) => ({
@@ -240,7 +344,7 @@ it("rejects invalid content type, encoded bodies and unknown fields without inse
 });
 it("exchange responses never cache device credentials", async () => {
   mocks.query.mockImplementation(async (sql: string) => ({
-    rows: sql.includes("DELETE FROM telemetry_codes")
+    rows: /^(SELECT user_id,device_id|DELETE FROM telemetry_codes)/.test(sql)
       ? [{ user_id: "user" }]
       : [],
   }));

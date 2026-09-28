@@ -176,6 +176,12 @@ scoped to the device for retry deduplication. No raw OTLP attributes, prompts,
 tool arguments, email or paths are accepted. Browser revocation lives at
 `/telemetry/devices`; the CLI uses idempotent bearer `POST /api/telemetry/revoke`.
 Revocation does not delete recorded counts or their device history.
+The connected-devices page paginates retained history, so an older renewed device
+remains reachable for browser revocation.
+
+Database connection acquisition is bounded to five seconds, including a wait for
+an available pooled connection. Usage queries retain their one-second query
+timeout; an unavailable database must not indefinitely block a completed report.
 
 Plugin installation totals are grouped by both client and source. Claude's native
 reports and installs verified through Korza CLI are displayed separately because
@@ -193,6 +199,9 @@ Validation separates production identity acceptance from protocol evidence:
   cleanup, and tests atomic exchange, replay/expiry, deduplication and revocation
   with actual PostgreSQL and loopback HTTP. It refuses remote database hosts.
   Browser identity is substituted only in this test harness.
+- CI runs that PostgreSQL/HTTP suite against the migration job's disposable
+  database, in addition to the default unit suite. Connection-string overrides
+  are rejected by the harness before opening a database connection.
 - Real GitHub sign-in, fresh company access, browser consent through the Next
   proxy and the eventual deployment still need an authorized-user acceptance
   test. Passing the harness does not establish that a future credential or

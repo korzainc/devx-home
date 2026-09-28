@@ -6,6 +6,7 @@ import {
   verifyConsent,
   exchangeCode,
   issueCode,
+  revokeCredentials,
   tokenHash,
 } from "./telemetry-auth";
 
@@ -77,7 +78,11 @@ it("binds CSRF to session, callback, challenge, state and expiration", () => {
 });
 it("stores code hashes, never the code, with sixty second expiry", async () => {
   const query = vi.fn().mockResolvedValue({ rows: [] });
-  const code = await issueCode({ query }, "user", params);
+  const code = await issueCode(
+    { connect: async () => ({ query, release: vi.fn() }) },
+    "user",
+    params,
+  );
   expect(code).toMatch(/^[A-Za-z0-9_-]{43}$/);
   const insert = query.mock.calls.find(([sql]) =>
     sql.startsWith("INSERT INTO telemetry_codes"),
@@ -88,7 +93,7 @@ it("stores code hashes, never the code, with sixty second expiry", async () => {
 });
 it("atomically consumes a valid bound code and stores only the device token hash", async () => {
   const query = vi.fn().mockImplementation(async (sql: string) => ({
-    rows: sql.includes("DELETE FROM telemetry_codes")
+    rows: /^(SELECT user_id,device_id|DELETE FROM telemetry_codes)/.test(sql)
       ? [{ user_id: "user" }]
       : [],
   }));
@@ -110,7 +115,11 @@ it("atomically consumes a valid bound code and stores only the device token hash
   expect(release).toHaveBeenCalledOnce();
 });
 it("creates no credential when the atomic SQL match rejects a code", async () => {
-  const query = vi.fn().mockResolvedValue({ rows: [] });
+  const query = vi.fn().mockImplementation(async (sql: string) => ({
+    rows: sql.startsWith("SELECT user_id,device_id")
+      ? [{ user_id: "user" }]
+      : [],
+  }));
   const pool = { connect: async () => ({ query, release: vi.fn() }) };
   expect(
     await exchangeCode(pool, {
@@ -160,7 +169,7 @@ it("rolls back code consumption if storing the credential fails", async () => {
     if (sql.includes("INSERT INTO telemetry_devices"))
       throw Error("unavailable");
     return {
-      rows: sql.includes("DELETE FROM telemetry_codes")
+      rows: /^(SELECT user_id,device_id|DELETE FROM telemetry_codes)/.test(sql)
         ? [{ user_id: "user" }]
         : [],
     };
@@ -173,6 +182,26 @@ it("rolls back code consumption if storing the credential fails", async () => {
     ),
   ).rejects.toThrow("unavailable");
   expect(query.mock.calls.at(-1)?.[0]).toBe("ROLLBACK");
+  expect(release).toHaveBeenCalledOnce();
+});
+
+it("rolls back revocation when outstanding code invalidation fails", async () => {
+  const query = vi.fn().mockImplementation(async (sql: string) => {
+    if (sql.startsWith("DELETE FROM telemetry_codes"))
+      throw Error("unavailable");
+    return {
+      rows: sql.startsWith("SELECT device_id") ? [{ device_id: "device" }] : [],
+    };
+  });
+  const release = vi.fn();
+  await expect(
+    revokeCredentials(
+      { connect: async () => ({ query, release }) },
+      { tokenHash: "hash" },
+    ),
+  ).rejects.toThrow("unavailable");
+  expect(query.mock.calls.at(-1)?.[0]).toBe("ROLLBACK");
+  expect(query.mock.calls.some(([sql]) => sql === "COMMIT")).toBe(false);
   expect(release).toHaveBeenCalledOnce();
 });
 
