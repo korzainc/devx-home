@@ -7,9 +7,8 @@ import { installConfigs } from "@/data/install-configs";
 import {
   AUDIENCE_FALLBACK,
   pluginAudiences,
-  skillAudiences,
+  type Audience,
 } from "@/data/skill-audiences";
-import { CATEGORY_FALLBACK, skillCategories } from "@/data/skill-categories";
 import { toolCardSummaries } from "@/data/tool-card-summaries";
 import {
   isBundle,
@@ -333,25 +332,21 @@ export const plugins: PluginEntry[] = (
   audiences: pluginAudiences[plugin.id] ?? AUDIENCE_FALLBACK,
 }));
 
-/** A row as the generator emits it: carrying its own `category`, which the overlay replaces. */
-export type GeneratedSkill = Omit<SkillEntry, "audiences" | "category"> & {
-  category: string;
+/** A row as the generator emits it. `audience` is singular upstream and plural here, which is
+ *  the only difference left between the two shapes. */
+export type GeneratedSkill = Omit<SkillEntry, "audiences"> & {
+  audience: Audience[];
 };
 
-/** Exported so the overwrite can be tested on a row the live index does not contain: upstream
- *  emits this same vocabulary now, so no live row disagrees with the overlay. */
-export function overlaySkills(rows: GeneratedSkill[]): SkillEntry[] {
+/** Planned rows are filtered off the site. Nothing else happens here: `category` and `audience`
+ *  are the author's, checked by `skills-shape` on the way in. */
+export function liveSkills(rows: GeneratedSkill[]): SkillEntry[] {
   return rows
     .filter((skill) => skill.status !== STATUS_PLANNED)
-    .map((skill) => ({
-      ...skill,
-      audiences: skillAudiences[skill.id] ?? AUDIENCE_FALLBACK,
-      // Spread first, so the generator's own category is overwritten rather than merged beside.
-      category: skillCategories[skill.id] ?? CATEGORY_FALLBACK,
-    }));
+    .map(({ audience, ...skill }) => ({ ...skill, audiences: audience }));
 }
 
-export const skills: SkillEntry[] = overlaySkills(
+export const skills: SkillEntry[] = liveSkills(
   skillsData.skills as GeneratedSkill[],
 );
 
