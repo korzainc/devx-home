@@ -1,6 +1,7 @@
-// plugins.json is hand-authored while skills.json is generated, so nothing catches a bad edit
-// before it renders. These are the two fields where a bad value does more than look wrong:
-// `name` is pasted into a terminal as part of an install command, and `homepage` becomes an href.
+// Plugin rows are generated upstream now (DX-170), so this no longer guards a hand edit here --
+// it guards what arrives, the way `skills-shape` does. Each field below is one where a bad value
+// does more than look wrong: `name` is pasted into a terminal as part of an install command, and
+// `homepage` becomes an href.
 
 import { AGENTS } from "@/lib/catalogue-entries";
 import { isFilled } from "@/lib/shape";
@@ -94,7 +95,8 @@ export function problemsWithPlugin(plugin: Record<string, unknown>): string[] {
   }
 
   // Optional, but a blank one is worse than none: the card renders it in place of the skill
-  // count, so an empty string shows an entry that claims nothing.
+  // count, so an empty string shows an entry that claims nothing. No entry carries one today --
+  // pyright-lsp was the last, delisted in DX-178 -- and the rule outlives the example.
   if ("payload" in plugin && !isFilled(plugin.payload)) {
     problems.push(`${id}: payload is present but empty; omit it instead`);
   }
@@ -128,7 +130,9 @@ export function problemsWithPluginSet(
   }
 
   // A plugin that ships no skills is not a fault: an entry may carry a language server or another
-  // payload instead. Only a plugin whose skills contradict it is.
+  // payload instead. Only a plugin whose skills contradict it is. One generator derives both
+  // sides from one manifest now, so this checks that generator rather than two hand edits -- and
+  // a wrong `ref` still reaches a public page, which is why it stays a check and not a comment.
   for (const plugin of plugins) {
     const rows = skills.filter((skill) => skill.plugin === plugin.id);
     for (const field of ["ref", "sourceRepo"] as const) {

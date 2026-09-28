@@ -1,5 +1,4 @@
 import "server-only";
-import pluginsData from "@/data/plugins.json";
 import skillsData from "@/data/skills.json";
 import realCatalogueData from "@/data/catalogue.json";
 import { capabilityLabelOverrides } from "@/data/capability-labels";
@@ -338,12 +337,14 @@ export function toolInstallMethods(id: string): InstallMethod[] {
   ];
 }
 
+// Rows arrive from korzainc/marketplace in the same file as the skills they claim, so a plugin's
+// `ref` and its skills' `ref` are one generated fact rather than two edits in two repositories.
 // Audience is the only field still overlaid, and only for a plugin: a skill carries its author's,
-// but `plugins.json` is hand-authored here and nothing upstream gives a plugin one. An id the
-// overlay does not name falls back rather than throwing -- a sync that adds a plugin should still
-// show it, and the seam test beside the overlay is what fails.
+// and nothing upstream gives a plugin one. An id the overlay does not name falls back rather than
+// throwing -- a sync that adds a plugin should still show it, and the seam test beside the overlay
+// is what fails.
 export const plugins: PluginEntry[] = (
-  pluginsData as Omit<PluginEntry, "audiences">[]
+  skillsData.plugins as Omit<PluginEntry, "audiences">[]
 ).map((plugin) => ({
   ...plugin,
   audiences: pluginAudiences[plugin.id] ?? AUDIENCE_FALLBACK,

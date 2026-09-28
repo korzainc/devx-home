@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import pluginsData from "@/data/plugins.json";
 import skillsData from "@/data/skills.json";
 import { problemsWithPlugin, problemsWithPluginSet } from "./plugins-shape";
 
@@ -147,8 +146,9 @@ describe("the plugin set", () => {
     );
   });
 
-  // skills.json is generated from the manifests and plugins.json is hand-authored, so a re-pin
-  // upstream moves one and leaves the other. This is the direction skills.test.ts does not cover.
+  // Both sides are generated now, from one manifest, so this checks the generator rather than
+  // two hand edits. It stays because a wrong `ref` reaches a public page either way, and it is
+  // the direction skills.test.ts does not cover.
   it("is rejected when a row disagrees with its skills about ref", () => {
     const rows = [
       { plugin: "codezen", ref: "v1.0.0", sourceRepo: "korzainc/codezen" },
@@ -173,8 +173,8 @@ describe("the plugin set", () => {
 });
 
 describe("the committed catalogue data", () => {
-  // plugins.json is a bare array; skills.json is an object with a `skills` key.
-  const plugins = pluginsData as Record<string, unknown>[];
+  // Both blocks arrive in the same generated file, so they cannot be a version apart.
+  const plugins = skillsData.plugins as Record<string, unknown>[];
   const skills = skillsData.skills as {
     plugin: string;
     ref: string;
@@ -187,7 +187,7 @@ describe("the committed catalogue data", () => {
     }
   });
 
-  it("is internally consistent across plugins.json and skills.json", () => {
+  it("is internally consistent across the plugin rows and the skill rows", () => {
     expect(problemsWithPluginSet(plugins, skills)).toEqual([]);
   });
 
