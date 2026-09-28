@@ -142,7 +142,7 @@ checking and a production build together.
 
 ## Opt-in device monitoring backend
 
-Apply migrations through `0006_telemetry_credentials.sql` before enabling
+Apply migrations through `0007_telemetry_read_indexes.sql` before enabling
 `TELEMETRY_ENABLED=1`. Use the existing `DATABASE_URL`, migration-only
 `DATABASE_URL_UNPOOLED`, `BETTER_AUTH_SECRET` and GitHub App authentication
 configuration. Never edit `.env.local` for this rollout. The flag defaults off;
@@ -167,15 +167,38 @@ renewal requires another browser authorization. The CLI sends its existing
 `device_id` in the connection request when renewing. Home verifies ownership
 and rotates the token on that same device, preserving cumulative counter
 deduplication and pending event identity. Only credential hashes are stored.
+Ingestion rechecks the same approved GitHub App access policy using the device
+owner's stored provider account. Positive access is cached for at most five
+minutes; removal can therefore take up to five minutes to be observed. A
+confirmed denial atomically revokes that owner's device credentials, and the
+receiver rechecks membership and device status under shared row locks before
+writing a batch. Provider outages return 503 so the collector retains queued
+counts; they never fall back to a stale positive verdict. Provider verification
+has a ten-second wait budget and shares an in-flight refresh per owner. Better
+Auth may finish its own token refresh after that deadline; the timed-out request
+writes no membership verdict or usage. The 12-hour device
+expiry and explicit browser renewal remain unchanged.
 Expired codes are removed in batches of at most 1,000 during issuance.
 
 `POST /api/telemetry/events` accepts bearer-authenticated normalized
 `{events, metrics}` batches, at most 1,000 records and 256 KiB. Unknown fields,
-unapproved plugins and invalid client/source combinations are rejected. IDs are
+plugins outside the shared catalogue approval list and invalid client/source combinations are rejected. IDs are
 scoped to the device for retry deduplication. No raw OTLP attributes, prompts,
 tool arguments, email or paths are accepted. Browser revocation lives at
 `/telemetry/devices`; the CLI uses idempotent bearer `POST /api/telemetry/revoke`.
 Revocation does not delete recorded counts or their device history.
+The connected-devices page paginates retained history, so an older renewed device
+remains reachable for browser revocation.
+
+Migration `0007_telemetry_read_indexes.sql` adds indexes for plugin and skill
+count reads and device/user foreign keys. It leaves previously applied migrations
+unchanged. The transactional migration runner builds these indexes with ordinary
+`CREATE INDEX`, so apply it during a maintenance window for a large existing
+telemetry table.
+
+Database connection acquisition is bounded to five seconds, including a wait for
+an available pooled connection. Usage queries retain their one-second query
+timeout; an unavailable database must not indefinitely block a completed report.
 
 Plugin installation totals are grouped by both client and source. Claude's native
 reports and installs verified through Korza CLI are displayed separately because
@@ -193,6 +216,9 @@ Validation separates production identity acceptance from protocol evidence:
   cleanup, and tests atomic exchange, replay/expiry, deduplication and revocation
   with actual PostgreSQL and loopback HTTP. It refuses remote database hosts.
   Browser identity is substituted only in this test harness.
+- CI runs that PostgreSQL/HTTP suite against the migration job's disposable
+  database, in addition to the default unit suite. Connection-string overrides
+  are rejected by the harness before opening a database connection.
 - Real GitHub sign-in, fresh company access, browser consent through the Next
   proxy and the eventual deployment still need an authorized-user acceptance
   test. Passing the harness does not establish that a future credential or

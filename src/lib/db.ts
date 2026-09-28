@@ -29,5 +29,9 @@ export function getPool(): Pool {
 
   return (pool = new Pool({
     connectionString: verifyingTls(connectionString),
+    // query_timeout starts after acquisition. Bound connection setup and queued
+    // checkouts too, so a database outage cannot leave monitoring or auth waiting
+    // indefinitely. Five seconds allows for a sleeping database to wake up.
+    connectionTimeoutMillis: 5000,
   }));
 }

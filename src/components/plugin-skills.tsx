@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  Suspense,
+  use,
   useEffect,
   useLayoutEffect,
   useState,
@@ -17,14 +19,18 @@ import {
   subscribeToSkillFocus,
 } from "@/lib/skill-link";
 
+type Usage = Record<string, SkillUsage>;
+
 export function PluginSkills({
   plugin,
   skills,
   usage,
+  usagePromise,
 }: {
   plugin: string;
   skills: SkillEntry[];
-  usage?: Record<string, SkillUsage>;
+  usage?: Usage;
+  usagePromise?: Promise<Usage | undefined>;
 }) {
   // Nothing happens on arrival: the strip above already names the skill. Unfolding here would
   // make what you see depend on how you got here.
@@ -91,37 +97,58 @@ export function PluginSkills({
               <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-ink-muted">
                 {skill.summary ?? skill.description}
               </p>
-              {usage?.[skill.name] && (
-                <div
-                  className="mt-3 rounded-lg border border-line-strong bg-surface-raised px-3 py-2 text-sm font-medium text-ink"
-                  aria-label={`Recorded usage for ${skill.name}`}
-                >
-                  {[
-                    usage[skill.name].claude !== undefined
-                      ? `${usage[skill.name].claude} ${usage[skill.name].claude === 1 ? "activation" : "activations"} via Claude Code`
-                      : null,
-                    usage[skill.name].codex !== undefined
-                      ? `${usage[skill.name].codex} skill ${usage[skill.name].codex === 1 ? "load" : "loads"} via Codex`
-                      : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                  <details className="mt-1 text-ink-faint">
-                    <summary className="w-fit cursor-pointer hover:text-ink-muted">
-                      About this count
-                    </summary>
-                    <p className="mt-1">
-                      Recorded from participating installations. Activations and
-                      skill loads do not measure completed tasks or unique
-                      users.
-                    </p>
-                  </details>
-                </div>
+              {(usage || usagePromise) && (
+                <Suspense fallback={null}>
+                  <SkillUsageBadge
+                    name={skill.name}
+                    usage={usage}
+                    usagePromise={usagePromise}
+                  />
+                </Suspense>
               )}
             </div>
           ),
         };
       })}
     />
+  );
+}
+
+function SkillUsageBadge({
+  name,
+  usage,
+  usagePromise,
+}: {
+  name: string;
+  usage?: Usage;
+  usagePromise?: Promise<Usage | undefined>;
+}) {
+  const counts = (usagePromise ? use(usagePromise) : usage)?.[name];
+  if (!counts) return null;
+  return (
+    <div
+      className="mt-3 rounded-lg border border-line-strong bg-surface-raised px-3 py-2 text-sm font-medium text-ink"
+      aria-label={`Recorded usage for ${name}`}
+    >
+      {[
+        counts.claude !== undefined
+          ? `${counts.claude} ${counts.claude === 1 ? "activation" : "activations"} via Claude Code`
+          : null,
+        counts.codex !== undefined
+          ? `${counts.codex} skill ${counts.codex === 1 ? "load" : "loads"} via Codex`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" · ")}
+      <details className="mt-1 text-ink-faint">
+        <summary className="w-fit cursor-pointer hover:text-ink-muted">
+          About this count
+        </summary>
+        <p className="mt-1">
+          Recorded from participating installations. Activations and skill loads
+          do not measure completed tasks or unique users.
+        </p>
+      </details>
+    </div>
   );
 }

@@ -74,9 +74,12 @@ async function tokenFor(headers: Headers): Promise<string | null> {
   return accessToken ?? null;
 }
 
-async function store(userId: string, orgMember: boolean) {
+export async function storeMembership(userId: string, orgMember: boolean) {
   await getPool().query(
-    `update "user" set "orgMember" = $1, "orgCheckedAt" = now() where "id" = $2`,
+    // Lock the user before devices, matching ingestion. A confirmed removal
+    // invalidates existing device credentials in the same atomic statement.
+    `with verdict as (update "user" set "orgMember" = $1, "orgCheckedAt" = now() where "id" = $2 returning id)
+     update telemetry_devices set revoked_at=coalesce(revoked_at,now()) where user_id in (select id from verdict) and $1=false`,
     [orgMember, userId],
   );
 }
@@ -111,7 +114,7 @@ export async function isOrgMember(
     // Storing is a cache write, not the verdict. Letting a failed write reach the catch below
     // would discard an answer GitHub had just given and fall back to the stale one, which for
     // somebody removed from the organisation means returning the yes they used to have.
-    await store(user.id, member).catch((error) =>
+    await storeMembership(user.id, member).catch((error) =>
       console.error("The gate reached a verdict it could not store.", error),
     );
     return member;

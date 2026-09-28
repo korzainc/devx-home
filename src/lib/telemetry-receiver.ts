@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { getPool } from "./db";
-import { filterLogs } from "./telemetry-logs.mjs";
-import { filterMetrics } from "./telemetry-metrics.mjs";
+import { filterLogs } from "./telemetry-logs";
+import { filterMetrics } from "./telemetry-metrics";
 
 const digest = (text: string) => createHash("sha256").update(text).digest();
 
@@ -65,8 +65,15 @@ export async function receiveTelemetry(
         );
       } else {
         await client.query(
-          "INSERT INTO telemetry_skill_metrics(stream_id,value,temporality,skill,invoke_type) VALUES ($1,$2,$3,$4,$5) ON CONFLICT(stream_id) DO UPDATE SET value=GREATEST(telemetry_skill_metrics.value,EXCLUDED.value)",
-          [row.id, row.value, row.temporality, row.skill, row.invokeType],
+          "INSERT INTO telemetry_skill_metrics(stream_id,value,temporality,skill,invoke_type,plugin) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT(stream_id) DO UPDATE SET value=GREATEST(telemetry_skill_metrics.value,EXCLUDED.value)",
+          [
+            row.id,
+            row.value,
+            row.temporality,
+            row.skill,
+            row.invokeType,
+            row.plugin,
+          ],
         );
       }
     }

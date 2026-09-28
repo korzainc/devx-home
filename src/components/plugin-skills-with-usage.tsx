@@ -6,22 +6,34 @@ import { readSkillUsage } from "@/lib/skill-usage";
 import type { SkillEntry } from "@/lib/catalogue-entries";
 import { PluginSkills } from "./plugin-skills";
 
-export async function PluginSkillsWithUsage({
+export function PluginSkillsWithUsage({
   plugin,
   skills,
 }: {
   plugin: string;
   skills: SkillEntry[];
 }) {
-  let usage;
+  // Keep the interactive list mounted while one shared read supplies its badges.
+  // Only the badge components unwrap this promise inside their own Suspense boundaries.
+  return (
+    <PluginSkills
+      plugin={plugin}
+      skills={skills}
+      usagePromise={usageForPlugin(plugin, skills)}
+    />
+  );
+}
+
+async function usageForPlugin(plugin: string, skills: SkillEntry[]) {
   try {
-    const preview = localSkillsPreview((await headers()).get("host"));
+    const requestHeaders = await headers();
+    const preview = localSkillsPreview(requestHeaders.get("host"));
     const session = preview ? null : await getSession();
     if (
       preview ||
-      (session && (await isOrgMember(await headers(), session.user)))
+      (session && (await isOrgMember(requestHeaders, session.user)))
     ) {
-      usage = await readSkillUsage(
+      return await readSkillUsage(
         plugin,
         skills.map((skill) => skill.name),
       );
@@ -29,5 +41,4 @@ export async function PluginSkillsWithUsage({
   } catch {
     // Missing telemetry must not prevent browsing or imply zero usage.
   }
-  return <PluginSkills plugin={plugin} skills={skills} usage={usage} />;
 }

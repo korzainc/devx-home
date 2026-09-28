@@ -106,34 +106,46 @@ export function verifyConsent(
   );
 }
 export async function issueCode(
-  db: Queryable,
+  pool: TransactionPool,
   userId: string,
   params: ConnectParams,
 ) {
-  if (params.device_id) {
-    const { rows } = await db.query(
-      "SELECT device_id FROM telemetry_devices WHERE device_id=$1 AND user_id=$2",
-      [params.device_id, userId],
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SET LOCAL statement_timeout = '3s'");
+    if (params.device_id) {
+      const { rows } = await client.query(
+        "SELECT device_id FROM telemetry_devices WHERE device_id=$1 AND user_id=$2 FOR UPDATE",
+        [params.device_id, userId],
+      );
+      if (!rows.length) throw new DeviceOwnershipError();
+    }
+    // Hold the device lock through issuance so a concurrent revocation also invalidates this
+    // grant. Always lock the device before its codes, as exchange and revocation do.
+    // The expiry index bounds cleanup; locked grants are left for a later request.
+    await client.query(
+      "DELETE FROM telemetry_codes WHERE code_hash IN (SELECT code_hash FROM telemetry_codes WHERE expires_at <= now() ORDER BY expires_at LIMIT 1000 FOR UPDATE SKIP LOCKED)",
     );
-    if (!rows.length) throw new DeviceOwnershipError();
+    const code = randomBytes(32).toString("base64url");
+    await client.query(
+      "INSERT INTO telemetry_codes(code_hash,user_id,code_challenge,redirect_uri,device_id,expires_at) VALUES($1,$2,$3,$4,$5,now()+interval '60 seconds')",
+      [
+        tokenHash(code),
+        userId,
+        params.code_challenge,
+        params.redirect_uri,
+        params.device_id ?? null,
+      ],
+    );
+    await client.query("COMMIT");
+    return code;
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
   }
-  // The expiry index keeps this bounded cleanup cheap; locked grants are left for a later
-  // request. Device history remains intact because aggregate counts reference those rows.
-  await db.query(
-    "DELETE FROM telemetry_codes WHERE code_hash IN (SELECT code_hash FROM telemetry_codes WHERE expires_at <= now() ORDER BY expires_at LIMIT 1000 FOR UPDATE SKIP LOCKED)",
-  );
-  const code = randomBytes(32).toString("base64url");
-  await db.query(
-    "INSERT INTO telemetry_codes(code_hash,user_id,code_challenge,redirect_uri,device_id,expires_at) VALUES($1,$2,$3,$4,$5,now()+interval '60 seconds')",
-    [
-      tokenHash(code),
-      userId,
-      params.code_challenge,
-      params.redirect_uri,
-      params.device_id ?? null,
-    ],
-  );
-  return code;
 }
 export async function exchangeCode(
   pool: TransactionPool,
@@ -152,15 +164,33 @@ export async function exchangeCode(
   try {
     await client.query("BEGIN");
     await client.query("SET LOCAL statement_timeout = '3s'");
+    const binding = [
+      tokenHash(input.code),
+      pkceChallenge(input.code_verifier),
+      input.redirect_uri,
+    ];
+    const grant = await client.query(
+      "SELECT user_id,device_id FROM telemetry_codes WHERE code_hash=$1 AND code_challenge=$2 AND redirect_uri=$3 AND expires_at > now()",
+      binding,
+    );
+    if (!grant.rows.length) {
+      await client.query("ROLLBACK");
+      return null;
+    }
+    if (grant.rows[0].device_id) {
+      const device = await client.query(
+        "SELECT device_id FROM telemetry_devices WHERE device_id=$1 AND user_id=$2 FOR UPDATE",
+        [grant.rows[0].device_id, grant.rows[0].user_id],
+      );
+      if (!device.rows.length) throw new DeviceOwnershipError();
+    }
+    // Revocation may have removed this grant while we waited for the device lock. Recheck it
+    // with a fresh statement snapshot, and never consume the code before locking its device.
     // A matching DELETE makes replay and concurrent exchange impossible; rollback retains the
     // grant if credential creation fails. Wrong PKCE or callback cannot consume someone else's code.
     const { rows } = await client.query(
       "DELETE FROM telemetry_codes WHERE code_hash=$1 AND code_challenge=$2 AND redirect_uri=$3 AND expires_at > now() RETURNING user_id,device_id",
-      [
-        tokenHash(input.code),
-        pkceChallenge(input.code_verifier),
-        input.redirect_uri,
-      ],
+      binding,
     );
     if (!rows.length) {
       await client.query("ROLLBACK");
@@ -184,6 +214,44 @@ export async function exchangeCode(
     }
     await client.query("COMMIT");
     return { token, device_id, expires_at };
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+export async function revokeCredentials(
+  pool: TransactionPool,
+  identity: { tokenHash: string } | { deviceId: string; userId: string },
+) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SET LOCAL statement_timeout = '3s'");
+    const { rows } = await client.query(
+      "tokenHash" in identity
+        ? "SELECT device_id FROM telemetry_devices WHERE token_hash=$1 FOR UPDATE"
+        : "SELECT device_id FROM telemetry_devices WHERE device_id=$1 AND user_id=$2 FOR UPDATE",
+      "tokenHash" in identity
+        ? [identity.tokenHash]
+        : [identity.deviceId, identity.userId],
+    );
+    if (!rows.length) {
+      await client.query("ROLLBACK");
+      return false;
+    }
+    await client.query(
+      "UPDATE telemetry_devices SET revoked_at = COALESCE(revoked_at, now()) WHERE device_id=$1",
+      [rows[0].device_id],
+    );
+    // This statement starts after the device lock is acquired, so it also sees grants issued
+    // while revocation waited. Keep history and token identity for idempotent self-revocation.
+    await client.query("DELETE FROM telemetry_codes WHERE device_id=$1", [
+      rows[0].device_id,
+    ]);
+    await client.query("COMMIT");
+    return true;
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
     throw error;
