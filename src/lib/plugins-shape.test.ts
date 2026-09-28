@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import skillsData from "@/data/index.json";
+import indexData from "@/data/index.json";
 import { problemsWithPlugin, problemsWithPluginSet } from "./plugins-shape";
 
 const valid = {
@@ -174,8 +174,8 @@ describe("the plugin set", () => {
 
 describe("the committed catalogue data", () => {
   // Both blocks arrive in the same generated file, so they cannot be a version apart.
-  const plugins = skillsData.plugins as Record<string, unknown>[];
-  const skills = skillsData.skills as {
+  const plugins = indexData.plugins as Record<string, unknown>[];
+  const skills = indexData.skills as {
     plugin: string;
     ref: string;
     sourceRepo: string;
@@ -195,6 +195,6 @@ describe("the committed catalogue data", () => {
   // renders nor fails a shape check. The audience overlay has the same hazard and its own test.
   it("carries a version row for each plugin and no others", () => {
     const listed = plugins.map((plugin) => plugin.id).sort();
-    expect(Object.keys(skillsData.versions).sort()).toEqual(listed);
+    expect(Object.keys(indexData.versions).sort()).toEqual(listed);
   });
 });

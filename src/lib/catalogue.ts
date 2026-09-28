@@ -1,5 +1,5 @@
 import "server-only";
-import skillsData from "@/data/index.json";
+import indexData from "@/data/index.json";
 import realCatalogueData from "@/data/catalogue.json";
 import { capabilityLabelOverrides } from "@/data/capability-labels";
 import { installConfigs } from "@/data/install-configs";
@@ -344,7 +344,7 @@ export function toolInstallMethods(id: string): InstallMethod[] {
 // throwing -- a sync that adds a plugin should still show it, and the seam test beside the overlay
 // is what fails.
 export const plugins: PluginEntry[] = (
-  skillsData.plugins as Omit<PluginEntry, "audiences">[]
+  indexData.plugins as Omit<PluginEntry, "audiences">[]
 ).map((plugin) => ({
   ...plugin,
   audiences: pluginAudiences[plugin.id] ?? AUDIENCE_FALLBACK,
@@ -365,7 +365,7 @@ export function liveSkills(rows: GeneratedSkill[]): SkillEntry[] {
 }
 
 export const skills: SkillEntry[] = liveSkills(
-  skillsData.skills as GeneratedSkill[],
+  indexData.skills as GeneratedSkill[],
 );
 
 export function skillsForPlugin(pluginId: string): SkillEntry[] {

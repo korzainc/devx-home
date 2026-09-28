@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import skillsData from "@/data/index.json";
+import indexData from "@/data/index.json";
 import {
   bundles,
   ecosystemLabel,
@@ -395,8 +395,8 @@ describe("install commands", () => {
 describe("provenance", () => {
   it("declares the catalogue index as generated", () => {
     // Fails if a hand-extracted file is dropped back in.
-    expect(skillsData.placeholder).toBe(false);
-    expect(skillsData.schemaVersion).toBeGreaterThan(0);
+    expect(indexData.placeholder).toBe(false);
+    expect(indexData.schemaVersion).toBeGreaterThan(0);
   });
 });
 
