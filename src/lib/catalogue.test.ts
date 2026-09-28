@@ -393,7 +393,7 @@ describe("install commands", () => {
 });
 
 describe("provenance", () => {
-  it("declares the skill index as generated", () => {
+  it("declares the catalogue index as generated", () => {
     // Fails if a hand-extracted file is dropped back in.
     expect(skillsData.placeholder).toBe(false);
     expect(skillsData.schemaVersion).toBeGreaterThan(0);
