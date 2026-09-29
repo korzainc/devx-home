@@ -156,7 +156,8 @@ Collection is enabled only on Vercel production (`VERCEL=1` and
 `VERCEL_ENV=production`). Preview and development deployments do not write usage,
 including when they share the production database. For local acceptance, explicitly
 set `KORZA_LOCAL_USAGE=1` and a `DATABASE_URL` pointing to an isolated loopback
-PostgreSQL database; leave the Vercel variables unset. Remote local database URLs
+PostgreSQL database (`127.0.0.1` or `localhost`); leave the Vercel variables unset.
+Bracketed IPv6 URLs are not enabled for local collection with the current driver. Remote local database URLs
 are refused. Do not use a tunnel to a production database for local acceptance.
 The same boundary applies to device monitoring and the development pilot.
 Existing pilot rows remain historical data; unknown-provenance rows are not
@@ -201,6 +202,9 @@ outages return 503 without changing membership or revoking devices, so the colle
 counts; they never fall back to a stale positive verdict. Cache freshness uses the
 database clock. If the cache expires before ingestion acquires its lock, the
 receiver also returns 503 so the collector retries without asking for new consent.
+Consent also returns 503 if the locked stored membership cannot confirm a fresh
+positive verdict, for example after a cache-write failure or concurrent removal;
+no grant is issued.
 Provider verification
 has a ten-second wait budget and shares an in-flight refresh per owner. Better
 Auth may finish its own token refresh after that deadline; the timed-out request

@@ -5,7 +5,6 @@ import { isOrgMember } from "./membership";
 import {
   bearerHash,
   DeviceOwnershipError,
-  MembershipRequiredError,
   connectParams,
   consentToken,
   exchangeCode,
@@ -133,8 +132,7 @@ function redirectCallback(params: ConnectParams, name: string, value: string) {
 }
 function failure(error: unknown) {
   return empty(
-    error instanceof DeviceOwnershipError ||
-      error instanceof MembershipRequiredError
+    error instanceof DeviceOwnershipError
       ? 403
       : error instanceof HttpError
         ? error.status

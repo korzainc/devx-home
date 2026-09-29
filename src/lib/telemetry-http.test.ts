@@ -479,7 +479,7 @@ it("accepts CSRF-bound renewal only for the current user's device", async () => 
     (await connectPost(request("22222222-2222-4222-8222-222222222222"))).status,
   ).toBe(403);
   expect(mocks.query).not.toHaveBeenCalled();
-  expect((await connectPost(request())).status).toBe(403);
+  expect((await connectPost(request())).status).toBe(503);
   expect(mocks.query.mock.calls.some(([sql]) => sql.startsWith("INSERT"))).toBe(
     false,
   );
@@ -634,8 +634,10 @@ it("rejects a null browser origin without trusting it as same-origin", async () 
   expect((await connectPost(consent({}, "null"))).status).toBe(403);
   expect(mocks.query).not.toHaveBeenCalled();
 });
-it("denies a consent racing confirmed membership removal", async () => {
-  expect((await connectPost(consent())).status).toBe(403);
+it("retries consent when stored membership cannot confirm the fresh verdict", async () => {
+  // A rejoining member's positive provider verdict may fail to persist. A
+  // concurrent removal produces the same mismatch, so never mint a grant.
+  expect((await connectPost(consent())).status).toBe(503);
   expect(mocks.query.mock.calls.some(([sql]) => sql.startsWith("INSERT"))).toBe(
     false,
   );

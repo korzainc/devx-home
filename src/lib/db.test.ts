@@ -68,7 +68,6 @@ beforeEach(() => {
   vi.stubEnv("VERCEL", "");
   vi.stubEnv("VERCEL_ENV", "");
   vi.stubEnv("KORZA_LOCAL_USAGE", "1");
-  vi.stubEnv("DATABASE_URL", "postgresql://fixture:unused@127.0.0.1/fixture");
   vi.resetModules();
   vi.useFakeTimers();
   vi.stubEnv(

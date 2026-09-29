@@ -29,10 +29,12 @@ it("permits the production deployment only with both hosting markers", () => {
   vi.stubEnv("VERCEL", "1");
   expect(usageCollectionEnabled()).toBe(true);
 });
-it.each(["localhost", "127.0.0.1", "[::1]"])(
+it.each(["localhost", "127.0.0.1"])(
   "requires explicit local opt-in for %s",
   (host) => {
-    vi.stubEnv("DATABASE_URL", `postgresql://${host}/fixture`);
+    const connectionString = `postgresql://${host}:54329/fixture`;
+    expect(new pg.Client({ connectionString }).host).toBe(host);
+    vi.stubEnv("DATABASE_URL", connectionString);
     expect(usageCollectionEnabled()).toBe(false);
     vi.stubEnv("KORZA_LOCAL_USAGE", "1");
     expect(usageCollectionEnabled()).toBe(true);
@@ -43,6 +45,7 @@ it.each([
   "not a URL",
   "postgresql://database.example/production",
   "postgresql://127.0.0.1/",
+  "postgresql://[::1]/fixture",
   "https://127.0.0.1/fixture",
   "postgresql://localhost.attacker.example/fixture",
 ])("refuses local collection with database %s", (database) => {
