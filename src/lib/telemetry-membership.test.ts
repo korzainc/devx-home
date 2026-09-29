@@ -51,6 +51,7 @@ it("uses only a positive membership verdict within five minutes", async () => {
       {
         orgMember: true,
         orgCheckedAt: new Date(Date.now() - TELEMETRY_MEMBERSHIP_MS + 1),
+        fresh: true,
       },
     ],
   });
@@ -129,7 +130,7 @@ it("shares a concurrent recheck so one process does not race a single-use refres
 
 it("does not pause when another successful recheck advances the cache", async () => {
   mocks.query.mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({
-    rows: [{ orgMember: true, orgCheckedAt: new Date() }],
+    rows: [{ orgMember: true, orgCheckedAt: new Date(), fresh: true }],
   });
   expect(await telemetryMembership("owner")).toBe(true);
 });
@@ -162,4 +163,41 @@ it("bounds hung token refresh without releasing single-flight or writing a late 
   expect(mocks.query.mock.calls.some(([sql]) => sql.startsWith("UPDATE"))).toBe(
     false,
   );
+});
+
+it("refreshes when the database says stale even if the application clock says fresh", async () => {
+  mocks.query
+    .mockReset()
+    .mockResolvedValueOnce({
+      rows: [{ orgMember: true, orgCheckedAt: new Date(), fresh: false }],
+    })
+    .mockResolvedValueOnce({ rows: [{ id: "owned-github-account" }] })
+    .mockResolvedValueOnce({ rows: [{ id: "owner" }] });
+  expect(await telemetryMembership("owner")).toBe(true);
+  expect(mocks.member).toHaveBeenCalledOnce();
+});
+
+it("trusts database freshness when its timestamp is ahead of the application clock", async () => {
+  mocks.query.mockReset().mockResolvedValueOnce({
+    rows: [
+      {
+        orgMember: true,
+        orgCheckedAt: new Date(Date.now() + 600000),
+        fresh: true,
+      },
+    ],
+  });
+  expect(await telemetryMembership("owner")).toBe(true);
+  expect(mocks.token).not.toHaveBeenCalled();
+  expect(mocks.store).not.toHaveBeenCalled();
+});
+
+it("retries an expired concurrent refresh instead of treating it as a denial", async () => {
+  mocks.query.mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({
+    rows: [{ orgMember: true, orgCheckedAt: null, fresh: false }],
+  });
+  await expect(telemetryMembership("owner")).rejects.toThrow(
+    "Membership cache needs rechecking",
+  );
+  expect(mocks.store).not.toHaveBeenCalled();
 });

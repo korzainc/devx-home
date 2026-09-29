@@ -9,14 +9,11 @@ export const TELEMETRY_MEMBERSHIP_MS = 5 * 60 * 1000;
 export const TELEMETRY_MEMBERSHIP_TIMEOUT_MS = 10_000;
 const pending = new Map<string, Promise<boolean>>();
 
-function currentMember(user: StoredMembership | undefined) {
-  const at = user?.orgCheckedAt ? new Date(user.orgCheckedAt).getTime() : NaN;
-  return (
-    user?.orgMember === true &&
-    at <= Date.now() &&
-    at > Date.now() - TELEMETRY_MEMBERSHIP_MS
-  );
-}
+export type TelemetryMembership = StoredMembership & { fresh: boolean };
+
+// Use the database clock for both the optimistic read and the ingestion lock.
+// Keep age separate from membership: expiry means recheck, not access denied.
+export const TELEMETRY_MEMBERSHIP_SELECT = `SELECT "orgMember", "orgCheckedAt"::text AS "orgCheckedAt", COALESCE("orgCheckedAt">statement_timestamp()-interval '${TELEMETRY_MEMBERSHIP_MS} milliseconds' AND "orgCheckedAt"<=statement_timestamp(),false) AS fresh FROM "user" WHERE id=$1`;
 
 async function providerMembership(userId: string): Promise<boolean> {
   let check = pending.get(userId);
@@ -58,13 +55,13 @@ async function providerMembership(userId: string): Promise<boolean> {
 
 export async function telemetryMembership(userId: string): Promise<boolean> {
   const pool = getPool();
-  const { rows } = await pool.query<StoredMembership>(
-    'SELECT "orgMember", "orgCheckedAt"::text AS "orgCheckedAt" FROM "user" WHERE id=$1',
+  const { rows } = await pool.query<TelemetryMembership>(
+    TELEMETRY_MEMBERSHIP_SELECT,
     [userId],
   );
   const user = rows[0];
   if (!user?.orgMember) return false;
-  if (currentMember(user)) return true;
+  if (user.fresh) return true;
   // Outages throw through to HTTP 503, so collectors retain their queue.
   if (!(await providerMembership(userId))) {
     await storeMembership(userId, false);
@@ -80,9 +77,11 @@ export async function telemetryMembership(userId: string): Promise<boolean> {
   if (updated.rows.length === 1) return true;
   // Another successful check can advance the cache while this one is in
   // flight. That is not a denial, and must not pause the collector.
-  const current = await pool.query<StoredMembership>(
-    'SELECT "orgMember", "orgCheckedAt"::text AS "orgCheckedAt" FROM "user" WHERE id=$1',
+  const current = await pool.query<TelemetryMembership>(
+    TELEMETRY_MEMBERSHIP_SELECT,
     [userId],
   );
-  return currentMember(current.rows[0]);
+  if (!current.rows[0]?.orgMember) return false;
+  if (!current.rows[0].fresh) throw Error("Membership cache needs rechecking");
+  return true;
 }

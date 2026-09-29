@@ -1160,7 +1160,7 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
         return {
           query: async (sql: string, values?: unknown[]) => {
             const result = await client.query(sql, values);
-            if (sql.includes('SELECT id FROM "user"')) {
+            if (sql.includes('FROM "user"') && sql.endsWith("FOR SHARE")) {
               locked.resolve();
               await proceed.promise;
             }
@@ -1220,7 +1220,7 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
           async () =>
             (
               await admin.query(
-                `SELECT count(*)::int count FROM pg_stat_activity WHERE wait_event_type='Lock' AND query LIKE 'SELECT id FROM "user"%'`,
+                `SELECT count(*)::int count FROM pg_stat_activity WHERE wait_event_type='Lock' AND query LIKE 'SELECT %FROM "user"%FOR SHARE'`,
               )
             ).rows[0].count,
           { timeout: 1000, interval: 10 },
@@ -1241,5 +1241,167 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
       remover.release();
       await Promise.allSettled([ingest]);
     }
+  });
+
+  it("retries membership expiry between the initial check and final lock without losing the batch", async () => {
+    const { user, credential } = await membershipDevice();
+    const original = db.pool;
+    await original.query(
+      `INSERT INTO account(id,issuer,"accountId","providerId","userId","updatedAt") VALUES($1,'https://github.com',$1,'github',$1,now())`,
+      [user],
+    );
+    await original.query(
+      `UPDATE "user" SET "orgCheckedAt"=now()-interval '4 minutes 59 seconds' WHERE id=$1`,
+      [user],
+    );
+    let crossedBoundary = false;
+    db.pool = {
+      query: original.query.bind(original),
+      connect: async () => {
+        if (!crossedBoundary) {
+          crossedBoundary = true;
+          // Advance the stored age after the optimistic read, without sleeping
+          // or changing the host/DB clock. Only this fixture user's row changes.
+          await original.query(
+            `UPDATE "user" SET "orgCheckedAt"=now()-interval '5 minutes 1 millisecond' WHERE id=$1`,
+            [user],
+          );
+        }
+        return original.connect();
+      },
+    } as unknown as pg.Pool;
+    try {
+      expect(
+        (await receiveEvents(membershipPacket(credential.token))).status,
+      ).toBe(503);
+      expect(crossedBoundary).toBe(true);
+      expect(
+        (
+          await original.query(
+            "SELECT revoked_at FROM telemetry_devices WHERE device_id=$1",
+            [credential.device_id],
+          )
+        ).rows[0].revoked_at,
+      ).toBeNull();
+      expect(
+        (
+          await original.query(
+            "SELECT count(*)::int count FROM telemetry_events WHERE device_id=$1",
+            [credential.device_id],
+          )
+        ).rows,
+      ).toEqual([{ count: 0 }]);
+      // Retry performs the provider refresh outside the ingestion transaction.
+      // A repeated delivery remains idempotent after the successful retry.
+      for (let attempt = 0; attempt < 2; attempt++)
+        expect(
+          (await receiveEvents(membershipPacket(credential.token))).status,
+        ).toBe(200);
+      expect(
+        (
+          await original.query(
+            "SELECT count(*)::int count FROM telemetry_events WHERE device_id=$1",
+            [credential.device_id],
+          )
+        ).rows,
+      ).toEqual([{ count: 1 }]);
+    } finally {
+      db.pool = original;
+    }
+  });
+
+  it.each([-600000, 600000])(
+    "uses the database membership clock when the app clock differs by %i milliseconds",
+    async (skew) => {
+      const { credential } = await membershipDevice();
+      const actualNow = Date.now();
+      const clock = vi.spyOn(Date, "now").mockReturnValue(actualNow + skew);
+      try {
+        expect(
+          (await receiveEvents(membershipPacket(credential.token))).status,
+        ).toBe(200);
+      } finally {
+        clock.mockRestore();
+      }
+    },
+  );
+
+  it("refreshes a membership timestamp in the database's future", async () => {
+    const { user, credential } = await membershipDevice();
+    await db.pool.query(
+      `INSERT INTO account(id,issuer,"accountId","providerId","userId","updatedAt") VALUES($1,'https://github.com',$1,'github',$1,now())`,
+      [user],
+    );
+    await db.pool.query(
+      `UPDATE "user" SET "orgCheckedAt"=now()+interval '10 minutes' WHERE id=$1`,
+      [user],
+    );
+    expect(
+      (await receiveEvents(membershipPacket(credential.token))).status,
+    ).toBe(200);
+    expect(
+      (
+        await db.pool.query(
+          'SELECT "orgCheckedAt"<=now() AS checked FROM "user" WHERE id=$1',
+          [user],
+        )
+      ).rows,
+    ).toEqual([{ checked: true }]);
+  });
+
+  it("recovers from an expired revoke form only after a fresh form submission", async () => {
+    const credential = (await exchangeCode(
+      db.pool,
+      payload(await issueCode(db.pool, "telemetry-test-user", params)),
+    ))!;
+    const form = (csrf: string) =>
+      new Request("http://localhost/telemetry/devices", {
+        method: "POST",
+        headers: {
+          origin: "http://localhost",
+          cookie: "fixture_session=authorized",
+          "content-type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({ device_id: credential.device_id, csrf }),
+      });
+    const expired = consentToken(
+      {
+        redirect_uri: "revoke",
+        state: credential.device_id,
+        code_challenge: "",
+      },
+      "fixture-browser-session",
+      process.env.BETTER_AUTH_SECRET!,
+      Date.now() - 600001,
+    );
+    const rejected = await devicesPost(form(expired));
+    expect(rejected.status).toBe(403);
+    expect(await rejected.text()).toContain('href="/telemetry/devices"');
+    expect(
+      (
+        await db.pool.query(
+          "SELECT revoked_at FROM telemetry_devices WHERE device_id=$1",
+          [credential.device_id],
+        )
+      ).rows[0].revoked_at,
+    ).toBeNull();
+    const page = await devicesGet(
+      new Request("http://localhost/telemetry/devices", {
+        headers: { cookie: "fixture_session=authorized" },
+      }),
+    );
+    const csrf = new RegExp(
+      `name="device_id" value="${credential.device_id}"><input type="hidden" name="csrf" value="([^"]+)"`,
+    ).exec(await page.text())?.[1];
+    expect(csrf).toBeDefined();
+    expect((await devicesPost(form(csrf!))).status).toBe(303);
+    expect(
+      (
+        await db.pool.query(
+          "SELECT revoked_at FROM telemetry_devices WHERE device_id=$1",
+          [credential.device_id],
+        )
+      ).rows[0].revoked_at,
+    ).not.toBeNull();
   });
 });

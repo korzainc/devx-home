@@ -14,7 +14,11 @@ import {
   type ConnectParams,
 } from "./telemetry-auth";
 import { parseBatch } from "./telemetry-events";
-import { telemetryMembership } from "./telemetry-membership";
+import {
+  telemetryMembership,
+  TELEMETRY_MEMBERSHIP_SELECT,
+  type TelemetryMembership,
+} from "./telemetry-membership";
 
 const privateHeaders = {
   "cache-control": "no-store",
@@ -37,10 +41,11 @@ const escape = (value: string) =>
         c
       ]!,
   );
-function html(body: string) {
+function html(body: string, status = 200) {
   return new Response(
     `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Korza monitoring</title><style>body{font:18px system-ui;line-height:1.6;max-width:42rem;margin:4rem auto;padding:0 1.5rem;color:#15212b}button{font:inherit;padding:.6rem 1rem;margin:.4rem .6rem .4rem 0;cursor:pointer}code{overflow-wrap:anywhere}</style></head><body>${body}</body></html>`,
     {
+      status,
       headers: {
         ...privateHeaders,
         "content-type": "text/html; charset=utf-8",
@@ -253,17 +258,20 @@ export async function receiveEvents(request: Request) {
     await client.query("SET LOCAL statement_timeout = '3s'");
     // Always lock user before device. A removal committed before this lock
     // denies the batch; one racing ingestion waits until the whole batch ends.
-    const membership = await client.query(
-      'SELECT id FROM "user" WHERE id=$1 AND "orgMember"=true AND "orgCheckedAt">now()-interval \'5 minutes\' FOR SHARE',
+    const membership = await client.query<TelemetryMembership>(
+      `${TELEMETRY_MEMBERSHIP_SELECT} FOR SHARE`,
       [userId],
     );
-    if (!membership.rows.length) throw new HttpError(401);
+    if (!membership.rows[0]?.orgMember) throw new HttpError(401);
     // Hold a shared row lock through ingestion. Revocation cannot race a partly committed batch.
     const { rows } = await client.query(
       "SELECT device_id FROM telemetry_devices WHERE token_hash=$1 AND user_id=$2 AND revoked_at IS NULL AND expires_at > now() FOR SHARE",
       [hash, userId],
     );
     if (!rows.length) throw new HttpError(401);
+    // Pool/lock waits can cross the five-minute boundary after the optimistic
+    // check. Retain the queue for a retry, which refreshes outside this transaction.
+    if (!membership.rows[0].fresh) throw new HttpError(503);
     const device = rows[0].device_id;
     // A bulk upsert cannot update the same conflict row twice. Preserve the
     // first record's metadata and the largest counter, as sequential writes did.
@@ -387,7 +395,10 @@ export async function devicesPost(request: Request) {
         secret(),
       )
     )
-      throw new HttpError(403);
+      return html(
+        '<h1>This form expired or could not be verified</h1><p>No device was revoked. <a href="/telemetry/devices">Reload connected devices</a>, then choose Revoke device again.</p>',
+        403,
+      );
     await revokeCredentials(getPool(), {
       deviceId: input.device_id,
       userId: session.user.id,

@@ -62,16 +62,24 @@ const analysis: Analysis = vi.hoisted(() => ({
 // The whole invocation, not just the token: the form's value comes from `target` independently,
 // so a mock that ignored the repo would be satisfied by `runAnalysis("wrong/repo", token)`.
 const analyses = vi.hoisted(() => ({
-  calls: [] as { repo: string; token: string | null }[],
+  calls: [] as { repo: string; token: string | null; runId: string }[],
   result: null as RunResult | null,
+}));
+
+const usage = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/analysis-usage", async (original) => ({
+  ...(await original<typeof import("@/lib/analysis-usage")>()),
+  readAnalysisUsage: usage,
 }));
 
 vi.mock("@/lib/gap/run", () => ({
   runAnalysis: async (
     repo: string,
     token: string | null,
+    _catalogue: unknown,
+    runId: string,
   ): Promise<RunResult> => {
-    analyses.calls.push({ repo, token });
+    analyses.calls.push({ repo, token, runId });
     return analyses.result ?? { ok: true, analysis };
   },
 }));
@@ -126,19 +134,17 @@ afterEach(() => {
   session.reads = 0;
   analyses.calls.length = 0;
   analyses.result = null;
+  usage.mockReset();
   // Drained before asserting, or a failure here leaves the array full and every later test
   // fails with the first test's error. Any boundary error no test claimed is a crash that would
   // otherwise pass unnoticed: the form and the recorded token survive it.
   expect(takeErrors()).toEqual([]);
 });
 
-const page = (repo?: string) => (
+const sharedRunId = "12345678-1234-1234-1234-123456789abc";
+const page = (repo?: string, run = sharedRunId) => (
   <CiCoveragePage
-    searchParams={Promise.resolve(
-      repo === undefined
-        ? {}
-        : { repo, run: "12345678-1234-1234-1234-123456789abc" },
-    )}
+    searchParams={Promise.resolve(repo === undefined ? {} : { repo, run })}
   />
 );
 
@@ -151,8 +157,7 @@ describe("the CI coverage page, for a client running no script", () => {
     expect(visible(markup)).toContain('value="facebook/react"');
   });
 
-  it("renders the bare page without touching the session", async () => {
-    // The common case from the nav, and it owes nobody a session query.
+  it("renders the bare form without requesting a GitHub token", async () => {
     const markup = visible(await render(page()));
 
     expect(markup).toContain('id="repo"');
@@ -162,7 +167,9 @@ describe("the CI coverage page, for a client running no script", () => {
   it("analyses anonymously for a signed-out reader", async () => {
     await render(page("facebook/react"));
 
-    expect(analyses.calls).toEqual([{ repo: "facebook/react", token: null }]);
+    expect(analyses.calls).toEqual([
+      { repo: "facebook/react", token: null, runId: sharedRunId },
+    ]);
   });
 
   it("threads a signed-in reader's token through to the analysis", async () => {
@@ -172,7 +179,7 @@ describe("the CI coverage page, for a client running no script", () => {
     const markup = await render(page("vercel/next.js"));
 
     expect(analyses.calls).toEqual([
-      { repo: "vercel/next.js", token: "gho_test" },
+      { repo: "vercel/next.js", token: "gho_test", runId: sharedRunId },
     ]);
     expect(markup).toContain("Style linting");
   });
@@ -223,6 +230,39 @@ describe("the CI coverage page, for a client running no script", () => {
 // Separate, because both of these live inside the boundary: a client running no script sees
 // neither. They pin the server's output, which is a different subject from the suite above.
 describe("the CI coverage page, once the analysis resolves", () => {
+  it("keeps public analysis available without exposing or reading aggregate usage", async () => {
+    usage.mockResolvedValue({ runs: 413, repositories: 97 });
+
+    const bare = await render(page());
+    const report = await render(page("facebook/react"));
+
+    expect(bare).toContain('id="repo"');
+    expect(report).toContain("Style linting");
+    expect(bare).not.toContain('aria-label="Analysis usage"');
+    expect(report).not.toContain('aria-label="Analysis usage"');
+    expect(usage).not.toHaveBeenCalled();
+  });
+
+  it("retains a shared run's identity but assigns a new identity to another Analyze submission", async () => {
+    const first = await render(page("facebook/react"));
+    const shared = await render(page("facebook/react"));
+    const nextRun = first.match(/name="run" value="([^"]+)"/)?.[1];
+    const sharedNextRun = shared.match(/name="run" value="([^"]+)"/)?.[1];
+
+    expect(nextRun).toMatch(/^[0-9a-f-]{36}$/);
+    expect(nextRun).not.toBe(sharedRunId);
+    expect(sharedNextRun).not.toBe(sharedRunId);
+    expect(sharedNextRun).not.toBe(nextRun);
+    await render(page("facebook/react", nextRun));
+
+    // Opening the same URL is one logical run; choosing Analyze is another.
+    expect(analyses.calls.map((call) => call.runId)).toEqual([
+      sharedRunId,
+      sharedRunId,
+      nextRun,
+    ]);
+  });
+
   it("offers a login when an anonymous read fails in a way that a login would fix", async () => {
     // `signingInWouldHelp` in the page: only a signed-out 404 or 429 earns the prompt. Subtle
     // enough to have produced a live bug already, per its own comment on 403.

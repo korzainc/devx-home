@@ -10,7 +10,8 @@ vi.mock("./auth", () => ({
   getAuth: () => ({ api: { getSession: mocks.getSession } }),
 }));
 vi.mock("./membership", () => ({ isOrgMember: mocks.member }));
-vi.mock("./telemetry-membership", () => ({
+vi.mock("./telemetry-membership", async (original) => ({
+  ...(await original<typeof import("./telemetry-membership")>()),
   telemetryMembership: mocks.telemetryMember,
 }));
 vi.mock("./db", () => ({
@@ -152,7 +153,9 @@ it("rejects missing, expired or revoked credentials before accepting telemetry",
 });
 it("bounds the decoded request stream", async () => {
   mocks.query.mockResolvedValue({
-    rows: [{ device_id: "device", user_id: "user" }],
+    rows: [
+      { device_id: "device", user_id: "user", orgMember: true, fresh: true },
+    ],
   });
   expect(
     (
@@ -164,7 +167,9 @@ it("bounds the decoded request stream", async () => {
 });
 it("scopes identities by device and inserts atomically with retry dedupe", async () => {
   mocks.query.mockResolvedValue({
-    rows: [{ device_id: "device", user_id: "user" }],
+    rows: [
+      { device_id: "device", user_id: "user", orgMember: true, fresh: true },
+    ],
   });
   const event = {
     id: "b".repeat(64),
@@ -187,7 +192,9 @@ it("scopes identities by device and inserts atomically with retry dedupe", async
 });
 it("writes a full batch in one database call per record type", async () => {
   mocks.query.mockResolvedValue({
-    rows: [{ device_id: "device", user_id: "user" }],
+    rows: [
+      { device_id: "device", user_id: "user", orgMember: true, fresh: true },
+    ],
   });
   const events = Array.from({ length: 500 }, (_, index) => ({
     id: index.toString(16).padStart(64, "0"),
@@ -217,7 +224,9 @@ it("writes a full batch in one database call per record type", async () => {
 });
 it("coalesces duplicate counters without replacing the first metadata", async () => {
   mocks.query.mockResolvedValue({
-    rows: [{ device_id: "device", user_id: "user" }],
+    rows: [
+      { device_id: "device", user_id: "user", orgMember: true, fresh: true },
+    ],
   });
   const first = {
     id: "c".repeat(64),
@@ -261,7 +270,14 @@ it("rolls back both bulk writes if the metric statement fails", async () => {
       throw Error("injected bulk metric failure");
     return {
       rows: sql.startsWith("SELECT")
-        ? [{ device_id: "device", user_id: "user" }]
+        ? [
+            {
+              device_id: "device",
+              user_id: "user",
+              orgMember: true,
+              fresh: true,
+            },
+          ]
         : [],
     };
   });
@@ -296,7 +312,9 @@ it("rolls back both bulk writes if the metric statement fails", async () => {
 it("allows bearer self-revocation and rejects invalid token", async () => {
   expect((await revokeDevice(ingest({}, "bad"))).status).toBe(401);
   mocks.query.mockResolvedValue({
-    rows: [{ device_id: "device", user_id: "user" }],
+    rows: [
+      { device_id: "device", user_id: "user", orgMember: true, fresh: true },
+    ],
     rowCount: 1,
   });
   expect((await revokeDevice(ingest({}))).status).toBe(204);
@@ -335,7 +353,14 @@ it("rechecks revocation inside the ingestion transaction", async () => {
   mocks.query.mockImplementation(async (sql: string) => ({
     rows:
       sql.includes("SELECT device_id") && !sql.includes("FOR SHARE")
-        ? [{ device_id: "device", user_id: "user" }]
+        ? [
+            {
+              device_id: "device",
+              user_id: "user",
+              orgMember: true,
+              fresh: true,
+            },
+          ]
         : [],
   }));
   expect(
@@ -345,7 +370,9 @@ it("rechecks revocation inside the ingestion transaction", async () => {
 });
 it("rejects invalid content type, encoded bodies and unknown fields without inserts", async () => {
   mocks.query.mockResolvedValue({
-    rows: [{ device_id: "device", user_id: "user" }],
+    rows: [
+      { device_id: "device", user_id: "user", orgMember: true, fresh: true },
+    ],
   });
   const req = ingest({ events: [], metrics: [] });
   req.headers.set("content-encoding", "gzip");
@@ -444,7 +471,9 @@ it("accepts CSRF-bound renewal only for the current user's device", async () => 
 
 it("retries provider failures but refuses confirmed membership removal before writing", async () => {
   mocks.query.mockResolvedValue({
-    rows: [{ device_id: "device", user_id: "user" }],
+    rows: [
+      { device_id: "device", user_id: "user", orgMember: true, fresh: true },
+    ],
   });
   mocks.telemetryMember.mockRejectedValueOnce(new Error("provider timed out"));
   expect(
@@ -459,9 +488,16 @@ it("retries provider failures but refuses confirmed membership removal before wr
 });
 it("rechecks membership under a shared user lock before locking the device", async () => {
   mocks.query.mockImplementation(async (sql: string) => ({
-    rows: sql.includes('SELECT id FROM "user"')
+    rows: sql.includes('FROM "user"')
       ? []
-      : [{ device_id: "device", user_id: "user" }],
+      : [
+          {
+            device_id: "device",
+            user_id: "user",
+            orgMember: true,
+            fresh: true,
+          },
+        ],
   }));
   expect(
     (await receiveEvents(ingest({ events: [], metrics: [] }))).status,
@@ -474,4 +510,89 @@ it("rechecks membership under a shared user lock before locking the device", asy
   expect(
     mocks.query.mock.calls.some(([sql]) => sql.includes("INSERT INTO")),
   ).toBe(false);
+});
+
+it("retries a positive membership cache that expires before the ingestion lock", async () => {
+  mocks.query.mockImplementation(async (sql: string) => {
+    if (sql.includes('FROM "user"')) {
+      // The initial check passed at 4m59s; by the final lock it is stale.
+      // The old WHERE predicate filters the member out entirely.
+      return {
+        rows: sql.startsWith("SELECT id")
+          ? []
+          : [{ orgMember: true, fresh: false }],
+      };
+    }
+    return {
+      rows: [
+        { device_id: "device", user_id: "user", orgMember: true, fresh: true },
+      ],
+    };
+  });
+  expect(
+    (await receiveEvents(ingest({ events: [], metrics: [] }))).status,
+  ).toBe(503);
+  expect(mocks.query).toHaveBeenCalledWith("ROLLBACK");
+  expect(mocks.release).toHaveBeenCalledOnce();
+  expect(
+    mocks.query.mock.calls.some(([sql]) => sql.includes("INSERT INTO")),
+  ).toBe(false);
+});
+
+it("explains an expired revoke form without revoking or accepting its stale CSRF", async () => {
+  const device = "11111111-1111-4111-8111-111111111111";
+  const csrf = consentToken(
+    { redirect_uri: "revoke", state: device, code_challenge: "" },
+    "session",
+    "secret",
+    Date.now() - 600001,
+  );
+  const response = await devicesPost(
+    new Request(base + "/telemetry/devices", {
+      method: "POST",
+      headers: {
+        origin: base,
+        "content-type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({ device_id: device, csrf }),
+    }),
+  );
+  expect(response.status).toBe(403);
+  const body = await response.text();
+  expect(body).toContain("This form expired or could not be verified");
+  expect(body).toContain('href="/telemetry/devices"');
+  expect(body).toContain("No device was revoked");
+  expect(body).not.toContain(csrf);
+  expect(response.headers.get("cache-control")).toBe("no-store");
+  expect(mocks.query).not.toHaveBeenCalled();
+});
+
+it.each([{ rows: [] }, { rows: [{ orgMember: false, fresh: true }] }])(
+  "still denies missing or removed membership under the final lock: %j",
+  async ({ rows }) => {
+    mocks.query.mockImplementation(async (sql: string) => ({
+      rows: sql.includes('FROM "user"')
+        ? rows
+        : [{ device_id: "device", user_id: "user" }],
+    }));
+    expect(
+      (await receiveEvents(ingest({ events: [], metrics: [] }))).status,
+    ).toBe(401);
+    expect(mocks.query).toHaveBeenCalledWith("ROLLBACK");
+    expect(mocks.release).toHaveBeenCalledOnce();
+  },
+);
+
+it("still denies a revoked device when membership also becomes stale", async () => {
+  mocks.query.mockImplementation(async (sql: string) => ({
+    rows: sql.includes('FROM "user"')
+      ? [{ orgMember: true, fresh: false }]
+      : sql.includes("FOR SHARE")
+        ? []
+        : [{ device_id: "device", user_id: "user" }],
+  }));
+  expect(
+    (await receiveEvents(ingest({ events: [], metrics: [] }))).status,
+  ).toBe(401);
+  expect(mocks.query).toHaveBeenCalledWith("ROLLBACK");
 });
