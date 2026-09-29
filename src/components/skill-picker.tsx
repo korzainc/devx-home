@@ -89,6 +89,7 @@ export function SkillPicker({ cards }: { cards: SkillCard[] }) {
             /* Deals the row rather than flipping it over at once. Short enough that the last card
                is not still arriving after a reader has started on the first. */
             style={{ animationDelay: `${i * 70}ms` }}
+            onAnimationEnd={(e) => e.currentTarget.classList.remove("deal")}
           >
             <p className="font-mono text-xs tracking-wide text-accent uppercase">
               {/* The stored value stays "All"; only the label changes, as both catalogue chip
@@ -116,6 +117,7 @@ export function SkillPicker({ cards }: { cards: SkillCard[] }) {
           className="deal deal-flat flex items-center justify-center p-5"
           /* Last in the deal, so it lands after the cards it sits among rather than with them. */
           style={{ animationDelay: `${shown.length * 70}ms` }}
+          onAnimationEnd={(e) => e.currentTarget.classList.remove("deal", "deal-flat")}
         >
           <Link
             href="/skills"
