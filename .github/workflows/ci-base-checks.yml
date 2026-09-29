@@ -7,8 +7,6 @@ on:
 
 permissions:
   contents: read
-  checks: write
-  pull-requests: write
   id-token: write
 
 jobs:
@@ -37,21 +35,23 @@ jobs:
       # secrets (Kingfisher) and sca (Trivy) already run as their own jobs in ci.yml - only
       # wiring the leaves those don't cover, not the full bundle. No Dockerfile in this repo,
       # so image-scan doesn't apply either.
+      #
+      # A standalone `ci-run <capability>` call takes only --repo-root/--base-sha/--head-sha -
+      # no --out, and nothing here feeds `ci-run report` (that's the scan/image-scan+report
+      # flow's own staged-output contract). Each step's own exit code is the real signal: a
+      # failing check shows as that step failing, not a separate aggregated comment.
       - name: ci-run sast
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          mkdir -p "$RUNNER_TEMP/ci-out" "$RUNNER_TEMP/ci-scratch"
+          mkdir -p "$RUNNER_TEMP/ci-scratch"
           docker run --rm \
             -v "$PWD:$PWD" -w "$PWD" \
-            -v "$RUNNER_TEMP/ci-out:/out" \
             -v "$RUNNER_TEMP/ci-scratch:/scratch" \
             -e CI=true -e CI_SCRATCH_DIR=/scratch \
-            -e GITHUB_STEP_SUMMARY=/step-summary \
-            -v "$GITHUB_STEP_SUMMARY:/step-summary" \
             korzacitools.azurecr.io/ci-common:0.3.0@sha256:aeb58c4af0405f1d564e608c0995c93d96a1f6cfb6513335922762ee5c0b97f9 \
-            ci-run sast --out /out --repo-root "$PWD" --base-sha "$BASE_SHA" --head-sha "$HEAD_SHA"
+            ci-run sast --repo-root "$PWD" --base-sha "$BASE_SHA" --head-sha "$HEAD_SHA"
 
       - name: ci-run iac-config
         env:
@@ -60,15 +60,12 @@ jobs:
         run: |
           docker run --rm \
             -v "$PWD:$PWD" -w "$PWD" \
-            -v "$RUNNER_TEMP/ci-out:/out" \
             -v "$RUNNER_TEMP/ci-scratch:/scratch" \
             -e CI=true -e CI_SCRATCH_DIR=/scratch \
             -e TRIVY_CACHE_DIR=/scratch/trivy-db \
             -e CI_IAC_CONFIG_BLOCKING=false \
-            -e GITHUB_STEP_SUMMARY=/step-summary \
-            -v "$GITHUB_STEP_SUMMARY:/step-summary" \
             korzacitools.azurecr.io/ci-common:0.3.0@sha256:aeb58c4af0405f1d564e608c0995c93d96a1f6cfb6513335922762ee5c0b97f9 \
-            ci-run iac-config --out /out --repo-root "$PWD" --base-sha "$BASE_SHA" --head-sha "$HEAD_SHA"
+            ci-run iac-config --repo-root "$PWD" --base-sha "$BASE_SHA" --head-sha "$HEAD_SHA"
 
       - name: ci-run iac-dockerfile-lint
         env:
@@ -77,26 +74,8 @@ jobs:
         run: |
           docker run --rm \
             -v "$PWD:$PWD" -w "$PWD" \
-            -v "$RUNNER_TEMP/ci-out:/out" \
             -v "$RUNNER_TEMP/ci-scratch:/scratch" \
             -e CI=true -e CI_SCRATCH_DIR=/scratch \
             -e CI_IAC_DOCKERFILE_BLOCKING=false \
-            -e GITHUB_STEP_SUMMARY=/step-summary \
-            -v "$GITHUB_STEP_SUMMARY:/step-summary" \
             korzacitools.azurecr.io/ci-common:0.3.0@sha256:aeb58c4af0405f1d564e608c0995c93d96a1f6cfb6513335922762ee5c0b97f9 \
-            ci-run iac-dockerfile-lint --out /out --repo-root "$PWD" --base-sha "$BASE_SHA" --head-sha "$HEAD_SHA"
-
-      - name: ci-run report
-        if: always()
-        run: |
-          docker run --rm \
-            -v "$RUNNER_TEMP/ci-out:/out" \
-            -v "$GITHUB_EVENT_PATH:/event.json:ro" \
-            -e GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}" \
-            -e GITHUB_ACTIONS=true -e GITHUB_EVENT_NAME \
-            -e GITHUB_EVENT_PATH=/event.json -e GITHUB_REPOSITORY \
-            -e GITHUB_SHA -e GITHUB_API_URL -e GITHUB_SERVER_URL -e GITHUB_RUN_ID \
-            -e GITHUB_STEP_SUMMARY=/step-summary \
-            -v "$GITHUB_STEP_SUMMARY:/step-summary" \
-            korzacitools.azurecr.io/ci-common:0.3.0@sha256:aeb58c4af0405f1d564e608c0995c93d96a1f6cfb6513335922762ee5c0b97f9 \
-            ci-run report --in /out --event-file /event.json
+            ci-run iac-dockerfile-lint --repo-root "$PWD" --base-sha "$BASE_SHA" --head-sha "$HEAD_SHA"
