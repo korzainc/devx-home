@@ -189,10 +189,12 @@ function formatBundleDetails(
     return "";
   }
 
-  const steps = (github.steps ?? []).filter(isRealStep);
+  const steps = (Array.isArray(github.steps) ? github.steps : []).filter(
+    isRealStep,
+  );
   if (steps.length === 0) return "";
 
-  const wrapsList = bundle.wraps
+  const wrapsList = (Array.isArray(bundle.wraps) ? bundle.wraps : [])
     .map((entry) => {
       const labels = entry.capabilities
         .map((id) => catalogue.capabilityLabels[id] ?? id)
@@ -219,7 +221,7 @@ function formatBundleDetails(
     )
     .join("\n");
 
-  const requiresList = (github.requires ?? [])
+  const requiresList = (Array.isArray(github.requires) ? github.requires : [])
     .filter(
       (line): line is string => typeof line === "string" && line.length > 0,
     )
@@ -229,8 +231,7 @@ function formatBundleDetails(
   // Only a section with real content earns a heading - an empty "Environment:" or "Requires:"
   // with nothing under it reads as a rendering failure, not as "this bundle has none".
   const sections = [
-    wrapsList &&
-      `One container image (\`${cell(github.image)}\`) wraps several separate checks:\n\n${wrapsList}`,
+    wrapsList && `Wraps several separate checks:\n\n${wrapsList}`,
     stepsList && `Full recipe:\n\n${stepsList}`,
     envList && `Environment:\n\n${envList}`,
     requiresList && `Requires:\n\n${requiresList}`,
@@ -238,6 +239,8 @@ function formatBundleDetails(
 
   return `
 #### ${cell(bundle.name)}
+
+One container image: \`${cell(github.image)}\`
 
 ${sections.join("\n\n")}
 

@@ -512,6 +512,54 @@ describe("buildFixPrompt bundle details", () => {
     expect(prompt).not.toContain("CI=true");
   });
 
+  it("skips a container-level field entirely instead of throwing when it isn't an array", () => {
+    const bundle: BundleEntry = {
+      ...wellFormedBundle,
+      wraps: { kingfisher: ["secrets"] } as never,
+      invocation: {
+        github: {
+          runner: "docker-run",
+          image: "example.test/ci-common:9.9.9",
+          steps: { scan: "ci-run scan --out /out" } as never,
+          requires: "one thing" as never,
+        },
+      },
+    };
+    const analysis = withGap();
+    analysis.categories[0].capabilities[0].recommended = [
+      { id: "ci-base-checks", name: "Korza CI Base Checks", stackLabels: [] },
+    ];
+
+    expect(() => buildFixPrompt(analysis, catalogueWith(bundle))).not.toThrow();
+    const prompt = buildFixPrompt(analysis, catalogueWith(bundle));
+    // steps wasn't a real array, so there's no real recipe to show at all - the gap table
+    // still names the bundle, but the inlined recipe section itself is skipped.
+    expect(prompt).not.toContain("#### Korza CI Base Checks");
+  });
+
+  it("still names the image when wraps is missing or empty", () => {
+    const bundle: BundleEntry = {
+      ...wellFormedBundle,
+      wraps: [],
+      invocation: {
+        github: {
+          runner: "docker-run",
+          image: "example.test/ci-common:9.9.9",
+          steps: [{ name: "scan", args: "ci-run scan --out /out" }],
+        },
+      },
+    };
+    const analysis = withGap();
+    analysis.categories[0].capabilities[0].recommended = [
+      { id: "ci-base-checks", name: "Korza CI Base Checks", stackLabels: [] },
+    ];
+
+    const prompt = buildFixPrompt(analysis, catalogueWith(bundle));
+    expect(prompt).toContain(
+      "One container image: `example.test/ci-common:9.9.9`",
+    );
+  });
+
   it("omits a section's heading entirely when it has no valid content", () => {
     const bundle: BundleEntry = {
       ...wellFormedBundle,
