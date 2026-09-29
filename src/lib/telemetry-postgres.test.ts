@@ -56,6 +56,7 @@ import { storeMembership } from "./membership";
 vi.mock("./org", () => ({ fetchOrgMembership: async () => identity.member }));
 import { telemetryMembership } from "./telemetry-membership";
 import { readPluginInstalls, readSkillUsage } from "./skill-usage";
+import { recordAnalysisRun, readAnalysisUsage } from "./analysis-usage";
 const configured = process.env.TEST_TELEMETRY_DATABASE_URL;
 const run = promisify(execFile);
 describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
@@ -136,6 +137,27 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
         await admin.end();
       }
     }
+  });
+  it("records analysis submissions once per run and counts distinct repositories", async () => {
+    expect(await readAnalysisUsage()).toEqual({ runs: 0, repositories: 0 });
+    const first = randomUUID();
+    await Promise.all([
+      recordAnalysisRun(first, 42),
+      recordAnalysisRun(first, 42),
+    ]);
+    expect(await readAnalysisUsage()).toEqual({ runs: 1, repositories: 1 });
+
+    await recordAnalysisRun(first, 42);
+    expect(await readAnalysisUsage()).toEqual({ runs: 1, repositories: 1 });
+    await recordAnalysisRun(randomUUID(), 42);
+    expect(await readAnalysisUsage()).toEqual({ runs: 2, repositories: 1 });
+    await recordAnalysisRun(randomUUID(), 84);
+    expect(await readAnalysisUsage()).toEqual({ runs: 3, repositories: 2 });
+
+    await recordAnalysisRun("invalid-run", 42);
+    await recordAnalysisRun(randomUUID(), undefined);
+    await recordAnalysisRun(randomUUID(), -1);
+    expect(await readAnalysisUsage()).toEqual({ runs: 3, repositories: 2 });
   });
   it("cleans at most 1000 expired grants per issuance and preserves live grants", async () => {
     const live = await issueCode(db.pool, "telemetry-test-user", params);
