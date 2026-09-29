@@ -484,6 +484,13 @@ it("accepts CSRF-bound renewal only for the current user's device", async () => 
     false,
   );
   mocks.query.mockImplementation(async (sql: string) => ({
+    rows: sql.startsWith('SELECT id FROM "user"') ? [{ id: "user" }] : [],
+  }));
+  expect((await connectPost(request())).status).toBe(403);
+  expect(mocks.query.mock.calls.some(([sql]) => sql.startsWith("INSERT"))).toBe(
+    false,
+  );
+  mocks.query.mockImplementation(async (sql: string) => ({
     rows: sql.startsWith('SELECT id FROM "user"')
       ? [{ id: "user" }]
       : sql.startsWith("SELECT device_id")
