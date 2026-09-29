@@ -2,23 +2,33 @@
  * @vitest-environment node
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { Writable } from "node:stream";
+import { renderToPipeableStream } from "react-dom/server";
 import CiCoveragePage from "@/app/ci-coverage/page";
 import type { RunResult } from "@/lib/gap/run";
 import type { Analysis } from "@/lib/gap/types";
 import { noscriptBlocks } from "@/test-utils/noscript";
 import { renderStream } from "@/test-utils/render-stream";
 
-vi.mock("next/server", () => ({ connection: async () => {} }));
+const afterResponse = vi.hoisted(() => [] as (() => Promise<void>)[]);
+vi.mock("next/server", () => ({
+  connection: async () => {},
+  after: (callback: () => Promise<void>) => afterResponse.push(callback),
+}));
+vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
+vi.mock("@/lib/membership", () => ({ isOrgMember: async () => true }));
 
 // Stubbed because reading the session calls `headers()`, which has no request scope here.
 const session = vi.hoisted(() => ({
   throws: false,
   token: null as string | null,
   reads: 0,
+  signedIn: false,
 }));
 
 vi.mock("@/lib/session", () => ({
-  getSession: async () => null,
+  getSession: async () =>
+    session.signedIn ? { user: { id: "member" } } : null,
   getGitHubToken: async () => {
     session.reads++;
     if (session.throws) throw new Error("DATABASE_URL is not set.");
@@ -62,25 +72,25 @@ const analysis: Analysis = vi.hoisted(() => ({
 // The whole invocation, not just the token: the form's value comes from `target` independently,
 // so a mock that ignored the repo would be satisfied by `runAnalysis("wrong/repo", token)`.
 const analyses = vi.hoisted(() => ({
-  calls: [] as { repo: string; token: string | null; runId: string }[],
+  calls: [] as { repo: string; token: string | null }[],
   result: null as RunResult | null,
 }));
 
 const usage = vi.hoisted(() => vi.fn());
+const record = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/analysis-usage", async (original) => ({
   ...(await original<typeof import("@/lib/analysis-usage")>()),
   readAnalysisUsage: usage,
+  recordAnalysisRun: record,
 }));
 
 vi.mock("@/lib/gap/run", () => ({
   runAnalysis: async (
     repo: string,
     token: string | null,
-    _catalogue: unknown,
-    runId: string,
   ): Promise<RunResult> => {
-    analyses.calls.push({ repo, token, runId });
-    return analyses.result ?? { ok: true, analysis };
+    analyses.calls.push({ repo, token });
+    return analyses.result ?? { ok: true, analysis, repoId: 42 };
   },
 }));
 
@@ -132,9 +142,12 @@ afterEach(() => {
   session.throws = false;
   session.token = null;
   session.reads = 0;
+  session.signedIn = false;
   analyses.calls.length = 0;
   analyses.result = null;
   usage.mockReset();
+  record.mockReset();
+  afterResponse.length = 0;
   // Drained before asserting, or a failure here leaves the array full and every later test
   // fails with the first test's error. Any boundary error no test claimed is a crash that would
   // otherwise pass unnoticed: the form and the recorded token survive it.
@@ -162,14 +175,13 @@ describe("the CI coverage page, for a client running no script", () => {
 
     expect(markup).toContain('id="repo"');
     expect(session.reads).toBe(0);
+    expect(afterResponse).toHaveLength(0);
   });
 
   it("analyses anonymously for a signed-out reader", async () => {
     await render(page("facebook/react"));
 
-    expect(analyses.calls).toEqual([
-      { repo: "facebook/react", token: null, runId: sharedRunId },
-    ]);
+    expect(analyses.calls).toEqual([{ repo: "facebook/react", token: null }]);
   });
 
   it("threads a signed-in reader's token through to the analysis", async () => {
@@ -179,7 +191,7 @@ describe("the CI coverage page, for a client running no script", () => {
     const markup = await render(page("vercel/next.js"));
 
     expect(analyses.calls).toEqual([
-      { repo: "vercel/next.js", token: "gho_test", runId: sharedRunId },
+      { repo: "vercel/next.js", token: "gho_test" },
     ]);
     expect(markup).toContain("Style linting");
   });
@@ -256,11 +268,57 @@ describe("the CI coverage page, once the analysis resolves", () => {
     await render(page("facebook/react", nextRun));
 
     // Opening the same URL is one logical run; choosing Analyze is another.
-    expect(analyses.calls.map((call) => call.runId)).toEqual([
-      sharedRunId,
-      sharedRunId,
-      nextRun,
+    expect(record).not.toHaveBeenCalled();
+    expect(afterResponse).toHaveLength(3);
+    await Promise.all(afterResponse.map((callback) => callback()));
+    expect(record.mock.calls).toEqual([
+      [sharedRunId, 42],
+      [sharedRunId, 42],
+      [nextRun, 42],
     ]);
+  });
+
+  it("streams the report while the member-only usage badge is still reading", async () => {
+    session.signedIn = true;
+    let finishUsage!: (value: { runs: string; repositories: string }) => void;
+    usage.mockReturnValue(new Promise((resolve) => (finishUsage = resolve)));
+    let markup = "";
+    const output = new Writable({
+      write(chunk, _encoding, done) {
+        markup += chunk.toString();
+        done();
+      },
+    });
+    const finished = new Promise<void>((resolve, reject) => {
+      output.on("finish", resolve);
+      output.on("error", reject);
+    });
+    const stream = renderToPipeableStream(page("facebook/react"), {
+      onShellReady: () => stream.pipe(output),
+      onError: (error) => {
+        boundaryErrors.push(error as Error);
+      },
+    });
+
+    try {
+      await vi.waitFor(() => {
+        expect(usage).toHaveBeenCalledOnce();
+        const outerBoundary = markup.match(/<template id="([^"]+)"/)?.[1];
+        expect(outerBoundary).toBeDefined();
+        // Report bytes in a hidden div alone are not enough: the outer boundary
+        // must be released to the client while the nested badge is still pending.
+        expect(markup).toContain(`$RC("${outerBoundary}"`);
+        expect(markup).toContain("Style linting");
+        expect(markup).not.toContain('aria-label="Analysis usage"');
+      });
+      expect(record).not.toHaveBeenCalled();
+      expect(afterResponse).toHaveLength(1);
+    } finally {
+      finishUsage({ runs: "413", repositories: "97" });
+      await finished;
+    }
+    expect(markup).toContain("413");
+    expect(markup).toContain('aria-label="Analysis usage"');
   });
 
   it("offers a login when an anonymous read fails in a way that a login would fix", async () => {
@@ -275,6 +333,7 @@ describe("the CI coverage page, once the analysis resolves", () => {
     const markup = await render(page("facebook/react"));
 
     expect(markup).toContain("Log in to analyze");
+    expect(afterResponse).toHaveLength(0);
   });
 
   it("shows a plain notice when a login would not help", async () => {
@@ -285,5 +344,6 @@ describe("the CI coverage page, once the analysis resolves", () => {
 
     expect(markup).toContain("No such repository.");
     expect(markup).not.toContain("Log in to analyze");
+    expect(afterResponse).toHaveLength(0);
   });
 });
