@@ -146,7 +146,21 @@ The analysis badge is visible only to signed-in organisation members because its
 totals include private repositories. Public repository analysis remains available
 without signing in. Counts represent successful Analyze submissions: refreshing
 or sharing the same run URL adds nothing, while submitting Analyze again creates
-a new run. They do not measure page views or repeated server executions.
+a new run. Every successful API request creates its own run; retrying the same
+request counts again. These are raw successful submissions, including anonymous
+public-repository analyses, not unique users or member adoption. Recording runs
+after the response, and the badge streams separately; a new count can appear on
+the next request. Storage failure must not prevent a report from rendering.
+
+Collection is enabled only on Vercel production (`VERCEL=1` and
+`VERCEL_ENV=production`). Preview and development deployments do not write usage,
+including when they share the production database. For local acceptance, explicitly
+set `KORZA_LOCAL_USAGE=1` and a `DATABASE_URL` pointing to an isolated loopback
+PostgreSQL database; leave the Vercel variables unset. Remote local database URLs
+are refused. Do not use a tunnel to a production database for local acceptance.
+The same boundary applies to device monitoring and the development pilot.
+Existing pilot rows remain historical data; unknown-provenance rows are not
+silently relabelled or deleted.
 
 ## Opt-in device monitoring backend
 
@@ -178,9 +192,12 @@ deduplication and pending event identity. Only credential hashes are stored.
 Ingestion rechecks the same approved GitHub App access policy using the device
 owner's stored provider account. Positive access is cached for at most five
 minutes; removal can therefore take up to five minutes to be observed. A
-confirmed denial atomically revokes that owner's device credentials, and the
+confirmed denial atomically revokes that owner's devices and pending authorization
+codes. Code issuance and exchange serialize with removal under the user row lock,
+so an old grant cannot revive a removed member's device. The
 receiver rechecks membership and device status under shared row locks before
-writing a batch. Provider outages return 503 so the collector retains queued
+writing a batch. Missing or ambiguous GitHub accounts, empty tokens and provider
+outages return 503 without changing membership or revoking devices, so the collector retains queued
 counts; they never fall back to a stale positive verdict. Cache freshness uses the
 database clock. If the cache expires before ingestion acquires its lock, the
 receiver also returns 503 so the collector retries without asking for new consent.
@@ -201,7 +218,8 @@ Revocation does not delete recorded counts or their device history.
 The connected-devices page paginates retained history, so an older renewed device
 remains reachable for browser revocation.
 An expired or invalid revocation form shows a reload link; it never revokes a
-device without valid CSRF protection.
+device without valid CSRF protection. HTML forms use a same-origin referrer
+policy so browsers supply an origin on submission; redirects retain no-referrer.
 
 Migration `0007_telemetry_read_indexes.sql` adds indexes for plugin and skill
 count reads and device/user foreign keys. It leaves previously applied migrations
@@ -212,6 +230,10 @@ telemetry table.
 Database connection acquisition is bounded to five seconds, including a wait for
 an available pooled connection. Usage queries retain their one-second query
 timeout; an unavailable database must not indefinitely block a completed report.
+This is the existing shared pool, so the acquisition limit also bounds login and
+session lookups. The page gate treats a failed lookup as signed out and redirects
+to login without deleting the session cookie. This availability tradeoff is
+intentional; actual deployed database wake-up latency still needs acceptance.
 
 Plugin installation totals are grouped by both client and source. Claude's native
 reports and installs verified through Korza CLI are displayed separately because

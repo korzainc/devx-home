@@ -1,7 +1,7 @@
-import { connection } from "next/server";
+import { after, connection } from "next/server";
 import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
-import { validRunId } from "@/lib/analysis-usage";
+import { recordAnalysisRun, validRunId } from "@/lib/analysis-usage";
 import { AnalysisUsage } from "@/components/analysis-usage";
 import type { Metadata } from "next";
 import { Suspense } from "react";
@@ -28,12 +28,7 @@ async function Result({ repo, runId }: { repo: string; runId?: string }) {
   const token = await getGitHubToken();
 
   const baseline = getBaseline();
-  const result = await runAnalysis(
-    repo,
-    token,
-    { tools, baseline },
-    runId ?? "",
-  );
+  const result = await runAnalysis(repo, token, { tools, baseline });
 
   if (!result.ok) {
     // Anonymously, 404 means no such public repo, which a private one is indistinguishable from,
@@ -49,9 +44,13 @@ async function Result({ repo, runId }: { repo: string; runId?: string }) {
     );
   }
 
+  after(() => recordAnalysisRun(runId ?? "", result.repoId));
+
   return (
     <>
-      <AnalysisUsage />
+      <Suspense fallback={null}>
+        <AnalysisUsage />
+      </Suspense>
       <GapReport analysis={result.analysis} stacks={baseline.stacks} />
     </>
   );

@@ -1,5 +1,3 @@
-import { recordAnalysisRun } from "../analysis-usage";
-import { randomUUID } from "node:crypto";
 import { analyze } from "./analyze";
 import { githubReader } from "./github";
 import { CatalogueDataError, RepoReadError } from "./types";
@@ -10,7 +8,7 @@ import type { Analysis, AnalysisTool, Baseline, RepoReader } from "./types";
 const readers: RepoReader[] = [githubReader];
 
 export type RunResult =
-  | { ok: true; analysis: Analysis }
+  | { ok: true; analysis: Analysis; repoId: number | undefined }
   | { ok: false; status: number; error: string };
 
 function resolve(input: string) {
@@ -37,8 +35,8 @@ function statusFor(error: RepoReadError) {
 
 /**
  * One parse, read and diff, shared by the page that renders a report and the route that returns
- * one as JSON. The token stays an argument. A successful report records its run separately;
- * monitoring failures never change the result.
+ * one as JSON. The token stays an argument. The caller can record the returned repository
+ * identity after its response; optional monitoring is not part of computing a report.
  *
  * A null token reads anonymously, so public repositories work with nobody signed in. Deciding
  * what to offer someone whose anonymous read failed is the caller's job, not this function's: it
@@ -48,7 +46,6 @@ export async function runAnalysis(
   repo: string,
   token: string | null,
   catalogue: { tools: AnalysisTool[]; baseline: Baseline },
-  runId: string = randomUUID(),
 ): Promise<RunResult> {
   const resolved = resolve(repo);
   if (!resolved) {
@@ -66,8 +63,7 @@ export async function runAnalysis(
       catalogue.baseline,
     );
     const analysis = analyze(snapshot, catalogue);
-    await recordAnalysisRun(runId, snapshot.repoId);
-    return { ok: true, analysis };
+    return { ok: true, analysis, repoId: snapshot.repoId };
   } catch (error) {
     if (error instanceof RepoReadError) {
       return { ok: false, status: statusFor(error), error: error.message };
