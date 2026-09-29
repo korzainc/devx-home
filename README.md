@@ -148,7 +148,9 @@ without signing in. Counts represent successful Analyze submissions: refreshing
 or sharing the same run URL adds nothing, while submitting Analyze again creates
 a new run. Every successful API request creates its own run; retrying the same
 request counts again. These are raw successful submissions, including anonymous
-public-repository analyses, not unique users or member adoption. Recording runs
+public-repository analyses, not unique users or member adoption. Client-supplied
+run IDs provide retry deduplication, not abuse resistance; these totals are not
+an audited measure of adoption. Recording runs
 after the response, and the badge streams separately; a new count can appear on
 the next request. Storage failure must not prevent a report from rendering.
 
@@ -156,10 +158,14 @@ Collection is enabled only on Vercel production (`VERCEL=1` and
 `VERCEL_ENV=production`). Preview and development deployments do not write usage,
 including when they share the production database. For local acceptance, explicitly
 set `KORZA_LOCAL_USAGE=1` and a `DATABASE_URL` pointing to an isolated loopback
-PostgreSQL database (`127.0.0.1` or `localhost`); leave the Vercel variables unset.
+PostgreSQL database (`127.0.0.1` or `localhost`). Start with
+`VERCEL= VERCEL_ENV= KORZA_LOCAL_USAGE=1 pnpm dev` so inherited dotenv markers
+cannot label a local test as production.
 Bracketed IPv6 URLs are not enabled for local collection with the current driver. Remote local database URLs
 are refused. Do not use a tunnel to a production database for local acceptance.
-The same boundary applies to device monitoring and the development pilot.
+The same boundary applies to device monitoring. The legacy pilot additionally
+refuses all Vercel markers, even if a development process inherits production
+settings; it requires explicit local opt-in and a loopback database.
 Existing pilot rows remain historical data; unknown-provenance rows are not
 silently relabelled or deleted.
 
@@ -245,6 +251,12 @@ they can describe the same installation; they must not be added together. Codex
 installation counts cover only installs verified through Korza CLI. Repeated
 delivery of the same device/event ID is deduplicated. These counts are not unique
 users or download totals.
+
+Metric points must be non-negative safe integers (at most 9,007,199,254,740,991).
+Aggregates retain exact decimal digits above that range. This numeric limit
+prevents invalid values, not inflated client reports: smaller per-device quotas
+and rate limits need an agreed policy before production monitoring is enabled.
+The receiver must not silently clamp cumulative counters or invent a usage cap.
 
 Validation separates production identity acceptance from protocol evidence:
 

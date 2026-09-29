@@ -11,7 +11,12 @@ export async function receiveTelemetry(
   request: Request,
   signal: "logs" | "metrics",
 ) {
-  if (process.env.NODE_ENV !== "development" || !usageCollectionEnabled())
+  if (
+    process.env.NODE_ENV !== "development" ||
+    process.env.VERCEL ||
+    process.env.VERCEL_ENV ||
+    !usageCollectionEnabled()
+  )
     return new Response(null, { status: 404 });
   const token = process.env.TELEMETRY_INGEST_TOKEN;
   if (!token || token.length < 32) return new Response(null, { status: 503 });

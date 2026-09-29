@@ -113,3 +113,18 @@ it("refuses pilot collection against a hosted or remote database", async () => {
   expect((await receiveTelemetry(request(packet()), "logs")).status).toBe(404);
   expect(query).not.toHaveBeenCalled();
 });
+
+it.each(["logs", "metrics"] as const)(
+  "rejects inherited production markers before processing pilot %s",
+  async (signal) => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("VERCEL", "1");
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("KORZA_LOCAL_USAGE", "0");
+    vi.stubEnv("DATABASE_URL", "postgresql://production.example/home");
+    vi.stubEnv("TELEMETRY_INGEST_TOKEN", token);
+    const body = signal === "logs" ? packet() : { resourceMetrics: [] };
+    expect((await receiveTelemetry(request(body), signal)).status).toBe(404);
+    expect(query).not.toHaveBeenCalled();
+  },
+);
