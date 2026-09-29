@@ -280,6 +280,12 @@ export const bundleById: Record<string, BundleEntry> = Object.fromEntries(
   bundles.map((bundle) => [bundle.id, bundle]),
 );
 
+/** A wrapped tool's readable name, for rendering a bundle's wraps mapping without a second
+ * lookup pass over `tools` at every call site. */
+export const toolNameById: Record<string, string> = Object.fromEntries(
+  tools.map((tool) => [tool.id, tool.name]),
+);
+
 const wrappedToolIds = new Set(
   bundles.flatMap((bundle) => bundle.wraps.map((entry) => entry.tool)),
 );

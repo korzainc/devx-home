@@ -50,8 +50,8 @@ export type ToolEntry = CatalogueEntry & {
  * steps. Not the shape a wrapped leaf tool's own per-capability invocation entries use. */
 export type BundleInvocation = {
   github?: {
+    runner?: string;
     image?: string;
-    args?: string;
     env?: Record<string, { value: string; note?: string }>;
     requires?: string[];
     steps?: { name: string; args: string; note?: string }[];

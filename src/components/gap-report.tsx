@@ -9,6 +9,7 @@ import {
   needsClauses,
   requirements,
   showAttribution,
+  type BundleCatalogue,
 } from "@/lib/gap/prompt";
 import type {
   Analysis,
@@ -177,9 +178,14 @@ function Capability({ capability }: { capability: CapabilityReport }) {
 export function GapReport({
   analysis,
   stacks,
+  catalogue,
 }: {
   analysis: Analysis;
   stacks: BaselineStack[];
+  /** Only needed to render a recommended bundle's real recipe - omit it in a context that
+   * has no reason to import `@/lib/catalogue` (e.g. a test rendering an analysis with no
+   * bundle recommendations). */
+  catalogue?: BundleCatalogue;
 }) {
   const expected = analysis.satisfiedCount + analysis.gapCount;
   // The real baseline has no "universal" capability - every one belongs to some ecosystem's own
@@ -257,7 +263,7 @@ export function GapReport({
             )}
           </p>
           {analysis.gapCount > 0 ? (
-            <FixPromptButton prompt={buildFixPrompt(analysis)} />
+            <FixPromptButton prompt={buildFixPrompt(analysis, catalogue)} />
           ) : null}
         </div>
       </div>

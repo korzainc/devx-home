@@ -3,7 +3,13 @@ import { Suspense } from "react";
 import { GapReport } from "@/components/gap-report";
 import { Octocat } from "@/components/octocat";
 import { signInWithGitHub } from "@/lib/auth-actions";
-import { getBaseline, tools } from "@/lib/catalogue";
+import {
+  bundleById,
+  capabilityLabels,
+  getBaseline,
+  toolNameById,
+  tools,
+} from "@/lib/catalogue";
 import { runAnalysis } from "@/lib/gap/run";
 import { getGitHubToken } from "@/lib/session";
 
@@ -39,7 +45,13 @@ async function Result({ repo }: { repo: string }) {
     );
   }
 
-  return <GapReport analysis={result.analysis} stacks={baseline.stacks} />;
+  return (
+    <GapReport
+      analysis={result.analysis}
+      stacks={baseline.stacks}
+      catalogue={{ bundleById, toolNameById, capabilityLabels }}
+    />
+  );
 }
 
 // Only reached once an anonymous read has already failed, which is why it can state a reason
