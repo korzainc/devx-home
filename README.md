@@ -162,7 +162,7 @@ inheriting production markers. For local acceptance, explicitly
 set `KORZA_LOCAL_USAGE=1` and a `DATABASE_URL` pointing to an isolated loopback
 PostgreSQL database (`127.0.0.1` or `localhost`). Start with
 `VERCEL= VERCEL_ENV= KORZA_LOCAL_USAGE=1 pnpm dev` so inherited dotenv markers
-cannot label a local test as production.
+do not disable local collection by selecting the hosted check.
 Bracketed IPv6 URLs are not enabled for local collection with the current driver. Remote local database URLs
 are refused. Do not use a tunnel to a production database for local acceptance.
 The same boundary applies to device monitoring. The legacy pilot requires

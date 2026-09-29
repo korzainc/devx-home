@@ -16,6 +16,7 @@ afterEach(() => vi.unstubAllEnvs());
 it.each(["preview", "development", "unexpected", ""])(
   "blocks hosted %s collection even with a local override",
   (environment) => {
+    vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("VERCEL", "1");
     vi.stubEnv("VERCEL_ENV", environment);
     vi.stubEnv("KORZA_LOCAL_USAGE", "1");
