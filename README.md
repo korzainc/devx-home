@@ -148,24 +148,26 @@ without signing in. Counts represent successful Analyze submissions: refreshing
 or sharing the same run URL adds nothing, while submitting Analyze again creates
 a new run. Every successful API request creates its own run; retrying the same
 request counts again. These are raw successful submissions, including anonymous
-public-repository analyses, not unique users or member adoption. Client-supplied
-run IDs provide retry deduplication, not abuse resistance; these totals are not
-an audited measure of adoption. Recording runs
+public-repository analyses, not unique users or member adoption. The page's run
+ID deduplicates reloads and shared links; it is not an abuse control. Successful
+API requests always get a new run ID. These totals are not an audited measure of
+adoption. Recording runs
 after the response, and the badge streams separately; a new count can appear on
 the next request. Storage failure must not prevent a report from rendering.
 
-Collection is enabled only on Vercel production (`VERCEL=1` and
-`VERCEL_ENV=production`). Preview and development deployments do not write usage,
-including when they share the production database. For local acceptance, explicitly
+Hosted collection requires `NODE_ENV=production`, `VERCEL=1` and
+`VERCEL_ENV=production`. Previews cannot collect, including when they share the
+production database. Development processes cannot enable hosted collection by
+inheriting production markers. For local acceptance, explicitly
 set `KORZA_LOCAL_USAGE=1` and a `DATABASE_URL` pointing to an isolated loopback
 PostgreSQL database (`127.0.0.1` or `localhost`). Start with
 `VERCEL= VERCEL_ENV= KORZA_LOCAL_USAGE=1 pnpm dev` so inherited dotenv markers
 cannot label a local test as production.
 Bracketed IPv6 URLs are not enabled for local collection with the current driver. Remote local database URLs
 are refused. Do not use a tunnel to a production database for local acceptance.
-The same boundary applies to device monitoring. The legacy pilot additionally
-refuses all Vercel markers, even if a development process inherits production
-settings; it requires explicit local opt-in and a loopback database.
+The same boundary applies to device monitoring. The legacy pilot requires
+development mode, so any non-empty `VERCEL` or `VERCEL_ENV` disables it. It also
+requires explicit local opt-in and a loopback database.
 Existing pilot rows remain historical data; unknown-provenance rows are not
 silently relabelled or deleted.
 
