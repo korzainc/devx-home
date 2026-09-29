@@ -351,22 +351,41 @@ it("browser revocation binds CSRF and updates only the session owner's device", 
 });
 it("rechecks revocation inside the ingestion transaction", async () => {
   mocks.query.mockImplementation(async (sql: string) => ({
-    rows:
-      sql.includes("SELECT device_id") && !sql.includes("FOR SHARE")
-        ? [
-            {
-              device_id: "device",
-              user_id: "user",
-              orgMember: true,
-              fresh: true,
-            },
-          ]
+    rows: sql.includes('FROM "user"')
+      ? [{ orgMember: true, fresh: true }]
+      : sql.includes("SELECT device_id") && !sql.includes("FOR SHARE")
+        ? [{ device_id: "device", user_id: "user" }]
         : [],
   }));
   expect(
-    (await receiveEvents(ingest({ events: [], metrics: [] }))).status,
+    (
+      await receiveEvents(
+        ingest({
+          events: [
+            {
+              id: "b".repeat(64),
+              kind: "plugin_installed",
+              client: "codex",
+              source: "korza_cli",
+              occurredAt: "2026-09-23T00:00:00Z",
+              plugin: "humanizer",
+              skill: null,
+            },
+          ],
+          metrics: [],
+        }),
+      )
+    ).status,
   ).toBe(401);
+  expect(mocks.query).toHaveBeenCalledWith(
+    expect.stringMatching(/^SELECT device_id .* FOR SHARE$/),
+    [expect.any(String), "user"],
+  );
+  expect(mocks.query.mock.calls.some(([sql]) => sql.startsWith("INSERT"))).toBe(
+    false,
+  );
   expect(mocks.query.mock.calls.at(-1)?.[0]).toBe("ROLLBACK");
+  expect(mocks.release).toHaveBeenCalledOnce();
 });
 it("rejects invalid content type, encoded bodies and unknown fields without inserts", async () => {
   mocks.query.mockResolvedValue({
