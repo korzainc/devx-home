@@ -309,12 +309,14 @@ export function buildFixPrompt(
       ? `| # | Check | Category | Tools that would cover it |\n| --- | --- | --- | --- |\n${gapRows.join("\n")}`
       : "Nothing. Every check the baseline expects is already running.";
 
-  const referencedBundleIds = [
+  const referencedBundles = [
     ...new Set(gaps.flatMap((gap) => gap.recommended.map((tool) => tool.id))),
-  ].filter((id) => catalogue.bundleById[id]);
+  ]
+    .map((id) => catalogue.bundleById[id])
+    .filter((bundle): bundle is BundleEntry => Boolean(bundle));
 
-  const bundleDetails = referencedBundleIds
-    .map((id) => formatBundleDetails(catalogue.bundleById[id], catalogue))
+  const bundleDetails = referencedBundles
+    .map((bundle) => formatBundleDetails(bundle, catalogue))
     .join("\n");
 
   // A git ref permits both backticks and pipes, which is why this goes through the same escape
