@@ -2,7 +2,11 @@
 export function usageCollectionEnabled(): boolean {
   const { VERCEL, VERCEL_ENV, KORZA_LOCAL_USAGE, DATABASE_URL } = process.env;
   if (VERCEL || VERCEL_ENV)
-    return VERCEL === "1" && VERCEL_ENV === "production";
+    return (
+      process.env.NODE_ENV === "production" &&
+      VERCEL === "1" &&
+      VERCEL_ENV === "production"
+    );
   if (KORZA_LOCAL_USAGE !== "1" || !DATABASE_URL) return false;
   try {
     const database = new URL(DATABASE_URL);

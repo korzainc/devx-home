@@ -24,11 +24,23 @@ it.each(["preview", "development", "unexpected", ""])(
   },
 );
 it("permits the production deployment only with both hosting markers", () => {
+  vi.stubEnv("NODE_ENV", "production");
   vi.stubEnv("VERCEL_ENV", "production");
   expect(usageCollectionEnabled()).toBe(false);
   vi.stubEnv("VERCEL", "1");
   expect(usageCollectionEnabled()).toBe(true);
 });
+it.each(["development", "test", ""])(
+  "rejects inherited production markers in a %s process",
+  (mode) => {
+    vi.stubEnv("NODE_ENV", mode);
+    vi.stubEnv("VERCEL", "1");
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("KORZA_LOCAL_USAGE", "1");
+    vi.stubEnv("DATABASE_URL", "postgresql://production.example/home");
+    expect(usageCollectionEnabled()).toBe(false);
+  },
+);
 it.each(["localhost", "127.0.0.1"])(
   "requires explicit local opt-in for %s",
   (host) => {
