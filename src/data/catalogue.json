@@ -352,44 +352,54 @@
         {
           "type": "docker",
           "image": "korzacitools.azurecr.io/ci-common",
-          "tag": "0.1.0"
+          "tag": "0.3.0"
         }
       ],
       "invocation": {
         "github": {
           "iac-dockerfile-lint": {
-            "action": "korzainc/shared-workflows/.github/workflows/security-iac-dockerfile-lint.yml@v3",
-            "runner": "reusable-workflow",
-            "args": {
-              "blocking": {
-                "value": true,
-                "note": "Dockerfile lint findings can fail the aggregate gate and merge."
+            "runner": "docker-run",
+            "image": "korzacitools.azurecr.io/ci-common:0.3.0",
+            "args": "ci-run iac-dockerfile-lint --repo-root \"$PWD\" --base-sha \"$BASE_SHA\" --head-sha \"$HEAD_SHA\"",
+            "env": {
+              "CI": {
+                "value": "true",
+                "note": "Marks a real CI run."
               },
-              "azure_client_id": {
-                "value": "${{ vars.CI_COMMON_AZURE_CLIENT_ID }}",
-                "note": "Your Azure AD app that's allowed to pull the scanner image - set up once per repo."
+              "CI_SCRATCH_DIR": {
+                "value": "/scratch",
+                "note": "Required once CI=true is set - mount a scratch dir here."
               },
-              "azure_tenant_id": {
-                "value": "${{ vars.CI_COMMON_AZURE_TENANT_ID }}",
-                "note": "Which Azure AD tenant that app lives in."
+              "CI_IAC_DOCKERFILE_BLOCKING": {
+                "value": "false",
+                "note": "Set to true to let Dockerfile lint findings fail the aggregate gate and merge; advisory only otherwise. Start false, see what a real run finds, then opt in."
               },
-              "azure_subscription_id": {
-                "value": "${{ vars.CI_COMMON_AZURE_SUBSCRIPTION_ID }}",
-                "note": "Which Azure subscription owns the image registry."
+              "CI_HADOLINT_FILES": {
+                "value": "",
+                "note": "Space-separated list of explicit Dockerfile paths to lint instead of auto-discovering them."
               }
             },
-            "scope": "diff"
+            "requires": [
+              "permissions: id-token: write (authenticates the azure/login OIDC token request) and an environment: ci-common block (see https://github.com/korzainc/shared-workflows/blob/main/docs/onboarding.md).",
+              "An azure/login@v2 step using vars.CI_COMMON_AZURE_CLIENT_ID/TENANT_ID/SUBSCRIPTION_ID, plus 'az acr login --name korzacitools', earlier in the same job.",
+              "Checkout with fetch-depth: 0 - a pr run still needs real history to tell a pre-existing finding from a new one, even though the scan itself covers the whole repo.",
+              "$BASE_SHA/$HEAD_SHA come from the PR event (e.g. github.event.pull_request.base.sha/head.sha) - without them this falls back to main-push/whole-repo mode.",
+              "Full working recipe, follow it closely - every mount, env var, and flag there is load-bearing, not decorative: https://github.com/korzainc/shared-workflows/blob/main/images/ci-common/README.md#full-example"
+            ],
+            "scope": "full"
           }
         },
         "azureDevops": {}
       },
       "detection": {
         "github": {
-          "ciUses": [
-            "hadolint/hadolint-action",
-            "korzainc/shared-workflows/.github/workflows/security-iac-dockerfile-lint.yml"
-          ],
-          "commands": ["hadolint"]
+          "ciUses": ["hadolint/hadolint-action"],
+          "commands": [
+            "hadolint",
+            "ci-run iac-dockerfile-lint",
+            "ci-run scan",
+            "ci-run all"
+          ]
         },
         "azureDevops": {},
         "configFiles": [".hadolint.yaml", ".hadolint.yml"],
@@ -531,32 +541,36 @@
         {
           "type": "docker",
           "image": "korzacitools.azurecr.io/ci-common",
-          "tag": "0.1.0"
+          "tag": "0.3.0"
         }
       ],
       "invocation": {
         "github": {
           "secrets": {
-            "action": "korzainc/shared-workflows/.github/workflows/security-secrets-scan.yml@v3",
-            "runner": "reusable-workflow",
-            "args": {
-              "secrets_exclude_file": {
+            "runner": "docker-run",
+            "image": "korzacitools.azurecr.io/ci-common:0.3.0",
+            "args": "ci-run secrets --repo-root \"$PWD\" --base-sha \"$BASE_SHA\" --head-sha \"$HEAD_SHA\"",
+            "env": {
+              "CI": {
+                "value": "true",
+                "note": "Marks a real CI run."
+              },
+              "CI_SCRATCH_DIR": {
+                "value": "/scratch",
+                "note": "Required once CI=true is set - mount a scratch dir here."
+              },
+              "CI_SECRETS_EXCLUDE_FILE": {
                 "value": "",
-                "note": "Path to a file listing secret-scan patterns you want to exclude (e.g. known test fixtures), if any."
-              },
-              "azure_client_id": {
-                "value": "${{ vars.CI_COMMON_AZURE_CLIENT_ID }}",
-                "note": "Your Azure AD app that's allowed to pull the scanner image - set up once per repo."
-              },
-              "azure_tenant_id": {
-                "value": "${{ vars.CI_COMMON_AZURE_TENANT_ID }}",
-                "note": "Which Azure AD tenant that app lives in."
-              },
-              "azure_subscription_id": {
-                "value": "${{ vars.CI_COMMON_AZURE_SUBSCRIPTION_ID }}",
-                "note": "Which Azure subscription owns the image registry."
+                "note": "A repo-relative path listing patterns to exclude from detection."
               }
             },
+            "requires": [
+              "permissions: id-token: write (authenticates the azure/login OIDC token request) and an environment: ci-common block (see https://github.com/korzainc/shared-workflows/blob/main/docs/onboarding.md).",
+              "An azure/login@v2 step using vars.CI_COMMON_AZURE_CLIENT_ID/TENANT_ID/SUBSCRIPTION_ID, plus 'az acr login --name korzacitools', earlier in the same job.",
+              "Checkout with fetch-depth: 0 - secrets needs real history to diff against on a pr run.",
+              "$BASE_SHA/$HEAD_SHA come from the PR event (e.g. github.event.pull_request.base.sha/head.sha) - without them this falls back to main-push/whole-repo mode and never diff-scopes on a PR.",
+              "Full working recipe, follow it closely - every mount, env var, and flag there is load-bearing, not decorative: https://github.com/korzainc/shared-workflows/blob/main/images/ci-common/README.md#full-example"
+            ],
             "scope": "diff"
           }
         },
@@ -564,10 +578,13 @@
       },
       "detection": {
         "github": {
-          "ciUses": [
-            "korzainc/shared-workflows/.github/workflows/security-secrets-scan.yml"
-          ],
-          "commands": ["kingfisher scan"]
+          "ciUses": [],
+          "commands": [
+            "kingfisher scan",
+            "ci-run secrets",
+            "ci-run scan",
+            "ci-run all"
+          ]
         },
         "azureDevops": {},
         "configFiles": ["kingfisher.yml"],
@@ -796,28 +813,36 @@
         {
           "type": "docker",
           "image": "korzacitools.azurecr.io/ci-common",
-          "tag": "0.1.0"
+          "tag": "0.3.0"
         }
       ],
       "invocation": {
         "github": {
           "sast": {
-            "action": "korzainc/shared-workflows/.github/workflows/security-sast.yml@v3",
-            "runner": "reusable-workflow",
-            "args": {
-              "azure_client_id": {
-                "value": "${{ vars.CI_COMMON_AZURE_CLIENT_ID }}",
-                "note": "Your Azure AD app that's allowed to pull the scanner image - set up once per repo."
+            "runner": "docker-run",
+            "image": "korzacitools.azurecr.io/ci-common:0.3.0",
+            "args": "ci-run sast --repo-root \"$PWD\" --base-sha \"$BASE_SHA\" --head-sha \"$HEAD_SHA\"",
+            "env": {
+              "CI": {
+                "value": "true",
+                "note": "Marks a real CI run."
               },
-              "azure_tenant_id": {
-                "value": "${{ vars.CI_COMMON_AZURE_TENANT_ID }}",
-                "note": "Which Azure AD tenant that app lives in."
+              "CI_SCRATCH_DIR": {
+                "value": "/scratch",
+                "note": "Required once CI=true is set - mount a scratch dir here."
               },
-              "azure_subscription_id": {
-                "value": "${{ vars.CI_COMMON_AZURE_SUBSCRIPTION_ID }}",
-                "note": "Which Azure subscription owns the image registry."
+              "CI_SEMGREP_CONFIG": {
+                "value": "",
+                "note": "Comma-separated Semgrep config refs (rulesets or local paths). Defaults to auto when unset."
               }
             },
+            "requires": [
+              "permissions: id-token: write (authenticates the azure/login OIDC token request) and an environment: ci-common block (see https://github.com/korzainc/shared-workflows/blob/main/docs/onboarding.md).",
+              "An azure/login@v2 step using vars.CI_COMMON_AZURE_CLIENT_ID/TENANT_ID/SUBSCRIPTION_ID, plus 'az acr login --name korzacitools', earlier in the same job.",
+              "Checkout with fetch-depth: 0 - sast needs real history to diff against on a pr run.",
+              "$BASE_SHA/$HEAD_SHA come from the PR event (e.g. github.event.pull_request.base.sha/head.sha) - without them this falls back to main-push/whole-repo mode and never diff-scopes on a PR.",
+              "Full working recipe, follow it closely - every mount, env var, and flag there is load-bearing, not decorative: https://github.com/korzainc/shared-workflows/blob/main/images/ci-common/README.md#full-example"
+            ],
             "scope": "diff"
           }
         },
@@ -825,10 +850,14 @@
       },
       "detection": {
         "github": {
-          "ciUses": [
-            "korzainc/shared-workflows/.github/workflows/security-sast.yml"
-          ],
-          "commands": ["semgrep scan", "semgrep ci"]
+          "ciUses": [],
+          "commands": [
+            "semgrep scan",
+            "semgrep ci",
+            "ci-run sast",
+            "ci-run scan",
+            "ci-run all"
+          ]
         },
         "azureDevops": {},
         "configFiles": [".semgrepignore", ".semgrep.yml"],
@@ -974,106 +1003,126 @@
         {
           "type": "docker",
           "image": "korzacitools.azurecr.io/ci-common",
-          "tag": "0.1.0"
+          "tag": "0.3.0"
         }
       ],
       "invocation": {
         "github": {
           "sca": {
-            "action": "korzainc/shared-workflows/.github/workflows/security-sca.yml@v3",
-            "runner": "reusable-workflow",
-            "args": {
-              "blocking": {
-                "value": true,
-                "note": "Dependency-vulnerability findings can fail the aggregate gate and merge."
+            "runner": "docker-run",
+            "image": "korzacitools.azurecr.io/ci-common:0.3.0",
+            "args": "ci-run sca --repo-root \"$PWD\" --base-sha \"$BASE_SHA\" --head-sha \"$HEAD_SHA\"",
+            "env": {
+              "CI": {
+                "value": "true",
+                "note": "Marks a real CI run."
               },
-              "service_path": {
-                "value": ".",
-                "note": "Where your dependency manifest lives (pom.xml, package.json, etc.) - change if it's not at repo root."
+              "CI_SCRATCH_DIR": {
+                "value": "/scratch",
+                "note": "Required once CI=true is set - mount a scratch dir here."
               },
-              "sca_ignore_file": {
+              "TRIVY_CACHE_DIR": {
+                "value": "/scratch/trivy-db",
+                "note": "Shared cache to avoid a network round-trip every run. Scope it per job with a unique actions/cache key."
+              },
+              "CI_SCA_BLOCKING": {
+                "value": "false",
+                "note": "Set to true to let dependency-vulnerability findings fail the aggregate gate and merge; advisory only otherwise. Start false, see what a real run finds, then opt in."
+              },
+              "CI_SCA_IGNORE_FILE": {
                 "value": "",
-                "note": "Path to a file listing dependency CVEs you want to suppress, if any."
+                "note": "Path listing dependency CVEs to suppress, if any."
               },
-              "azure_client_id": {
-                "value": "${{ vars.CI_COMMON_AZURE_CLIENT_ID }}",
-                "note": "Your Azure AD app that's allowed to pull the scanner image - set up once per repo."
-              },
-              "azure_tenant_id": {
-                "value": "${{ vars.CI_COMMON_AZURE_TENANT_ID }}",
-                "note": "Which Azure AD tenant that app lives in."
-              },
-              "azure_subscription_id": {
-                "value": "${{ vars.CI_COMMON_AZURE_SUBSCRIPTION_ID }}",
-                "note": "Which Azure subscription owns the image registry."
+              "CI_SCA_TARGET": {
+                "value": "",
+                "note": "Scopes the scan to one subdirectory or manifest file instead of the whole repo."
               }
             },
-            "scope": "diff"
+            "requires": [
+              "permissions: id-token: write (authenticates the azure/login OIDC token request) and an environment: ci-common block (see https://github.com/korzainc/shared-workflows/blob/main/docs/onboarding.md).",
+              "An azure/login@v2 step using vars.CI_COMMON_AZURE_CLIENT_ID/TENANT_ID/SUBSCRIPTION_ID, plus 'az acr login --name korzacitools', earlier in the same job.",
+              "Checkout with fetch-depth: 0 - a pr run still needs real history to tell a pre-existing finding from a new one, even though the scan itself covers the whole repo.",
+              "$BASE_SHA/$HEAD_SHA come from the PR event (e.g. github.event.pull_request.base.sha/head.sha) - without them this falls back to main-push/whole-repo mode.",
+              "Full working recipe, follow it closely - every mount, env var, and flag there is load-bearing, not decorative: https://github.com/korzainc/shared-workflows/blob/main/images/ci-common/README.md#full-example"
+            ],
+            "scope": "full"
           },
           "iac-config": {
-            "action": "korzainc/shared-workflows/.github/workflows/security-iac-config.yml@v3",
-            "runner": "reusable-workflow",
-            "args": {
-              "blocking": {
-                "value": true,
-                "note": "Infra-as-code misconfig findings (k8s/Terraform/Helm) can fail the aggregate gate and merge."
+            "runner": "docker-run",
+            "image": "korzacitools.azurecr.io/ci-common:0.3.0",
+            "args": "ci-run iac-config --repo-root \"$PWD\" --base-sha \"$BASE_SHA\" --head-sha \"$HEAD_SHA\"",
+            "env": {
+              "CI": {
+                "value": "true",
+                "note": "Marks a real CI run."
               },
-              "iac_config_path": {
-                "value": ".",
-                "note": "Where your infra manifests live - independent from service_path, set separately if they're not in the same place."
+              "CI_SCRATCH_DIR": {
+                "value": "/scratch",
+                "note": "Required once CI=true is set - mount a scratch dir here."
               },
-              "iac_config_ignore_file": {
+              "TRIVY_CACHE_DIR": {
+                "value": "/scratch/trivy-db",
+                "note": "Shared cache to avoid a network round-trip every run. Scope it per job with a unique actions/cache key."
+              },
+              "CI_IAC_CONFIG_BLOCKING": {
+                "value": "false",
+                "note": "Set to true to let infra-misconfig findings (k8s/Terraform/Helm) fail the aggregate gate and merge; advisory only otherwise. Start false, see what a real run finds, then opt in."
+              },
+              "CI_IAC_CONFIG_PATH": {
                 "value": "",
-                "note": "Path to a file listing infra-misconfig findings you want to suppress, if any."
+                "note": "Scopes the scan to one subdirectory instead of the whole repo."
               },
-              "azure_client_id": {
-                "value": "${{ vars.CI_COMMON_AZURE_CLIENT_ID }}",
-                "note": "Your Azure AD app that's allowed to pull the scanner image - set up once per repo."
-              },
-              "azure_tenant_id": {
-                "value": "${{ vars.CI_COMMON_AZURE_TENANT_ID }}",
-                "note": "Which Azure AD tenant that app lives in."
-              },
-              "azure_subscription_id": {
-                "value": "${{ vars.CI_COMMON_AZURE_SUBSCRIPTION_ID }}",
-                "note": "Which Azure subscription owns the image registry."
+              "CI_IAC_CONFIG_IGNORE_FILE": {
+                "value": "",
+                "note": "Path listing infra-misconfig findings to suppress, if any."
               }
             },
-            "scope": "diff"
+            "requires": [
+              "permissions: id-token: write (authenticates the azure/login OIDC token request) and an environment: ci-common block (see https://github.com/korzainc/shared-workflows/blob/main/docs/onboarding.md).",
+              "An azure/login@v2 step using vars.CI_COMMON_AZURE_CLIENT_ID/TENANT_ID/SUBSCRIPTION_ID, plus 'az acr login --name korzacitools', earlier in the same job.",
+              "Checkout with fetch-depth: 0 - a pr run still needs real history to tell a pre-existing finding from a new one, even though the scan itself covers the whole repo.",
+              "$BASE_SHA/$HEAD_SHA come from the PR event (e.g. github.event.pull_request.base.sha/head.sha) - without them this falls back to main-push/whole-repo mode.",
+              "Full working recipe, follow it closely - every mount, env var, and flag there is load-bearing, not decorative: https://github.com/korzainc/shared-workflows/blob/main/images/ci-common/README.md#full-example"
+            ],
+            "scope": "full"
           },
           "image-scan": {
-            "action": "korzainc/shared-workflows/.github/workflows/security-image-scan.yml@v3",
-            "runner": "reusable-workflow",
-            "args": {
-              "blocking": {
-                "value": true,
-                "note": "Findings in your built container image can fail the aggregate gate and merge."
+            "runner": "docker-run",
+            "image": "korzacitools.azurecr.io/ci-common:0.3.0",
+            "args": "ci-run image-scan --out /out --repo-root \"$PWD\" --base-sha \"$BASE_SHA\" --head-sha \"$HEAD_SHA\"",
+            "env": {
+              "CI": {
+                "value": "true",
+                "note": "Marks a real CI run."
               },
-              "dockerfile_path": {
+              "CI_SCRATCH_DIR": {
+                "value": "/scratch",
+                "note": "Required once CI=true is set - mount a scratch dir here."
+              },
+              "TRIVY_CACHE_DIR": {
+                "value": "/scratch/trivy-db",
+                "note": "Shared cache to avoid a network round-trip every run. Scope it per job with a unique actions/cache key."
+              },
+              "CI_IMAGE_SCAN_REF": {
                 "value": "",
-                "note": "Your Dockerfile, if you build a container image - leave empty to skip the image build+scan entirely."
+                "note": "Required: reference of an image already built earlier in this job. image-scan never builds one itself."
               },
-              "dockerfile_context": {
-                "value": ".",
-                "note": "The docker build context for that Dockerfile."
+              "CI_IMAGE_SCAN_BLOCKING": {
+                "value": "false",
+                "note": "Set to true to let findings fail the aggregate gate and merge; advisory only otherwise. Start false, see what a real run finds, then opt in."
               },
-              "image_scan_ignore_file": {
+              "CI_IMAGE_SCAN_IGNORE_FILE": {
                 "value": "",
-                "note": "Path to a file listing image-scan CVEs you want to suppress, if any."
-              },
-              "azure_client_id": {
-                "value": "${{ vars.CI_COMMON_AZURE_CLIENT_ID }}",
-                "note": "Your Azure AD app that's allowed to pull the scanner image - set up once per repo."
-              },
-              "azure_tenant_id": {
-                "value": "${{ vars.CI_COMMON_AZURE_TENANT_ID }}",
-                "note": "Which Azure AD tenant that app lives in."
-              },
-              "azure_subscription_id": {
-                "value": "${{ vars.CI_COMMON_AZURE_SUBSCRIPTION_ID }}",
-                "note": "Which Azure subscription owns the image registry."
+                "note": "Path listing image-scan CVEs to suppress, if any."
               }
             },
+            "requires": [
+              "permissions: id-token: write (authenticates the azure/login OIDC token request) and an environment: ci-common block (see https://github.com/korzainc/shared-workflows/blob/main/docs/onboarding.md).",
+              "An azure/login@v2 step using vars.CI_COMMON_AZURE_CLIENT_ID/TENANT_ID/SUBSCRIPTION_ID, plus 'az acr login --name korzacitools', earlier in the same job.",
+              "A docker build step earlier in the same job, tagging the image CI_IMAGE_SCAN_REF points at - image-scan only scans, it never builds. Self-skips cleanly on pr runs where CI_IMAGE_SCAN_REF is absent, provided --base-sha/--head-sha are still passed through.",
+              "The host Docker socket mounted read-only, plus --group-add \"$(stat -c '%g' /var/run/docker.sock)\" - the image is labeled ci.needs_docker_socket=true for this leaf.",
+              "Full working recipe, follow it closely - every mount, env var, and flag there is load-bearing, not decorative: https://github.com/korzainc/shared-workflows/blob/main/images/ci-common/README.md#full-example"
+            ],
             "scope": "full"
           }
         },
@@ -1081,13 +1130,17 @@
       },
       "detection": {
         "github": {
-          "ciUses": [
-            "aquasecurity/trivy-action",
-            "korzainc/shared-workflows/.github/workflows/security-sca.yml",
-            "korzainc/shared-workflows/.github/workflows/security-iac-config.yml",
-            "korzainc/shared-workflows/.github/workflows/security-image-scan.yml"
-          ],
-          "commands": ["trivy fs", "trivy config"]
+          "ciUses": ["aquasecurity/trivy-action"],
+          "commands": [
+            "trivy fs",
+            "trivy config",
+            "trivy image",
+            "ci-run sca",
+            "ci-run iac-config",
+            "ci-run image-scan",
+            "ci-run scan",
+            "ci-run all"
+          ]
         },
         "azureDevops": {},
         "configFiles": ["trivy.yaml", ".trivyignore"],
@@ -1519,83 +1572,75 @@
         {
           "type": "docker",
           "image": "korzacitools.azurecr.io/ci-common",
-          "tag": "0.1.0"
+          "tag": "0.3.0"
         }
       ],
       "invocation": {
         "github": {
-          "action": "korzainc/shared-workflows/.github/workflows/ci.yml@v3",
-          "runner": "reusable-workflow",
-          "args": {
-            "azure_client_id": {
-              "value": "${{ vars.CI_COMMON_AZURE_CLIENT_ID }}",
-              "note": "Your Azure AD app that's allowed to pull the scanner image - set up once per repo."
+          "runner": "docker-run",
+          "image": "korzacitools.azurecr.io/ci-common:0.3.0",
+          "env": {
+            "CI": {
+              "value": "true",
+              "note": "Marks a real CI run."
             },
-            "azure_tenant_id": {
-              "value": "${{ vars.CI_COMMON_AZURE_TENANT_ID }}",
-              "note": "Which Azure AD tenant that app lives in."
+            "CI_SCRATCH_DIR": {
+              "value": "/scratch",
+              "note": "Required once CI=true is set - mount a scratch dir here."
             },
-            "azure_subscription_id": {
-              "value": "${{ vars.CI_COMMON_AZURE_SUBSCRIPTION_ID }}",
-              "note": "Which Azure subscription owns the image registry."
+            "TRIVY_CACHE_DIR": {
+              "value": "/scratch/trivy-db",
+              "note": "Shared cache to avoid a network round-trip every run. Scope it per job with a unique actions/cache key."
             },
-            "sca_blocking": {
-              "value": true,
-              "note": "Dependency-vulnerability findings can fail the aggregate gate and merge."
+            "CI_SCA_BLOCKING": {
+              "value": "false",
+              "note": "Set to true to let findings fail the gate; advisory otherwise. Start false, see what a real run finds, then opt in - same for the three flags below."
             },
-            "iac_dockerfile_blocking": {
-              "value": true,
-              "note": "Dockerfile lint findings can fail the aggregate gate and merge."
+            "CI_IAC_CONFIG_BLOCKING": {
+              "value": "false",
+              "note": "Same as CI_SCA_BLOCKING, for iac-config."
             },
-            "iac_config_blocking": {
-              "value": true,
-              "note": "Infra-as-code misconfig findings (k8s/Terraform/Helm) can fail the aggregate gate and merge."
+            "CI_IAC_DOCKERFILE_BLOCKING": {
+              "value": "false",
+              "note": "Same as CI_SCA_BLOCKING, for iac-dockerfile-lint."
             },
-            "image_scan_blocking": {
-              "value": true,
-              "note": "Findings in your built container image can fail the aggregate gate and merge."
-            },
-            "service_path": {
-              "value": ".",
-              "note": "Where your dependency manifest lives (pom.xml, package.json, etc.) - change if it's not at repo root."
-            },
-            "sca_ignore_file": {
-              "value": "",
-              "note": "Path to a file listing dependency CVEs you want to suppress, if any."
-            },
-            "iac_config_path": {
-              "value": ".",
-              "note": "Where your infra manifests live - independent from service_path, set separately if they're not in the same place."
-            },
-            "iac_config_ignore_file": {
-              "value": "",
-              "note": "Path to a file listing infra-misconfig findings you want to suppress, if any."
-            },
-            "dockerfile_path": {
-              "value": "",
-              "note": "Your Dockerfile, if you build a container image - leave empty to skip the image build+scan entirely."
-            },
-            "dockerfile_context": {
-              "value": ".",
-              "note": "The docker build context for that Dockerfile."
-            },
-            "image_scan_ignore_file": {
-              "value": "",
-              "note": "Path to a file listing image-scan CVEs you want to suppress, if any."
-            },
-            "secrets_exclude_file": {
-              "value": "",
-              "note": "Path to a file listing secret-scan patterns you want to exclude (e.g. known test fixtures), if any."
+            "CI_IMAGE_SCAN_BLOCKING": {
+              "value": "false",
+              "note": "Same as CI_SCA_BLOCKING, for image-scan."
             }
           },
-          "scope": "diff"
+          "requires": [
+            "permissions: id-token: write (authenticates the azure/login OIDC token request), checks: write, pull-requests: write (the sticky PR comment), and an environment: ci-common block (see https://github.com/korzainc/shared-workflows/blob/main/docs/onboarding.md).",
+            "An azure/login@v2 step using vars.CI_COMMON_AZURE_CLIENT_ID/TENANT_ID/SUBSCRIPTION_ID, plus 'az acr login --name korzacitools', once per job, shared across every leaf below.",
+            "Checkout with fetch-depth: 0 - secrets, sast, and sca all need real history on a pr run.",
+            "$BASE_SHA/$HEAD_SHA come from the PR event (e.g. github.event.pull_request.base.sha/head.sha) - without them this falls back to main-push/whole-repo mode.",
+            "ci-run scan deliberately excludes image-scan - devx-home's gap analysis credits this bundle's image-scan capability as covered regardless, since it only checks whether ci-run scan ran at all, not which findings it actually produced. A real image-scan step (below) is still needed to scan anything.",
+            "ci-run report's container needs GITHUB_TOKEN and $GITHUB_STEP_SUMMARY explicitly forwarded/mounted in - without them it does not fail, it just silently skips posting the sticky comment and job summary, so a missing one won't show up as a red check.",
+            "Full working recipe, follow it closely - every mount, env var, and flag there is load-bearing, not decorative: https://github.com/korzainc/shared-workflows/blob/main/images/ci-common/README.md#full-example"
+          ],
+          "steps": [
+            {
+              "name": "scan",
+              "args": "ci-run scan --out /out --repo-root \"$PWD\" --base-sha \"$BASE_SHA\" --head-sha \"$HEAD_SHA\""
+            },
+            {
+              "name": "image-scan",
+              "args": "ci-run image-scan --out /out --repo-root \"$PWD\" --base-sha \"$BASE_SHA\" --head-sha \"$HEAD_SHA\"",
+              "note": "Conditional: needs a prior build step and CI_IMAGE_SCAN_REF; self-skips on pr runs. Omitting --base-sha/--head-sha breaks the pr self-skip."
+            },
+            {
+              "name": "report",
+              "args": "ci-run report --in /out --event-file /event.json --expect-image-labels=default"
+            }
+          ],
+          "scope": "full"
         },
         "azureDevops": {}
       },
       "detection": {
         "github": {
-          "ciUses": ["korzainc/shared-workflows/.github/workflows/ci.yml"],
-          "commands": []
+          "ciUses": [],
+          "commands": ["ci-run scan", "ci-run all"]
         },
         "azureDevops": {},
         "configFiles": [],

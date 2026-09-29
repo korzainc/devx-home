@@ -128,14 +128,20 @@ describe("the install panel on a tool page", () => {
       ...navigator,
       clipboard: { writeText: async (v: string) => void written.push(v) },
     });
+    // Read the real command from the same catalogue data the panel renders from, rather
+    // than a pinned literal - a ci-common version bump would otherwise break this test for
+    // a reason that has nothing to do with what it actually checks (tab-switch correctness).
+    const korzaImage = toolInstallMethods("trivy").find(
+      (method) => method.label === "Korza CI image",
+    );
+    if (!korzaImage)
+      throw new Error("trivy lost its Korza CI image install method");
     renderTool("trivy");
 
     fireEvent.click(screen.getByRole("button", { name: "Korza CI image" }));
     fireEvent.click(screen.getByRole("button", { name: /^Copy/ }));
     await waitFor(() => expect(written).toHaveLength(1));
     // Not waitFor on the value: that passes on a momentarily-correct read.
-    expect(written).toEqual([
-      "docker pull korzacitools.azurecr.io/ci-common:0.1.0",
-    ]);
+    expect(written).toEqual([korzaImage.command]);
   });
 });
