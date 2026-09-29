@@ -24,8 +24,5 @@ export default defineConfig({
     exclude: ["**/node_modules/**", "**/.git/**", "**/.claude/**"],
     environment: "node",
     globals: false,
-    // Node 25+ defines its own `localStorage` global, left undefined without
-    // `--localstorage-file`, and it shadows jsdom's. Turning it off lets jsdom's win on any Node.
-    execArgv: ["--no-experimental-webstorage"],
   },
 });
