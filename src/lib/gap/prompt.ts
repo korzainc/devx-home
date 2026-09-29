@@ -1,13 +1,30 @@
 import type { Analysis, CapabilityReport, RecommendedTool } from "./types";
+import type { BundleEntry } from "@/lib/catalogue-entries";
 
-// The brief a coding agent gets handed, built from the report and nothing else. It is a brief
-// rather than a recipe on purpose: `analyze` refuses to emit a workflow snippet it has not run,
-// and the same reasoning applies here. What the portal knows is which checks are missing and what
-// the catalogue would put there. Exclude paths, trigger events and monorepo layout are the
-// agent's to work out, because it has the repo and the portal read at most a couple of dozen files.
+/** The slice of the catalogue a bundle recommendation needs to render, passed in by the
+ * caller (see gap-report.tsx) rather than imported here directly - this directory takes its
+ * data as arguments, the same way `analyze` takes `tools`/`baseline`, so nothing under
+ * src/lib/gap reaches outside it for `server-only` data. */
+export type BundleCatalogue = {
+  bundleById: Record<string, BundleEntry>;
+  toolNameById: Record<string, string>;
+  capabilityLabels: Record<string, string>;
+};
+
+const emptyCatalogue: BundleCatalogue = {
+  bundleById: {},
+  toolNameById: {},
+  capabilityLabels: {},
+};
+
+// The brief a coding agent gets handed, built only from the report: `analyze` won't emit a
+// workflow snippet it hasn't run, so paths, triggers, and monorepo layout are the agent's
+// to work out from the real repo. A bundled recommendation is the one exception: its
+// catalogue entry already carries a real, versioned recipe, not a guess, so it gets inlined
+// directly (see formatBundleDetails below).
 //
-// TODO(DX-103): the real catalogue now carries install commands, docs URLs and (DX-62) a
-// mandatory-vs-recommended distinction; none of that has been threaded into this brief yet.
+// TODO(DX-103): docsUrl and (DX-62) the mandatory-vs-recommended distinction still aren't
+// threaded into this brief.
 
 type Gap = CapabilityReport & { category: string };
 
@@ -133,7 +150,112 @@ function suggestion(gap: Gap): string {
   );
 }
 
-export function buildFixPrompt(analysis: Analysis): string {
+function isRealStep(step: unknown): step is { args: string; note?: string } {
+  return (
+    typeof step === "object" &&
+    step !== null &&
+    typeof (step as { args?: unknown }).args === "string" &&
+    (step as { args: string }).args.length > 0
+  );
+}
+
+function isRealEnvEntry(
+  entry: unknown,
+): entry is { value: string; note?: string } {
+  return (
+    typeof entry === "object" &&
+    entry !== null &&
+    typeof (entry as { value?: unknown }).value === "string"
+  );
+}
+
+// Inlines a bundle's real recipe (steps, env, requires) and its wraps mapping, so a gap
+// names the actual command to run, not just a link an anonymous agent often can't reach
+// (the tool page needs login). Also notes that a subset of the steps can cover a subset
+// of the capabilities, since the baseline always names the whole bundle even for a partial gap.
+//
+// Validates each piece before use, not just that the top-level fields exist: this repo's
+// synced catalogue can drift out of shape between syncs, and a malformed row here should be
+// skipped, not thrown, since that would take the whole page down with it.
+function formatBundleDetails(
+  bundle: BundleEntry,
+  catalogue: BundleCatalogue,
+): string {
+  const github = bundle.invocation?.github;
+  // `runner` is the real discriminator the data itself uses for this recipe shape; a bundle
+  // still on the older reusable-workflow model has no `docker-run` entry at all, so this
+  // quietly renders nothing for it instead of a recipe built from fields that aren't there.
+  if (github?.runner !== "docker-run" || typeof github.image !== "string") {
+    return "";
+  }
+
+  const steps = (Array.isArray(github.steps) ? github.steps : []).filter(
+    isRealStep,
+  );
+  if (steps.length === 0) return "";
+
+  const wrapsList = (Array.isArray(bundle.wraps) ? bundle.wraps : [])
+    .map((entry) => {
+      const labels = entry.capabilities
+        .map((id) => catalogue.capabilityLabels[id] ?? id)
+        .join(", ");
+      const name = catalogue.toolNameById[entry.tool] ?? entry.tool;
+      return `- **${cell(labels)}** (${cell(entry.capabilities.join(", "))}): ${cell(name)}`;
+    })
+    .join("\n");
+
+  const stepsList = steps
+    .map(
+      (step) =>
+        `- \`${cell(step.args)}\`${step.note ? ` (${cell(step.note)})` : ""}`,
+    )
+    .join("\n");
+
+  const envList = Object.entries(github.env ?? {})
+    .filter((entry): entry is [string, { value: string; note?: string }] =>
+      isRealEnvEntry(entry[1]),
+    )
+    .map(
+      ([key, entry]) =>
+        `- \`${cell(key)}=${cell(entry.value)}\`${entry.note ? ` - ${cell(entry.note)}` : ""}`,
+    )
+    .join("\n");
+
+  const requiresList = (Array.isArray(github.requires) ? github.requires : [])
+    .filter(
+      (line): line is string => typeof line === "string" && line.length > 0,
+    )
+    .map((line) => `- ${cell(line)}`)
+    .join("\n");
+
+  // Only a section with real content earns a heading - an empty "Environment:" or "Requires:"
+  // with nothing under it reads as a rendering failure, not as "this bundle has none".
+  const sections = [
+    wrapsList && `Wraps several separate checks:\n\n${wrapsList}`,
+    stepsList && `Full recipe:\n\n${stepsList}`,
+    envList && `Environment:\n\n${envList}`,
+    requiresList && `Requires:\n\n${requiresList}`,
+  ].filter(Boolean);
+
+  return `
+#### ${cell(bundle.name)}
+
+One container image: \`${cell(github.image)}\`
+
+${sections.join("\n\n")}
+
+Each capability above also has its own standalone command (e.g. \`ci-run secrets --repo-root
+"$PWD" --base-sha "$BASE_SHA" --head-sha "$HEAD_SHA"\` on its own instead of the full recipe
+above). If only some of this bundle's capabilities are actually missing in this repo, wire up
+only those, reusing the same shared login/checkout setup above. See the full working recipe
+link in "Requires" for a real example either way.
+`;
+}
+
+export function buildFixPrompt(
+  analysis: Analysis,
+  catalogue: BundleCatalogue = emptyCatalogue,
+): string {
   const expected = analysis.satisfiedCount + analysis.gapCount;
 
   const running = analysis.categories.flatMap((category) =>
@@ -190,6 +312,16 @@ export function buildFixPrompt(analysis: Analysis): string {
       ? `| # | Check | Category | Tools that would cover it |\n| --- | --- | --- | --- |\n${gapRows.join("\n")}`
       : "Nothing. Every check the baseline expects is already running.";
 
+  const referencedBundles = [
+    ...new Set(gaps.flatMap((gap) => gap.recommended.map((tool) => tool.id))),
+  ]
+    .map((id) => catalogue.bundleById[id])
+    .filter((bundle): bundle is BundleEntry => Boolean(bundle));
+
+  const bundleDetails = referencedBundles
+    .map((bundle) => formatBundleDetails(bundle, catalogue))
+    .join("\n");
+
   // A git ref permits both backticks and pipes, which is why this goes through the same escape
   // as every repo-controlled string here rather than being trusted as GitHub API output.
   const defaultBranch = cell(analysis.defaultBranch);
@@ -228,7 +360,7 @@ ${runningTable}
 ### Missing, in the order to work through them
 
 ${gapTable}
-
+${bundleDetails ? `\n${bundleDetails}\n` : ""}
 Where a row names more than one tool, its own wording says whether they are alternatives (pick
 one) or each required for a different part of the repo (install every one named).
 

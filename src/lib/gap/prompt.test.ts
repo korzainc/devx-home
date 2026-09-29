@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { buildFixPrompt } from "./prompt";
+import { buildFixPrompt, type BundleCatalogue } from "./prompt";
 import type { Analysis } from "./types";
+import type { BundleEntry } from "@/lib/catalogue-entries";
 
 const empty: Analysis = {
   repo: "korzainc/bare",
@@ -394,5 +395,211 @@ describe("buildFixPrompt", () => {
     expect(buildFixPrompt(analysis)).toContain(
       "| Korza CI Base Checks for Docker and Go |",
     );
+  });
+});
+
+describe("buildFixPrompt bundle details", () => {
+  const wellFormedBundle: BundleEntry = {
+    id: "ci-base-checks",
+    name: "Korza CI Base Checks",
+    summary: "test",
+    cardSummary: "test",
+    problem: "",
+    benefits: [],
+    category: "Security",
+    capabilities: ["secrets", "sast"],
+    stacks: ["any"],
+    docsUrl: "https://example.test/ci-base-checks",
+    detect: {},
+    wraps: [
+      { tool: "kingfisher", capabilities: ["secrets"] },
+      { tool: "semgrep", capabilities: ["sast"] },
+    ],
+    invocation: {
+      github: {
+        runner: "docker-run",
+        image: "example.test/ci-common:9.9.9",
+        steps: [{ name: "scan", args: "ci-run scan --out /out" }],
+        env: { CI: { value: "true", note: "Marks a real CI run." } },
+        requires: ["Full working recipe: https://example.test/README.md"],
+      },
+    },
+  };
+
+  function catalogueWith(bundle: BundleEntry): BundleCatalogue {
+    return {
+      bundleById: { [bundle.id]: bundle },
+      toolNameById: { kingfisher: "Kingfisher", semgrep: "Semgrep" },
+      capabilityLabels: { secrets: "Secret scanning", sast: "Code Security" },
+    };
+  }
+
+  it("inlines a bundle's recipe, wraps mapping and env/requires when a gap recommends it", () => {
+    const analysis = withGap();
+    analysis.categories[0].capabilities[0].recommended = [
+      { id: "ci-base-checks", name: "Korza CI Base Checks", stackLabels: [] },
+    ];
+
+    const prompt = buildFixPrompt(analysis, catalogueWith(wellFormedBundle));
+    expect(prompt).toContain("example.test/ci-common:9.9.9");
+    expect(prompt).toContain("- **Secret scanning** (secrets): Kingfisher");
+    expect(prompt).toContain("- **Code Security** (sast): Semgrep");
+    expect(prompt).toContain("`ci-run scan --out /out`");
+    expect(prompt).toContain("CI=true");
+    expect(prompt).toContain(
+      "Full working recipe: https://example.test/README.md",
+    );
+    expect(prompt).toContain("its own standalone command");
+    expect(prompt).toContain('--base-sha "$BASE_SHA" --head-sha "$HEAD_SHA"');
+  });
+
+  it("falls back to the raw id when a wrapped tool or capability isn't in the lookup", () => {
+    const analysis = withGap();
+    analysis.categories[0].capabilities[0].recommended = [
+      { id: "ci-base-checks", name: "Korza CI Base Checks", stackLabels: [] },
+    ];
+
+    const prompt = buildFixPrompt(analysis, {
+      bundleById: { "ci-base-checks": wellFormedBundle },
+      toolNameById: {},
+      capabilityLabels: {},
+    });
+    expect(prompt).toContain("- **secrets** (secrets): kingfisher");
+  });
+
+  it("renders nothing extra for a bundle still on the older reusable-workflow shape", () => {
+    const bundle: BundleEntry = {
+      ...wellFormedBundle,
+      invocation: {
+        github: { args: { some: "old-shape object, not a string" } },
+      } as never,
+    };
+    const analysis = withGap();
+    analysis.categories[0].capabilities[0].recommended = [
+      { id: "ci-base-checks", name: "Korza CI Base Checks", stackLabels: [] },
+    ];
+
+    const prompt = buildFixPrompt(analysis, catalogueWith(bundle));
+    expect(prompt).not.toContain("wraps several separate checks");
+  });
+
+  it("skips a malformed step or env entry instead of throwing", () => {
+    const bundle: BundleEntry = {
+      ...wellFormedBundle,
+      invocation: {
+        github: {
+          runner: "docker-run",
+          image: "example.test/ci-common:9.9.9",
+          // A plausible drift: a step or env value simplified down to a bare string.
+          steps: [
+            "ci-run scan" as never,
+            { name: "report", args: "ci-run report --in /out" },
+          ],
+          env: { CI: "true" as never, REAL: { value: "yes" } },
+        },
+      },
+    };
+    const analysis = withGap();
+    analysis.categories[0].capabilities[0].recommended = [
+      { id: "ci-base-checks", name: "Korza CI Base Checks", stackLabels: [] },
+    ];
+
+    expect(() => buildFixPrompt(analysis, catalogueWith(bundle))).not.toThrow();
+    const prompt = buildFixPrompt(analysis, catalogueWith(bundle));
+    expect(prompt).toContain("`ci-run report --in /out`");
+    expect(prompt).not.toContain("ci-run scan");
+    expect(prompt).toContain("REAL=yes");
+    expect(prompt).not.toContain("CI=true");
+  });
+
+  it("skips a container-level field entirely instead of throwing when it isn't an array", () => {
+    const bundle: BundleEntry = {
+      ...wellFormedBundle,
+      wraps: { kingfisher: ["secrets"] } as never,
+      invocation: {
+        github: {
+          runner: "docker-run",
+          image: "example.test/ci-common:9.9.9",
+          steps: { scan: "ci-run scan --out /out" } as never,
+          requires: "one thing" as never,
+        },
+      },
+    };
+    const analysis = withGap();
+    analysis.categories[0].capabilities[0].recommended = [
+      { id: "ci-base-checks", name: "Korza CI Base Checks", stackLabels: [] },
+    ];
+
+    expect(() => buildFixPrompt(analysis, catalogueWith(bundle))).not.toThrow();
+    const prompt = buildFixPrompt(analysis, catalogueWith(bundle));
+    // steps wasn't a real array, so there's no real recipe to show at all - the gap table
+    // still names the bundle, but the inlined recipe section itself is skipped.
+    expect(prompt).not.toContain("#### Korza CI Base Checks");
+  });
+
+  it("still names the image when wraps is missing or empty", () => {
+    const bundle: BundleEntry = {
+      ...wellFormedBundle,
+      wraps: [],
+      invocation: {
+        github: {
+          runner: "docker-run",
+          image: "example.test/ci-common:9.9.9",
+          steps: [{ name: "scan", args: "ci-run scan --out /out" }],
+        },
+      },
+    };
+    const analysis = withGap();
+    analysis.categories[0].capabilities[0].recommended = [
+      { id: "ci-base-checks", name: "Korza CI Base Checks", stackLabels: [] },
+    ];
+
+    const prompt = buildFixPrompt(analysis, catalogueWith(bundle));
+    expect(prompt).toContain(
+      "One container image: `example.test/ci-common:9.9.9`",
+    );
+  });
+
+  it("omits a section's heading entirely when it has no valid content", () => {
+    const bundle: BundleEntry = {
+      ...wellFormedBundle,
+      invocation: {
+        github: {
+          runner: "docker-run",
+          image: "example.test/ci-common:9.9.9",
+          steps: [{ name: "scan", args: "ci-run scan --out /out" }],
+          // No env, no requires.
+        },
+      },
+    };
+    const analysis = withGap();
+    analysis.categories[0].capabilities[0].recommended = [
+      { id: "ci-base-checks", name: "Korza CI Base Checks", stackLabels: [] },
+    ];
+
+    const prompt = buildFixPrompt(analysis, catalogueWith(bundle));
+    expect(prompt).not.toContain("Environment:");
+    expect(prompt).not.toContain("Requires:");
+    expect(prompt).toContain("Full recipe:");
+  });
+
+  it("renders a recommended bundle's details only once, even when two gaps both name it", () => {
+    const analysis = withGap();
+    analysis.categories[0].capabilities[0].recommended = [
+      { id: "ci-base-checks", name: "Korza CI Base Checks", stackLabels: [] },
+    ];
+    analysis.categories[0].capabilities.push({
+      id: "sast",
+      label: "Code Security (SAST)",
+      satisfied: false,
+      present: [],
+      recommended: [
+        { id: "ci-base-checks", name: "Korza CI Base Checks", stackLabels: [] },
+      ],
+    });
+    analysis.gapCount = 2;
+
+    const prompt = buildFixPrompt(analysis, catalogueWith(wellFormedBundle));
+    expect(prompt.split("example.test/ci-common:9.9.9").length - 1).toBe(1);
   });
 });
