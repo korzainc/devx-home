@@ -1,5 +1,11 @@
 name: "Setup pnpm and Node"
-description: "Installs pnpm, the Node version from .nvmrc, and project dependencies."
+description: "Installs pnpm, the Node version from .nvmrc (or the given override), and project dependencies."
+
+inputs:
+  node-version:
+    description: "Overrides .nvmrc, e.g. for a CI matrix leg."
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -9,8 +15,11 @@ runs:
     - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
 
     # Must come after pnpm is on PATH - `cache: pnpm` resolves the store path by running pnpm.
+    # node-version wins over node-version-file when both are set, so passing both here just
+    # means: use the override if given, else fall back to .nvmrc.
     - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
       with:
+        node-version: ${{ inputs.node-version }}
         node-version-file: .nvmrc
         cache: pnpm
 
