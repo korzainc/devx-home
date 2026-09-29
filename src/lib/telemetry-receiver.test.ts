@@ -1,4 +1,4 @@
-import { afterEach, expect, it, vi } from "vitest";
+import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import { receiveTelemetry } from "./telemetry-receiver";
 import { isTelemetryPath } from "./telemetry-path";
 const query = vi.hoisted(() => vi.fn().mockResolvedValue({ rows: [] }));
@@ -47,6 +47,12 @@ function packet(plugin = "humanizer") {
     ],
   };
 }
+beforeEach(() => {
+  vi.stubEnv("VERCEL", "");
+  vi.stubEnv("VERCEL_ENV", "");
+  vi.stubEnv("KORZA_LOCAL_USAGE", "1");
+  vi.stubEnv("DATABASE_URL", "postgresql://fixture:unused@127.0.0.1/fixture");
+});
 afterEach(() => {
   vi.unstubAllEnvs();
   query.mockClear();
@@ -94,4 +100,16 @@ it("exempts only the exact device and pilot API endpoints from browser login", (
   expect(isTelemetryPath("/telemetry/devices")).toBe(false);
   expect(isTelemetryPath("/api/telemetry/logs/other")).toBe(false);
   expect(isTelemetryPath("/api/telemetry")).toBe(false);
+});
+
+it("refuses pilot collection against a hosted or remote database", async () => {
+  vi.stubEnv("NODE_ENV", "development");
+  vi.stubEnv("TELEMETRY_INGEST_TOKEN", token);
+  vi.stubEnv("DATABASE_URL", "postgresql://production.example/home");
+  expect((await receiveTelemetry(request(packet()), "logs")).status).toBe(404);
+  vi.stubEnv("DATABASE_URL", "postgresql://127.0.0.1/fixture");
+  vi.stubEnv("VERCEL", "1");
+  vi.stubEnv("VERCEL_ENV", "preview");
+  expect((await receiveTelemetry(request(packet()), "logs")).status).toBe(404);
+  expect(query).not.toHaveBeenCalled();
 });

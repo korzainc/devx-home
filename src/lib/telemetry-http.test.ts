@@ -27,6 +27,7 @@ import {
   revokeDevice,
   devicesPost,
   exchangePost,
+  devicesGet,
 } from "./telemetry-http";
 import { consentToken } from "./telemetry-auth";
 const params = {
@@ -63,6 +64,10 @@ function ingest(body: unknown, token = "korza_" + "a".repeat(43)) {
   });
 }
 beforeEach(() => {
+  vi.stubEnv("VERCEL", "");
+  vi.stubEnv("VERCEL_ENV", "");
+  vi.stubEnv("KORZA_LOCAL_USAGE", "1");
+  vi.stubEnv("DATABASE_URL", "postgresql://fixture:unused@127.0.0.1/fixture");
   vi.stubEnv("TELEMETRY_ENABLED", "1");
   vi.stubEnv("BETTER_AUTH_SECRET", "secret");
   mocks.getSession.mockResolvedValue(session);
@@ -83,6 +88,7 @@ it("GET displays consent without issuing a grant", async () => {
     ),
   );
   expect(r.status).toBe(200);
+  expect(r.headers.get("referrer-policy")).toBe("same-origin");
   expect(await r.text()).toContain("Allow monitoring");
   expect(mocks.query).not.toHaveBeenCalled();
 });
@@ -121,8 +127,10 @@ it("denial returns state and no credential or code", async () => {
   expect(mocks.query).not.toHaveBeenCalled();
 });
 it("allow redirects with only a one-time code and state", async () => {
+  mocks.query.mockResolvedValue({ rows: [{ id: "user" }] });
   const r = await connectPost(consent());
   expect(r.status).toBe(303);
+  expect(r.headers.get("referrer-policy")).toBe("no-referrer");
   const u = new URL(r.headers.get("location")!);
   expect(u.searchParams.get("code")).toMatch(/^[A-Za-z0-9_-]{43}$/);
   expect([...u.searchParams.keys()].sort()).toEqual(["code", "state"]);
@@ -177,7 +185,7 @@ it("scopes identities by device and inserts atomically with retry dedupe", async
     client: "codex",
     source: "korza_cli",
     occurredAt: "2026-09-23T00:00:00.000Z",
-    plugin: "humanizer",
+    plugin: "superpowers",
     skill: null,
   };
   expect(
@@ -202,7 +210,7 @@ it("writes a full batch in one database call per record type", async () => {
     client: "codex",
     source: "korza_cli",
     occurredAt: "2026-09-23T00:00:00Z",
-    plugin: "humanizer",
+    plugin: "superpowers",
     skill: null,
   }));
   const metrics = Array.from({ length: 500 }, (_, index) => ({
@@ -289,7 +297,7 @@ it("rolls back both bulk writes if the metric statement fails", async () => {
         client: "codex",
         source: "korza_cli",
         occurredAt: "2026-09-23T00:00:00Z",
-        plugin: "humanizer",
+        plugin: "superpowers",
         skill: null,
       },
     ],
@@ -368,7 +376,7 @@ it("rechecks revocation inside the ingestion transaction", async () => {
               client: "codex",
               source: "korza_cli",
               occurredAt: "2026-09-23T00:00:00Z",
-              plugin: "humanizer",
+              plugin: "superpowers",
               skill: null,
             },
           ],
@@ -409,9 +417,11 @@ it("rejects invalid content type, encoded bodies and unknown fields without inse
 });
 it("exchange responses never cache device credentials", async () => {
   mocks.query.mockImplementation(async (sql: string) => ({
-    rows: /^(SELECT user_id,device_id|DELETE FROM telemetry_codes)/.test(sql)
-      ? [{ user_id: "user" }]
-      : [],
+    rows: sql.startsWith('SELECT id FROM "user"')
+      ? [{ id: "user" }]
+      : /^(SELECT user_id,device_id|DELETE FROM telemetry_codes)/.test(sql)
+        ? [{ user_id: "user" }]
+        : [],
   }));
   const req = new Request(base + "/api/telemetry/exchange", {
     method: "POST",
@@ -474,7 +484,11 @@ it("accepts CSRF-bound renewal only for the current user's device", async () => 
     false,
   );
   mocks.query.mockImplementation(async (sql: string) => ({
-    rows: sql.startsWith("SELECT device_id") ? [{ device_id: device }] : [],
+    rows: sql.startsWith('SELECT id FROM "user"')
+      ? [{ id: "user" }]
+      : sql.startsWith("SELECT device_id")
+        ? [{ device_id: device }]
+        : [],
   }));
   expect((await connectPost(request())).status).toBe(303);
   expect(
@@ -615,3 +629,33 @@ it("still denies a revoked device when membership also becomes stale", async () 
   ).toBe(401);
   expect(mocks.query).toHaveBeenCalledWith("ROLLBACK");
 });
+
+it("rejects a null browser origin without trusting it as same-origin", async () => {
+  expect((await connectPost(consent({}, "null"))).status).toBe(403);
+  expect(mocks.query).not.toHaveBeenCalled();
+});
+it("denies a consent racing confirmed membership removal", async () => {
+  expect((await connectPost(consent())).status).toBe(403);
+  expect(mocks.query.mock.calls.some(([sql]) => sql.startsWith("INSERT"))).toBe(
+    false,
+  );
+});
+it.each(["preview", "development"])(
+  "disables every device route on %s",
+  async (environment) => {
+    vi.stubEnv("VERCEL", "1");
+    vi.stubEnv("VERCEL_ENV", environment);
+    const responses = await Promise.all([
+      connectGet(new Request(base + "/telemetry/connect")),
+      connectPost(consent()),
+      devicesGet(new Request(base + "/telemetry/devices")),
+      devicesPost(consent()),
+      exchangePost(ingest({})),
+      revokeDevice(ingest({})),
+      receiveEvents(ingest({ events: [], metrics: [] })),
+    ]);
+    expect(responses.map((r) => r.status)).toEqual(Array(7).fill(404));
+    expect(mocks.getSession).not.toHaveBeenCalled();
+    expect(mocks.query).not.toHaveBeenCalled();
+  },
+);

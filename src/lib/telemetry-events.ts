@@ -52,7 +52,8 @@ export function parseBatch(value: unknown): {
     ]);
     if (
       !id(e.id) ||
-      !telemetryPlugin(e.plugin) ||
+      !(e.client === "claude" || e.client === "codex") ||
+      !telemetryPlugin(e.plugin, e.client) ||
       !["plugin_installed", "skill_activated"].includes(e.kind as string) ||
       !(
         (e.client === "claude" && e.source === "native_otel") ||

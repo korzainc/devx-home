@@ -15,6 +15,10 @@ const device = (n: number) => ({
 const request = (suffix = "") =>
   new Request("https://home.example/telemetry/devices" + suffix);
 beforeEach(() => {
+  vi.stubEnv("VERCEL", "");
+  vi.stubEnv("VERCEL_ENV", "");
+  vi.stubEnv("KORZA_LOCAL_USAGE", "1");
+  vi.stubEnv("DATABASE_URL", "postgresql://fixture:unused@127.0.0.1/fixture");
   vi.stubEnv("TELEMETRY_ENABLED", "1");
   vi.stubEnv("BETTER_AUTH_SECRET", "test-only");
   mocks.session.mockResolvedValue({
@@ -33,6 +37,7 @@ it("offers the next page without rendering more than 100 device forms", async ()
   });
   const response = await devicesGet(request());
   expect(response.status).toBe(200);
+  expect(response.headers.get("referrer-policy")).toBe("same-origin");
   const body = await response.text();
   expect(body.match(/<form /g)).toHaveLength(100);
   expect(body).toContain(`/telemetry/devices?before=${device(100).device_id}`);

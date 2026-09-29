@@ -59,6 +59,7 @@ describe("isOrgMember", () => {
   const listUserAccounts = vi.fn();
   const getAccessToken = vi.fn();
   const query = vi.fn();
+  const release = vi.fn();
 
   beforeEach(() => {
     vi.resetModules();
@@ -67,8 +68,11 @@ describe("isOrgMember", () => {
     vi.doMock("./auth", () => ({
       getAuth: () => ({ api: { listUserAccounts, getAccessToken } }),
     }));
-    vi.doMock("./db", () => ({ getPool: () => ({ query }) }));
+    vi.doMock("./db", () => ({
+      getPool: () => ({ query, connect: async () => ({ query, release }) }),
+    }));
 
+    query.mockReset().mockResolvedValue({ rows: [] });
     listUserAccounts.mockResolvedValue([{ id: "a1", providerId: "github" }]);
     getAccessToken.mockResolvedValue({ accessToken: "gho_token" });
   });
@@ -185,6 +189,35 @@ describe("isOrgMember", () => {
         orgCheckedAt: new Date(Date.now() - RECHECK_AFTER_MS - 1000),
       }),
     ).resolves.toBe(false);
+  });
+
+  it("cancels devices and all owner grants atomically when membership is denied", async () => {
+    const { storeMembership } = await import("./membership");
+    await storeMembership("u1", false);
+    expect(query.mock.calls.map(([sql]) => sql)).toEqual([
+      "BEGIN",
+      "SET LOCAL statement_timeout = '3s'",
+      'UPDATE "user" SET "orgMember"=$1,"orgCheckedAt"=now() WHERE id=$2',
+      "UPDATE telemetry_devices SET revoked_at=coalesce(revoked_at,now()) WHERE user_id=$1",
+      "DELETE FROM telemetry_codes WHERE user_id=$1",
+      "COMMIT",
+    ]);
+    expect(query.mock.calls[2][1]).toEqual([false, "u1"]);
+    expect(query.mock.calls[4][1]).toEqual(["u1"]);
+    expect(release).toHaveBeenCalledOnce();
+  });
+
+  it("rolls back membership removal if grant invalidation fails", async () => {
+    query.mockImplementation(async (sql: string) => {
+      if (sql.startsWith("DELETE FROM telemetry_codes"))
+        throw Error("unavailable");
+      return { rows: [] };
+    });
+    const { storeMembership } = await import("./membership");
+    await expect(storeMembership("u1", false)).rejects.toThrow("unavailable");
+    expect(query.mock.calls.at(-1)?.[0]).toBe("ROLLBACK");
+    expect(query.mock.calls.some(([sql]) => sql === "COMMIT")).toBe(false);
+    expect(release).toHaveBeenCalledOnce();
   });
 
   it("keeps a confirmed member in when GitHub cannot be reached", async () => {

@@ -1,8 +1,15 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { recordAnalysisRun, readAnalysisUsage } from "./analysis-usage";
 const query = vi.hoisted(() => vi.fn());
 vi.mock("./db", () => ({ getPool: () => ({ query }) }));
+beforeEach(() => {
+  vi.stubEnv("VERCEL", "");
+  vi.stubEnv("VERCEL_ENV", "");
+  vi.stubEnv("KORZA_LOCAL_USAGE", "1");
+  vi.stubEnv("DATABASE_URL", "postgresql://fixture:unused@127.0.0.1/fixture");
+});
 afterEach(() => {
+  vi.unstubAllEnvs();
   vi.restoreAllMocks();
   query.mockReset();
 });
@@ -35,4 +42,15 @@ describe("analysis usage", () => {
       repositories: 2,
     });
   });
+});
+
+it("does not write analysis totals from previews or unapproved local databases", async () => {
+  vi.stubEnv("VERCEL", "1");
+  vi.stubEnv("VERCEL_ENV", "preview");
+  await recordAnalysisRun(run, 42);
+  vi.stubEnv("VERCEL", "");
+  vi.stubEnv("VERCEL_ENV", "");
+  vi.stubEnv("DATABASE_URL", "postgresql://production.example/home");
+  await recordAnalysisRun(run, 42);
+  expect(query).not.toHaveBeenCalled();
 });

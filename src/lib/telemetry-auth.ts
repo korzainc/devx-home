@@ -26,6 +26,19 @@ export class DeviceOwnershipError extends Error {
     super("Device does not belong to this user");
   }
 }
+export class MembershipRequiredError extends Error {
+  constructor() {
+    super("Current organization membership is required");
+  }
+}
+
+async function lockMember(client: Queryable, userId: string) {
+  const { rows } = await client.query(
+    'SELECT id FROM "user" WHERE id=$1 AND "orgMember"=true FOR SHARE',
+    [userId],
+  );
+  return rows.length > 0;
+}
 export const tokenHash = (value: string) =>
   createHash("sha256").update(value).digest("hex");
 export const pkceChallenge = (value: string) =>
@@ -114,6 +127,8 @@ export async function issueCode(
   try {
     await client.query("BEGIN");
     await client.query("SET LOCAL statement_timeout = '3s'");
+    if (!(await lockMember(client, userId)))
+      throw new MembershipRequiredError();
     if (params.device_id) {
       const { rows } = await client.query(
         "SELECT device_id FROM telemetry_devices WHERE device_id=$1 AND user_id=$2 FOR UPDATE",
@@ -121,8 +136,8 @@ export async function issueCode(
       );
       if (!rows.length) throw new DeviceOwnershipError();
     }
-    // Hold the device lock through issuance so a concurrent revocation also invalidates this
-    // grant. Always lock the device before its codes, as exchange and revocation do.
+    // Hold the user and device locks through issuance so removal or revocation
+    // also invalidates this grant. Lock the user before the device and its codes.
     // The expiry index bounds cleanup; locked grants are left for a later request.
     await client.query(
       "DELETE FROM telemetry_codes WHERE code_hash IN (SELECT code_hash FROM telemetry_codes WHERE expires_at <= now() ORDER BY expires_at LIMIT 1000 FOR UPDATE SKIP LOCKED)",
@@ -177,6 +192,10 @@ export async function exchangeCode(
       await client.query("ROLLBACK");
       return null;
     }
+    if (!(await lockMember(client, grant.rows[0].user_id as string))) {
+      await client.query("ROLLBACK");
+      return null;
+    }
     if (grant.rows[0].device_id) {
       const device = await client.query(
         "SELECT device_id FROM telemetry_devices WHERE device_id=$1 AND user_id=$2 FOR UPDATE",
@@ -184,7 +203,7 @@ export async function exchangeCode(
       );
       if (!device.rows.length) throw new DeviceOwnershipError();
     }
-    // Revocation may have removed this grant while we waited for the device lock. Recheck it
+    // Removal or revocation may have removed this grant before we acquired the locks. Recheck it
     // with a fresh statement snapshot, and never consume the code before locking its device.
     // A matching DELETE makes replay and concurrent exchange impossible; rollback retains the
     // grant if credential creation fails. Wrong PKCE or callback cannot consume someone else's code.

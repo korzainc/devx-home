@@ -1,9 +1,11 @@
 import { getAuth } from "./auth";
 import { getPool } from "./db";
+import { usageCollectionEnabled } from "./collection-scope";
 import { isOrgMember } from "./membership";
 import {
   bearerHash,
   DeviceOwnershipError,
+  MembershipRequiredError,
   connectParams,
   consentToken,
   exchangeCode,
@@ -32,7 +34,8 @@ class HttpError extends Error {
 }
 const empty = (status: number) =>
   new Response(null, { status, headers: privateHeaders });
-const enabled = () => process.env.TELEMETRY_ENABLED === "1";
+const enabled = () =>
+  process.env.TELEMETRY_ENABLED === "1" && usageCollectionEnabled();
 const escape = (value: string) =>
   value.replace(
     /[&<>"']/g,
@@ -48,6 +51,7 @@ function html(body: string, status = 200) {
       status,
       headers: {
         ...privateHeaders,
+        "referrer-policy": "same-origin",
         "content-type": "text/html; charset=utf-8",
         "content-security-policy":
           "default-src 'none'; style-src 'unsafe-inline'; form-action 'self' http://127.0.0.1:*; base-uri 'none'; frame-ancestors 'none'",
@@ -129,7 +133,8 @@ function redirectCallback(params: ConnectParams, name: string, value: string) {
 }
 function failure(error: unknown) {
   return empty(
-    error instanceof DeviceOwnershipError
+    error instanceof DeviceOwnershipError ||
+      error instanceof MembershipRequiredError
       ? 403
       : error instanceof HttpError
         ? error.status

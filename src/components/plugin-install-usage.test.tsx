@@ -25,14 +25,14 @@ it("labels the count as recorded installs for Claude Code", async () => {
   mocks.member.mockResolvedValue(true);
   mocks.installs.mockResolvedValue({ claudeNative: 2, codexKorza: 3 });
   const html = renderToStaticMarkup(
-    await PluginInstallUsage({ plugin: "humanizer" }),
+    await PluginInstallUsage({ plugin: "superpowers" }),
   );
   expect(html).toContain("installs reported by Claude Code");
   expect(html).toContain("Claude Code");
   expect(html).toContain("Codex");
   expect(html).toContain("through Korza CLI");
   expect(html).not.toContain("About this count");
-  expect(mocks.installs).toHaveBeenCalledWith("humanizer");
+  expect(mocks.installs).toHaveBeenCalledWith("superpowers");
 });
 it("omits unavailable totals without blocking the page", async () => {
   mocks.session.mockResolvedValue({ user: { id: "test" } });
@@ -65,4 +65,22 @@ it("shows the Korza-only Claude count when native reporting is unavailable", asy
   expect(html).toContain(">1</strong>");
   expect(html).toContain("Claude Code install through Korza CLI");
   expect(html).not.toContain("reported by Claude Code");
+});
+
+it("renders exact large installation counts without rounding or combining sources", async () => {
+  mocks.session.mockResolvedValue({ user: { id: "test" } });
+  mocks.member.mockResolvedValue(true);
+  mocks.installs.mockResolvedValue({
+    claudeNative: "9007199254740993",
+    claudeKorza: "9007199254740992",
+    codexKorza: 1,
+  });
+  const html = renderToStaticMarkup(
+    await PluginInstallUsage({ plugin: "superpowers" }),
+  );
+  expect(html).toContain(">9007199254740993</strong>");
+  expect(html).toContain(">9007199254740992</strong>");
+  expect(html).toContain("Claude Code installs through Korza CLI");
+  expect(html).toContain("Codex install through Korza CLI");
+  expect(html).toContain("These counts can overlap");
 });
