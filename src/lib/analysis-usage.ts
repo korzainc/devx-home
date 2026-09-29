@@ -1,4 +1,5 @@
 import { getPool } from "./db";
+import { usageCollectionEnabled } from "./collection-scope";
 
 export function validRunId(value: unknown): value is string {
   return (
@@ -15,6 +16,7 @@ export async function recordAnalysisRun(
   repoId: number | undefined,
 ) {
   if (
+    !usageCollectionEnabled() ||
     !validRunId(runId) ||
     !Number.isSafeInteger(repoId) ||
     !repoId ||

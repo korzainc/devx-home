@@ -1,5 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { getPool } from "./db";
+import { usageCollectionEnabled } from "./collection-scope";
 import { filterLogs } from "./telemetry-logs";
 import { filterMetrics } from "./telemetry-metrics";
 
@@ -10,7 +11,7 @@ export async function receiveTelemetry(
   request: Request,
   signal: "logs" | "metrics",
 ) {
-  if (process.env.NODE_ENV !== "development")
+  if (process.env.NODE_ENV !== "development" || !usageCollectionEnabled())
     return new Response(null, { status: 404 });
   const token = process.env.TELEMETRY_INGEST_TOKEN;
   if (!token || token.length < 32) return new Response(null, { status: 503 });

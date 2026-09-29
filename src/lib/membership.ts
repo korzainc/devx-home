@@ -75,13 +75,34 @@ async function tokenFor(headers: Headers): Promise<string | null> {
 }
 
 export async function storeMembership(userId: string, orgMember: boolean) {
-  await getPool().query(
-    // Lock the user before devices, matching ingestion. A confirmed removal
-    // invalidates existing device credentials in the same atomic statement.
-    `with verdict as (update "user" set "orgMember" = $1, "orgCheckedAt" = now() where "id" = $2 returning id)
-     update telemetry_devices set revoked_at=coalesce(revoked_at,now()) where user_id in (select id from verdict) and $1=false`,
-    [orgMember, userId],
-  );
+  const pool = getPool();
+  const verdict =
+    'UPDATE "user" SET "orgMember"=$1,"orgCheckedAt"=now() WHERE id=$2';
+  if (orgMember) {
+    await pool.query(verdict, [true, userId]);
+    return;
+  }
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SET LOCAL statement_timeout = '3s'");
+    // Match issuance, exchange and ingestion: user, then devices, then grants.
+    // Removal cancels initial grants too, which do not yet have a device.
+    await client.query(verdict, [false, userId]);
+    await client.query(
+      "UPDATE telemetry_devices SET revoked_at=coalesce(revoked_at,now()) WHERE user_id=$1",
+      [userId],
+    );
+    await client.query("DELETE FROM telemetry_codes WHERE user_id=$1", [
+      userId,
+    ]);
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 /**

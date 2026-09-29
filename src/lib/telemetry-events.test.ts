@@ -58,21 +58,67 @@ it("enforces total batch limit and both arrays", () => {
   ).toThrow();
   expect(() => parseBatch({ events: [] })).toThrow();
 });
-it("accepts only verified CLI install shape for Codex", () => {
-  expect(
-    parseBatch({
-      events: [
-        {
-          ...event,
-          client: "codex",
-          source: "korza_cli",
-          kind: "plugin_installed",
-          skill: null,
-        },
-      ],
-      metrics: [],
-    }).events,
-  ).toHaveLength(1);
+it.each(["codezen", "superpowers"])(
+  "accepts a supported Codex installation of %s",
+  (plugin) => {
+    const install = {
+      ...event,
+      plugin,
+      client: "codex",
+      source: "korza_cli",
+      kind: "plugin_installed",
+      skill: null,
+    };
+    expect(parseBatch({ events: [install], metrics: [] }).events).toEqual([
+      install,
+    ]);
+  },
+);
+
+it.each(["humanizer", "mattpocock-skills"])(
+  "rejects unsupported Codex installation of %s",
+  (plugin) => {
+    expect(() =>
+      parseBatch({
+        events: [
+          {
+            ...event,
+            plugin,
+            client: "codex",
+            source: "korza_cli",
+            kind: "plugin_installed",
+            skill: null,
+          },
+        ],
+        metrics: [],
+      }),
+    ).toThrow("Invalid event");
+  },
+);
+
+it.each(["codezen", "superpowers", "humanizer", "mattpocock-skills"])(
+  "retains Claude installation support for %s",
+  (plugin) => {
+    for (const source of ["native_otel", "korza_cli"]) {
+      const install = {
+        ...event,
+        plugin,
+        source,
+        kind: "plugin_installed",
+        skill: null,
+      };
+      expect(parseBatch({ events: [install], metrics: [] }).events).toEqual([
+        install,
+      ]);
+    }
+  },
+);
+
+it("accepts the largest safe individual metric without relaxing input limits", () => {
+  const boundary = { ...metric, value: Number.MAX_SAFE_INTEGER };
+  expect(parseBatch({ events: [], metrics: [boundary] }).metrics).toEqual([
+    boundary,
+  ]);
 });
 
 it("accepts RFC3339 timestamp precision and offsets but rejects invalid calendars", () => {

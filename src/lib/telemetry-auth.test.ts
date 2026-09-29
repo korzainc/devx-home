@@ -8,6 +8,7 @@ import {
   issueCode,
   revokeCredentials,
   tokenHash,
+  MembershipRequiredError,
 } from "./telemetry-auth";
 
 const callback = "http://127.0.0.1:49152/callback";
@@ -77,7 +78,7 @@ it("binds CSRF to session, callback, challenge, state and expiration", () => {
   );
 });
 it("stores code hashes, never the code, with sixty second expiry", async () => {
-  const query = vi.fn().mockResolvedValue({ rows: [] });
+  const query = vi.fn().mockResolvedValue({ rows: [{ id: "user" }] });
   const code = await issueCode(
     { connect: async () => ({ query, release: vi.fn() }) },
     "user",
@@ -93,9 +94,11 @@ it("stores code hashes, never the code, with sixty second expiry", async () => {
 });
 it("atomically consumes a valid bound code and stores only the device token hash", async () => {
   const query = vi.fn().mockImplementation(async (sql: string) => ({
-    rows: /^(SELECT user_id,device_id|DELETE FROM telemetry_codes)/.test(sql)
-      ? [{ user_id: "user" }]
-      : [],
+    rows: sql.startsWith('SELECT id FROM "user"')
+      ? [{ id: "user" }]
+      : /^(SELECT user_id,device_id|DELETE FROM telemetry_codes)/.test(sql)
+        ? [{ user_id: "user" }]
+        : [],
   }));
   const release = vi.fn();
   const pool = { connect: async () => ({ query, release }) };
@@ -116,9 +119,11 @@ it("atomically consumes a valid bound code and stores only the device token hash
 });
 it("creates no credential when the atomic SQL match rejects a code", async () => {
   const query = vi.fn().mockImplementation(async (sql: string) => ({
-    rows: sql.startsWith("SELECT user_id,device_id")
-      ? [{ user_id: "user" }]
-      : [],
+    rows: sql.startsWith('SELECT id FROM "user"')
+      ? [{ id: "user" }]
+      : sql.startsWith("SELECT user_id,device_id")
+        ? [{ user_id: "user" }]
+        : [],
   }));
   const pool = { connect: async () => ({ query, release: vi.fn() }) };
   expect(
@@ -169,9 +174,11 @@ it("rolls back code consumption if storing the credential fails", async () => {
     if (sql.includes("INSERT INTO telemetry_devices"))
       throw Error("unavailable");
     return {
-      rows: /^(SELECT user_id,device_id|DELETE FROM telemetry_codes)/.test(sql)
-        ? [{ user_id: "user" }]
-        : [],
+      rows: sql.startsWith('SELECT id FROM "user"')
+        ? [{ id: "user" }]
+        : /^(SELECT user_id,device_id|DELETE FROM telemetry_codes)/.test(sql)
+          ? [{ user_id: "user" }]
+          : [],
     };
   });
   const release = vi.fn();
@@ -202,6 +209,48 @@ it("rolls back revocation when outstanding code invalidation fails", async () =>
   ).rejects.toThrow("unavailable");
   expect(query.mock.calls.at(-1)?.[0]).toBe("ROLLBACK");
   expect(query.mock.calls.some(([sql]) => sql === "COMMIT")).toBe(false);
+  expect(release).toHaveBeenCalledOnce();
+});
+
+it("cannot issue a grant after the user's membership was removed", async () => {
+  const query = vi.fn().mockResolvedValue({ rows: [] });
+  const release = vi.fn();
+  await expect(
+    issueCode({ connect: async () => ({ query, release }) }, "user", {
+      ...params,
+      device_id: "11111111-1111-4111-8111-111111111111",
+    }),
+  ).rejects.toBeInstanceOf(MembershipRequiredError);
+  expect(query.mock.calls[2]).toEqual([
+    'SELECT id FROM "user" WHERE id=$1 AND "orgMember"=true FOR SHARE',
+    ["user"],
+  ]);
+  expect(query.mock.calls.at(-1)?.[0]).toBe("ROLLBACK");
+  expect(query.mock.calls.some(([sql]) => sql.includes("telemetry_"))).toBe(
+    false,
+  );
+  expect(release).toHaveBeenCalledOnce();
+});
+
+it("does not consume a grant or lock its device when its owner is no longer a member", async () => {
+  const query = vi.fn().mockImplementation(async (sql: string) => ({
+    rows: sql.startsWith("SELECT user_id,device_id")
+      ? [{ user_id: "user", device_id: "device" }]
+      : [],
+  }));
+  const release = vi.fn();
+  expect(
+    await exchangeCode(
+      { connect: async () => ({ query, release }) },
+      { code: "c".repeat(43), code_verifier: verifier, redirect_uri: callback },
+    ),
+  ).toBeNull();
+  expect(
+    query.mock.calls.some(
+      ([sql]) => sql.startsWith("DELETE") || sql.includes("telemetry_devices"),
+    ),
+  ).toBe(false);
+  expect(query.mock.calls.at(-1)?.[0]).toBe("ROLLBACK");
   expect(release).toHaveBeenCalledOnce();
 });
 

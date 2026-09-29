@@ -1,7 +1,20 @@
 import "server-only";
 import { getPool } from "./db";
 
-export type SkillUsage = { claude?: number; codex?: number };
+type UsageCount = number | string;
+export type SkillUsage = { claude?: UsageCount; codex?: UsageCount };
+
+function positiveCount(value: string): bigint | undefined {
+  return /^[1-9]\d*$/.test(value) ? BigInt(value) : undefined;
+}
+
+// PostgreSQL aggregates can exceed the safe input range. Keep exact arithmetic
+// on the server and send decimal strings only above the safe integer range.
+function displayCount(value: bigint): UsageCount {
+  return value <= BigInt(Number.MAX_SAFE_INTEGER)
+    ? Number(value)
+    : value.toString();
+}
 
 // Match the catalogue explicitly; never merge similarly named skills across plugins.
 export async function readSkillUsage(plugin: string, names: string[]) {
@@ -26,16 +39,18 @@ export async function readSkillUsage(plugin: string, names: string[]) {
       (name) => row.skill === name || row.skill === `${plugin}:${name}`,
     );
     if (!name) continue;
-    const count = Number(row.count);
-    if (Number.isSafeInteger(count) && count > 0)
-      result[name] = { claude: (result[name]?.claude ?? 0) + count };
+    const count = positiveCount(row.count);
+    if (count !== undefined)
+      result[name] = {
+        claude: displayCount(BigInt(result[name]?.claude ?? 0) + count),
+      };
   }
   for (const row of codex.rows) {
     const index = codexNames.indexOf(row.skill);
-    const count = Number(row.count);
-    if (index < 0 || !Number.isSafeInteger(count) || count <= 0) continue;
+    const count = positiveCount(row.count);
+    if (index < 0 || count === undefined) continue;
     const name = names[index];
-    result[name] = { ...result[name], codex: count };
+    result[name] = { ...result[name], codex: displayCount(count) };
   }
   return result;
 }
@@ -43,9 +58,9 @@ export async function readSkillUsage(plugin: string, names: string[]) {
 // Sources may overlap for one installation. Keep them separate until the clients
 // provide a shared event identity; adding them would overstate adoption.
 export type PluginInstalls = {
-  claudeNative?: number;
-  claudeKorza?: number;
-  codexKorza?: number;
+  claudeNative?: UsageCount;
+  claudeKorza?: UsageCount;
+  codexKorza?: UsageCount;
 };
 export async function readPluginInstalls(
   plugin: string,
@@ -61,8 +76,9 @@ export async function readPluginInstalls(
   });
   const counts: PluginInstalls = {};
   for (const row of result.rows) {
-    const count = Number(row.count);
-    if (!Number.isSafeInteger(count) || count <= 0) continue;
+    const total = positiveCount(row.count);
+    if (total === undefined) continue;
+    const count = displayCount(total);
     if (row.client === "claude" && row.source === "native_otel")
       counts.claudeNative = count;
     if (row.client === "claude" && row.source === "korza_cli")

@@ -23,13 +23,15 @@ async function providerMembership(userId: string): Promise<boolean> {
         'SELECT id FROM account WHERE "userId"=$1 AND "providerId"=\'github\'',
         [userId],
       );
-      if (accounts.rows.length !== 1) return false;
+      if (accounts.rows.length !== 1)
+        throw Error("Membership provider identity unavailable");
       // Trusted server-side API: no incoming headers or browser identity. Better
       // Auth checks account ownership and manages token refresh and encryption.
       const { accessToken } = await getAuth().api.getAccessToken({
         body: { accountId: accounts.rows[0].id, userId },
       });
-      return accessToken ? fetchOrgMembership(accessToken) : false;
+      if (!accessToken) throw Error("Membership provider token unavailable");
+      return fetchOrgMembership(accessToken);
     })().finally(() => pending.delete(userId));
     pending.set(userId, check);
   }

@@ -48,11 +48,11 @@ it("reads installs for only the requested plugin", async () => {
       { client: "codex", source: "korza_cli", count: "2" },
     ],
   });
-  expect(await readPluginInstalls("humanizer")).toEqual({
+  expect(await readPluginInstalls("superpowers")).toEqual({
     claudeNative: 4,
     codexKorza: 2,
   });
-  expect(query.mock.calls[0][0].values).toEqual(["humanizer"]);
+  expect(query.mock.calls[0][0].values).toEqual(["superpowers"]);
   expect(query.mock.calls[0][0].text).toContain("kind='plugin_installed'");
 });
 it("omits zero or invalid install totals", async () => {
@@ -84,10 +84,75 @@ it("keeps potentially overlapping native and Korza install counts separate", asy
       { client: "other", source: "korza_cli", count: "99" },
     ],
   });
-  expect(await readPluginInstalls("humanizer")).toEqual({
+  expect(await readPluginInstalls("superpowers")).toEqual({
     claudeNative: 4,
     claudeKorza: 3,
     codexKorza: 2,
   });
   expect(query.mock.calls[0][0].text).toContain("group by client, source");
+});
+
+it.each([
+  ["9007199254740991", Number.MAX_SAFE_INTEGER],
+  ["9007199254740992", "9007199254740992"],
+  ["9007199254740993", "9007199254740993"],
+])("preserves a Codex aggregate of %s exactly", async (count, expected) => {
+  query.mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({
+    rows: [{ skill: "superpowers_brainstorming", count }],
+  });
+  const usage = await readSkillUsage("superpowers", ["brainstorming"]);
+  expect(usage).toEqual({ brainstorming: { codex: expected } });
+  expect(JSON.parse(JSON.stringify(usage))).toEqual(usage);
+});
+
+it("adds Claude aliases exactly when individually safe counts exceed the safe total", async () => {
+  query
+    .mockResolvedValueOnce({
+      rows: [
+        { skill: "brainstorming", count: "9007199254740990" },
+        { skill: "superpowers:brainstorming", count: "3" },
+      ],
+    })
+    .mockResolvedValueOnce({ rows: [] });
+  expect(await readSkillUsage("superpowers", ["brainstorming"])).toEqual({
+    brainstorming: { claude: "9007199254740993" },
+  });
+});
+
+it("preserves large Claude and source-separated installation aggregates", async () => {
+  query
+    .mockResolvedValueOnce({
+      rows: [{ skill: "brainstorming", count: "9007199254740993" }],
+    })
+    .mockResolvedValueOnce({ rows: [] });
+  expect(await readSkillUsage("superpowers", ["brainstorming"])).toEqual({
+    brainstorming: { claude: "9007199254740993" },
+  });
+  query.mockResolvedValueOnce({
+    rows: [
+      { client: "claude", source: "native_otel", count: "9007199254740993" },
+      { client: "claude", source: "korza_cli", count: "9007199254740992" },
+      { client: "codex", source: "korza_cli", count: "9007199254740991" },
+    ],
+  });
+  expect(await readPluginInstalls("superpowers")).toEqual({
+    claudeNative: "9007199254740993",
+    claudeKorza: "9007199254740992",
+    codexKorza: Number.MAX_SAFE_INTEGER,
+  });
+});
+
+it("omits malformed, fractional and nonpositive aggregates", async () => {
+  for (const count of ["0", "-1", "1.5", "1e3", "invalid", ""]) {
+    query
+      .mockResolvedValueOnce({ rows: [{ skill: "brainstorming", count }] })
+      .mockResolvedValueOnce({
+        rows: [{ skill: "superpowers_brainstorming", count }],
+      });
+    expect(await readSkillUsage("superpowers", ["brainstorming"])).toEqual({});
+    query.mockResolvedValueOnce({
+      rows: [{ client: "claude", source: "korza_cli", count }],
+    });
+    expect(await readPluginInstalls("superpowers")).toEqual({});
+  }
 });

@@ -94,25 +94,36 @@ it("cannot overwrite a removal that races an older positive recheck", async () =
   );
 });
 
-it("refuses missing or ambiguous provider identities and empty tokens", async () => {
-  for (const accounts of [[], [{ id: "a" }, { id: "b" }]]) {
+it.each([
+  { reason: "missing account", accounts: [], token: "token" },
+  {
+    reason: "ambiguous account",
+    accounts: [{ id: "a" }, { id: "b" }],
+    token: "token",
+  },
+  { reason: "null token", accounts: [{ id: "a" }], token: null },
+  { reason: "empty token", accounts: [{ id: "a" }], token: "" },
+])(
+  "retries $reason without recording an organization denial",
+  async ({ accounts, token }) => {
     mocks.query
       .mockReset()
       .mockResolvedValueOnce({
         rows: [{ orgMember: true, orgCheckedAt: null }],
       })
       .mockResolvedValue({ rows: accounts });
-    expect(await telemetryMembership("owner")).toBe(false);
-  }
-  expect(mocks.token).not.toHaveBeenCalled();
-  mocks.query
-    .mockReset()
-    .mockResolvedValueOnce({ rows: [{ orgMember: true, orgCheckedAt: null }] })
-    .mockResolvedValue({ rows: [{ id: "a" }] });
-  mocks.token.mockResolvedValue({ accessToken: null });
-  expect(await telemetryMembership("owner")).toBe(false);
-  expect(mocks.member).not.toHaveBeenCalled();
-});
+    mocks.token.mockResolvedValue({ accessToken: token });
+    await expect(telemetryMembership("owner")).rejects.toThrow(
+      "Membership provider",
+    );
+    expect(mocks.token).toHaveBeenCalledTimes(accounts.length === 1 ? 1 : 0);
+    expect(mocks.member).not.toHaveBeenCalled();
+    expect(mocks.store).not.toHaveBeenCalled();
+    expect(
+      mocks.query.mock.calls.some(([sql]) => sql.startsWith("UPDATE")),
+    ).toBe(false);
+  },
+);
 
 it("shares a concurrent recheck so one process does not race a single-use refresh token", async () => {
   const provider = Promise.withResolvers<boolean>();
