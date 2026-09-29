@@ -8,7 +8,7 @@ export function usageCollectionEnabled(): boolean {
     const database = new URL(DATABASE_URL);
     return (
       ["postgres:", "postgresql:"].includes(database.protocol) &&
-      ["localhost", "127.0.0.1", "[::1]"].includes(database.hostname) &&
+      ["localhost", "127.0.0.1"].includes(database.hostname) &&
       database.pathname.length > 1 &&
       // pg query parameters can override the URL host. Permit only TLS and
       // session options, including the isolated integration schema.
