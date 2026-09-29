@@ -117,7 +117,9 @@ export function SkillPicker({ cards }: { cards: SkillCard[] }) {
           className="deal deal-flat flex items-center justify-center p-5"
           /* Last in the deal, so it lands after the cards it sits among rather than with them. */
           style={{ animationDelay: `${shown.length * 70}ms` }}
-          onAnimationEnd={(e) => e.currentTarget.classList.remove("deal", "deal-flat")}
+          onAnimationEnd={(e) =>
+            e.currentTarget.classList.remove("deal", "deal-flat")
+          }
         >
           <Link
             href="/skills"
