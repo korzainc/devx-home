@@ -1,8 +1,16 @@
+import { headers } from "next/headers";
 import { readAnalysisUsage } from "@/lib/analysis-usage";
+import { isOrgMember } from "@/lib/membership";
+import { getSession } from "@/lib/session";
 
 export async function AnalysisUsage() {
   let usage;
   try {
+    // The public report can analyse open repositories, but these totals also
+    // include private repositories. Apply the portal gate before reading them.
+    const session = await getSession();
+    if (!session || !(await isOrgMember(await headers(), session.user)))
+      return null;
     usage = await readAnalysisUsage();
   } catch {
     return null;

@@ -140,6 +140,14 @@ dependency is the latest release. When upgrading the lint toolchain, check
 compatibility with `eslint-config-next` and run formatting, tests, lint, type
 checking and a production build together.
 
+## Analysis usage counts
+
+The analysis badge is visible only to signed-in organisation members because its
+totals include private repositories. Public repository analysis remains available
+without signing in. Counts represent successful Analyze submissions: refreshing
+or sharing the same run URL adds nothing, while submitting Analyze again creates
+a new run. They do not measure page views or repeated server executions.
+
 ## Opt-in device monitoring backend
 
 Apply migrations through `0007_telemetry_read_indexes.sql` before enabling
@@ -173,7 +181,10 @@ minutes; removal can therefore take up to five minutes to be observed. A
 confirmed denial atomically revokes that owner's device credentials, and the
 receiver rechecks membership and device status under shared row locks before
 writing a batch. Provider outages return 503 so the collector retains queued
-counts; they never fall back to a stale positive verdict. Provider verification
+counts; they never fall back to a stale positive verdict. Cache freshness uses the
+database clock. If the cache expires before ingestion acquires its lock, the
+receiver also returns 503 so the collector retries without asking for new consent.
+Provider verification
 has a ten-second wait budget and shares an in-flight refresh per owner. Better
 Auth may finish its own token refresh after that deadline; the timed-out request
 writes no membership verdict or usage. The 12-hour device
@@ -189,6 +200,8 @@ tool arguments, email or paths are accepted. Browser revocation lives at
 Revocation does not delete recorded counts or their device history.
 The connected-devices page paginates retained history, so an older renewed device
 remains reachable for browser revocation.
+An expired or invalid revocation form shows a reload link; it never revokes a
+device without valid CSRF protection.
 
 Migration `0007_telemetry_read_indexes.sql` adds indexes for plugin and skill
 count reads and device/user foreign keys. It leaves previously applied migrations
