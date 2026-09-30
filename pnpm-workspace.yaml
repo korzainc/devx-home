@@ -13,21 +13,8 @@ allowBuilds:
 overrides:
   "@eslint/eslintrc@3.3.6>js-yaml": 4.3.2
 
-  # Seven HIGH advisories Trivy gates on, all with released fixes, all transitive and pinned by
-  # parents we do not control -- `pnpm update` cannot reach them, so they are forced here.
-  #
-  # brace-expansion (CVE-2026-102276, CVE-2026-102278, denial of service): arrives via
-  # minimatch under the eslint chain, dev-only. Two majors are installed and each needs its
-  # own floor.
-  #
-  # undici (CVE-2026-19534 denial of service, CVE-2026-84961 TLS certificate validation
-  # bypass, CVE-2026-85152 authentication bypass via cross-origin cache): arrives via
-  # jsdom under vitest. `pnpm why --prod` puts it in the production tree through better-auth,
-  # but better-auth declares neither vitest nor jsdom, so the edge is a dev one pnpm's --prod
-  # filter does not drop. Treated as reachable anyway -- the two bypasses are the wrong pair
-  # to be wrong about, and the floor costs nothing.
-  #
-  # Remove each when the parent resolves a fixed version on its own.
+  # Seven HIGH advisories Trivy gates on. Both are transitive and pinned by parents, so
+  # `pnpm update` cannot reach them. Remove each when its parent resolves a fixed version.
   "brace-expansion@1": "^1.1.20"
   "brace-expansion@5": "^5.0.11"
   "undici": "^8.10.2"
