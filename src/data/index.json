@@ -12,8 +12,10 @@
       "id": "codezen",
       "name": "codezen",
       "origin": "Korza",
+      "pinned": false,
       "problem": "Agent-assisted work tends to jump straight to code. Requirements stay half-specified, and tests become an afterthought.",
       "ref": "main",
+      "sha": null,
       "sourceRepo": "korzainc/codezen",
       "summary": "Skills for building software, from Korza."
     },
@@ -28,8 +30,10 @@
       "id": "humanizer",
       "name": "humanizer",
       "origin": "Third party",
+      "pinned": true,
       "problem": "AI prose has tells: inflated symbolism, promotional language, em dash overuse, the rule of three, filler phrases. Readers notice them even when they cannot name them.",
       "ref": "v2.9.1",
+      "sha": null,
       "sourceRepo": "blader/humanizer",
       "summary": "Removes the signs of AI-generated writing from text."
     },
@@ -43,8 +47,10 @@
       "id": "mattpocock-skills",
       "name": "mattpocock-skills",
       "origin": "Third party",
+      "pinned": false,
       "problem": "The jobs around writing code get re-improvised every time: reviewing a PR, diagnosing a bug, turning a spec into tickets, handing work over. How well they go depends on who asked and how.",
       "ref": "main",
+      "sha": null,
       "sourceRepo": "mattpocock/skills",
       "summary": "Matt Pocock's engineering and productivity skills."
     },
@@ -59,8 +65,10 @@
       "id": "superpowers",
       "name": "superpowers",
       "origin": "Third party",
+      "pinned": true,
       "problem": "Left to itself, an agent writes code first and reasons about it afterwards. The result reads well and fails under test.",
       "ref": "v6.2.0",
+      "sha": null,
       "sourceRepo": "obra/superpowers",
       "summary": "Core skills library: planning, verification, finishing work."
     }
