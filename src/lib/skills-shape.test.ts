@@ -37,7 +37,7 @@ describe("a skill row", () => {
     expect(problemsWithSkill({ ...valid, kind }).join(" ")).toContain("kind");
   });
 
-  // `overlaySkills` hides a row on an exact "Planned", so anything else renders as a live card.
+  // `liveSkills` hides a row on an exact "Planned", so anything else renders as a live card.
   it.each(["planned", "Draft", "", "live"])(
     "is rejected when status is %j",
     (status) => {

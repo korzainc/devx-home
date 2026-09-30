@@ -1,10 +1,13 @@
 /**
- * Who each skill and plugin is for, authored here rather than synced.
+ * The audience vocabulary, and who each plugin is for.
  *
- * `skills.json` arrives from korzainc/marketplace, which generates it; `plugins.json` is
- * hand-authored here. Neither carries an audience: upstream classifies by `category` and `kind`,
- * both of which describe the work rather than the reader. This overlay sits beside them and
- * survives the next sync, the way `tool-card-summaries.ts` does for the tools catalogue.
+ * A skill's audience is its author's: it is declared in their own `SKILL.md`, validated upstream
+ * against the same four names below, and arrives in `skills.json`. The per-skill overlay that
+ * used to sit here is gone.
+ *
+ * A plugin's is still authored here. `plugins.json` is hand-authored in this repository and
+ * nothing upstream gives a plugin an audience, so `pluginAudiences` remains the only source and
+ * can still drift from the entries it names.
  *
  * The list is expected to grow. Values are written out per entry rather than derived from holding
  * every audience at once, so adding a fourth later does not silently reclassify a row.
@@ -24,62 +27,12 @@ export const AUDIENCE_ANY_LABEL = "Role-agnostic";
 /** The query-string key, shared because both panels draw the row and a reader may edit it. */
 export const AUDIENCE_PARAM = "for";
 
-/** Read by anything that has to place a row when the overlay does not name it. Not "Engineering":
- *  a skill that quietly defaults to the largest audience is hidden from the other two, and a row
- *  missing from two thirds of the catalogue is the harder failure to notice. Showing everywhere is
- *  wrong in a way a reader can see, and the seam test fails on the sync that causes it either
- *  way. */
+/** Read when `pluginAudiences` does not name a plugin, which a new catalogue entry causes. Not
+ *  "Engineering": an entry that quietly defaults to the largest audience is hidden from the other
+ *  two, and one missing from two thirds of the catalogue is the harder failure to notice. Showing
+ *  everywhere is wrong in a way a reader can see, and the seam test fails on the sync that causes
+ *  it either way. */
 export const AUDIENCE_FALLBACK: Audience[] = ["All"];
-
-/**
- * "All" is a value in its own right, not the absence of one: it marks a skill whose subject is the
- * thinking or the writing rather than the code, which someone outside engineering can pick up
- * unchanged. A row carrying it is not also tagged with the specific audiences, so the two never
- * have to be kept in step, and picking Sales unions the All rows in the way picking Go unions in
- * the language-agnostic tools on /tools.
- */
-export const skillAudiences: Record<string, Audience[]> = {
-  "codezen:skills/agentic-e2e": ["Engineering"],
-  "codezen:skills/brainstorm": ["All"],
-  "codezen:skills/code-review": ["Engineering"],
-  "codezen:skills/fix": ["Engineering"],
-  "codezen:skills/security-review": ["Engineering"],
-  "codezen:skills/setup": ["Engineering"],
-  "codezen:skills/sut-bootstrap": ["Engineering"],
-  "codezen:skills/tdd": ["Engineering"],
-  // Writes to the issue tracker, which is where a backlog is run from as much as built from.
-  "codezen:skills/to-issue": ["Engineering", "Business"],
-  "codezen:skills/to-notion": ["All"],
-  "codezen:skills/to-pr": ["Engineering"],
-  "humanizer:.": ["All"],
-  "mattpocock-skills:skills/engineering/codebase-design": ["Engineering"],
-  "mattpocock-skills:skills/engineering/diagnosing-bugs": ["Engineering"],
-  "mattpocock-skills:skills/engineering/domain-modeling": ["Engineering"],
-  "mattpocock-skills:skills/engineering/research": ["All"],
-  // Both write to the issue tracker, which is where a backlog is run from as much as built from.
-  "mattpocock-skills:skills/engineering/to-tickets": [
-    "Engineering",
-    "Business",
-  ],
-  "mattpocock-skills:skills/engineering/triage": ["Engineering", "Business"],
-  "mattpocock-skills:skills/productivity/grilling": ["All"],
-  // Turns a question you cannot answer into one someone else fills in, which is the shape of a
-  // discovery call as much as an internal decision.
-  // Builds a course on any topic in the current directory, not a code explainer: its own
-  // description says "within this workspace" and its worked examples are physics and yoga. So
-  // "All" rather than "Engineering": the subject is whatever the reader wants to learn.
-  "mattpocock-skills:skills/productivity/teach": ["All"],
-  "mattpocock-skills:skills/productivity/to-questionnaire": [
-    "Sales",
-    "Business",
-  ],
-  "mattpocock-skills:skills/productivity/wait-what": ["All"],
-  "mattpocock-skills:skills/productivity/writing-for-agents": ["All"],
-  "superpowers:skills/executing-plans": ["Engineering"],
-  "superpowers:skills/finishing-a-development-branch": ["Engineering"],
-  "superpowers:skills/verification-before-completion": ["Engineering"],
-  "superpowers:skills/writing-plans": ["All"],
-};
 
 /** A plugin is read from the skills it bundles, so a mixed one carries each audience it serves
  *  rather than collapsing to "All": the reader picking Sales wants the two entries that hold

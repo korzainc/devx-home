@@ -45,6 +45,13 @@ const OPEN = [
 ];
 
 export function isOpenPath(pathname: string): boolean {
+  if (
+    process.env.NODE_ENV === "development" &&
+    process.env.LOCAL_BYPASS_AUTH === "true"
+  ) {
+    return true;
+  }
+
   return OPEN.some(
     (open) => pathname === open || pathname.startsWith(`${open}/`),
   );

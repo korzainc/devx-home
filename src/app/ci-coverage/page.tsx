@@ -8,7 +8,13 @@ import { Suspense } from "react";
 import { GapReport } from "@/components/gap-report";
 import { Octocat } from "@/components/octocat";
 import { signInWithGitHub } from "@/lib/auth-actions";
-import { getBaseline, tools } from "@/lib/catalogue";
+import {
+  bundleById,
+  capabilityLabels,
+  getBaseline,
+  toolNameById,
+  tools,
+} from "@/lib/catalogue";
 import { runAnalysis } from "@/lib/gap/run";
 import { getGitHubToken } from "@/lib/session";
 
@@ -51,7 +57,11 @@ async function Result({ repo, runId }: { repo: string; runId?: string }) {
       <Suspense fallback={null}>
         <AnalysisUsage />
       </Suspense>
-      <GapReport analysis={result.analysis} stacks={baseline.stacks} />
+      <GapReport
+        analysis={result.analysis}
+        stacks={baseline.stacks}
+        catalogue={{ bundleById, toolNameById, capabilityLabels }}
+      />
     </>
   );
 }

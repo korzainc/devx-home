@@ -7,14 +7,14 @@ import { installConfigs } from "@/data/install-configs";
 import {
   AUDIENCE_FALLBACK,
   pluginAudiences,
-  skillAudiences,
+  type Audience,
 } from "@/data/skill-audiences";
-import { CATEGORY_FALLBACK, skillCategories } from "@/data/skill-categories";
 import { toolCardSummaries } from "@/data/tool-card-summaries";
 import {
   isBundle,
   STATUS_PLANNED,
   type BundleEntry,
+  type BundleInvocation,
   type InstallCommand,
   type PluginEntry,
   type SkillEntry,
@@ -66,8 +66,12 @@ type RealTool = {
   };
 };
 
+// Untyped here, not `BundleInvocation`: the real catalogue still predates this shape (its
+// bundles call a reusable workflow, not a docker image), so asserting it here would fail to
+// compile. bundleFromReal casts it; formatBundleDetails checks the real shape before use.
 type RealBundle = RealTool & {
   wraps: { tool: string; capabilities: string[] }[];
+  invocation?: unknown;
 };
 
 type RealBaselineEntry = {
@@ -198,6 +202,7 @@ function bundleFromReal(bundle: RealBundle): BundleEntry {
   return {
     ...toolFromReal(bundle),
     wraps: bundle.wraps,
+    invocation: bundle.invocation as BundleInvocation | undefined,
   };
 }
 
@@ -268,6 +273,18 @@ export const tools: ToolEntry[] = [...realTools, ...realBundles];
  * not a second independently-sourced list, so the two can't drift apart. */
 export const bundles: BundleEntry[] = tools.filter(isBundle);
 
+/** Looked up by id rather than iterated, since the fix-prompt only cares about the specific
+ * bundles a gap actually recommends (see formatBundleDetails in gap/prompt.ts). */
+export const bundleById: Record<string, BundleEntry> = Object.fromEntries(
+  bundles.map((bundle) => [bundle.id, bundle]),
+);
+
+/** A wrapped tool's readable name, for rendering a bundle's wraps mapping without a second
+ * lookup pass over `tools` at every call site. */
+export const toolNameById: Record<string, string> = Object.fromEntries(
+  tools.map((tool) => [tool.id, tool.name]),
+);
+
 const wrappedToolIds = new Set(
   bundles.flatMap((bundle) => bundle.wraps.map((entry) => entry.tool)),
 );
@@ -321,11 +338,10 @@ export function toolInstallMethods(id: string): InstallMethod[] {
   ];
 }
 
-// Audience and category both come off local overlays, so they are merged in here rather than read
-// alongside the entry everywhere they are needed. Audience is a field upstream does not carry;
-// category is one it does, and this deliberately replaces it. An id an overlay does not name falls
-// back rather than throwing: a sync that adds one should still show the new row, and the seam test
-// beside the overlay is what fails.
+// Audience is the only field still overlaid, and only for a plugin: a skill carries its author's,
+// but `plugins.json` is hand-authored here and nothing upstream gives a plugin one. An id the
+// overlay does not name falls back rather than throwing -- a sync that adds a plugin should still
+// show it, and the seam test beside the overlay is what fails.
 export const plugins: PluginEntry[] = (
   pluginsData as Omit<PluginEntry, "audiences">[]
 ).map((plugin) => ({
@@ -333,25 +349,21 @@ export const plugins: PluginEntry[] = (
   audiences: pluginAudiences[plugin.id] ?? AUDIENCE_FALLBACK,
 }));
 
-/** A row as the generator emits it: carrying its own `category`, which the overlay replaces. */
-export type GeneratedSkill = Omit<SkillEntry, "audiences" | "category"> & {
-  category: string;
+/** A row as the generator emits it. `audience` is singular upstream and plural here, which is
+ *  the only difference left between the two shapes. */
+export type GeneratedSkill = Omit<SkillEntry, "audiences"> & {
+  audience: Audience[];
 };
 
-/** Exported so the overwrite can be tested on a row the live index does not contain: upstream
- *  emits this same vocabulary now, so no live row disagrees with the overlay. */
-export function overlaySkills(rows: GeneratedSkill[]): SkillEntry[] {
+/** Planned rows are filtered off the site. Nothing else happens here: `category` and `audience`
+ *  are the author's, checked by `skills-shape` on the way in. */
+export function liveSkills(rows: GeneratedSkill[]): SkillEntry[] {
   return rows
     .filter((skill) => skill.status !== STATUS_PLANNED)
-    .map((skill) => ({
-      ...skill,
-      audiences: skillAudiences[skill.id] ?? AUDIENCE_FALLBACK,
-      // Spread first, so the generator's own category is overwritten rather than merged beside.
-      category: skillCategories[skill.id] ?? CATEGORY_FALLBACK,
-    }));
+    .map(({ audience, ...skill }) => ({ ...skill, audiences: audience }));
 }
 
-export const skills: SkillEntry[] = overlaySkills(
+export const skills: SkillEntry[] = liveSkills(
   skillsData.skills as GeneratedSkill[],
 );
 
