@@ -1,7 +1,13 @@
+import {
+  localSkillsPreview,
+  skillsPreviewPath,
+} from "@/lib/local-skills-preview";
 import { NextResponse, type NextRequest } from "next/server";
 import { getAuth } from "@/lib/auth";
+import { isTelemetryPath } from "@/lib/telemetry-path";
 import { isOpenPath } from "@/lib/gate";
 import { isOrgMember } from "@/lib/membership";
+import { localAuthOrigin } from "@/lib/local-auth-origin";
 
 /**
  * The gate. Every page and route handler needs a session *and* membership of the Korza
@@ -63,7 +69,40 @@ async function sessionFor(request: NextRequest) {
 
 export default async function proxy(request: NextRequest) {
   const { pathname, search, origin } = request.nextUrl;
-  if (isOpenPath(pathname)) return NextResponse.next();
+  // localhost and 127.0.0.1 have separate cookie jars. Select the configured
+  // callback host before login creates state; never move a callback or copy cookies.
+  if (
+    ["/login", "/telemetry/connect", "/api/auth/sign-in/social"].includes(
+      pathname,
+    )
+  ) {
+    const authOrigin = localAuthOrigin(request.headers.get("host"));
+    if (authOrigin) {
+      if (["GET", "HEAD"].includes(request.method)) {
+        const target = new URL(authOrigin);
+        target.pathname = pathname;
+        target.search = search;
+        return NextResponse.redirect(target);
+      }
+      // An old tab can still submit its form after this fix is deployed locally.
+      // Replaying that POST on another origin would hide the cookie mismatch.
+      return NextResponse.json(
+        {
+          error: `Open ${authOrigin}/login to continue on the configured sign-in host.`,
+        },
+        { status: 409 },
+      );
+    }
+  }
+  if (isTelemetryPath(pathname) || isOpenPath(pathname))
+    return NextResponse.next();
+
+  if (
+    ["GET", "HEAD"].includes(request.method) &&
+    skillsPreviewPath(pathname) &&
+    localSkillsPreview(request.headers.get("host"))
+  )
+    return NextResponse.next();
 
   const session = await sessionFor(request);
   if (!session) {

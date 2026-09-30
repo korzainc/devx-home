@@ -1,9 +1,12 @@
+import { LocalSkillsPreviewNotice } from "@/components/local-skills-preview-notice";
+import { PluginInstallUsage } from "@/components/plugin-install-usage";
+import { Suspense } from "react";
+import { PluginSkillsWithUsage } from "@/components/plugin-skills-with-usage";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BackLink } from "@/components/back-link";
 import { PluginInstall } from "@/components/plugin-install";
 import { MetaRow } from "@/components/meta-row";
-import { PluginSkills } from "@/components/plugin-skills";
 import { SkillContextStrip } from "@/components/skill-context-strip";
 import { NavArrow } from "@/components/nav-arrow";
 import {
@@ -40,6 +43,9 @@ export default async function PluginPage({
 
   return (
     <article className="flex flex-col gap-8">
+      <Suspense fallback={null}>
+        <LocalSkillsPreviewNotice />
+      </Suspense>
       <header className="flex flex-col gap-4">
         <BackLink followHistory href="/skills">
           Skills
@@ -115,6 +121,10 @@ export default async function PluginPage({
         </div>
       </div>
 
+      <Suspense fallback={null}>
+        <PluginInstallUsage plugin={plugin.id} />
+      </Suspense>
+
       {shipsNothing ? (
         <p className="rounded-xl border border-dashed border-line px-5 py-4 text-sm text-ink-muted">
           Nothing to install: this entry resolves to no skills today.
@@ -123,7 +133,9 @@ export default async function PluginPage({
         <PluginInstall commands={installCommands(plugin)} />
       )}
 
-      {skills.length > 0 && <PluginSkills plugin={plugin.id} skills={skills} />}
+      {skills.length > 0 && (
+        <PluginSkillsWithUsage plugin={plugin.id} skills={skills} />
+      )}
     </article>
   );
 }

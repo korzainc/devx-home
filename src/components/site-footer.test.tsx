@@ -19,6 +19,7 @@ import { SiteFooter } from "@/components/site-footer";
 // Route folders a reader is not meant to navigate to by name.
 const UNLISTED = new Set([
   "api", // route handlers
+  "telemetry", // request-bound consent and device routes; no /telemetry page
   "setup", // the install script, a route handler
   "korza", // CLI assets and update manifest, not a navigable page
   "login", // the header's own control, and only for the signed out
