@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import pluginsData from "@/data/plugins.json";
-import skillsData from "@/data/skills.json";
+import indexData from "@/data/index.json";
 import { problemsWithPlugin, problemsWithPluginSet } from "./plugins-shape";
 
 const valid = {
@@ -147,18 +146,44 @@ describe("the plugin set", () => {
     );
   });
 
-  // skills.json is generated from the manifests and plugins.json is hand-authored, so a re-pin
-  // upstream moves one and leaves the other. This is the direction skills.test.ts does not cover.
+  // Both sides are generated now, from one manifest, so this checks the generator rather than
+  // two hand edits. It stays because a wrong `ref` reaches a public page either way, and it is
+  // the direction skills.test.ts does not cover.
   it("is rejected when a row disagrees with its skills about ref", () => {
     const rows = [
-      { plugin: "codezen", ref: "v1.0.0", sourceRepo: "korzainc/codezen" },
+      {
+        plugin: "codezen",
+        ref: "v1.0.0",
+        sourceRepo: "korzainc/codezen",
+        origin: "Korza",
+      },
     ];
     expect(problemsWithPluginSet([valid], rows).join(" ")).toContain("ref");
   });
 
+  // The home page reads `skill.origin === "Korza"` for a card's provenance line, and
+  // skills.test.ts only checks membership in the set of all plugin origins -- which a
+  // flipped-but-valid value passes.
+  it("is rejected when a row disagrees with its skills about origin", () => {
+    const rows = [
+      {
+        plugin: "codezen",
+        ref: "main",
+        sourceRepo: "korzainc/codezen",
+        origin: "Third party",
+      },
+    ];
+    expect(problemsWithPluginSet([valid], rows).join(" ")).toContain("origin");
+  });
+
   it("is rejected when a row disagrees with its skills about sourceRepo", () => {
     const rows = [
-      { plugin: "codezen", ref: "main", sourceRepo: "someone/else" },
+      {
+        plugin: "codezen",
+        ref: "main",
+        sourceRepo: "someone/else",
+        origin: "Korza",
+      },
     ];
     expect(problemsWithPluginSet([valid], rows).join(" ")).toContain(
       "sourceRepo",
@@ -173,12 +198,13 @@ describe("the plugin set", () => {
 });
 
 describe("the committed catalogue data", () => {
-  // plugins.json is a bare array; skills.json is an object with a `skills` key.
-  const plugins = pluginsData as Record<string, unknown>[];
-  const skills = skillsData.skills as {
+  // Both blocks arrive in the same generated file, so they cannot be a version apart.
+  const plugins = indexData.plugins as Record<string, unknown>[];
+  const skills = indexData.skills as {
     plugin: string;
     ref: string;
     sourceRepo: string;
+    origin: string;
   }[];
 
   it("has a well shaped row for every plugin", () => {
@@ -187,7 +213,7 @@ describe("the committed catalogue data", () => {
     }
   });
 
-  it("is internally consistent across plugins.json and skills.json", () => {
+  it("is internally consistent across the plugin rows and the skill rows", () => {
     expect(problemsWithPluginSet(plugins, skills)).toEqual([]);
   });
 
@@ -195,6 +221,6 @@ describe("the committed catalogue data", () => {
   // renders nor fails a shape check. The audience overlay has the same hazard and its own test.
   it("carries a version row for each plugin and no others", () => {
     const listed = plugins.map((plugin) => plugin.id).sort();
-    expect(Object.keys(skillsData.versions).sort()).toEqual(listed);
+    expect(Object.keys(indexData.versions).sort()).toEqual(listed);
   });
 });

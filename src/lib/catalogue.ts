@@ -1,6 +1,5 @@
 import "server-only";
-import pluginsData from "@/data/plugins.json";
-import skillsData from "@/data/skills.json";
+import indexData from "@/data/index.json";
 import realCatalogueData from "@/data/catalogue.json";
 import { capabilityLabelOverrides } from "@/data/capability-labels";
 import { installConfigs } from "@/data/install-configs";
@@ -339,11 +338,15 @@ export function toolInstallMethods(id: string): InstallMethod[] {
 }
 
 // Audience is the only field still overlaid, and only for a plugin: a skill carries its author's,
-// but `plugins.json` is hand-authored here and nothing upstream gives a plugin one. An id the
-// overlay does not name falls back rather than throwing -- a sync that adds a plugin should still
-// show it, and the seam test beside the overlay is what fails.
+// and nothing upstream gives a plugin one. An id the overlay does not name falls back rather than
+// throwing -- a sync that adds a plugin should still show it, and the seam test is what fails.
+//
+// Nothing validates these rows at runtime: `plugins-shape` runs in the suite only, and the cast
+// is weaker than it looks -- a field missing from every row fails `tsc`, one missing from only
+// some widens to optional and passes. Not a module-load throw, for the reason
+// `stackCapabilities` gives above. Render order is the generator's.
 export const plugins: PluginEntry[] = (
-  pluginsData as Omit<PluginEntry, "audiences">[]
+  indexData.plugins as Omit<PluginEntry, "audiences">[]
 ).map((plugin) => ({
   ...plugin,
   audiences: pluginAudiences[plugin.id] ?? AUDIENCE_FALLBACK,
@@ -364,7 +367,7 @@ export function liveSkills(rows: GeneratedSkill[]): SkillEntry[] {
 }
 
 export const skills: SkillEntry[] = liveSkills(
-  skillsData.skills as GeneratedSkill[],
+  indexData.skills as GeneratedSkill[],
 );
 
 export function skillsForPlugin(pluginId: string): SkillEntry[] {
