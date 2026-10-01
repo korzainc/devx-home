@@ -1,6 +1,14 @@
+import { headers } from "next/headers";
 import { getBaseline, tools } from "@/lib/catalogue";
+import { getLlmConfig } from "@/lib/gap-llm-config";
 import { runAnalysis } from "@/lib/gap/run";
-import { getGitHubToken } from "@/lib/session";
+import { isOrgMember } from "@/lib/membership";
+import { getGitHubToken, getSession } from "@/lib/session";
+
+// This route's execution budget, made explicit rather than left to whatever Vercel's own default
+// happens to be. Must clear the LLM pass's own 30s client timeout with margin for the rest of the
+// route's work (repo fetch, deterministic analysis).
+export const maxDuration = 45;
 
 // The token belongs to whoever is signed in and is handed to `runAnalysis` as an argument.
 // Nothing under src/lib/gap touches the environment or the session.
@@ -30,11 +38,24 @@ export async function POST(request: Request) {
     );
   }
 
+  // Defense-in-depth: `src/proxy.ts` already requires org membership upstream of this route ever
+  // running, so this repeats that check rather than relying on it, in case a future change to the
+  // proxy matcher or a middleware-bypass bug ever lets a request reach here without it.
+  const session = await getSession();
+  if (!session || !(await isOrgMember(await headers(), session.user))) {
+    return Response.json(
+      { error: "Log in with GitHub to analyze a repository." },
+      { status: 401 },
+    );
+  }
+
   const repo = repoFromBody(await request.json().catch(() => null));
-  const result = await runAnalysis(repo, token, {
-    tools,
-    baseline: getBaseline(),
-  });
+  const result = await runAnalysis(
+    repo,
+    token,
+    { tools, baseline: getBaseline() },
+    getLlmConfig(),
+  );
 
   return result.ok
     ? Response.json(result.analysis)

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { runAnalysis } from "./run";
 import { RepoReadError } from "./types";
 import type { AnalysisTool, Baseline } from "./types";
+import type { LlmConfig } from "./llm/types";
 
 const snapshot = {
   ref: { provider: "github" as const, owner: "korzainc", repo: "example" },
@@ -25,6 +26,35 @@ vi.mock("./github", () => ({
     loadSnapshot,
   },
 }));
+
+// Mocked so these tests can assert whether `runAnalysis` calls into `applyLlmPass` at all,
+// rather than on a side effect inside it. `applyLlmPass` already returns early via its own
+// `if (!config.enabled)` check, so asserting on `client.complete` or `underDailySpendCap`
+// can't distinguish runAnalysis skipping the call from applyLlmPass catching it anyway.
+const applyLlmPass = vi.hoisted(() => vi.fn());
+
+vi.mock("./llm/apply", () => ({ applyLlmPass }));
+
+function noopLlmConfig(overrides: Partial<LlmConfig> = {}): LlmConfig {
+  return {
+    enabled: true,
+    client: { complete: vi.fn() },
+    model: "claude-sonnet-5",
+    effort: "low",
+    readCache: vi.fn().mockResolvedValue(null),
+    writeCache: vi.fn().mockResolvedValue(undefined),
+    underDailySpendCap: vi.fn().mockResolvedValue(true),
+    recordSpend: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  };
+}
+
+const emptyBaseline: Baseline = {
+  categories: [],
+  capabilities: {},
+  universal: [],
+  stacks: [],
+};
 
 describe("runAnalysis", () => {
   it("maps a CatalogueDataError to a clean ok:false result instead of throwing", async () => {
@@ -57,6 +87,87 @@ describe("runAnalysis", () => {
       expect(result.status).toBe(500);
       expect(result.error).toContain("no-such-tool");
     }
+  });
+
+  it("does not invoke the LLM pass when no token is present", async () => {
+    loadSnapshot.mockResolvedValue(snapshot);
+    const llm = noopLlmConfig();
+
+    await runAnalysis(
+      "korzainc/example",
+      null,
+      { tools: [], baseline: emptyBaseline },
+      llm,
+    );
+
+    expect(applyLlmPass).not.toHaveBeenCalled();
+  });
+
+  it("does not invoke the LLM pass when llm.enabled is false", async () => {
+    loadSnapshot.mockResolvedValue(snapshot);
+    const llm = noopLlmConfig({ enabled: false });
+
+    await runAnalysis(
+      "korzainc/example",
+      "a-token",
+      { tools: [], baseline: emptyBaseline },
+      llm,
+    );
+
+    // Asserts on the mocked applyLlmPass function itself, not a side effect inside it: apply.ts
+    // has its own internal `if (!config.enabled) return analysis` check before it ever touches
+    // client.complete or underDailySpendCap, so an assertion on either of those can't tell
+    // runAnalysis skipping the call apart from applyLlmPass's own check catching it regardless.
+    expect(applyLlmPass).not.toHaveBeenCalled();
+  });
+
+  it("invokes the LLM pass exactly once when llm.enabled is true and a token is present", async () => {
+    loadSnapshot.mockResolvedValue(snapshot);
+    const rescuedAnalysis = { rescued: true };
+    applyLlmPass.mockResolvedValue(rescuedAnalysis);
+    const llm = noopLlmConfig();
+
+    const result = await runAnalysis(
+      "korzainc/example",
+      "a-token",
+      { tools: [], baseline: emptyBaseline },
+      llm,
+    );
+
+    expect(applyLlmPass).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ ok: true, analysis: rescuedAnalysis });
+  });
+
+  it("keeps working with no llm argument at all", async () => {
+    loadSnapshot.mockResolvedValue(snapshot);
+
+    const result = await runAnalysis("korzainc/example", "a-token", {
+      tools: [],
+      baseline: emptyBaseline,
+    });
+
+    expect(result.ok).toBe(true);
+  });
+
+  it("falls back to the deterministic analysis instead of throwing when applyLlmPass throws unexpectedly", async () => {
+    // Pure defense in depth: apply.ts is already internally exhaustive and should never actually
+    // throw, but a future change there, or a different LlmClient port implementation, isn't bound
+    // by that discipline. This is what makes "never worse than today" true by construction at this
+    // call site too, not only by inspection of apply.ts.
+    loadSnapshot.mockResolvedValue(snapshot);
+    applyLlmPass.mockRejectedValue(new Error("unexpected"));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const llm = noopLlmConfig();
+
+    const result = await runAnalysis(
+      "korzainc/example",
+      "a-token",
+      { tools: [], baseline: emptyBaseline },
+      llm,
+    );
+
+    expect(result.ok).toBe(true);
+    errorSpy.mockRestore();
   });
 });
 
