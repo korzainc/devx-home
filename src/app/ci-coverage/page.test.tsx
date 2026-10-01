@@ -55,6 +55,7 @@ const analysis: Analysis = vi.hoisted(() => ({
   satisfiedCount: 1,
   partialCount: 0,
   gapCount: 0,
+  buildSteps: [],
 }));
 
 // The whole invocation, not just the token: the form's value comes from `target` independently,

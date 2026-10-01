@@ -1,5 +1,8 @@
 import { analyze } from "./analyze";
+import { ciSignals } from "./detect";
 import { githubReader } from "./github";
+import { applyLlmPass } from "./llm/apply";
+import type { LlmConfig } from "./llm/types";
 import { CatalogueDataError, RepoReadError } from "./types";
 import type { Analysis, AnalysisTool, Baseline, RepoReader } from "./types";
 
@@ -45,6 +48,7 @@ export async function runAnalysis(
   repo: string,
   token: string | null,
   catalogue: { tools: AnalysisTool[]; baseline: Baseline },
+  llm?: LlmConfig,
 ): Promise<RunResult> {
   const resolved = resolve(repo);
   if (!resolved) {
@@ -61,7 +65,34 @@ export async function runAnalysis(
       token,
       catalogue.baseline,
     );
-    return { ok: true, analysis: analyze(snapshot, catalogue) };
+    // Parsed once and reused for the LLM pass below: both would otherwise re-walk the same CI
+    // YAML independently.
+    const signals = ciSignals(snapshot);
+    let analysis = analyze(snapshot, catalogue, signals);
+
+    // Defense-in-depth, not the primary guarantee: for `/api/analyze`, `src/proxy.ts` already
+    // requires a session and org membership upstream. A truthy token only proves sign-in with some
+    // GitHub account, not membership, so it stops anonymous visitors and nothing more.
+    //
+    // `/ci-coverage` is in `src/lib/gate.ts`'s OPEN list, so the proxy never checks membership
+    // there and a signed-in non-member gets a token. That route must never pass an enabled
+    // `LlmConfig` into this function.
+    if (llm?.enabled && token) {
+      // Redundant with `applyLlmPass` already being internally exhaustive (every branch falls
+      // back to `analysis` rather than throwing); this holds that guarantee by construction here
+      // too, not only by inspection of `apply.ts`. A future change there, or a different
+      // `LlmClient`, isn't bound by that discipline, so this catch keeps the pass harmless regardless.
+      try {
+        analysis = await applyLlmPass(analysis, signals, catalogue, llm);
+      } catch (error) {
+        console.error(
+          "gap LLM pass: threw unexpectedly, falling back to the deterministic analysis",
+          { repo: analysis.repo, error },
+        );
+      }
+    }
+
+    return { ok: true, analysis };
   } catch (error) {
     if (error instanceof RepoReadError) {
       return { ok: false, status: statusFor(error), error: error.message };
