@@ -1,11 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { applyLlmPass, cacheKey } from "./apply";
-import type {
-  AuditFinding,
-  LlmConfig,
-  LlmResponse,
-  RescueFinding,
-} from "./types";
+import { buildPrompt } from "./schema";
+import { getBaseline, tools as realTools } from "@/lib/catalogue";
+import type { LlmConfig, LlmResponse, LlmVerdict } from "./types";
 import type { Analysis, AnalysisTool, Baseline } from "../types";
 import type { CiSignals } from "../detect";
 
@@ -35,14 +32,14 @@ const tools: AnalysisTool[] = [
     name: "Trivy",
     capabilities: ["sca", "iac-config", "image-scan"],
     stacks: ["any"],
-    detect: {},
+    detect: { commands: ["trivy"] },
   },
   {
     id: "semgrep",
     name: "Semgrep",
     capabilities: ["sast"],
     stacks: ["any"],
-    detect: {},
+    detect: { commands: ["semgrep"] },
   },
 ];
 
@@ -50,14 +47,7 @@ function baseAnalysis(): Analysis {
   return {
     repo: "korza/example",
     defaultBranch: "main",
-    stacks: [
-      {
-        id: "any",
-        label: "Any",
-        markers: [],
-        expects: baseline.stacks[0].expects,
-      },
-    ],
+    stacks: baseline.stacks,
     filesRead: [],
     categories: [
       {
@@ -77,15 +67,14 @@ function baseAnalysis(): Analysis {
             label: "Dependency scanning",
             satisfied: true,
             // Realistic shape: `detect.ts`'s `evidenceFor` always synthesizes a label like this
-            // one, never raw CI text. `applyAudit` must select the tool to demote by `toolId`,
-            // not by matching a model's quote against this string - the two are never the same
-            // text, which is exactly the bug this fixture exists to keep visible.
+            // one, never raw CI text. `applyAudit` must select the tool to demote by `toolId`, not
+            // by matching a model's quote against this string.
             present: [
               {
                 id: "trivy",
                 name: "Trivy",
-                evidence: "runs trivy in .github/workflows/ci.yml",
-                stackLabels: [],
+                evidence: "runs trivy in ci.yml",
+                stackLabels: ["Any"],
               },
             ],
             recommended: [],
@@ -112,17 +101,38 @@ const signals: CiSignals = {
   ],
 };
 
-function configWith(response: LlmResponse): LlmConfig {
+/** Finds the signal id a real `buildPrompt` call assigned to the entry containing `needle` -
+ * mirrors what a real model sees, so tests never hardcode an id order `budgetSignals` is free to
+ * change. */
+function signalIdFor(
+  analysis: Analysis,
+  sigs: CiSignals,
+  needle: string,
+): string {
+  const { signals: sent } = buildPrompt(analysis, sigs, { tools });
+  const entry = sent.find((e) => e.text.includes(needle));
+  if (!entry) throw new Error(`no signal entry contains "${needle}"`);
+  return entry.id;
+}
+
+function verdict(
+  overrides: Partial<LlmVerdict> & Pick<LlmVerdict, "pair" | "verdict">,
+): LlmVerdict {
+  return { signalId: "s1", quote: "", reason: "", ...overrides };
+}
+
+function configWith(response: LlmResponse, costUsd = 0.0042): LlmConfig {
   return {
     enabled: true,
-    // LlmClient is a plain, one-method interface, so a real fake satisfies it directly -
-    // no cast needed, and nothing here knows or cares which provider a real LlmClient would wrap.
+    // LlmClient is a plain, one-method interface, so a real fake satisfies it directly - no cast
+    // needed, and nothing here knows or cares which provider a real LlmClient would wrap.
     client: {
       complete: vi.fn().mockResolvedValue({
         ok: true,
         text: JSON.stringify(response),
         inputTokens: 100,
         outputTokens: 50,
+        costUsd,
       }),
     },
     model: "claude-sonnet-5",
@@ -135,52 +145,46 @@ function configWith(response: LlmResponse): LlmConfig {
 }
 
 describe("cacheKey", () => {
-  it("is stable for the same model, effort, system, and user text", () => {
-    expect(
-      cacheKey("claude-sonnet-5", "low", "same system", "same prompt"),
-    ).toBe(cacheKey("claude-sonnet-5", "low", "same system", "same prompt"));
-  });
+  const schema = { type: "object" };
 
-  it("changes when the user prompt text changes", () => {
-    expect(cacheKey("claude-sonnet-5", "low", "system", "prompt a")).not.toBe(
-      cacheKey("claude-sonnet-5", "low", "system", "prompt b"),
+  it("is stable for identical inputs, and changes when the model, effort, prompt text, or schema shape changes", () => {
+    expect(cacheKey("m", "low", "s", "u", schema)).toBe(
+      cacheKey("m", "low", "s", "u", schema),
     );
-  });
-
-  it("changes when the system prompt text changes", () => {
-    expect(cacheKey("claude-sonnet-5", "low", "system a", "prompt")).not.toBe(
-      cacheKey("claude-sonnet-5", "low", "system b", "prompt"),
+    expect(cacheKey("m", "low", "s", "u", schema)).not.toBe(
+      cacheKey("m2", "low", "s", "u", schema),
     );
-  });
-
-  it("changes when effort changes", () => {
-    expect(
-      cacheKey("claude-sonnet-5", "low", "system", "same prompt"),
-    ).not.toBe(cacheKey("claude-sonnet-5", "medium", "system", "same prompt"));
-  });
-
-  it("changes when the model changes", () => {
-    expect(cacheKey("model-a", "low", "system", "user")).not.toBe(
-      cacheKey("model-b", "low", "system", "user"),
+    expect(cacheKey("m", "low", "s", "u", schema)).not.toBe(
+      cacheKey("m", "medium", "s", "u", schema),
+    );
+    expect(cacheKey("m", "low", "s", "u", schema)).not.toBe(
+      cacheKey("m", "low", "s2", "u", schema),
+    );
+    expect(cacheKey("m", "low", "s", "u", schema)).not.toBe(
+      cacheKey("m", "low", "s", "u2", schema),
+    );
+    expect(cacheKey("m", "low", "s", "u", schema)).not.toBe(
+      cacheKey("m", "low", "s", "u", { type: "object", extra: true }),
     );
   });
 });
 
-describe("applyLlmPass", () => {
+describe("applyLlmPass: verdict direction", () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("rescues a gap when the model returns a verified finding", async () => {
+  it("rescues a gap on a verified `provides` verdict, sets llmNote, and adds the tool as present evidence", async () => {
+    const quote = "semgrep --config p/golang .";
     const config = configWith({
-      rescueFindings: [
-        {
-          capabilityId: "sast",
-          quote: "semgrep --config p/golang .",
-          toolId: "semgrep",
-        },
+      verdicts: [
+        verdict({
+          pair: "sast:semgrep",
+          verdict: "provides",
+          signalId: signalIdFor(baseAnalysis(), signals, quote),
+          quote,
+        }),
       ],
-      auditFindings: [],
       detectFindings: [],
     });
 
@@ -194,100 +198,21 @@ describe("applyLlmPass", () => {
       (c) => c.id === "sast",
     )!;
     expect(sast.satisfied).toBe(true);
-    expect(sast.present[0].evidence).toBe("semgrep --config p/golang .");
-  });
-
-  it("sets llmNote on a rescued capability, matching the provenance applyAudit already records for a demotion", async () => {
-    const config = configWith({
-      rescueFindings: [
-        {
-          capabilityId: "sast",
-          quote: "semgrep --config p/golang .",
-          toolId: "semgrep",
-        },
-      ],
-      auditFindings: [],
-      detectFindings: [],
-    });
-
-    const result = await applyLlmPass(
-      baseAnalysis(),
-      signals,
-      { tools, baseline },
-      config,
-    );
-    const sast = result.categories[0].capabilities.find(
-      (c) => c.id === "sast",
-    )!;
-    expect(sast.llmNote).toBeTruthy();
+    expect(sast.present[0]).toMatchObject({ id: "semgrep", evidence: quote });
     expect(sast.llmNote).toContain("semgrep");
   });
 
-  it("drops a rescue finding whose toolId is a real catalogue tool but not among this capability's own recommended tools", async () => {
+  it("demotes a present multi-capability tool on a verified `does-not-provide` verdict, setting llmNote to the given reason", async () => {
+    const quote = "trivy fs . --severity HIGH,CRITICAL";
     const config = configWith({
-      rescueFindings: [
-        {
-          capabilityId: "sast",
-          quote: "semgrep --config p/golang .",
-          // "trivy" is a real catalogue tool (see `tools` above), but it covers `sca`, not
-          // `sast` - it never appears in sast's own `recommended` list, so naming it must not
-          // rescue sast even though it passes the schema's global toolId enum, which spans every
-          // gap's recommendations across the whole analysis.
-          toolId: "trivy",
-        },
-      ],
-      auditFindings: [],
-      detectFindings: [],
-    });
-
-    const result = await applyLlmPass(
-      baseAnalysis(),
-      signals,
-      { tools, baseline },
-      config,
-    );
-    const sast = result.categories[0].capabilities.find(
-      (c) => c.id === "sast",
-    )!;
-    expect(sast.satisfied).toBe(false);
-    expect(sast.present).toHaveLength(0);
-  });
-
-  it("drops a rescue finding whose quote does not appear in the signals", async () => {
-    const config = configWith({
-      rescueFindings: [
-        {
-          capabilityId: "sast",
-          quote: "docker build .",
-          toolId: "semgrep",
-        },
-      ],
-      auditFindings: [],
-      detectFindings: [],
-    });
-
-    const result = await applyLlmPass(
-      baseAnalysis(),
-      signals,
-      { tools, baseline },
-      config,
-    );
-    const sast = result.categories[0].capabilities.find(
-      (c) => c.id === "sast",
-    )!;
-    expect(sast.satisfied).toBe(false);
-  });
-
-  it("flips a satisfied capability to a gap on a verified audit finding", async () => {
-    const config = configWith({
-      rescueFindings: [],
-      auditFindings: [
-        {
-          capabilityId: "sca",
-          toolId: "trivy",
-          quote: "trivy fs . --severity HIGH,CRITICAL",
-          reason: "only runs the filesystem scan",
-        },
+      verdicts: [
+        verdict({
+          pair: "sca:trivy",
+          verdict: "does-not-provide",
+          signalId: signalIdFor(baseAnalysis(), signals, quote),
+          quote,
+          reason: "only scans the filesystem for CVEs, not IaC or images",
+        }),
       ],
       detectFindings: [],
     });
@@ -300,438 +225,513 @@ describe("applyLlmPass", () => {
     );
     const sca = result.categories[0].capabilities.find((c) => c.id === "sca")!;
     expect(sca.satisfied).toBe(false);
-    expect(sca.present).toHaveLength(0);
-    expect(sca.llmNote).toBe("only runs the filesystem scan");
-  });
-
-  it("gives a demoted single-tool capability a real recommendation instead of leaving it empty", async () => {
-    // `gap-report.tsx`'s empty-`recommended` branch renders as "the catalogue has no tool for
-    // this capability" - false here, since trivy was just demoted FROM this exact capability.
-    const config = configWith({
-      rescueFindings: [],
-      auditFindings: [
-        {
-          capabilityId: "sca",
-          toolId: "trivy",
-          quote: "trivy fs . --severity HIGH,CRITICAL",
-          reason: "only runs the filesystem scan",
-        },
-      ],
-      detectFindings: [],
-    });
-
-    const result = await applyLlmPass(
-      baseAnalysis(),
-      signals,
-      { tools, baseline },
-      config,
+    expect(sca.present).toEqual([]);
+    expect(sca.llmNote).toBe(
+      "only scans the filesystem for CVEs, not IaC or images",
     );
-    const sca = result.categories[0].capabilities.find((c) => c.id === "sca")!;
-    expect(sca.satisfied).toBe(false);
     expect(sca.recommended).toEqual([
       { id: "trivy", name: "Trivy", stackLabels: ["Any"] },
     ]);
   });
 
-  it("leaves an audit finding's target alone when its toolId does not match any present tool", async () => {
+  it("changes nothing for cannot-tell, for `provides` on a pair already present, or for `does-not-provide` on a pair that was never present", async () => {
+    const sastQuote = "semgrep --config p/golang .";
+    const scaQuote = "trivy fs . --severity HIGH,CRITICAL";
     const config = configWith({
-      rescueFindings: [],
-      auditFindings: [
-        {
-          capabilityId: "sca",
-          toolId: "no-such-tool",
+      verdicts: [
+        verdict({
+          pair: "sast:semgrep",
+          verdict: "cannot-tell",
+          signalId: signalIdFor(baseAnalysis(), signals, sastQuote),
+          quote: sastQuote,
+        }),
+        verdict({
+          pair: "sca:trivy",
+          verdict: "provides",
+          signalId: signalIdFor(baseAnalysis(), signals, scaQuote),
+          quote: scaQuote,
+        }),
+        verdict({
+          pair: "sast:semgrep",
+          verdict: "does-not-provide",
+          signalId: signalIdFor(baseAnalysis(), signals, sastQuote),
+          quote: sastQuote,
+        }),
+      ],
+      detectFindings: [],
+    });
+
+    const analysis = baseAnalysis();
+    const result = await applyLlmPass(
+      analysis,
+      signals,
+      { tools, baseline },
+      config,
+    );
+    expect(result).toEqual(analysis);
+  });
+
+  it("drops a verdict whose pair is not a candidate this analysis generated", async () => {
+    const quote = "trivy fs . --severity HIGH,CRITICAL";
+    const config = configWith({
+      verdicts: [
+        verdict({
+          pair: "sast:trivy",
+          verdict: "provides",
+          signalId: signalIdFor(baseAnalysis(), signals, quote),
+          quote,
+        }),
+      ],
+      detectFindings: [],
+    });
+
+    const analysis = baseAnalysis();
+    const result = await applyLlmPass(
+      analysis,
+      signals,
+      { tools, baseline },
+      config,
+    );
+    expect(result).toEqual(analysis);
+  });
+
+  it("drops a verdict whose quote does not verify - empty, not found at all, or only found in a different entry than the one cited", async () => {
+    const semgrepId = signalIdFor(
+      baseAnalysis(),
+      signals,
+      "semgrep --config p/golang .",
+    );
+    const config = configWith({
+      verdicts: [
+        verdict({
+          pair: "sast:semgrep",
+          verdict: "provides",
+          signalId: semgrepId,
+          quote: "",
+        }),
+        verdict({
+          pair: "sast:semgrep",
+          verdict: "provides",
+          signalId: semgrepId,
+          quote: "docker build --pull .",
+        }),
+        // Real text, but only present in the trivy entry, not the one cited here (semgrepId).
+        verdict({
+          pair: "sast:semgrep",
+          verdict: "provides",
+          signalId: semgrepId,
           quote: "trivy fs . --severity HIGH,CRITICAL",
-          reason: "n/a",
-        },
+        }),
       ],
       detectFindings: [],
     });
 
+    const analysis = baseAnalysis();
     const result = await applyLlmPass(
-      baseAnalysis(),
+      analysis,
       signals,
       { tools, baseline },
       config,
     );
-    const sca = result.categories[0].capabilities.find((c) => c.id === "sca")!;
-    expect(sca.satisfied).toBe(true);
-    expect(sca.present).toHaveLength(1);
-    expect(sca.llmNote).toBeUndefined();
+    expect(result).toEqual(analysis);
   });
 
-  it("drops an audit finding whose quote is not verbatim present in any signal", async () => {
+  it("drops a verdict whose cited entry does not relate to the pair's tool, even though the quote itself verifies against that entry", async () => {
+    const npmId = signalIdFor(
+      baseAnalysis(),
+      signals,
+      "npm ci --frozen-lockfile",
+    );
     const config = configWith({
-      rescueFindings: [],
-      auditFindings: [
+      verdicts: [
+        verdict({
+          pair: "sast:semgrep",
+          verdict: "provides",
+          signalId: npmId,
+          quote: "npm ci --frozen-lockfile",
+        }),
+      ],
+      detectFindings: [],
+    });
+
+    const analysis = baseAnalysis();
+    const result = await applyLlmPass(
+      analysis,
+      signals,
+      { tools, baseline },
+      config,
+    );
+    expect(result).toEqual(analysis);
+  });
+
+  it("accepts a short quote that equals its cited entry's entire text, but rejects a short quote that is only a fragment of a longer entry", async () => {
+    const shortSignals: CiSignals = {
+      uses: [],
+      shell: [{ text: "npm ci", source: "ci.yml" }],
+    };
+    const wholeId = signalIdFor(baseAnalysis(), shortSignals, "npm ci");
+    const detectConfig = configWith({
+      verdicts: [],
+      detectFindings: [{ kind: "install", signalId: wholeId, quote: "npm ci" }],
+    });
+    const whole = await applyLlmPass(
+      baseAnalysis(),
+      shortSignals,
+      { tools, baseline },
+      detectConfig,
+    );
+    expect(whole.buildSteps).toEqual([
+      { kind: "install", evidence: "npm ci", source: "ci.yml" },
+    ]);
+
+    const longId = signalIdFor(
+      baseAnalysis(),
+      signals,
+      "npm ci --frozen-lockfile",
+    );
+    const fragmentConfig = configWith({
+      verdicts: [],
+      // 14 characters - under the 20-character floor, and only a fragment of the real entry.
+      detectFindings: [
+        { kind: "install", signalId: longId, quote: "npm ci --froze" },
+      ],
+    });
+    const fragment = await applyLlmPass(
+      baseAnalysis(),
+      signals,
+      { tools, baseline },
+      fragmentConfig,
+    );
+    expect(fragment.buildSteps).toEqual([]);
+  });
+});
+
+describe("applyLlmPass: audit skipped on cut context", () => {
+  it("skips a does-not-provide demotion when a different entry related to the same tool was truncated, even though the cited entry itself verifies in full", async () => {
+    const bigRelatedEntry = `trivy ${"x".repeat(4100)}`;
+    const cutSignals: CiSignals = {
+      uses: [],
+      shell: [
+        { text: bigRelatedEntry, source: "a.yml" },
+        { text: "trivy fs . --severity HIGH,CRITICAL", source: "b.yml" },
+      ],
+    };
+    const quote = "trivy fs . --severity HIGH,CRITICAL";
+    const config = configWith({
+      verdicts: [
+        verdict({
+          pair: "sca:trivy",
+          verdict: "does-not-provide",
+          signalId: signalIdFor(baseAnalysis(), cutSignals, quote),
+          quote,
+          reason: "only covers dependencies",
+        }),
+      ],
+      detectFindings: [],
+    });
+
+    const analysis = baseAnalysis();
+    const result = await applyLlmPass(
+      analysis,
+      cutSignals,
+      { tools, baseline },
+      config,
+    );
+    expect(result).toEqual(analysis);
+  });
+});
+
+describe("applyLlmPass: multi-stack and partial-gap rescue", () => {
+  const polyglotTools: AnalysisTool[] = [
+    {
+      id: "trivy",
+      name: "Trivy",
+      capabilities: ["sca", "iac-config", "image-scan"],
+      stacks: ["go"],
+      detect: { commands: ["trivy"] },
+    },
+    {
+      id: "npm-audit",
+      name: "npm audit",
+      capabilities: ["sca"],
+      stacks: ["javascript"],
+      detect: { commands: ["npm audit"] },
+    },
+  ];
+  const polyglotBaseline: Baseline = {
+    categories: ["Security"],
+    capabilities: {
+      sca: { label: "Dependency scanning", category: "Security" },
+    },
+    universal: [],
+    stacks: [
+      {
+        id: "go",
+        label: "Go",
+        markers: [],
+        expects: { sca: { recommended: "trivy", acceptable: [] } },
+      },
+      {
+        id: "javascript",
+        label: "JavaScript",
+        markers: [],
+        expects: { sca: { recommended: "npm-audit", acceptable: [] } },
+      },
+    ],
+  };
+
+  function polyglotAnalysis(
+    present: Analysis["categories"][0]["capabilities"][0]["present"],
+  ): Analysis {
+    const uncoveredGo = !present.some((p) => p.stackLabels.includes("Go"));
+    const uncoveredJs = !present.some((p) =>
+      p.stackLabels.includes("JavaScript"),
+    );
+    return {
+      repo: "korza/example",
+      defaultBranch: "main",
+      stacks: polyglotBaseline.stacks,
+      filesRead: [],
+      categories: [
         {
-          capabilityId: "sca",
-          toolId: "trivy",
-          quote: "this text does not appear anywhere in the CI signals",
-          reason: "n/a",
+          category: "Security",
+          capabilities: [
+            {
+              id: "sca",
+              label: "Dependency scanning",
+              satisfied: !uncoveredGo && !uncoveredJs,
+              present,
+              recommended: [
+                ...(uncoveredGo
+                  ? [{ id: "trivy", name: "Trivy", stackLabels: ["Go"] }]
+                  : []),
+                ...(uncoveredJs
+                  ? [
+                      {
+                        id: "npm-audit",
+                        name: "npm audit",
+                        stackLabels: ["JavaScript"],
+                      },
+                    ]
+                  : []),
+              ],
+            },
+          ],
         },
+      ],
+      satisfiedCount: uncoveredGo || uncoveredJs ? 0 : 1,
+      partialCount: present.length > 0 && (uncoveredGo || uncoveredJs) ? 1 : 0,
+      gapCount: uncoveredGo || uncoveredJs ? 1 : 0,
+      buildSteps: [],
+    };
+  }
+
+  it("rescues only the stack a verdict's tool actually covers, leaving the capability partial with a real recommendation for what's still missing", async () => {
+    const gap = polyglotAnalysis([]);
+    const goSignals: CiSignals = {
+      uses: [],
+      shell: [
+        { text: "trivy fs ./go-service --severity HIGH", source: "ci.yml" },
+      ],
+    };
+    const quote = "trivy fs ./go-service --severity HIGH";
+    const config = configWith({
+      verdicts: [
+        verdict({
+          pair: "sca:trivy",
+          verdict: "provides",
+          signalId: signalIdForWith(polyglotTools, gap, goSignals, quote),
+          quote,
+        }),
       ],
       detectFindings: [],
     });
 
     const result = await applyLlmPass(
-      baseAnalysis(),
-      signals,
-      { tools, baseline },
+      gap,
+      goSignals,
+      { tools: polyglotTools, baseline: polyglotBaseline },
       config,
     );
-    const sca = result.categories[0].capabilities.find((c) => c.id === "sca")!;
-    expect(sca.satisfied).toBe(true);
-    expect(sca.present).toHaveLength(1);
-    expect(sca.llmNote).toBeUndefined();
+    const sca = result.categories[0].capabilities[0];
+    expect(sca.satisfied).toBe(false);
+    expect(sca.present).toEqual([
+      { id: "trivy", name: "Trivy", evidence: quote, stackLabels: ["Go"] },
+    ]);
+    expect(sca.recommended).toEqual([
+      { id: "npm-audit", name: "npm audit", stackLabels: ["JavaScript"] },
+    ]);
   });
 
-  describe("a polyglot monorepo capability satisfied by two tools covering different stacks", () => {
-    const polyglotTools: AnalysisTool[] = [
+  it("satisfies a partial capability once a rescue verdict covers its one remaining uncovered stack", async () => {
+    const partial = polyglotAnalysis([
       {
         id: "trivy",
         name: "Trivy",
-        capabilities: ["sca", "iac-config", "image-scan"],
+        evidence: "runs trivy in ci.yml",
+        stackLabels: ["Go"],
+      },
+    ]);
+    const jsSignals: CiSignals = {
+      uses: [],
+      shell: [{ text: "npm audit --production", source: "ci.yml" }],
+    };
+    const quote = "npm audit --production";
+    const config = configWith({
+      verdicts: [
+        verdict({
+          pair: "sca:npm-audit",
+          verdict: "provides",
+          signalId: signalIdForWith(polyglotTools, partial, jsSignals, quote),
+          quote,
+        }),
+      ],
+      detectFindings: [],
+    });
+
+    const result = await applyLlmPass(
+      partial,
+      jsSignals,
+      { tools: polyglotTools, baseline: polyglotBaseline },
+      config,
+    );
+    const sca = result.categories[0].capabilities[0];
+    expect(sca.satisfied).toBe(true);
+    expect(sca.present.map((p) => p.id).sort()).toEqual(["npm-audit", "trivy"]);
+  });
+
+  it("drops to unsatisfied when a does-not-provide demotion removes the only tool covering one of two stacks", async () => {
+    const satisfied: Analysis = {
+      repo: "korza/example",
+      defaultBranch: "main",
+      stacks: polyglotBaseline.stacks,
+      filesRead: [],
+      categories: [
+        {
+          category: "Security",
+          capabilities: [
+            {
+              id: "sca",
+              label: "Dependency scanning",
+              satisfied: true,
+              present: [
+                {
+                  id: "trivy",
+                  name: "Trivy",
+                  evidence: "runs trivy in ci.yml",
+                  stackLabels: ["Go"],
+                },
+                {
+                  id: "npm-audit",
+                  name: "npm audit",
+                  evidence: "runs npm audit in ci.yml",
+                  stackLabels: ["JavaScript"],
+                },
+              ],
+              recommended: [],
+            },
+          ],
+        },
+      ],
+      satisfiedCount: 1,
+      partialCount: 0,
+      gapCount: 0,
+      buildSteps: [],
+    };
+    // Neither tool here declares more than one capability, so this pair only exists because
+    // `candidatePairsFor` widened audit to also build pairs for a capability-declaring-once tool -
+    // it doesn't: both trivy and npm-audit only declare `sca`, so there is no audit candidate for
+    // this fixture's `sca` at all. Use trivy's real multi-capability set instead.
+    const multiCapTools: AnalysisTool[] = [
+      {
+        id: "trivy",
+        name: "Trivy",
+        capabilities: ["sca", "iac-config"],
         stacks: ["go"],
-        detect: {},
+        detect: { commands: ["trivy"] },
       },
       {
         id: "npm-audit",
         name: "npm audit",
         capabilities: ["sca"],
         stacks: ["javascript"],
-        detect: {},
+        detect: { commands: ["npm audit"] },
       },
     ];
-    const polyglotBaseline: Baseline = {
-      categories: ["Security"],
-      capabilities: {
-        sca: { label: "Dependency scanning", category: "Security" },
-      },
-      universal: [],
-      stacks: [
-        {
-          id: "go",
-          label: "Go",
-          markers: [],
-          expects: { sca: { recommended: "trivy", acceptable: [] } },
-        },
-        {
-          id: "javascript",
-          label: "JavaScript",
-          markers: [],
-          expects: { sca: { recommended: "npm-audit", acceptable: [] } },
-        },
-      ],
-    };
-
-    function polyglotAnalysis(): Analysis {
-      return {
-        repo: "korza/example",
-        defaultBranch: "main",
-        stacks: polyglotBaseline.stacks,
-        filesRead: [],
-        categories: [
-          {
-            category: "Security",
-            capabilities: [
-              {
-                id: "sca",
-                label: "Dependency scanning",
-                satisfied: true,
-                present: [
-                  {
-                    id: "trivy",
-                    name: "Trivy",
-                    evidence: "runs trivy in .github/workflows/ci.yml",
-                    stackLabels: ["Go"],
-                  },
-                  {
-                    id: "npm-audit",
-                    name: "npm audit",
-                    evidence: "runs npm audit in .github/workflows/ci.yml",
-                    stackLabels: ["JavaScript"],
-                  },
-                ],
-                recommended: [],
-              },
-            ],
-          },
-        ],
-        satisfiedCount: 1,
-        partialCount: 0,
-        gapCount: 0,
-        buildSteps: [],
-      };
-    }
-
-    const polyglotSignals: CiSignals = {
+    const sigs: CiSignals = {
       uses: [],
-      shell: [
-        {
-          text: "trivy fs . --severity HIGH,CRITICAL",
-          source: ".github/workflows/ci.yml",
-        },
-      ],
+      shell: [{ text: "trivy fs ./go-service", source: "ci.yml" }],
     };
-
-    it("drops to unsatisfied when demoting the tool that alone covered the other stack, instead of staying satisfied by mere presence", async () => {
-      const config = configWith({
-        rescueFindings: [],
-        auditFindings: [
-          {
-            capabilityId: "sca",
-            toolId: "trivy",
-            quote: "trivy fs . --severity HIGH,CRITICAL",
-            reason: "only scans the Go module, not the whole tree",
-          },
-        ],
-        detectFindings: [],
-      });
-
-      const result = await applyLlmPass(
-        polyglotAnalysis(),
-        polyglotSignals,
-        { tools: polyglotTools, baseline: polyglotBaseline },
-        config,
-      );
-      const sca = result.categories[0].capabilities.find(
-        (c) => c.id === "sca",
-      )!;
-      // npm-audit alone only covers JavaScript - Go is now uncovered, so this must not stay
-      // satisfied just because `remaining.length > 0`.
-      expect(sca.satisfied).toBe(false);
-      expect(sca.present).toEqual([
-        {
-          id: "npm-audit",
-          name: "npm audit",
-          evidence: "runs npm audit in .github/workflows/ci.yml",
-          stackLabels: ["JavaScript"],
-        },
-      ]);
-      expect(sca.recommended).toEqual([
-        { id: "trivy", name: "Trivy", stackLabels: ["Go"] },
-      ]);
-    });
-  });
-
-  describe("a polyglot monorepo capability rescued for only one of its required stacks", () => {
-    const polyglotUnitTestTools: AnalysisTool[] = [
-      {
-        id: "go-test",
-        name: "go test",
-        capabilities: ["unit-tests"],
-        stacks: ["go"],
-        detect: {},
-      },
-      {
-        id: "jest",
-        name: "Jest",
-        capabilities: ["unit-tests"],
-        stacks: ["javascript"],
-        detect: {},
-      },
-    ];
-    const polyglotUnitTestBaseline: Baseline = {
-      categories: ["Testing"],
-      capabilities: {
-        "unit-tests": { label: "Unit tests", category: "Testing" },
-      },
-      universal: [],
-      stacks: [
-        {
-          id: "go",
-          label: "Go",
-          markers: [],
-          expects: { "unit-tests": { recommended: "go-test", acceptable: [] } },
-        },
-        {
-          id: "javascript",
-          label: "JavaScript",
-          markers: [],
-          expects: { "unit-tests": { recommended: "jest", acceptable: [] } },
-        },
-      ],
-    };
-
-    // unit-tests is a full gap - no test runner detected for either language - exactly the
-    // reachable shape the investigation identified: no universal tool exists for this capability,
-    // so a rescue quote can only ever prove coverage for one of the two required stacks.
-    function polyglotUnitTestAnalysis(): Analysis {
-      return {
-        repo: "korza/example",
-        defaultBranch: "main",
-        stacks: polyglotUnitTestBaseline.stacks,
-        filesRead: [],
-        categories: [
-          {
-            category: "Testing",
-            capabilities: [
-              {
-                id: "unit-tests",
-                label: "Unit tests",
-                satisfied: false,
-                present: [],
-                recommended: [
-                  { id: "go-test", name: "go test", stackLabels: ["Go"] },
-                  { id: "jest", name: "Jest", stackLabels: ["JavaScript"] },
-                ],
-              },
-            ],
-          },
-        ],
-        satisfiedCount: 0,
-        partialCount: 0,
-        gapCount: 1,
-        buildSteps: [],
-      };
-    }
-
-    const polyglotUnitTestSignals: CiSignals = {
-      uses: [],
-      shell: [
-        {
-          text: "go test ./... -v -race -count=1",
-          source: ".github/workflows/ci.yml",
-        },
-      ],
-    };
-
-    it("stays unsatisfied, with the other stack's tool still recommended, instead of crediting the whole capability off one stack's quote", async () => {
-      const config = configWith({
-        rescueFindings: [
-          {
-            capabilityId: "unit-tests",
-            quote: "go test ./... -v -race -count=1",
-            toolId: "go-test",
-          },
-        ],
-        auditFindings: [],
-        detectFindings: [],
-      });
-
-      const result = await applyLlmPass(
-        polyglotUnitTestAnalysis(),
-        polyglotUnitTestSignals,
-        { tools: polyglotUnitTestTools, baseline: polyglotUnitTestBaseline },
-        config,
-      );
-      const unitTests = result.categories[0].capabilities.find(
-        (c) => c.id === "unit-tests",
-      )!;
-      // Go is now covered by the rescued go-test finding, but JavaScript still has zero coverage -
-      // this must stay a gap, not silently claim full coverage off one stack's quote.
-      expect(unitTests.satisfied).toBe(false);
-      expect(unitTests.present).toEqual([
-        {
-          id: "go-test",
-          name: "go test",
-          evidence: "go test ./... -v -race -count=1",
-          stackLabels: ["Go"],
-        },
-      ]);
-      expect(unitTests.recommended).toEqual([
-        { id: "jest", name: "Jest", stackLabels: ["JavaScript"] },
-      ]);
-    });
-  });
-
-  it("does not apply a rescue finding to a partial capability", async () => {
-    const analysis = baseAnalysis();
-    analysis.categories[0].capabilities.push({
-      id: "sbom",
-      label: "SBOM",
-      satisfied: false,
-      present: [
-        {
-          id: "syft",
-          name: "Syft",
-          evidence: "runs syft in .github/workflows/ci.yml",
-          stackLabels: [],
-        },
-      ],
-      recommended: [],
-    });
-
+    const quote = "trivy fs ./go-service";
     const config = configWith({
-      rescueFindings: [
-        {
-          capabilityId: "sbom",
-          quote: "trivy fs . --severity HIGH,CRITICAL",
-          toolId: "trivy",
-        },
+      verdicts: [
+        verdict({
+          pair: "sca:trivy",
+          verdict: "does-not-provide",
+          signalId: signalIdForWith(multiCapTools, satisfied, sigs, quote),
+          quote,
+          reason: "only scans the Go module, not the whole tree",
+        }),
       ],
-      auditFindings: [],
       detectFindings: [],
     });
 
     const result = await applyLlmPass(
-      analysis,
-      signals,
-      { tools, baseline },
+      satisfied,
+      sigs,
+      { tools: multiCapTools, baseline: polyglotBaseline },
       config,
     );
-    const sbom = result.categories[0].capabilities.find(
-      (c) => c.id === "sbom",
-    )!;
-    expect(sbom).toEqual(
-      analysis.categories[0].capabilities.find((c) => c.id === "sbom"),
-    );
+    const sca = result.categories[0].capabilities[0];
+    expect(sca.satisfied).toBe(false);
+    expect(sca.present).toEqual([
+      {
+        id: "npm-audit",
+        name: "npm audit",
+        evidence: "runs npm audit in ci.yml",
+        stackLabels: ["JavaScript"],
+      },
+    ]);
+    expect(sca.recommended).toEqual([
+      { id: "trivy", name: "Trivy", stackLabels: ["Go"] },
+    ]);
   });
 
-  it("recomputes satisfiedCount, partialCount, and gapCount after a rescue, an audit demotion, and a detect finding together", async () => {
-    const analysis = baseAnalysis();
-    analysis.categories[0].capabilities.push({
-      id: "sbom",
-      label: "SBOM",
-      satisfied: false,
-      present: [
-        {
-          id: "syft",
-          name: "Syft",
-          evidence: "runs syft in .github/workflows/ci.yml",
-          stackLabels: [],
-        },
-      ],
-      recommended: [],
+  function signalIdForWith(
+    toolsForPrompt: AnalysisTool[],
+    analysis: Analysis,
+    sigs: CiSignals,
+    needle: string,
+  ): string {
+    const { signals: sent } = buildPrompt(analysis, sigs, {
+      tools: toolsForPrompt,
     });
+    const entry = sent.find((e) => e.text.includes(needle));
+    if (!entry) throw new Error(`no signal entry contains "${needle}"`);
+    return entry.id;
+  }
+});
 
+describe("applyLlmPass: detect", () => {
+  it("populates buildSteps from verified install/build/image-build findings, dropping one whose quote does not verify", async () => {
     const config = configWith({
-      rescueFindings: [
+      verdicts: [],
+      detectFindings: [
         {
-          capabilityId: "sast",
-          quote: "semgrep --config p/golang .",
-          toolId: "semgrep",
+          kind: "install",
+          signalId: signalIdFor(
+            baseAnalysis(),
+            signals,
+            "npm ci --frozen-lockfile",
+          ),
+          quote: "npm ci --frozen-lockfile",
+        },
+        {
+          kind: "build",
+          signalId: "s1",
+          quote: "a quote that appears nowhere in the signals",
         },
       ],
-      auditFindings: [
-        {
-          capabilityId: "sca",
-          toolId: "trivy",
-          quote: "trivy fs . --severity HIGH,CRITICAL",
-          reason: "only runs the filesystem scan",
-        },
-      ],
-      detectFindings: [{ kind: "install", quote: "npm ci --frozen-lockfile" }],
-    });
-
-    const result = await applyLlmPass(
-      analysis,
-      signals,
-      { tools, baseline },
-      config,
-    );
-
-    // sast rescued (satisfied), sca demoted to a full gap, sbom untouched (partial).
-    expect(result.satisfiedCount).toBe(1);
-    expect(result.partialCount).toBe(1);
-    expect(result.gapCount).toBe(2);
-  });
-
-  it("populates buildSteps from verified detect findings", async () => {
-    const config = configWith({
-      rescueFindings: [],
-      auditFindings: [],
-      detectFindings: [{ kind: "install", quote: "npm ci --frozen-lockfile" }],
     });
 
     const result = await applyLlmPass(
@@ -749,13 +749,35 @@ describe("applyLlmPass", () => {
     ]);
   });
 
-  it("populates buildSteps with both an install and a build finding when both verify", async () => {
+  it("recomputes satisfiedCount, partialCount, and gapCount after a rescue, an audit demotion, and a detect finding together", async () => {
+    const sastQuote = "semgrep --config p/golang .";
+    const scaQuote = "trivy fs . --severity HIGH,CRITICAL";
     const config = configWith({
-      rescueFindings: [],
-      auditFindings: [],
+      verdicts: [
+        verdict({
+          pair: "sast:semgrep",
+          verdict: "provides",
+          signalId: signalIdFor(baseAnalysis(), signals, sastQuote),
+          quote: sastQuote,
+        }),
+        verdict({
+          pair: "sca:trivy",
+          verdict: "does-not-provide",
+          signalId: signalIdFor(baseAnalysis(), signals, scaQuote),
+          quote: scaQuote,
+          reason: "does not cover the whole tree",
+        }),
+      ],
       detectFindings: [
-        { kind: "install", quote: "npm ci --frozen-lockfile" },
-        { kind: "build", quote: "trivy fs . --severity HIGH,CRITICAL" },
+        {
+          kind: "install",
+          signalId: signalIdFor(
+            baseAnalysis(),
+            signals,
+            "npm ci --frozen-lockfile",
+          ),
+          quote: "npm ci --frozen-lockfile",
+        },
       ],
     });
 
@@ -765,121 +787,65 @@ describe("applyLlmPass", () => {
       { tools, baseline },
       config,
     );
-    expect(result.buildSteps).toHaveLength(2);
-    expect(result.buildSteps).toEqual(
-      expect.arrayContaining([
-        {
-          kind: "install",
-          evidence: "npm ci --frozen-lockfile",
-          source: ".github/workflows/ci.yml",
-        },
-        {
-          kind: "build",
-          evidence: "trivy fs . --severity HIGH,CRITICAL",
-          source: ".github/workflows/ci.yml",
-        },
-      ]),
-    );
+    expect(result.satisfiedCount).toBe(1); // sast rescued
+    expect(result.gapCount).toBe(1); // sca demoted
+    expect(result.partialCount).toBe(0);
+    expect(result.buildSteps).toHaveLength(1);
+  });
+});
+
+describe("applyLlmPass: cache, spend cap, and cost", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
-  it("returns the analysis unchanged and never calls recordSpend when the client throws with no usage data", async () => {
-    const config = configWith({
-      rescueFindings: [],
-      auditFindings: [],
-      detectFindings: [],
-    });
-    vi.mocked(config.client.complete).mockRejectedValue(
-      new Error("network error"),
-    );
-
+  it("skips the call entirely, without touching cache or the spend cap, when disabled or when there is nothing to rescue, audit, or detect", async () => {
+    const config = configWith({ verdicts: [], detectFindings: [] });
+    config.enabled = false;
     const analysis = baseAnalysis();
-    const result = await applyLlmPass(
-      analysis,
-      signals,
-      { tools, baseline },
-      config,
-    );
-    expect(result).toEqual(analysis);
-    // The call threw before any response - including usage - ever existed, so there is nothing
-    // real to bill: a thrown error must never fabricate a cost.
-    expect(config.recordSpend).not.toHaveBeenCalled();
+    expect(
+      await applyLlmPass(analysis, signals, { tools, baseline }, config),
+    ).toEqual(analysis);
+    expect(config.client.complete).not.toHaveBeenCalled();
+
+    const nothingToDo: Analysis = {
+      ...baseAnalysis(),
+      categories: [{ category: "Security", capabilities: [] }],
+    };
+    const config2 = configWith({ verdicts: [], detectFindings: [] });
+    expect(
+      await applyLlmPass(
+        nothingToDo,
+        { uses: [], shell: [] },
+        { tools, baseline },
+        config2,
+      ),
+    ).toEqual(nothingToDo);
+    expect(config2.client.complete).not.toHaveBeenCalled();
+    expect(config2.readCache).not.toHaveBeenCalled();
   });
 
-  it("discards the findings but still records the real cost of a truncated response against the spend cap", async () => {
-    const config = configWith({
-      rescueFindings: [],
-      auditFindings: [],
-      detectFindings: [],
-    });
-    vi.mocked(config.client.complete).mockResolvedValue({
-      ok: false,
-      reason: "truncated",
-      inputTokens: 100,
-      outputTokens: 8000,
-    });
-
-    const analysis = baseAnalysis();
-    const result = await applyLlmPass(
-      analysis,
-      signals,
-      { tools, baseline },
-      config,
-    );
-    // A misconfigured effort level that reliably truncates is billed for every one of those
-    // full-length generations - it must never look free to the daily spend cap just because the
-    // response was unusable.
-    expect(result).toEqual(analysis);
-    expect(config.recordSpend).toHaveBeenCalledTimes(1);
-    expect(config.recordSpend).toHaveBeenCalledWith(
-      (100 / 1_000_000) * 2 + (8000 / 1_000_000) * 10,
-    );
-  });
-
-  it("returns the analysis unchanged and never calls recordSpend when the client reports an error with no usage data", async () => {
-    const config = configWith({
-      rescueFindings: [],
-      auditFindings: [],
-      detectFindings: [],
-    });
-    vi.mocked(config.client.complete).mockResolvedValue({
-      ok: false,
-      reason: "error",
-    });
-
-    const analysis = baseAnalysis();
-    const result = await applyLlmPass(
-      analysis,
-      signals,
-      { tools, baseline },
-      config,
-    );
-    expect(result).toEqual(analysis);
-    expect(config.recordSpend).not.toHaveBeenCalled();
-  });
-
-  it("returns a cached response without calling the client again", async () => {
-    const cached = {
+  it("reads the cache before checking the spend cap, so a capped day still serves a cached response", async () => {
+    const quote = "semgrep --config p/golang .";
+    const config = configWith({ verdicts: [], detectFindings: [] });
+    config.underDailySpendCap = vi.fn().mockResolvedValue(false);
+    config.readCache = vi.fn().mockResolvedValue({
       model: "claude-sonnet-5",
       response: {
-        rescueFindings: [
+        verdicts: [
           {
-            capabilityId: "sast",
-            quote: "semgrep --config p/golang .",
-            toolId: "semgrep",
+            pair: "sast:semgrep",
+            verdict: "provides",
+            signalId: signalIdFor(baseAnalysis(), signals, quote),
+            quote,
+            reason: "",
           },
         ],
-        auditFindings: [],
         detectFindings: [],
       },
       inputTokens: 10,
       outputTokens: 10,
-    };
-    const config = configWith({
-      rescueFindings: [],
-      auditFindings: [],
-      detectFindings: [],
     });
-    config.readCache = vi.fn().mockResolvedValue(cached);
 
     const result = await applyLlmPass(
       baseAnalysis(),
@@ -887,72 +853,32 @@ describe("applyLlmPass", () => {
       { tools, baseline },
       config,
     );
+    expect(config.underDailySpendCap).not.toHaveBeenCalled();
     expect(config.client.complete).not.toHaveBeenCalled();
-    const sast = result.categories[0].capabilities.find(
-      (c) => c.id === "sast",
-    )!;
-    expect(sast.satisfied).toBe(true);
+    expect(
+      result.categories[0].capabilities.find((c) => c.id === "sast")!.satisfied,
+    ).toBe(true);
   });
 
-  it("skips the call entirely and returns the analysis unchanged when disabled", async () => {
-    const config = configWith({
-      rescueFindings: [],
-      auditFindings: [],
-      detectFindings: [],
-    });
-    config.enabled = false;
-
-    const analysis = baseAnalysis();
-    const result = await applyLlmPass(
-      analysis,
-      signals,
-      { tools, baseline },
-      config,
-    );
-    expect(result).toEqual(analysis);
-    expect(config.client.complete).not.toHaveBeenCalled();
-  });
-
-  it("skips the call entirely and returns the analysis unchanged when over the daily spend cap", async () => {
-    const config = configWith({
-      rescueFindings: [],
-      auditFindings: [],
-      detectFindings: [],
-    });
+  it("skips the call on a cache miss when over the daily spend cap", async () => {
+    const config = configWith({ verdicts: [], detectFindings: [] });
     config.underDailySpendCap = vi.fn().mockResolvedValue(false);
-
     const analysis = baseAnalysis();
-    const result = await applyLlmPass(
-      analysis,
-      signals,
-      { tools, baseline },
-      config,
-    );
-    expect(result).toEqual(analysis);
+    expect(
+      await applyLlmPass(analysis, signals, { tools, baseline }, config),
+    ).toEqual(analysis);
     expect(config.client.complete).not.toHaveBeenCalled();
   });
 
-  it("calls recordSpend exactly once with the computed cost on a cache miss, and not at all on a cache hit", async () => {
-    const config = configWith({
-      rescueFindings: [],
-      auditFindings: [],
-      detectFindings: [],
-    });
-
+  it("records the adapter's costUsd on a fresh success, and not at all on a cache hit", async () => {
+    const config = configWith({ verdicts: [], detectFindings: [] }, 0.00071);
     await applyLlmPass(baseAnalysis(), signals, { tools, baseline }, config);
-    expect(config.recordSpend).toHaveBeenCalledTimes(1);
-    expect(config.recordSpend).toHaveBeenCalledWith(
-      (100 / 1_000_000) * 2 + (50 / 1_000_000) * 10,
-    );
+    expect(config.recordSpend).toHaveBeenCalledWith(0.00071);
 
-    const cachedConfig = configWith({
-      rescueFindings: [],
-      auditFindings: [],
-      detectFindings: [],
-    });
+    const cachedConfig = configWith({ verdicts: [], detectFindings: [] });
     cachedConfig.readCache = vi.fn().mockResolvedValue({
       model: "claude-sonnet-5",
-      response: { rescueFindings: [], auditFindings: [], detectFindings: [] },
+      response: { verdicts: [], detectFindings: [] },
       inputTokens: 10,
       outputTokens: 10,
     });
@@ -965,18 +891,40 @@ describe("applyLlmPass", () => {
     expect(cachedConfig.recordSpend).not.toHaveBeenCalled();
   });
 
-  it("calls writeCache once with the model, response, and token counts on a cache miss", async () => {
-    const response: LlmResponse = {
-      rescueFindings: [],
-      auditFindings: [],
-      detectFindings: [],
-    };
-    const config = configWith(response);
+  it("records a failure's costUsd when the adapter reports one (a truncated or timed-out call), and records nothing when it doesn't", async () => {
+    const truncated = configWith({ verdicts: [], detectFindings: [] });
+    truncated.client.complete = vi.fn().mockResolvedValue({
+      ok: false,
+      reason: "truncated",
+      inputTokens: 100,
+      outputTokens: 8000,
+      costUsd: 0.082,
+    });
+    await applyLlmPass(baseAnalysis(), signals, { tools, baseline }, truncated);
+    expect(truncated.recordSpend).toHaveBeenCalledWith(0.082);
 
+    const noCost = configWith({ verdicts: [], detectFindings: [] });
+    noCost.client.complete = vi
+      .fn()
+      .mockResolvedValue({ ok: false, reason: "error" });
+    await applyLlmPass(baseAnalysis(), signals, { tools, baseline }, noCost);
+    expect(noCost.recordSpend).not.toHaveBeenCalled();
+
+    const thrown = configWith({ verdicts: [], detectFindings: [] });
+    thrown.client.complete = vi.fn().mockRejectedValue(new Error("network"));
+    const analysis = baseAnalysis();
+    expect(
+      await applyLlmPass(analysis, signals, { tools, baseline }, thrown),
+    ).toEqual(analysis);
+    expect(thrown.recordSpend).not.toHaveBeenCalled();
+  });
+
+  it("calls writeCache once with the model, response, and token counts on a cache miss", async () => {
+    const response: LlmResponse = { verdicts: [], detectFindings: [] };
+    const config = configWith(response);
     await applyLlmPass(baseAnalysis(), signals, { tools, baseline }, config);
     expect(config.writeCache).toHaveBeenCalledTimes(1);
-    const [key, entry] = vi.mocked(config.writeCache).mock.calls[0];
-    expect(typeof key).toBe("string");
+    const [, entry] = vi.mocked(config.writeCache).mock.calls[0];
     expect(entry).toEqual({
       model: "claude-sonnet-5",
       response,
@@ -985,272 +933,78 @@ describe("applyLlmPass", () => {
     });
   });
 
-  it("returns the analysis unchanged when a fresh response fails shape validation (missing detectFindings)", async () => {
-    const config = configWith({
-      rescueFindings: [],
-      auditFindings: [],
-      detectFindings: [],
-    });
-    vi.mocked(config.client.complete).mockResolvedValue({
-      ok: true,
-      text: JSON.stringify({ rescueFindings: [], auditFindings: [] }),
-      inputTokens: 100,
-      outputTokens: 50,
-    });
-
-    const analysis = baseAnalysis();
-    const result = await applyLlmPass(
-      analysis,
-      signals,
-      { tools, baseline },
-      config,
-    );
-    expect(result).toEqual(analysis);
-  });
-
-  it("returns the analysis unchanged when a fresh response's audit finding is missing quote", async () => {
-    const config = configWith({
-      rescueFindings: [],
-      auditFindings: [],
-      detectFindings: [],
-    });
-    vi.mocked(config.client.complete).mockResolvedValue({
-      ok: true,
-      text: JSON.stringify({
-        rescueFindings: [],
-        auditFindings: [
-          { capabilityId: "sca", toolId: "trivy", reason: "n/a" },
-        ],
-        detectFindings: [],
-      }),
-      inputTokens: 100,
-      outputTokens: 50,
-    });
-
-    const analysis = baseAnalysis();
-    const result = await applyLlmPass(
-      analysis,
-      signals,
-      { tools, baseline },
-      config,
-    );
-    expect(result).toEqual(analysis);
-  });
-
-  it("falls through to a fresh call and applies its findings when a cached response fails shape validation", async () => {
-    const config = configWith({
-      rescueFindings: [
-        {
-          capabilityId: "sast",
-          quote: "semgrep --config p/golang .",
-          toolId: "semgrep",
-        },
-      ],
-      auditFindings: [],
-      detectFindings: [],
-    });
+  it("falls through to a fresh call when a cached response fails shape validation, and treats a response missing detectFindings as invalid", async () => {
+    const config = configWith({ verdicts: [], detectFindings: [] });
     config.readCache = vi.fn().mockResolvedValue({
       model: "claude-sonnet-5",
-      response: null,
-      inputTokens: 10,
-      outputTokens: 10,
+      response: { verdicts: "not an array", detectFindings: [] },
+      inputTokens: 1,
+      outputTokens: 1,
     });
-
-    const result = await applyLlmPass(
-      baseAnalysis(),
-      signals,
-      { tools, baseline },
-      config,
-    );
+    await applyLlmPass(baseAnalysis(), signals, { tools, baseline }, config);
     expect(config.client.complete).toHaveBeenCalledTimes(1);
-    const sast = result.categories[0].capabilities.find(
-      (c) => c.id === "sast",
-    )!;
-    expect(sast.satisfied).toBe(true);
-    expect(sast.present[0].evidence).toBe("semgrep --config p/golang .");
-  });
 
-  it("drops a detect finding with a kind outside the closed union without discarding a valid finding in the same response, on both the cached and fresh paths", async () => {
-    const freshConfig = configWith({
-      rescueFindings: [],
-      auditFindings: [],
-      detectFindings: [],
-    });
-    vi.mocked(freshConfig.client.complete).mockResolvedValue({
+    const badShape = configWith({ verdicts: [], detectFindings: [] });
+    badShape.client.complete = vi.fn().mockResolvedValue({
       ok: true,
-      text: JSON.stringify({
-        rescueFindings: [
-          {
-            capabilityId: "sast",
-            quote: "semgrep --config p/golang .",
-            toolId: "semgrep",
-          },
-        ],
-        auditFindings: [],
-        detectFindings: [
-          { kind: "totally-bogus-kind", quote: "npm ci --frozen-lockfile" },
-        ],
-      }),
+      text: JSON.stringify({ verdicts: [] }),
       inputTokens: 100,
       outputTokens: 50,
+      costUsd: 0.001,
     });
-    const freshResult = await applyLlmPass(
-      baseAnalysis(),
-      signals,
-      { tools, baseline },
-      freshConfig,
-    );
-    expect(
-      freshResult.categories[0].capabilities.find((c) => c.id === "sast")
-        ?.satisfied,
-    ).toBe(true);
-    expect(freshResult.buildSteps).toEqual([]);
-
-    const cachedConfig = configWith({
-      rescueFindings: [],
-      auditFindings: [],
-      detectFindings: [],
-    });
-    cachedConfig.readCache = vi.fn().mockResolvedValue({
-      model: "claude-sonnet-5",
-      response: {
-        rescueFindings: [
-          {
-            capabilityId: "sast",
-            quote: "semgrep --config p/golang .",
-            toolId: "semgrep",
-          },
-        ],
-        auditFindings: [],
-        detectFindings: [
-          { kind: "totally-bogus-kind", quote: "npm ci --frozen-lockfile" },
-        ],
-      },
-      inputTokens: 10,
-      outputTokens: 10,
-    });
-    const cachedResult = await applyLlmPass(
-      baseAnalysis(),
-      signals,
-      { tools, baseline },
-      cachedConfig,
-    );
-    // Shape-valid overall (all three fields are arrays), so the cached row is used as-is, with
-    // only the individually malformed detect finding filtered out - unlike the pre-fix behavior,
-    // where this cached row would fail whole-response validation and force a fresh call.
-    expect(cachedConfig.client.complete).not.toHaveBeenCalled();
-    expect(
-      cachedResult.categories[0].capabilities.find((c) => c.id === "sast")
-        ?.satisfied,
-    ).toBe(true);
-    expect(cachedResult.buildSteps).toEqual([]);
-  });
-
-  it("warns once per distinct unrecognized model id, not once per process", async () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    const configA = configWith({
-      rescueFindings: [],
-      auditFindings: [],
-      detectFindings: [],
-    });
-    configA.model = "totally-unknown-model-a";
-    await applyLlmPass(baseAnalysis(), signals, { tools, baseline }, configA);
-
-    const configB = configWith({
-      rescueFindings: [],
-      auditFindings: [],
-      detectFindings: [],
-    });
-    configB.model = "totally-unknown-model-b";
-    await applyLlmPass(baseAnalysis(), signals, { tools, baseline }, configB);
-
-    const pricingWarnings = warnSpy.mock.calls.filter((call) =>
-      String(call[0]).includes("unrecognized model"),
-    );
-    expect(pricingWarnings).toHaveLength(2);
-    expect(String(pricingWarnings[0][0])).toContain("totally-unknown-model-a");
-    expect(String(pricingWarnings[1][0])).toContain("totally-unknown-model-b");
-  });
-
-  it("returns the analysis unchanged and never calls the client when underDailySpendCap rejects", async () => {
-    const config = configWith({
-      rescueFindings: [],
-      auditFindings: [],
-      detectFindings: [],
-    });
-    config.underDailySpendCap = vi
-      .fn()
-      .mockRejectedValue(new Error("spend-cap store unavailable"));
-
     const analysis = baseAnalysis();
-    const result = await applyLlmPass(
-      analysis,
-      signals,
-      { tools, baseline },
-      config,
-    );
-    expect(result).toEqual(analysis);
-    expect(config.client.complete).not.toHaveBeenCalled();
+    expect(
+      await applyLlmPass(analysis, signals, { tools, baseline }, badShape),
+    ).toEqual(analysis);
   });
 
-  it("returns the analysis unchanged and never calls the client when readCache rejects", async () => {
+  it("drops a malformed item from a findings array without discarding a well-formed one sitting beside it", async () => {
+    const quote = "semgrep --config p/golang .";
     const config = configWith({
-      rescueFindings: [],
-      auditFindings: [],
-      detectFindings: [],
-    });
-    config.readCache = vi.fn().mockRejectedValue(new Error("db down"));
-
-    const analysis = baseAnalysis();
-    const result = await applyLlmPass(
-      analysis,
-      signals,
-      { tools, baseline },
-      config,
-    );
-    expect(result).toEqual(analysis);
-    expect(config.client.complete).not.toHaveBeenCalled();
-  });
-
-  it("still applies a good finding when recordSpend rejects", async () => {
-    const config = configWith({
-      rescueFindings: [
+      verdicts: [
+        verdict({
+          pair: "sast:semgrep",
+          verdict: "provides",
+          signalId: signalIdFor(baseAnalysis(), signals, quote),
+          quote,
+        }),
+        // Missing `reason` - malformed, must be dropped without affecting the entry above.
         {
-          capabilityId: "sast",
-          quote: "semgrep --config p/golang .",
-          toolId: "semgrep",
-        },
+          pair: "sast:semgrep",
+          verdict: "provides",
+          signalId: "s1",
+          quote,
+        } as unknown as LlmVerdict,
       ],
-      auditFindings: [],
       detectFindings: [],
     });
+
+    const result = await applyLlmPass(
+      baseAnalysis(),
+      signals,
+      { tools, baseline },
+      config,
+    );
+    expect(
+      result.categories[0].capabilities.find((c) => c.id === "sast")!.satisfied,
+    ).toBe(true);
+  });
+
+  it("still applies a good finding when recordSpend or writeCache rejects", async () => {
+    const quote = "semgrep --config p/golang .";
+    const response: LlmResponse = {
+      verdicts: [
+        verdict({
+          pair: "sast:semgrep",
+          verdict: "provides",
+          signalId: signalIdFor(baseAnalysis(), signals, quote),
+          quote,
+        }),
+      ],
+      detectFindings: [],
+    };
+    const config = configWith(response);
     config.recordSpend = vi.fn().mockRejectedValue(new Error("db down"));
-
-    const result = await applyLlmPass(
-      baseAnalysis(),
-      signals,
-      { tools, baseline },
-      config,
-    );
-    const sast = result.categories[0].capabilities.find(
-      (c) => c.id === "sast",
-    )!;
-    expect(sast.satisfied).toBe(true);
-  });
-
-  it("still applies a good finding when writeCache rejects", async () => {
-    const config = configWith({
-      rescueFindings: [
-        {
-          capabilityId: "sast",
-          quote: "semgrep --config p/golang .",
-          toolId: "semgrep",
-        },
-      ],
-      auditFindings: [],
-      detectFindings: [],
-    });
     config.writeCache = vi.fn().mockRejectedValue(new Error("db down"));
 
     const result = await applyLlmPass(
@@ -1259,353 +1013,104 @@ describe("applyLlmPass", () => {
       { tools, baseline },
       config,
     );
-    const sast = result.categories[0].capabilities.find(
-      (c) => c.id === "sast",
-    )!;
-    expect(sast.satisfied).toBe(true);
+    expect(
+      result.categories[0].capabilities.find((c) => c.id === "sast")!.satisfied,
+    ).toBe(true);
   });
 
-  it("rescues the real korza-cli/semgrep case: a bare --config invocation", async () => {
-    const realSignals: CiSignals = {
-      uses: [],
-      shell: [
-        {
-          text: "semgrep --config p/golang --config p/security-audit --error .",
-          source: ".github/workflows/ci.yml",
-        },
-      ],
-    };
-    const config = configWith({
-      rescueFindings: [
-        {
-          capabilityId: "sast",
-          quote:
-            "semgrep --config p/golang --config p/security-audit --error .",
-          toolId: "semgrep",
-        },
-      ],
-      auditFindings: [],
-      detectFindings: [],
+  it("treats an empty candidate/signal response as trivially valid rather than a validation error", async () => {
+    const config = configWith({ verdicts: [], detectFindings: [] });
+    config.client.complete = vi.fn().mockResolvedValue({
+      ok: true,
+      text: JSON.stringify({ verdicts: [{}], detectFindings: [{}] }),
+      inputTokens: 10,
+      outputTokens: 10,
+      costUsd: 0.0001,
     });
-
-    const result = await applyLlmPass(
-      baseAnalysis(),
-      realSignals,
-      { tools, baseline },
-      config,
-    );
-    const sast = result.categories[0].capabilities.find(
-      (c) => c.id === "sast",
-    )!;
-    expect(sast.satisfied).toBe(true);
-    expect(sast.present[0].evidence).toBe(
-      "semgrep --config p/golang --config p/security-audit --error .",
-    );
+    const analysis = baseAnalysis();
+    expect(
+      await applyLlmPass(analysis, signals, { tools, baseline }, config),
+    ).toEqual(analysis);
   });
+});
 
-  it("keeps a quote near the start of a raw-file-fallback entry verifiable, but drops one buried past the truncation cap", async () => {
-    // `detect.ts`'s YAML-parse-failure fallback pushes an entire file's content into one shell
-    // entry, and `capSignals` truncates each entry to its first 400 characters before
-    // it reaches the model. A quote near the start of a 4,000-character file still verifies; one
-    // 2,000 characters in does not - a real, known tradeoff this test documents rather than hides.
-    const paddingLine = "# this line is here only to pad the file out\n";
-    const hugeFile = `${paddingLine.repeat(200)}npm ci --frozen-lockfile\n${paddingLine.repeat(200)}`;
-    const messySignals: CiSignals = {
-      uses: [],
-      shell: [{ text: hugeFile, source: "ci.yml" }],
-    };
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    const config = configWith({
-      rescueFindings: [],
-      auditFindings: [],
-      detectFindings: [
-        {
-          kind: "install",
-          quote: "# this line is here only to pad the file out",
-        },
-        { kind: "build", quote: "npm ci --frozen-lockfile" },
-      ],
-    });
-
-    const result = await applyLlmPass(
-      baseAnalysis(),
-      messySignals,
-      { tools, baseline },
-      config,
-    );
-
-    expect(result.buildSteps).toEqual([
-      {
-        kind: "install",
-        evidence: "# this line is here only to pad the file out",
-        source: "ci.yml",
-      },
-    ]);
-    const droppedWarnings = warnSpy.mock.calls.filter(
-      (call) =>
-        String(call[0]).includes("dropped a detect finding") &&
-        (call[1] as { kind?: string } | undefined)?.kind === "build",
-    );
-    expect(droppedWarnings).toHaveLength(1);
-  });
-
-  it("applies a valid rescue finding even when the response's auditFindings array also contains a malformed entry", async () => {
-    const config = configWith({
-      rescueFindings: [
-        {
-          capabilityId: "sast",
-          quote: "semgrep --config p/golang .",
-          toolId: "semgrep",
-        },
-      ],
-      // Missing `quote` - a real model could never emit this against the schema, but a
-      // malformed entry anywhere in this array must never poison the valid rescue finding above.
-      auditFindings: [
-        {
-          capabilityId: "sca",
-          toolId: "trivy",
-          reason: "n/a",
-        } as unknown as AuditFinding,
-      ],
-      detectFindings: [],
-    });
-
-    const result = await applyLlmPass(
-      baseAnalysis(),
-      signals,
-      { tools, baseline },
-      config,
-    );
-    const sast = result.categories[0].capabilities.find(
-      (c) => c.id === "sast",
-    )!;
-    expect(sast.satisfied).toBe(true);
-    const sca = result.categories[0].capabilities.find((c) => c.id === "sca")!;
-    expect(sca.satisfied).toBe(true);
-    expect(sca.present).toHaveLength(1);
-  });
-
-  it("keeps a well-formed finding sitting beside a malformed one in the SAME findings array", async () => {
-    // Per-entry, not per-array: dropping the whole `rescueFindings` array because one entry in it
-    // is malformed would discard a paid-for, verified finding for a reason that has nothing to do
-    // with it.
-    const config = configWith({
-      rescueFindings: [
-        { capabilityId: "sast", toolId: "semgrep" } as unknown as RescueFinding,
-        {
-          capabilityId: "sast",
-          quote: "semgrep --config p/golang .",
-          toolId: "semgrep",
-        },
-      ],
-      auditFindings: [
-        { capabilityId: "sca", quote: "trivy fs ." } as unknown as AuditFinding,
-        {
-          capabilityId: "sca",
-          quote: "trivy fs . --severity HIGH,CRITICAL",
-          toolId: "trivy",
-          reason: "Only scans the filesystem, not dependencies.",
-        },
-      ],
-      detectFindings: [],
-    });
-
-    const result = await applyLlmPass(
-      baseAnalysis(),
-      signals,
-      { tools, baseline },
-      config,
-    );
-
-    const sast = result.categories[0].capabilities.find(
-      (c) => c.id === "sast",
-    )!;
-    expect(sast.satisfied).toBe(true);
-    expect(sast.present.map((t) => t.name)).toEqual(["Semgrep"]);
-
-    const sca = result.categories[0].capabilities.find((c) => c.id === "sca")!;
-    expect(sca.present).toHaveLength(0);
-    expect(sca.llmNote).toBe("Only scans the filesystem, not dependencies.");
-  });
-
-  describe("a catalogue with no audit candidates (empty toolIds)", () => {
-    const singleCapTools: AnalysisTool[] = [
-      {
-        id: "eslint",
-        name: "ESLint",
-        capabilities: ["lint"],
-        stacks: ["any"],
-        detect: {},
-      },
-    ];
-    const singleCapBaseline: Baseline = {
-      categories: ["Linting"],
-      capabilities: {
-        lint: { label: "Linting", category: "Linting" },
-        sast: { label: "SAST", category: "Linting" },
-      },
-      // A universal capability, so a gap exists (and hasCandidates is true) without adding a
-      // second stack - keeps this fixture focused on the empty-toolIds audit path alone.
-      universal: ["sast"],
-      stacks: [
-        {
-          id: "any",
-          label: "Any",
-          markers: [],
-          expects: { lint: { recommended: "eslint", acceptable: [] } },
-        },
-      ],
-    };
-
-    function singleCapAnalysis(): Analysis {
-      return {
-        repo: "korza/example",
-        defaultBranch: "main",
-        stacks: [
-          {
-            id: "any",
-            label: "Any",
-            markers: [],
-            expects: singleCapBaseline.stacks[0].expects,
-          },
-        ],
-        filesRead: [],
-        categories: [
-          {
-            category: "Linting",
-            capabilities: [
-              {
-                id: "lint",
-                label: "Linting",
-                satisfied: true,
-                present: [
-                  {
-                    id: "eslint",
-                    name: "ESLint",
-                    evidence: "runs eslint in .github/workflows/ci.yml",
-                    stackLabels: [],
-                  },
-                ],
-                recommended: [],
-              },
-              {
-                id: "sast",
-                label: "SAST",
-                satisfied: false,
-                present: [],
-                recommended: [],
-              },
-            ],
-          },
-        ],
-        satisfiedCount: 1,
-        partialCount: 0,
-        gapCount: 1,
-        buildSteps: [],
-      };
-    }
-
-    it("treats auditFindings:[{}] as trivially droppable rather than a validation error, and does not crash", async () => {
-      // eslint has only one capability, so it is never an audit candidate - buildPrompt's
-      // toolIds ends up empty, and schema.ts's empty-toolIds workaround forces the model to emit
-      // exactly this `{}` shape for every audit finding.
-      const config = configWith({
-        rescueFindings: [],
-        auditFindings: [{} as unknown as AuditFinding],
-        detectFindings: [],
-      });
-
-      const analysis = singleCapAnalysis();
-      const result = await applyLlmPass(
-        analysis,
-        signals,
-        { tools: singleCapTools, baseline: singleCapBaseline },
-        config,
-      );
-      const lint = result.categories[0].capabilities.find(
-        (c) => c.id === "lint",
-      )!;
-      expect(lint.satisfied).toBe(true);
-      expect(lint.present).toHaveLength(1);
-    });
-  });
-
-  it("returns the analysis unchanged, without calling the client or checking the spend cap, when there is nothing to rescue or audit", async () => {
-    const noCandidateTools: AnalysisTool[] = [
-      {
-        id: "eslint",
-        name: "ESLint",
-        capabilities: ["lint"],
-        stacks: ["any"],
-        detect: {},
-      },
-    ];
-    const noCandidateBaseline: Baseline = {
-      categories: ["Linting"],
-      capabilities: { lint: { label: "Linting", category: "Linting" } },
-      universal: [],
-      stacks: [
-        {
-          id: "any",
-          label: "Any",
-          markers: [],
-          expects: { lint: { recommended: "eslint", acceptable: [] } },
-        },
-      ],
-    };
+describe("applyLlmPass: against the real catalogue shape", () => {
+  it("rescues sast via semgrep (a plain tool) on a bare invocation, even though the java baseline's own recommended tool is the ci-base-checks bundle", async () => {
+    const realBaseline = getBaseline();
+    const javaStack = realBaseline.stacks.find((s) => s.id === "java")!;
     const analysis: Analysis = {
-      repo: "korza/example",
+      repo: "korza/gap-analysis-demo",
       defaultBranch: "main",
-      stacks: [
-        {
-          id: "any",
-          label: "Any",
-          markers: [],
-          expects: noCandidateBaseline.stacks[0].expects,
-        },
-      ],
+      stacks: [javaStack],
       filesRead: [],
       categories: [
         {
-          category: "Linting",
+          category: "Security",
           capabilities: [
             {
-              id: "lint",
-              label: "Linting",
-              satisfied: true,
-              present: [
-                {
-                  id: "eslint",
-                  name: "ESLint",
-                  evidence: "runs eslint in .github/workflows/ci.yml",
-                  stackLabels: [],
-                },
-              ],
+              id: "sast",
+              label: "SAST",
+              satisfied: false,
+              present: [],
               recommended: [],
             },
           ],
         },
       ],
-      satisfiedCount: 1,
+      satisfiedCount: 0,
       partialCount: 0,
-      gapCount: 0,
+      gapCount: 1,
       buildSteps: [],
     };
+    const realSignals: CiSignals = {
+      uses: [],
+      shell: [
+        {
+          text: "semgrep --config p/java --error gateway-runtime/src",
+          source: ".github/workflows/ci.yml",
+        },
+      ],
+    };
+    const quote = "semgrep --config p/java --error gateway-runtime/src";
     const config = configWith({
-      rescueFindings: [],
-      auditFindings: [],
+      verdicts: [
+        verdict({
+          pair: "sast:semgrep",
+          verdict: "provides",
+          signalId: signalIdForWithTools(
+            realTools,
+            analysis,
+            realSignals,
+            quote,
+          ),
+          quote,
+        }),
+      ],
       detectFindings: [],
     });
 
     const result = await applyLlmPass(
       analysis,
-      signals,
-      { tools: noCandidateTools, baseline: noCandidateBaseline },
+      realSignals,
+      { tools: realTools, baseline: realBaseline },
       config,
     );
-    expect(result).toEqual(analysis);
-    expect(config.client.complete).not.toHaveBeenCalled();
-    expect(config.underDailySpendCap).not.toHaveBeenCalled();
+    const sast = result.categories[0].capabilities[0];
+    expect(sast.satisfied).toBe(true);
+    expect(sast.present[0]).toMatchObject({ id: "semgrep", evidence: quote });
   });
+
+  function signalIdForWithTools(
+    toolsForPrompt: AnalysisTool[],
+    analysis: Analysis,
+    sigs: CiSignals,
+    needle: string,
+  ): string {
+    const { signals: sent } = buildPrompt(analysis, sigs, {
+      tools: toolsForPrompt,
+    });
+    const entry = sent.find((e) => e.text.includes(needle));
+    if (!entry) throw new Error(`no signal entry contains "${needle}"`);
+    return entry.id;
+  }
 });

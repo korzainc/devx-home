@@ -130,7 +130,7 @@ export function filesToRead(paths: string[], baseline: Baseline): string[] {
 
 export type CiSignals = {
   /** Action refs from `uses:`, with the `@ref` suffix stripped. */
-  uses: { value: string; source: string }[];
+  uses: { value: string; source: string; inputs?: Record<string, string> }[];
   /** Shell from `run:`, GitLab `script:` and package.json scripts. */
   shell: { text: string; source: string }[];
 };
@@ -143,6 +143,21 @@ const shellKeys = new Set([
   "commands",
 ]);
 
+/** Stringifies a step's `with:` block for the LLM prompt. Scalar values only - a list or nested
+ * map under `with:` isn't a real action input and nothing here knows how to render it. */
+function stepInputs(withBlock: unknown): Record<string, string> | undefined {
+  if (!withBlock || typeof withBlock !== "object" || Array.isArray(withBlock))
+    return undefined;
+  const entries = Object.entries(withBlock as Record<string, unknown>).filter(
+    (entry): entry is [string, string | number | boolean] =>
+      ["string", "number", "boolean"].includes(typeof entry[1]),
+  );
+  if (entries.length === 0) return undefined;
+  return Object.fromEntries(
+    entries.map(([key, value]) => [key, String(value)]),
+  );
+}
+
 function walkCi(node: unknown, source: string, into: CiSignals) {
   if (Array.isArray(node)) {
     for (const item of node) walkCi(item, source, into);
@@ -150,15 +165,22 @@ function walkCi(node: unknown, source: string, into: CiSignals) {
   }
   if (!node || typeof node !== "object") return;
 
-  for (const [key, value] of Object.entries(node)) {
+  const step = node as Record<string, unknown>;
+  for (const [key, value] of Object.entries(step)) {
     if (key === "uses" && typeof value === "string") {
-      into.uses.push({ value: value.split("@")[0], source });
+      into.uses.push({
+        value: value.split("@")[0],
+        source,
+        inputs: stepInputs(step.with),
+      });
     } else if (shellKeys.has(key)) {
       const lines = Array.isArray(value) ? value : [value];
       for (const line of lines) {
         if (typeof line === "string") into.shell.push({ text: line, source });
       }
-    } else {
+    } else if (key !== "with") {
+      // `with:` only ever carries inputs for the sibling `uses:` step handled above; walking into
+      // it separately would risk matching one of its input values as its own shell/uses signal.
       walkCi(value, source, into);
     }
   }

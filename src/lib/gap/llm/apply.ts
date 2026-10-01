@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
 import { evaluateCapability } from "../analyze";
 import { buildStepKinds } from "../types";
-import { warnOnce } from "../warn-once";
 import type {
   Analysis,
   AnalysisTool,
@@ -11,86 +10,39 @@ import type {
   PresentTool,
 } from "../types";
 import type { CiSignals } from "../detect";
-import { buildPrompt, responseSchema } from "./schema";
-import { escapeSignalText, normalize, verifyQuote } from "./guard";
+import { buildPrompt, responseSchema, toRawEntries } from "./schema";
+import type { CandidatePair } from "./schema";
+import { escapeSignalText, relatesToTool, verifyQuote } from "./guard";
+import type { IndexedSignal } from "./guard";
 import type {
-  AuditFinding,
   CachedLlmResponse,
   DetectFinding,
   LlmConfig,
   LlmResponse,
-  RescueFinding,
+  LlmVerdict,
+  Verdict,
 } from "./types";
 
-const promptVersion = "v1";
+const promptVersion = "v2";
 
-type ModelPricing = { inputUsdPerMillion: number; outputUsdPerMillion: number };
-
-// Per-million-token pricing, keyed by model id. Re-check against Anthropic's published rates
-// before shipping: pricing changes independently of this codebase.
-//
-// Recorded against these constants regardless of which LlmClient adapter ran the call. The
-// OpenRouter adapter is local-development-only, where an approximate dollar figure is enough
-// since it never faces the daily spend cap in production.
-const modelPricing: Record<string, ModelPricing> = {
-  "claude-sonnet-5": { inputUsdPerMillion: 2, outputUsdPerMillion: 10 },
-};
-
-function costOf(
-  model: string,
-  inputTokens: number,
-  outputTokens: number,
-): number {
-  const pricing = pricingFor(model);
-  return (
-    (inputTokens / 1_000_000) * pricing.inputUsdPerMillion +
-    (outputTokens / 1_000_000) * pricing.outputUsdPerMillion
-  );
-}
-
-/** Never lets a bookkeeping failure discard an already-paid-for response - the caller has already
- * decided the cost is real (a success, or a failure that still reports real token usage); this
- * only shields that decision from a store outage. */
-async function recordSpendSafely(
-  config: LlmConfig,
-  cost: number,
-  repo: string,
-): Promise<void> {
-  try {
-    await config.recordSpend(cost);
-  } catch (error) {
-    console.error(
-      "gap LLM pass: recordSpend failed, continuing with the response anyway",
-      { repo, cost, error },
-    );
-  }
-}
-
-/** Falls back to Sonnet 5 pricing for a `config.model` this table doesn't recognize, so spend
- * against an unpriced model is still recorded (approximately) rather than crashing - but only
- * after a one-time warning per distinct unrecognized model id, so a second misconfigured id
- * doesn't mispriced spend with zero signal just because a different id already warned. */
-function pricingFor(model: string): ModelPricing {
-  const pricing = modelPricing[model];
-  if (pricing) return pricing;
-  warnOnce(
-    `unknown-model:${model}`,
-    `gap LLM pass: unrecognized model "${model}", falling back to claude-sonnet-5 pricing - spend may be recorded inaccurately`,
-  );
-  return modelPricing["claude-sonnet-5"];
-}
-
-/** Content-addressed: same model, same prompt version, same effort, same exact system and user
- * prompt text always maps to the same key, so an unchanged repo hits cache and an edited prompt
- * (system or user) or changed effort level never serves a stale answer. */
+/** Content-addressed: same model, same prompt version, same effort, same response schema, and
+ * same exact system and user prompt text always maps to the same key, so an unchanged repo hits
+ * cache and an edited prompt (system, user, or the schema's own shape) or changed effort level
+ * never serves a stale answer. */
 export function cacheKey(
   model: string,
   effort: string,
   system: string,
   user: string,
+  schema: Record<string, unknown>,
 ): string {
+  const schemaHash = createHash("sha256")
+    .update(JSON.stringify(schema))
+    .digest("hex");
   return createHash("sha256")
-    .update(`${model}:${effort}:${promptVersion}:${system}:${user}`)
+    .update(
+      `${model}:${effort}:${promptVersion}:${schemaHash}:${system}:${user}`,
+    )
     .digest("hex");
 }
 
@@ -98,24 +50,22 @@ function isString(value: unknown): value is string {
   return typeof value === "string";
 }
 
-function isValidRescueFinding(item: unknown): item is RescueFinding {
-  if (!item || typeof item !== "object") return false;
-  const finding = item as Record<string, unknown>;
-  return (
-    isString(finding.capabilityId) &&
-    isString(finding.quote) &&
-    isString(finding.toolId)
-  );
-}
+const verdictValues = new Set<Verdict>([
+  "provides",
+  "does-not-provide",
+  "cannot-tell",
+]);
 
-function isValidAuditFinding(item: unknown): item is AuditFinding {
+function isValidVerdict(item: unknown): item is LlmVerdict {
   if (!item || typeof item !== "object") return false;
-  const finding = item as Record<string, unknown>;
+  const verdict = item as Record<string, unknown>;
   return (
-    isString(finding.capabilityId) &&
-    isString(finding.quote) &&
-    isString(finding.toolId) &&
-    isString(finding.reason)
+    isString(verdict.pair) &&
+    isString(verdict.signalId) &&
+    isString(verdict.quote) &&
+    isString(verdict.reason) &&
+    isString(verdict.verdict) &&
+    verdictValues.has(verdict.verdict as Verdict)
   );
 }
 
@@ -130,27 +80,28 @@ function isValidDetectKind(value: unknown): value is DetectFinding["kind"] {
 function isValidDetectFinding(item: unknown): item is DetectFinding {
   if (!item || typeof item !== "object") return false;
   const finding = item as Record<string, unknown>;
-  return isValidDetectKind(finding.kind) && isString(finding.quote);
+  return (
+    isValidDetectKind(finding.kind) &&
+    isString(finding.signalId) &&
+    isString(finding.quote)
+  );
 }
 
-/** Guards the three application loops below from a response that isn't even the right shape: a
- * missing findings array, or a `null` body. It does not guarantee every individual finding is
- * well-formed; `filterFindings` below drops entries that aren't, so one bad finding never
- * discards the good ones next to it.
+/** Guards the two application loops below from a response that isn't even the right shape: a
+ * missing findings array, or a `null` body. It does not guarantee every individual item is
+ * well-formed; `filterFindings` below drops entries that aren't, so one bad item never discards
+ * the good ones next to it.
  *
  * Runs on both the cache-hit and fresh-parse paths: a stale or corrupted cache row is exactly as
  * untrusted as a fresh parse. */
 function isValidLlmResponseShape(value: unknown): value is {
-  rescueFindings: unknown[];
-  auditFindings: unknown[];
+  verdicts: unknown[];
   detectFindings: unknown[];
 } {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
   return (
-    Array.isArray(candidate.rescueFindings) &&
-    Array.isArray(candidate.auditFindings) &&
-    Array.isArray(candidate.detectFindings)
+    Array.isArray(candidate.verdicts) && Array.isArray(candidate.detectFindings)
   );
 }
 
@@ -177,72 +128,32 @@ function filterFindings<T>(
 }
 
 /** Validates and filters a raw (shape-checked but not item-checked) response into one whose
- * findings arrays are individually well-formed.
+ * arrays are individually well-formed.
  *
- * `toolIds`/`rescueToolIds` empty is special-cased: `responseSchema` (schema.ts) then forces the
- * model to emit `{}` for that finding kind, since there's no non-empty `toolId` enum to constrain
- * it with, so that shape is expected there, not a validation error worth logging. */
+ * An empty `candidates` or `signalIds` list is special-cased: `responseSchema` then forces the
+ * model to emit `{}` items for the arrays that depend on it, since there's no non-empty enum to
+ * constrain them with, so that shape is expected there, not a validation error worth logging. */
 function filterResponse(
-  raw: {
-    rescueFindings: unknown[];
-    auditFindings: unknown[];
-    detectFindings: unknown[];
-  },
-  toolIds: string[],
-  rescueToolIds: string[],
+  raw: { verdicts: unknown[]; detectFindings: unknown[] },
+  candidates: CandidatePair[],
+  signalIds: string[],
   repo: string,
 ): LlmResponse {
+  const noSignals = signalIds.length === 0;
   return {
-    rescueFindings:
-      rescueToolIds.length === 0
+    verdicts:
+      candidates.length === 0 || noSignals
         ? []
-        : filterFindings(
-            raw.rescueFindings,
-            isValidRescueFinding,
-            repo,
-            "rescue finding",
-          ),
-    auditFindings:
-      toolIds.length === 0
-        ? []
-        : filterFindings(
-            raw.auditFindings,
-            isValidAuditFinding,
-            repo,
-            "audit finding",
-          ),
-    detectFindings: filterFindings(
-      raw.detectFindings,
-      isValidDetectFinding,
-      repo,
-      "detect finding",
-    ),
+        : filterFindings(raw.verdicts, isValidVerdict, repo, "verdict"),
+    detectFindings: noSignals
+      ? []
+      : filterFindings(
+          raw.detectFindings,
+          isValidDetectFinding,
+          repo,
+          "detect finding",
+        ),
   };
-}
-
-/** Escaped the same way `formatSignals` (schema.ts) escapes signal text before it goes into the
- * prompt, so a quote the model copies verbatim (⏎ markers and all) still matches here. */
-function sourcesOf(signals: CiSignals): string[] {
-  return [
-    ...signals.uses.map((e) => escapeSignalText(e.value)),
-    ...signals.shell.map((e) => escapeSignalText(e.text)),
-  ];
-}
-
-/** Whitespace-normalized, matching `verifyQuote` exactly - a quote that only verified because
- * normalization collapsed some whitespace must still resolve to a real source entry here, rather
- * than falling through to the `"unknown"` sentinel. Escaped the same way `sourcesOf` is, so a
- * quote containing a ⏎ marker still resolves to the entry it came from. */
-function sourceFileFor(signals: CiSignals, quote: string): string {
-  const needle = normalize(quote);
-  const hit =
-    signals.shell.find((e) =>
-      normalize(escapeSignalText(e.text)).includes(needle),
-    ) ??
-    signals.uses.find((e) =>
-      normalize(escapeSignalText(e.value)).includes(needle),
-    );
-  return hit?.source ?? "unknown";
 }
 
 function findCapability(
@@ -256,6 +167,22 @@ function findCapability(
   return undefined;
 }
 
+function updateCapability(
+  analysis: Analysis,
+  capabilityId: string,
+  update: (capability: CapabilityReport) => CapabilityReport,
+): Analysis {
+  return {
+    ...analysis,
+    categories: analysis.categories.map((category) => ({
+      ...category,
+      capabilities: category.capabilities.map((capability) =>
+        capability.id === capabilityId ? update(capability) : capability,
+      ),
+    })),
+  };
+}
+
 /** Context `applyAudit` and `applyRescue` both need to re-evaluate a capability's coverage the
  * same way `analyze()` does, after `present` changes. */
 type EvaluationContext = {
@@ -264,26 +191,27 @@ type EvaluationContext = {
   stacks: BaselineStack[];
 };
 
-/** Adds the real catalogue `tool` (already verified by the caller to be in this capability's own
- * `recommended` list) to `present`, then re-runs `evaluateCapability`, the same stack-coverage
- * rule `analyze()` and `applyAudit` use, against the augmented list instead of crediting the
- * whole capability outright.
+function owningStacksFor(stacks: BaselineStack[], id: string): BaselineStack[] {
+  return stacks.filter((stack) => stack.expects[id] !== undefined);
+}
+
+/** Adds `tool` (already re-verified by the caller via `toolCreditsCapability`) to `present`, then
+ * re-runs `evaluateCapability`, the same stack-coverage rule `analyze()` and `applyAudit` use,
+ * against the augmented list instead of crediting the whole capability outright.
  *
- * A capability owned by more than one stack correctly stays unsatisfied when this tool covers
- * only one of them, with a real `recommended` list naming what's still missing. */
+ * A capability owned by more than one stack correctly stays unsatisfied when this tool covers only
+ * one of them, with a real `recommended` list naming what's still missing. */
 function applyRescue(
   capability: CapabilityReport,
-  finding: RescueFinding,
+  verdict: LlmVerdict,
   tool: AnalysisTool,
   context: EvaluationContext,
 ): CapabilityReport {
-  const owningStacks = context.stacks.filter(
-    (stack) => stack.expects[capability.id] !== undefined,
-  );
+  const owningStacks = owningStacksFor(context.stacks, capability.id);
   const present: PresentTool = {
     id: tool.id,
     name: tool.name,
-    evidence: finding.quote,
+    evidence: verdict.quote,
     stackLabels: owningStacks
       .filter((stack) => tool.stacks.includes(stack.id))
       .map((stack) => stack.label),
@@ -304,31 +232,22 @@ function applyRescue(
     present: augmented,
     satisfied,
     recommended,
-    llmNote: `Rescued by the LLM pass: found ${tool.name} via "${finding.quote}"`,
+    llmNote: `Rescued by the LLM pass: found ${tool.name} via "${verdict.quote}"`,
   };
 }
 
-/** After removing a demoted tool from `present`, re-runs `evaluateCapability`, the same
+/** After removing the demoted tool from `present`, re-runs `evaluateCapability`, the same
  * stack-coverage rule `analyze()` uses, against the reduced list. A capability held up by two
  * tools across different stacks drops to unsatisfied when only one remains, and `recommended`
- * names what's now missing.
- *
- * Matches by `finding.toolId`, never by the quote against `PresentTool.evidence`: `evidenceFor`
- * in `detect.ts` only ever synthesizes a label, never raw CI text, so the two never match. A
- * `toolId` not present on this capability leaves it untouched, with no `llmNote`. */
+ * names what's now missing. */
 function applyAudit(
   capability: CapabilityReport,
-  finding: AuditFinding,
+  verdict: LlmVerdict,
+  toolId: string,
   context: EvaluationContext,
 ): CapabilityReport {
-  const remaining = capability.present.filter(
-    (tool) => tool.id !== finding.toolId,
-  );
-  if (remaining.length === capability.present.length) return capability;
-
-  const owningStacks = context.stacks.filter(
-    (stack) => stack.expects[capability.id] !== undefined,
-  );
+  const remaining = capability.present.filter((tool) => tool.id !== toolId);
+  const owningStacks = owningStacksFor(context.stacks, capability.id);
   const stackIds = new Set(context.stacks.map((stack) => stack.id));
   const { satisfied, recommended } = evaluateCapability(
     capability.id,
@@ -344,7 +263,7 @@ function applyAudit(
     present: remaining,
     satisfied,
     recommended,
-    llmNote: finding.reason,
+    llmNote: verdict.reason,
   };
 }
 
@@ -361,6 +280,42 @@ function recomputeCounts(
   };
 }
 
+/** Never lets a bookkeeping failure discard an already-paid-for response - the caller has already
+ * decided the cost is real (a success, or a failure that still reports a real cost); this only
+ * shields that decision from a store outage. */
+async function recordSpendSafely(
+  config: LlmConfig,
+  cost: number,
+  repo: string,
+): Promise<void> {
+  try {
+    await config.recordSpend(cost);
+  } catch (error) {
+    console.error(
+      "gap LLM pass: recordSpend failed, continuing with the response anyway",
+      { repo, cost, error },
+    );
+  }
+}
+
+/** True when every signal entry related to `tool` that was sent to the model arrived in full - a
+ * truncated or wholly omitted entry can hide the exact argument that would have changed the
+ * verdict (section 1 of the fix design), so an audit demotion is skipped rather than trusted on
+ * cut context. Compares by the entry's own escaped text, not by id, so it works the same whether
+ * the entry survived budgeting or not. */
+function relatedEntriesUncut(
+  tool: AnalysisTool,
+  signals: CiSignals,
+  sent: IndexedSignal[],
+): boolean {
+  const uncut = new Set(
+    sent.filter((entry) => !entry.truncated).map((entry) => entry.text),
+  );
+  return toRawEntries(signals)
+    .filter((entry) => relatesToTool(entry.text, tool))
+    .every((entry) => uncut.has(escapeSignalText(entry.text)));
+}
+
 export async function applyLlmPass(
   analysis: Analysis,
   signals: CiSignals,
@@ -372,34 +327,23 @@ export async function applyLlmPass(
   const {
     system,
     user,
-    capabilityIds,
-    toolIds,
-    rescueToolIds,
-    cappedSignals,
+    candidates,
+    signals: sentSignals,
     hasCandidates,
   } = buildPrompt(analysis, signals, catalogue);
 
-  // Nothing to rescue and nothing to audit: a call here cannot produce anything useful, so it is
-  // never worth the cost (or the risk) of making it. Checked before the spend cap too, since
-  // there is no reason to spend a cache/DB round trip on a call that would be a no-op regardless.
+  // Nothing to rescue, nothing to audit, and no raw signal text at all for detect to search: a
+  // call here cannot produce anything useful, so it is never worth the cost (or the risk) of
+  // making it. Checked before the spend cap too, since there is no reason to spend a cache/DB
+  // round trip on a call that would be a no-op regardless.
   if (!hasCandidates) return analysis;
 
-  try {
-    if (!(await config.underDailySpendCap())) return analysis;
-  } catch (error) {
-    console.warn(
-      "gap LLM pass: underDailySpendCap check failed, treating as over the cap",
-      { repo: analysis.repo, error },
-    );
-    return analysis;
-  }
+  const signalIds = sentSignals.map((entry) => entry.id);
+  const schema = responseSchema(candidates, signalIds);
+  const key = cacheKey(config.model, config.effort, system, user, schema);
 
-  const sources = sourcesOf(cappedSignals);
-  const key = cacheKey(config.model, config.effort, system, user);
-
-  // Isolated from the fetch/parse try below so a cache backend failure logs distinctly from a
-  // real API-call failure - the two are different failure domains and shouldn't read the same in
-  // the logs.
+  // Read before the spend cap check, so a capped day still serves cached answers - a cache hit
+  // costs nothing and was already paid for when it was written.
   let cached: CachedLlmResponse | null;
   try {
     cached = await config.readCache(key);
@@ -415,8 +359,8 @@ export async function applyLlmPass(
   if (cached && isValidLlmResponseShape(cached.response)) {
     response = filterResponse(
       cached.response,
-      toolIds,
-      rescueToolIds,
+      candidates,
+      signalIds,
       analysis.repo,
     );
   } else {
@@ -430,38 +374,35 @@ export async function applyLlmPass(
         { repo: analysis.repo },
       );
     }
+
+    try {
+      if (!(await config.underDailySpendCap())) return analysis;
+    } catch (error) {
+      console.warn(
+        "gap LLM pass: underDailySpendCap check failed, treating as over the cap",
+        { repo: analysis.repo, error },
+      );
+      return analysis;
+    }
+
     try {
       const result = await config.client.complete({
         system,
         user,
-        schema: responseSchema(capabilityIds, toolIds, rescueToolIds),
+        schema,
         effort: config.effort,
       });
 
       if (!result.ok) {
         console.warn(
           `gap LLM pass: call did not succeed (${result.reason}), discarding`,
-          {
-            repo: analysis.repo,
-          },
+          { repo: analysis.repo },
         );
-        // A truncated response (or any failure that still returned usage data) was fully paid
-        // for: Anthropic bills for tokens generated up to `max_tokens` regardless of whether the
-        // response was usable. Skipping this would let a misconfigured effort level that reliably
-        // truncates run up unbounded, unrecorded spend invisible to the daily cap.
-        //
-        // `inputTokens`/`outputTokens` are omitted only when the call threw before usage data
-        // existed, where there is genuinely nothing to record.
-        if (
-          result.inputTokens !== undefined &&
-          result.outputTokens !== undefined
-        ) {
-          const cost = costOf(
-            config.model,
-            result.inputTokens,
-            result.outputTokens,
-          );
-          await recordSpendSafely(config, cost, analysis.repo);
+        // `costUsd` is set whenever the adapter has a real or conservatively-estimated cost to
+        // report (a truncated response, or an Anthropic connection timeout); omitted only when
+        // the call never incurred one.
+        if (result.costUsd !== undefined) {
+          await recordSpendSafely(config, result.costUsd, analysis.repo);
         }
         return analysis;
       }
@@ -469,11 +410,7 @@ export async function applyLlmPass(
       // Recorded immediately: the call is billed the moment it returns, regardless of whether
       // recording, parsing, or caching succeeds afterward - a bookkeeping failure here must never
       // discard an already-paid-for response.
-      await recordSpendSafely(
-        config,
-        costOf(config.model, result.inputTokens, result.outputTokens),
-        analysis.repo,
-      );
+      await recordSpendSafely(config, result.costUsd, analysis.repo);
 
       const parsed = JSON.parse(result.text) as unknown;
       if (!isValidLlmResponseShape(parsed)) {
@@ -483,7 +420,7 @@ export async function applyLlmPass(
         );
         return analysis;
       }
-      response = filterResponse(parsed, toolIds, rescueToolIds, analysis.repo);
+      response = filterResponse(parsed, candidates, signalIds, analysis.repo);
 
       try {
         await config.writeCache(key, {
@@ -501,10 +438,7 @@ export async function applyLlmPass(
     } catch (error) {
       console.error(
         "gap LLM pass: call failed, falling back to the deterministic analysis",
-        {
-          repo: analysis.repo,
-          error,
-        },
+        { repo: analysis.repo, error },
       );
       return analysis;
     }
@@ -516,115 +450,88 @@ export async function applyLlmPass(
     toolById: new Map(catalogue.tools.map((tool) => [tool.id, tool])),
     stacks: analysis.stacks,
   };
+  const candidateByPair = new Map(
+    candidates.map((candidate) => [candidate.pair, candidate]),
+  );
+  const signalById = new Map(sentSignals.map((entry) => [entry.id, entry]));
 
-  for (const finding of response.rescueFindings) {
-    if (!verifyQuote(finding.quote, sources)) {
+  for (const verdict of response.verdicts) {
+    // Re-verified against the candidates this analysis actually generated, never trusted from the
+    // schema's enum alone - defense in depth against a provider that ignores the enum constraint.
+    const candidate = candidateByPair.get(verdict.pair);
+    if (!candidate) {
       console.warn(
-        "gap LLM pass: dropped a rescue finding, quote did not verify",
+        "gap LLM pass: dropped a verdict, pair is not a candidate for this analysis",
         {
           repo: analysis.repo,
-          capabilityId: finding.capabilityId,
-          toolId: finding.toolId,
+          pair: verdict.pair,
         },
       );
       continue;
     }
-    const capability = findCapability(result, finding.capabilityId);
-    if (!capability || capability.present.length !== 0) {
-      console.warn(
-        "gap LLM pass: dropped a rescue finding, capability is not an open gap",
-        {
-          repo: analysis.repo,
-          capabilityId: finding.capabilityId,
-          toolId: finding.toolId,
-        },
-      );
-      continue;
-    }
-    // Re-verified here, not just trusted from the schema's global enum - the schema's `toolId`
-    // enum spans every gap's recommendations across this whole analysis, so it alone cannot rule
-    // out a tool that is real but recommended for a *different* capability, exactly the same
-    // defensive shape `applyAudit` already applies to its own `toolId`.
-    const recommendedTool = capability.recommended.find(
-      (candidate) => candidate.id === finding.toolId,
+    const capability = findCapability(result, candidate.capabilityId);
+    const tool = evalContext.toolById.get(candidate.toolId);
+    if (!capability || !tool) continue;
+
+    const isPresent = capability.present.some(
+      (present) => present.id === tool.id,
     );
-    const tool = recommendedTool && evalContext.toolById.get(finding.toolId);
-    if (!recommendedTool || !tool) {
-      console.warn(
-        "gap LLM pass: dropped a rescue finding, toolId did not match a recommended tool for this capability",
-        {
-          repo: analysis.repo,
-          capabilityId: finding.capabilityId,
-          toolId: finding.toolId,
-        },
-      );
-      continue;
-    }
-    result = {
-      ...result,
-      categories: result.categories.map((category) => ({
-        ...category,
-        capabilities: category.capabilities.map((c) =>
-          c.id === finding.capabilityId && c.present.length === 0
-            ? applyRescue(c, finding, tool, evalContext)
-            : c,
-        ),
-      })),
-    };
-  }
+    const action =
+      verdict.verdict === "provides" && !isPresent && !capability.satisfied
+        ? "rescue"
+        : verdict.verdict === "does-not-provide" && isPresent
+          ? "audit"
+          : null;
+    // Every other combination - cannot-tell, confirming an already-credited pair, or denying a
+    // pair that was never credited - changes nothing. Not a drop worth logging: it's the expected
+    // shape of most verdicts in a response.
+    if (!action) continue;
 
-  for (const finding of response.auditFindings) {
-    if (!verifyQuote(finding.quote, sources)) {
+    const entry = signalById.get(verdict.signalId);
+    if (!entry || !verifyQuote(verdict.quote, entry.text)) {
       console.warn(
-        "gap LLM pass: dropped an audit finding, quote did not verify",
+        `gap LLM pass: dropped a ${action} verdict, quote did not verify`,
         {
           repo: analysis.repo,
-          capabilityId: finding.capabilityId,
-          toolId: finding.toolId,
+          pair: verdict.pair,
         },
       );
       continue;
     }
-    const capability = findCapability(result, finding.capabilityId);
-    if (!capability || !capability.satisfied) {
+    if (!relatesToTool(entry.text, tool)) {
       console.warn(
-        "gap LLM pass: dropped an audit finding, capability is not currently satisfied",
-        {
-          repo: analysis.repo,
-          capabilityId: finding.capabilityId,
-          toolId: finding.toolId,
-        },
+        `gap LLM pass: dropped a ${action} verdict, cited entry does not relate to the tool`,
+        { repo: analysis.repo, pair: verdict.pair },
       );
       continue;
     }
-    if (!capability.present.some((tool) => tool.id === finding.toolId)) {
-      console.warn(
-        "gap LLM pass: dropped an audit finding, toolId did not match any present tool",
-        {
-          repo: analysis.repo,
-          capabilityId: finding.capabilityId,
-          toolId: finding.toolId,
-        },
+
+    if (action === "rescue") {
+      // No re-check that `tool` actually credits `capability` here: `candidate` came from
+      // `candidateByPair`, which only ever holds pairs `candidatePairsFor` built with exactly that
+      // check (schema.ts), and a tool's catalogue capabilities/stacks never change mid-analysis -
+      // unlike `isPresent`/`satisfied` above, there is no mutable state this could go stale against.
+      result = updateCapability(result, capability.id, (c) =>
+        applyRescue(c, verdict, tool, evalContext),
       );
-      continue;
+    } else {
+      if (!relatedEntriesUncut(tool, signals, sentSignals)) {
+        console.warn(
+          "gap LLM pass: skipped an audit verdict, a related signal entry was truncated or omitted",
+          { repo: analysis.repo, pair: verdict.pair },
+        );
+        continue;
+      }
+      result = updateCapability(result, capability.id, (c) =>
+        applyAudit(c, verdict, tool.id, evalContext),
+      );
     }
-    result = {
-      ...result,
-      categories: result.categories.map((category) => ({
-        ...category,
-        capabilities: category.capabilities.map((capability) =>
-          capability.id === finding.capabilityId && capability.satisfied
-            ? applyAudit(capability, finding, evalContext)
-            : capability,
-        ),
-      })),
-    };
   }
 
   const buildSteps = response.detectFindings
-    .filter((finding: DetectFinding) => {
-      const verified = verifyQuote(finding.quote, sources);
-      if (!verified) {
+    .map((finding) => {
+      const entry = signalById.get(finding.signalId);
+      if (!entry || !verifyQuote(finding.quote, entry.text)) {
         console.warn(
           "gap LLM pass: dropped a detect finding, quote did not verify",
           {
@@ -632,14 +539,15 @@ export async function applyLlmPass(
             kind: finding.kind,
           },
         );
+        return null;
       }
-      return verified;
+      return {
+        kind: finding.kind,
+        evidence: finding.quote,
+        source: entry.rawSource,
+      };
     })
-    .map((finding) => ({
-      kind: finding.kind,
-      evidence: finding.quote,
-      source: sourceFileFor(cappedSignals, finding.quote),
-    }));
+    .filter((step): step is NonNullable<typeof step> => step !== null);
 
   return { ...result, buildSteps, ...recomputeCounts(result) };
 }

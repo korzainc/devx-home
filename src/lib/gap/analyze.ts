@@ -54,6 +54,28 @@ function toRecommendedTools(
 }
 
 /**
+ * Whether `tool` counts toward capability `id` given `owningStacks` - the rule `analyze()` uses to
+ * decide which detected tools land in `present`, reused as-is by the LLM pass (`schema.ts`,
+ * `apply.ts`) to find every catalogue entry that could rescue or re-credit a capability, so the
+ * two can never recognize a tool differently.
+ *
+ * `owningStacks` empty means a universal capability: any tool declaring the capability counts,
+ * with no stack to match against.
+ */
+export function toolCreditsCapability(
+  tool: AnalysisTool,
+  id: string,
+  owningStacks: BaselineStack[],
+): boolean {
+  if (!tool.capabilities.includes(id)) return false;
+  return (
+    owningStacks.length === 0 ||
+    tool.stacks.includes("any") ||
+    owningStacks.some((stack) => tool.stacks.includes(stack.id))
+  );
+}
+
+/**
  * Whether `present` covers every stack in `owningStacks` for capability `id`, and what to
  * recommend when it doesn't. `owningStacks` empty means a universal capability (only reachable
  * via `baseline.universal`, which the real catalogue always leaves empty), checked by presence
@@ -164,11 +186,8 @@ export function analyze(
     // Keeping it in `present` would misreport a fully-missing capability as partially covered.
     const rawPresent = detected.filter((entry) => {
       const tool = toolById.get(entry.id);
-      if (!tool?.capabilities.includes(id)) return false;
       return (
-        owningStacks.length === 0 ||
-        tool.stacks.includes("any") ||
-        owningStacks.some((stack) => tool.stacks.includes(stack.id))
+        tool !== undefined && toolCreditsCapability(tool, id, owningStacks)
       );
     });
     const present: PresentTool[] = rawPresent.map((entry) => {

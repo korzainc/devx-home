@@ -15,21 +15,31 @@ export type LlmCompletionRequest = {
 };
 
 export type LlmCompletionResult =
-  | { ok: true; text: string; inputTokens: number; outputTokens: number }
+  | {
+      ok: true;
+      text: string;
+      inputTokens: number;
+      outputTokens: number;
+      costUsd: number;
+    }
   | {
       ok: false;
       reason: "truncated" | "error";
       // Anthropic bills for a truncated response's tokens exactly as it would a successful one,
       // so a failure with real usage data still has a real cost to record against the daily spend
-      // cap. Omitted only when the call itself never returned usage data (e.g. it threw before any
-      // response existed) - there, no real cost is knowable, and none was necessarily incurred.
+      // cap. `costUsd` is omitted only when the call never returned usage data and the adapter has
+      // no reason to believe a real cost was incurred (e.g. it was rejected before any inference
+      // ran) - a connection timeout is the one exception, where the adapter itself estimates a
+      // conservative cost since real inference may already be running server-side.
       inputTokens?: number;
       outputTokens?: number;
+      costUsd?: number;
     };
 
 /** The only surface `apply.ts` calls. Implemented once for the real Anthropic API and once for
  * OpenRouter, so swapping providers for local testing is a config change, never a code change in
- * the orchestrator. */
+ * the orchestrator. Each adapter computes its own `costUsd`, so `apply.ts` never needs to know a
+ * model's price or which provider served a response. */
 export type LlmClient = {
   complete(request: LlmCompletionRequest): Promise<LlmCompletionResult>;
 };
@@ -59,29 +69,32 @@ export type CachedLlmResponse = {
   outputTokens: number;
 };
 
-export type LlmFinding = {
-  capabilityId: string;
+export type Verdict = "provides" | "does-not-provide" | "cannot-tell";
+
+/** One answer to one candidate pair (section 2 of the fix design): does the cited CI config
+ * actually run `pair`'s tool in a way that provides `pair`'s capability. `pair` is a closed enum
+ * of `"<capabilityId>:<toolId>"` strings built per analysis, so the model can never mismatch a
+ * capability and a tool the way two separately-enumerated fields could.
+ *
+ * `signalId` names exactly one entry from the numbered signal block; `quote` must be verbatim text
+ * from that entry only (`guard.ts`'s `verifyQuote`). What a verdict actually does depends on the
+ * pair's *current* state at apply time (`apply.ts`), never on which direction produced the
+ * candidate - a model that confirms existing credit, or denies a gap, changes nothing either way. */
+export type LlmVerdict = {
+  pair: string;
+  signalId: string;
   quote: string;
+  reason: string;
+  verdict: Verdict;
 };
 
-/** `toolId` must belong to this finding's own capability's `recommended` list (re-verified in
- * `apply.ts`, not just trusted from the schema's enum) - a rescue finding can only confirm a
- * specific catalogue tool the analysis already considered relevant, never name a new one. */
-export type RescueFinding = LlmFinding & { toolId: string };
-/** `toolId` decides which present tool a finding demotes, never the quote. `evidenceFor` in
- * `detect.ts` only ever produces synthesized strings (`"uses: x/y"`, `"runs z in f"`), never raw
- * CI text, so a raw quote can never match `PresentTool.evidence`.
- *
- * The quote still must `verifyQuote` against the real raw signals, proving the model isn't
- * inventing evidence; `toolId` is what says which tool it's about. */
-export type AuditFinding = LlmFinding & { toolId: string; reason: string };
 export type DetectFinding = {
   kind: BuildStepKind;
+  signalId: string;
   quote: string;
 };
 
 export type LlmResponse = {
-  rescueFindings: RescueFinding[];
-  auditFindings: AuditFinding[];
+  verdicts: LlmVerdict[];
   detectFindings: DetectFinding[];
 };
