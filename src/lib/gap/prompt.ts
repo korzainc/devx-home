@@ -243,12 +243,6 @@ function formatBundleDetails(
 One container image: \`${cell(github.image)}\`
 
 ${sections.join("\n\n")}
-
-Each capability above also has its own standalone command (e.g. \`ci-run secrets --repo-root
-"$PWD" --base-sha "$BASE_SHA" --head-sha "$HEAD_SHA"\` on its own instead of the full recipe
-above). If only some of this bundle's capabilities are actually missing in this repo, wire up
-only those, reusing the same shared login/checkout setup above. See the full working recipe
-link in "Requires" for a real example either way.
 `;
 }
 

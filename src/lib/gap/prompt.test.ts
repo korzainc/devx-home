@@ -421,7 +421,10 @@ describe("buildFixPrompt bundle details", () => {
         image: "example.test/ci-common:9.9.9",
         steps: [{ name: "scan", args: "ci-run scan --out /out" }],
         env: { CI: { value: "true", note: "Marks a real CI run." } },
-        requires: ["Full working recipe: https://example.test/README.md"],
+        requires: [
+          "Full working recipe: https://example.test/README.md",
+          "Naming two or more leaves together in one ci-run call runs only those, parallel where eligible, gated the same way ci-run scan gates its fixed five.",
+        ],
       },
     },
   };
@@ -449,8 +452,7 @@ describe("buildFixPrompt bundle details", () => {
     expect(prompt).toContain(
       "Full working recipe: https://example.test/README.md",
     );
-    expect(prompt).toContain("its own standalone command");
-    expect(prompt).toContain('--base-sha "$BASE_SHA" --head-sha "$HEAD_SHA"');
+    expect(prompt).toContain("parallel where eligible");
   });
 
   it("falls back to the raw id when a wrapped tool or capability isn't in the lookup", () => {
