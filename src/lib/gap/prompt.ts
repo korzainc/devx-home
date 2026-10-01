@@ -171,8 +171,7 @@ function isRealEnvEntry(
 
 // Inlines a bundle's real recipe (steps, env, requires) and its wraps mapping, so a gap
 // names the actual command to run, not just a link an anonymous agent often can't reach
-// (the tool page needs login). Also notes that a subset of the steps can cover a subset
-// of the capabilities, since the baseline always names the whole bundle even for a partial gap.
+// (the tool page needs login).
 //
 // Validates each piece before use, not just that the top-level fields exist: this repo's
 // synced catalogue can drift out of shape between syncs, and a malformed row here should be

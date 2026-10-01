@@ -453,6 +453,7 @@ describe("buildFixPrompt bundle details", () => {
       "Full working recipe: https://example.test/README.md",
     );
     expect(prompt).toContain("parallel where eligible");
+    expect(prompt).not.toContain("its own standalone command");
   });
 
   it("falls back to the raw id when a wrapped tool or capability isn't in the lookup", () => {
