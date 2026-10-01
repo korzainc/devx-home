@@ -234,17 +234,13 @@ describe("applyLlmPass: verdict direction", () => {
     ]);
   });
 
-  it("changes nothing for cannot-tell, for `provides` on a pair already present, or for `does-not-provide` on a pair that was never present", async () => {
+  it("changes nothing for an omitted pair, for `provides` on a pair already present, or for `does-not-provide` on a pair that was never present", async () => {
     const sastQuote = "semgrep --config p/golang .";
     const scaQuote = "trivy fs . --severity HIGH,CRITICAL";
     const config = configWith({
+      // A pair with no evidence is just absent from `verdicts` - there's nothing to assert for
+      // that case beyond `result` matching `analysis` below, same as the two no-op verdicts here.
       verdicts: [
-        verdict({
-          pair: "sast:semgrep",
-          verdict: "cannot-tell",
-          signalId: signalIdFor(baseAnalysis(), signals, sastQuote),
-          quote: sastQuote,
-        }),
         verdict({
           pair: "sca:trivy",
           verdict: "provides",

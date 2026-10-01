@@ -23,7 +23,7 @@ import type {
   Verdict,
 } from "./types";
 
-const promptVersion = "v2";
+const promptVersion = "v3";
 
 /** Content-addressed: same model, same prompt version, same effort, same response schema, and
  * same exact system and user prompt text always maps to the same key, so an unchanged repo hits
@@ -50,11 +50,7 @@ function isString(value: unknown): value is string {
   return typeof value === "string";
 }
 
-const verdictValues = new Set<Verdict>([
-  "provides",
-  "does-not-provide",
-  "cannot-tell",
-]);
+const verdictValues = new Set<Verdict>(["provides", "does-not-provide"]);
 
 function isValidVerdict(item: unknown): item is LlmVerdict {
   if (!item || typeof item !== "object") return false;
@@ -482,15 +478,16 @@ export async function applyLlmPass(
         : verdict.verdict === "does-not-provide" && isPresent
           ? "audit"
           : null;
-    // Every other combination - cannot-tell, confirming an already-credited pair, or denying a
-    // pair that was never credited - changes nothing. Not a drop worth logging: it's the expected
-    // shape of most verdicts in a response.
+    // Every other combination - confirming an already-credited pair, or denying a pair that was
+    // never credited - changes nothing. Not a drop worth logging: it's the expected shape of most
+    // verdicts in a response.
     if (!action) continue;
+    const article = action === "audit" ? "an" : "a";
 
     const entry = signalById.get(verdict.signalId);
     if (!entry || !verifyQuote(verdict.quote, entry.text)) {
       console.warn(
-        `gap LLM pass: dropped a ${action} verdict, quote did not verify`,
+        `gap LLM pass: dropped ${article} ${action} verdict, quote did not verify`,
         {
           repo: analysis.repo,
           pair: verdict.pair,
@@ -500,7 +497,7 @@ export async function applyLlmPass(
     }
     if (!relatesToTool(entry.text, tool)) {
       console.warn(
-        `gap LLM pass: dropped a ${action} verdict, cited entry does not relate to the tool`,
+        `gap LLM pass: dropped ${article} ${action} verdict, cited entry does not relate to the tool`,
         { repo: analysis.repo, pair: verdict.pair },
       );
       continue;

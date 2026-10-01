@@ -69,12 +69,13 @@ export type CachedLlmResponse = {
   outputTokens: number;
 };
 
-export type Verdict = "provides" | "does-not-provide" | "cannot-tell";
+export type Verdict = "provides" | "does-not-provide";
 
-/** One answer to one candidate pair (section 2 of the fix design): does the cited CI config
- * actually run `pair`'s tool in a way that provides `pair`'s capability. `pair` is a closed enum
- * of `"<capabilityId>:<toolId>"` strings built per analysis, so the model can never mismatch a
- * capability and a tool the way two separately-enumerated fields could.
+/** One answer to one candidate pair: does the cited CI config actually run `pair`'s tool in a way
+ * that provides `pair`'s capability. `pair` is a closed enum of `"<capabilityId>:<toolId>"`
+ * strings built per analysis, so the model can never mismatch a capability and a tool the way two
+ * separately-enumerated fields could. A pair with no clear evidence is omitted from the response
+ * entirely rather than given a verdict - omission changes nothing.
  *
  * `signalId` names exactly one entry from the numbered signal block; `quote` must be verbatim text
  * from that entry only (`guard.ts`'s `verifyQuote`). What a verdict actually does depends on the

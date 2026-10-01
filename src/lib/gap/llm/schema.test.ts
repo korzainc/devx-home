@@ -115,6 +115,17 @@ describe("buildPrompt: candidate pairs", () => {
     expect(user).toContain("sast:semgrep");
   });
 
+  it("tells the model to omit a pair with no clear evidence rather than guess, and never offers `cannot-tell`", () => {
+    const { system } = buildPrompt(analysis(), signals, { tools });
+    expect(system.toLowerCase()).toContain("omit");
+    expect(system).not.toContain("cannot-tell");
+  });
+
+  it("tells the model to quote the shortest exact span, for both verdicts and detect findings", () => {
+    const { system } = buildPrompt(analysis(), signals, { tools });
+    expect(system.toLowerCase()).toMatch(/shortest exact span/);
+  });
+
   it("never says in the prompt which pairs are currently satisfied or missing", () => {
     const { user } = buildPrompt(analysis(), signals, { tools });
     expect(user.toLowerCase()).not.toMatch(
@@ -375,6 +386,41 @@ describe("responseSchema", () => {
       "s1",
       "s2",
     ]);
+  });
+
+  it("caps reason and quote length, and drops `cannot-tell` from the verdict enum", () => {
+    const schema = responseSchema(
+      [{ pair: "sast:semgrep", capabilityId: "sast", toolId: "semgrep" }],
+      ["s1"],
+    ) as {
+      properties: {
+        verdicts: {
+          items: {
+            properties: {
+              quote: { maxLength: number };
+              reason: { maxLength: number };
+              verdict: { enum: string[] };
+            };
+          };
+        };
+        detectFindings: {
+          items: { properties: { quote: { maxLength: number } } };
+        };
+      };
+    };
+    expect(schema.properties.verdicts.items.properties.quote.maxLength).toBe(
+      400,
+    );
+    expect(schema.properties.verdicts.items.properties.reason.maxLength).toBe(
+      300,
+    );
+    expect(schema.properties.verdicts.items.properties.verdict.enum).toEqual([
+      "provides",
+      "does-not-provide",
+    ]);
+    expect(
+      schema.properties.detectFindings.items.properties.quote.maxLength,
+    ).toBe(400);
   });
 
   it("gives verdicts and detectFindings an unsatisfiable item shape instead of an empty enum when there are no pairs or no signals", () => {
