@@ -128,7 +128,7 @@ export function filesToRead(paths: string[], baseline: Baseline): string[] {
   ].slice(0, maxFiles);
 }
 
-type CiSignals = {
+export type CiSignals = {
   /** Action refs from `uses:`, with the `@ref` suffix stripped. */
   uses: { value: string; source: string }[];
   /** Shell from `run:`, GitLab `script:` and package.json scripts. */
@@ -341,8 +341,8 @@ function evidenceFor(
 export function detectTools(
   snapshot: RepoSnapshot,
   tools: AnalysisTool[],
+  signals: CiSignals = ciSignals(snapshot),
 ): DetectedTool[] {
-  const signals = ciSignals(snapshot);
   const found: DetectedTool[] = [];
 
   for (const tool of tools) {

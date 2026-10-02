@@ -1,4 +1,5 @@
 import { detectStacks, detectTools } from "./detect";
+import type { CiSignals } from "./detect";
 import { CatalogueDataError, refLabel } from "./types";
 import type {
   Analysis,
@@ -53,17 +54,97 @@ function toRecommendedTools(
 }
 
 /**
+ * Whether `present` covers every stack in `owningStacks` for capability `id`, and what to
+ * recommend when it doesn't. `owningStacks` empty means a universal capability (only reachable
+ * via `baseline.universal`, which the real catalogue always leaves empty), checked by presence
+ * alone with a generic catalogue-wide fallback recommendation instead of a per-stack one.
+ *
+ * Shared with the LLM audit pass (`apply.ts`): demoting a present tool re-evaluates its capability
+ * through this same rule, so a capability held up by two tools covering different stacks drops to
+ * unsatisfied once only one of them remains.
+ */
+export function evaluateCapability(
+  id: string,
+  present: PresentTool[],
+  owningStacks: BaselineStack[],
+  tools: AnalysisTool[],
+  toolById: Map<string, AnalysisTool>,
+  stackIds: Set<string>,
+): { satisfied: boolean; recommended: RecommendedTool[] } {
+  if (owningStacks.length === 0) {
+    const satisfied = present.length > 0;
+    if (satisfied) return { satisfied, recommended: [] };
+
+    // No matched stack's baseline mentions this capability, so fall back to searching every
+    // tool generically. A wrapped tool is never itself recommended, and a bundle covering
+    // the capability sorts first.
+    const wrappedIds = new Set(
+      tools.flatMap(
+        (tool) =>
+          tool.wraps
+            ?.filter((entry) => entry.capabilities.includes(id))
+            .map((entry) => entry.tool) ?? [],
+      ),
+    );
+    const recommended = tools
+      .filter(
+        (tool) =>
+          tool.capabilities.includes(id) &&
+          (tool.stacks.includes("any") ||
+            tool.stacks.some((stack) => stackIds.has(stack))) &&
+          !wrappedIds.has(tool.id),
+      )
+      .sort(
+        (a, b) => Number(b.wraps !== undefined) - Number(a.wraps !== undefined),
+      )
+      .map((tool) => ({ id: tool.id, name: tool.name, stackLabels: [] }));
+    return { satisfied, recommended };
+  }
+
+  const uncoveredStacks = owningStacks.filter(
+    (stack) =>
+      !present.some((entry) => {
+        const tool = toolById.get(entry.id);
+        return (
+          tool !== undefined &&
+          (tool.stacks.includes("any") || tool.stacks.includes(stack.id))
+        );
+      }),
+  );
+  const satisfied = uncoveredStacks.length === 0;
+  if (satisfied) return { satisfied, recommended: [] };
+
+  // Each uncovered stack's own baseline entry already names which tool applies here, so there's
+  // no need to re-derive stack fit generically like the fallback above.
+  const recommended = toRecommendedTools(
+    recommendationsByToolId(uncoveredStacks, id),
+    toolById,
+    id,
+  );
+  // toRecommendedTools always resolves at least one entry per uncovered stack, or throws - this
+  // only fires if that guarantee itself breaks.
+  if (recommended.length === 0) {
+    throw new CatalogueDataError(
+      `Capability "${id}" is unsatisfied with tools present but produced no recommendation.`,
+    );
+  }
+  return { satisfied, recommended };
+}
+
+/**
  * The whole diff. Deterministic: same snapshot and same catalogue give the same report, with no
  * model in the path. The catalogue and baseline arrive as arguments so this stays independent of
- * where that data is loaded from.
+ * where that data is loaded from. `signals` defaults to a fresh parse of `snapshot`; callers that
+ * also run the LLM pass on the same snapshot (`run.ts`) pass their own to avoid parsing it twice.
  */
 export function analyze(
   snapshot: RepoSnapshot,
   catalogue: { tools: AnalysisTool[]; baseline: Baseline },
+  signals?: CiSignals,
 ): Analysis {
   const { tools, baseline } = catalogue;
   const stacks = detectStacks(snapshot.paths, baseline);
-  const detected = detectTools(snapshot, tools);
+  const detected = detectTools(snapshot, tools, signals);
 
   const stackIds = new Set(stacks.map((stack) => stack.id));
   const toolById = new Map(tools.map((tool) => [tool.id, tool]));
@@ -98,70 +179,16 @@ export function analyze(
       return { ...entry, stackLabels };
     });
 
-    let satisfied: boolean;
     // A gap names the tools the catalogue would put there, and nothing else. No generated
     // workflow snippet: a snippet that has not been run against the repo is a guess.
-    let recommended: RecommendedTool[] = [];
-
-    if (owningStacks.length === 0) {
-      // Only reachable via `baseline.universal`, which the real catalogue always leaves empty:
-      // there's no stack dimension to check partial coverage against.
-      satisfied = present.length > 0;
-      if (!satisfied) {
-        // No matched stack's baseline mentions this capability, so fall back to searching every
-        // tool generically. A wrapped tool is never itself recommended, and a bundle covering
-        // the capability sorts first.
-        const wrappedIds = new Set(
-          tools.flatMap(
-            (tool) =>
-              tool.wraps
-                ?.filter((entry) => entry.capabilities.includes(id))
-                .map((entry) => entry.tool) ?? [],
-          ),
-        );
-        recommended = tools
-          .filter(
-            (tool) =>
-              tool.capabilities.includes(id) &&
-              (tool.stacks.includes("any") ||
-                tool.stacks.some((stack) => stackIds.has(stack))) &&
-              !wrappedIds.has(tool.id),
-          )
-          .sort(
-            (a, b) =>
-              Number(b.wraps !== undefined) - Number(a.wraps !== undefined),
-          )
-          .map((tool) => ({ id: tool.id, name: tool.name, stackLabels: [] }));
-      }
-    } else {
-      const uncoveredStacks = owningStacks.filter(
-        (stack) =>
-          !present.some((entry) => {
-            const tool = toolById.get(entry.id);
-            return (
-              tool !== undefined &&
-              (tool.stacks.includes("any") || tool.stacks.includes(stack.id))
-            );
-          }),
-      );
-      satisfied = uncoveredStacks.length === 0;
-      if (!satisfied) {
-        // Each uncovered stack's own baseline entry already names which tool applies here, so
-        // there's no need to re-derive stack fit generically like the fallback above.
-        recommended = toRecommendedTools(
-          recommendationsByToolId(uncoveredStacks, id),
-          toolById,
-          id,
-        );
-        // toRecommendedTools always resolves at least one entry per uncovered stack, or throws -
-        // this only fires if that guarantee itself breaks.
-        if (recommended.length === 0) {
-          throw new CatalogueDataError(
-            `Capability "${id}" is unsatisfied with tools present but produced no recommendation.`,
-          );
-        }
-      }
-    }
+    const { satisfied, recommended } = evaluateCapability(
+      id,
+      present,
+      owningStacks,
+      tools,
+      toolById,
+      stackIds,
+    );
 
     return {
       id,
@@ -213,5 +240,6 @@ export function analyze(
       (report) => !report.satisfied && report.present.length > 0,
     ).length,
     gapCount: reports.filter((report) => !report.satisfied).length,
+    buildSteps: [],
   };
 }
