@@ -64,6 +64,7 @@ function ingest(body: unknown, token = "korza_" + "a".repeat(43)) {
   });
 }
 beforeEach(() => {
+  vi.spyOn(console, "error").mockImplementation(() => {});
   vi.stubEnv("VERCEL", "");
   vi.stubEnv("VERCEL_ENV", "");
   vi.stubEnv("KORZA_LOCAL_USAGE", "1");
@@ -78,6 +79,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.clearAllMocks();
+  vi.restoreAllMocks();
 });
 it("GET displays consent without issuing a grant", async () => {
   const r = await connectGet(
@@ -668,3 +670,111 @@ it.each(["preview", "development"])(
     expect(mocks.query).not.toHaveBeenCalled();
   },
 );
+
+it.each([
+  {
+    operation: "connect",
+    stage: "session",
+    run: () =>
+      connectGet(
+        new Request(
+          base +
+            "/telemetry/connect?" +
+            new URLSearchParams({ ...params, code_challenge_method: "S256" }),
+        ),
+      ),
+  },
+  { operation: "consent", stage: "session", run: () => connectPost(consent()) },
+  {
+    operation: "exchange",
+    stage: "storage",
+    run: () =>
+      exchangePost(
+        ingest({
+          code: "c".repeat(43),
+          code_verifier: "v".repeat(43),
+          redirect_uri: params.redirect_uri,
+        }),
+      ),
+  },
+  {
+    operation: "revoke",
+    stage: "storage",
+    run: () => revokeDevice(ingest({})),
+  },
+  {
+    operation: "ingest",
+    stage: "storage",
+    run: () => receiveEvents(ingest({ events: [], metrics: [] })),
+  },
+  {
+    operation: "devices",
+    stage: "session",
+    run: () => devicesGet(new Request(base + "/telemetry/devices")),
+  },
+  {
+    operation: "device-revoke",
+    stage: "session",
+    run: () => devicesPost(consent()),
+  },
+])(
+  "logs only safe outage context for $operation",
+  async ({ operation, stage, run }) => {
+    const error = Object.assign(new Error("fixture-secret-token"), {
+      detail: "fixture-private-sql-values",
+      code: "fixture-private-provider-response",
+    });
+    mocks.getSession.mockRejectedValue(error);
+    mocks.query.mockRejectedValue(error);
+    const response = await run();
+    expect(response.status).toBe(503);
+    expect(await response.text()).toBe("");
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(console.error).toHaveBeenCalledExactlyOnceWith(
+      "Telemetry request failed.",
+      {
+        operation,
+        stage,
+        status: 503,
+      },
+    );
+  },
+);
+
+it("distinguishes membership verification failures without logging provider data", async () => {
+  mocks.query.mockResolvedValue({
+    rows: [{ device_id: "device", user_id: "user" }],
+  });
+  mocks.telemetryMember.mockRejectedValue(
+    new Error("fixture-private-provider-response"),
+  );
+  const response = await receiveEvents(ingest({ events: [], metrics: [] }));
+  expect(response.status).toBe(503);
+  expect(console.error).toHaveBeenCalledExactlyOnceWith(
+    "Telemetry request failed.",
+    {
+      operation: "ingest",
+      stage: "membership",
+      status: 503,
+    },
+  );
+  expect(mocks.query.mock.calls.some(([sql]) => sql === "BEGIN")).toBe(false);
+});
+
+it("does not report client rejections or disabled routes as outages", async () => {
+  expect(
+    (await connectPost(consent({}, "https://attacker.example"))).status,
+  ).toBe(403);
+  expect((await receiveEvents(ingest({}, "invalid-token"))).status).toBe(401);
+  mocks.query.mockResolvedValue({
+    rows: [{ device_id: "device", user_id: "user" }],
+  });
+  expect(
+    (await receiveEvents(ingest({ prompt: "fixture-private-prompt" }))).status,
+  ).toBe(400);
+  vi.stubEnv("TELEMETRY_ENABLED", "0");
+  expect(
+    (await receiveEvents(ingest({ events: [], metrics: [] }))).status,
+  ).toBe(404);
+  expect(console.error).not.toHaveBeenCalled();
+});

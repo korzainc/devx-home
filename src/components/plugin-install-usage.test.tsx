@@ -31,6 +31,8 @@ it("labels the count as recorded installs for Claude Code", async () => {
   expect(html).toContain("Claude Code");
   expect(html).toContain("Codex");
   expect(html).toContain("through Korza CLI");
+  expect(html).toContain("installations that opted in to monitoring");
+  expect(html).toContain("not download totals or unique users");
   expect(html).not.toContain("About this count");
   expect(mocks.installs).toHaveBeenCalledWith("superpowers");
 });

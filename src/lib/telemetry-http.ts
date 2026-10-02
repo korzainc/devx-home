@@ -130,17 +130,34 @@ function redirectCallback(params: ConnectParams, name: string, value: string) {
     headers: { ...privateHeaders, location: callback.toString() },
   });
 }
-function failure(error: unknown) {
-  return empty(
+type FailureStage = "request" | "session" | "membership" | "storage";
+function failure(
+  error: unknown,
+  operation:
+    | "connect"
+    | "consent"
+    | "exchange"
+    | "revoke"
+    | "ingest"
+    | "devices"
+    | "device-revoke",
+  stage: FailureStage,
+) {
+  const status =
     error instanceof DeviceOwnershipError
       ? 403
       : error instanceof HttpError
         ? error.status
-        : 503,
-  );
+        : 503;
+  // Errors can contain credentials, SQL values or provider response bodies.
+  // Log only fixed operation/stage labels; rejected client input is not an outage.
+  if (status >= 500)
+    console.error("Telemetry request failed.", { operation, stage, status });
+  return empty(status);
 }
 export async function connectGet(request: Request) {
   if (!enabled()) return empty(404);
+  let stage: FailureStage = "request";
   try {
     let params: ConnectParams;
     try {
@@ -157,6 +174,7 @@ export async function connectGet(request: Request) {
     } catch {
       throw new HttpError(400);
     }
+    stage = "session";
     const session = await browserSession(request);
     const csrf = consentToken(params, session.session.id, secret());
     const hidden = Object.entries({ ...params, csrf })
@@ -169,14 +187,17 @@ export async function connectGet(request: Request) {
       `<h1>Connect Korza monitoring</h1><p>Allow this CLI device to send Korza plugin installation and skill usage counts from Claude Code and supported Codex events to DevX Home.</p><p>Prompts, tool arguments, email, file paths and raw resource attributes are excluded. Counts are associated with this device and your signed-in account. Installs verified through Korza CLI are shown separately from Claude Code reports, since those counts may overlap. Native Codex installations are not included.</p><p>Authorization expires within 12 hours. You can stop collection with the CLI disable command or revoke this device from <a href="/telemetry/devices">connected devices</a>.</p><p>Only allow if you just started setup in your terminal. The result returns to <code>${escape(params.redirect_uri)}</code>.</p><form method="post" action="/telemetry/connect">${hidden}<button name="decision" value="allow">Allow monitoring</button><button name="decision" value="deny">Deny</button></form>`,
     );
   } catch (error) {
-    return failure(error);
+    return failure(error, "connect", stage);
   }
 }
 export async function connectPost(request: Request) {
   if (!enabled()) return empty(404);
+  let stage: FailureStage = "request";
   try {
     requireOrigin(request);
+    stage = "session";
     const session = await browserSession(request);
+    stage = "request";
     const input = fields(
       new URLSearchParams(
         await bodyText(request, "application/x-www-form-urlencoded", 8192),
@@ -201,26 +222,31 @@ export async function connectPost(request: Request) {
       return redirectCallback(params, "error", "access_denied");
     if (input.decision !== "allow") throw new HttpError(400);
     // A portal cache hit or outage fallback is insufficient to mint a new device credential.
+    stage = "membership";
     if (!(await isOrgMember(request.headers, session.user, { fresh: true })))
       throw new HttpError(403);
+    stage = "storage";
     return redirectCallback(
       params,
       "code",
       await issueCode(getPool(), session.user.id, params),
     );
   } catch (error) {
-    return failure(error);
+    return failure(error, "consent", stage);
   }
 }
 export async function exchangePost(request: Request) {
   if (!enabled()) return empty(404);
+  let stage: FailureStage = "request";
   try {
-    const result = await exchangeCode(getPool(), await json(request, 8192));
+    const input = await json(request, 8192);
+    stage = "storage";
+    const result = await exchangeCode(getPool(), input);
     return result
       ? Response.json(result, { headers: privateHeaders })
       : empty(400);
   } catch (error) {
-    return failure(error);
+    return failure(error, "exchange", stage);
   }
 }
 export async function revokeDevice(request: Request) {
@@ -231,8 +257,8 @@ export async function revokeDevice(request: Request) {
     return empty(
       (await revokeCredentials(getPool(), { tokenHash: hash })) ? 204 : 401,
     );
-  } catch {
-    return empty(503);
+  } catch (error) {
+    return failure(error, "revoke", "storage");
   }
 }
 export async function receiveEvents(request: Request) {
@@ -240,6 +266,7 @@ export async function receiveEvents(request: Request) {
   const hash = bearerHash(request);
   if (!hash) return empty(401);
   let client;
+  let stage: FailureStage = "storage";
   try {
     const pool = getPool();
     const auth = await pool.query(
@@ -247,6 +274,7 @@ export async function receiveEvents(request: Request) {
       [hash],
     );
     if (!auth.rows.length) return empty(401);
+    stage = "request";
     const packet = await json(request, 256 * 1024);
     let batch;
     try {
@@ -255,7 +283,9 @@ export async function receiveEvents(request: Request) {
       throw new HttpError(400);
     }
     const userId = auth.rows[0].user_id;
+    stage = "membership";
     if (!(await telemetryMembership(userId))) return empty(401);
+    stage = "storage";
     client = await pool.connect();
     await client.query("BEGIN");
     await client.query("SET LOCAL statement_timeout = '3s'");
@@ -326,7 +356,7 @@ export async function receiveEvents(request: Request) {
     return Response.json({}, { headers: privateHeaders });
   } catch (error) {
     if (client) await client.query("ROLLBACK").catch(() => {});
-    return failure(error);
+    return failure(error, "ingest", stage);
   } finally {
     client?.release();
   }
@@ -338,8 +368,10 @@ const revokeParams = (device: string): ConnectParams => ({
 });
 export async function devicesGet(request: Request) {
   if (!enabled()) return empty(404);
+  let stage: FailureStage = "session";
   try {
     const session = await browserSession(request);
+    stage = "request";
     const params = new URL(request.url).searchParams;
     const before = params.get("before");
     if (
@@ -349,6 +381,7 @@ export async function devicesGet(request: Request) {
         !/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/.test(before))
     )
       throw new HttpError(400);
+    stage = "storage";
     const { rows } = await getPool().query(
       // The cursor resolves inside the same owner scope and retains PostgreSQL's timestamp
       // precision. Renewed older devices remain reachable even after 100 newer enrollments.
@@ -372,14 +405,17 @@ export async function devicesGet(request: Request) {
       `<h1>Connected monitoring devices</h1><p>Revocation stops this device from sending new counts. To stop the local collector and remove agent configuration, also run the CLI disable command.</p>${items ? `<ul>${items}</ul>` : "<p>No devices on this page.</p>"}${navigation}`,
     );
   } catch (error) {
-    return failure(error);
+    return failure(error, "devices", stage);
   }
 }
 export async function devicesPost(request: Request) {
   if (!enabled()) return empty(404);
+  let stage: FailureStage = "request";
   try {
     requireOrigin(request);
+    stage = "session";
     const session = await browserSession(request);
+    stage = "request";
     const input = fields(
       new URLSearchParams(
         await bodyText(request, "application/x-www-form-urlencoded", 4096),
@@ -402,6 +438,7 @@ export async function devicesPost(request: Request) {
         '<h1>This form expired or could not be verified</h1><p>No device was revoked. <a href="/telemetry/devices">Reload connected devices</a>, then choose Revoke device again.</p>',
         403,
       );
+    stage = "storage";
     await revokeCredentials(getPool(), {
       deviceId: input.device_id,
       userId: session.user.id,
@@ -411,6 +448,6 @@ export async function devicesPost(request: Request) {
       headers: { ...privateHeaders, location: "/telemetry/devices" },
     });
   } catch (error) {
-    return failure(error);
+    return failure(error, "device-revoke", stage);
   }
 }

@@ -49,6 +49,10 @@ export async function PluginInstallUsage({ plugin }: { plugin: string }) {
           </p>
         )}
       </div>
+      <p className="mt-2 text-xs text-ink-muted">
+        Recorded from installations that opted in to monitoring. These are not
+        download totals or unique users.
+      </p>
       {count.claudeNative !== undefined && count.claudeKorza !== undefined && (
         <p className="mt-2 text-xs text-ink-muted">
           These counts can overlap. They are shown separately.

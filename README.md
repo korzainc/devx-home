@@ -259,6 +259,9 @@ Aggregates retain exact decimal digits above that range. This numeric limit
 prevents invalid values, not inflated client reports: smaller per-device quotas
 and rate limits need an agreed policy before production monitoring is enabled.
 The receiver must not silently clamp cumulative counters or invent a usage cap.
+Retention and deletion policy also remain prerequisites for activation; revocation
+stops new uploads but retains existing counts. Telemetry route diagnostics contain
+only the operation, processing stage and HTTP status, excluding errors and request data.
 
 Validation separates production identity acceptance from protocol evidence:
 
