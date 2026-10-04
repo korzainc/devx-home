@@ -117,6 +117,9 @@ export type Match = {
 export type DetectedTool = Match & {
   id: string;
   name: string;
+  /** Set when a config file or manifest dependency also credits the tool, whatever `evidence`
+   * shows. Absent otherwise. */
+  nonCiCredit?: true;
 };
 
 /** A `present` tool, attributed to whichever matched stack(s) it belongs to. Empty when the

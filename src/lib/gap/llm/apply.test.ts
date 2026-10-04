@@ -153,7 +153,7 @@ function configWith(response: LlmResponse, costUsd = 0.0042): LlmConfig {
         costUsd,
       }),
     },
-    model: "claude-sonnet-5",
+    model: "claude-sonnet-5-5",
     effort: "low",
     readCache: vi.fn().mockResolvedValue(null),
     writeCache: vi.fn().mockResolvedValue(undefined),
@@ -659,12 +659,12 @@ describe("applyLlmPass: verdict direction", () => {
               id: "sca",
               label: "Dependency scanning",
               satisfied: true,
-              // configFiles-style evidence: no "uses:"/"runs " prefix, so it isn't CI text.
               present: [
                 {
                   id: "trivy",
                   name: "Trivy",
                   evidence: "trivy.yaml",
+                  nonCiCredit: true,
                   stackLabels: ["Any"],
                 },
               ],
@@ -1269,7 +1269,7 @@ describe("applyLlmPass: cache, spend cap, and cost", () => {
     const config = configWith({ verdicts: [], detectFindings: [] });
     config.underDailySpendCap = vi.fn().mockResolvedValue(false);
     config.readCache = vi.fn().mockResolvedValue({
-      model: "claude-sonnet-5",
+      model: "claude-sonnet-5-5",
       response: {
         verdicts: [
           {
@@ -1316,7 +1316,7 @@ describe("applyLlmPass: cache, spend cap, and cost", () => {
 
     const cachedConfig = configWith({ verdicts: [], detectFindings: [] });
     cachedConfig.readCache = vi.fn().mockResolvedValue({
-      model: "claude-sonnet-5",
+      model: "claude-sonnet-5-5",
       response: { verdicts: [], detectFindings: [] },
       inputTokens: 10,
       outputTokens: 10,
@@ -1365,7 +1365,7 @@ describe("applyLlmPass: cache, spend cap, and cost", () => {
     expect(config.writeCache).toHaveBeenCalledTimes(1);
     const [, entry] = vi.mocked(config.writeCache).mock.calls[0];
     expect(entry).toEqual({
-      model: "claude-sonnet-5",
+      model: "claude-sonnet-5-5",
       response,
       inputTokens: 100,
       outputTokens: 50,
@@ -1375,7 +1375,7 @@ describe("applyLlmPass: cache, spend cap, and cost", () => {
   it("falls through to a fresh call when a cached response fails shape validation, and treats a response missing detectFindings as invalid", async () => {
     const config = configWith({ verdicts: [], detectFindings: [] });
     config.readCache = vi.fn().mockResolvedValue({
-      model: "claude-sonnet-5",
+      model: "claude-sonnet-5-5",
       response: { verdicts: "not an array", detectFindings: [] },
       inputTokens: 1,
       outputTokens: 1,
@@ -1652,5 +1652,284 @@ describe("applyLlmPass: against the real catalogue shape", () => {
     expect(byId.get("iac-config")!.present).toEqual([]);
     expect(byId.get("sca")!.present.map((p) => p.id)).toEqual(["trivy"]);
     expect(byId.get("sca")!.satisfied).toBe(true);
+  });
+});
+
+describe("applyLlmPass: quote verification and ordering", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const sastGap = (): Analysis => ({
+    ...baseAnalysis(),
+    categories: [
+      {
+        category: "Security",
+        capabilities: [baseAnalysis().categories[0].capabilities[0]],
+      },
+    ],
+  });
+  const run = (
+    analysis: Analysis,
+    sigs: CiSignals,
+    config: LlmConfig,
+    toolList: AnalysisTool[] = tools,
+  ) => applyLlmPass(analysis, sigs, { tools: toolList, baseline }, config);
+
+  it("rejects a quote that sits inside a shell comment of its cited entry, with or without the `#`, but accepts it after a `#` inside quotes", async () => {
+    const commented: CiSignals = {
+      uses: [],
+      shell: [
+        { text: "npm test # semgrep --config p/java .", source: "ci.yml" },
+      ],
+    };
+    const quote = "semgrep --config p/java .";
+    const config = configWith({
+      verdicts: [
+        verdict({
+          pair: "sast:semgrep",
+          verdict: "provides",
+          signalId: signalIdFor(sastGap(), commented, "npm test"),
+          quote,
+        }),
+      ],
+      detectFindings: [],
+    });
+    expect((await run(sastGap(), commented, config)).categories).toEqual(
+      sastGap().categories,
+    );
+
+    const quoted: CiSignals = {
+      uses: [],
+      shell: [
+        { text: 'echo "a # b"; semgrep --config p/java .', source: "ci.yml" },
+      ],
+    };
+    const rescued = await run(
+      sastGap(),
+      quoted,
+      configWith({
+        verdicts: [
+          verdict({
+            pair: "sast:semgrep",
+            verdict: "provides",
+            signalId: signalIdFor(sastGap(), quoted, "semgrep"),
+            quote,
+          }),
+        ],
+        detectFindings: [],
+      }),
+    );
+    expect(rescued.categories[0].capabilities[0].satisfied).toBe(true);
+  });
+
+  it("verifies a quote that carries the rendered label or id prefix, and shows the unprefixed text", async () => {
+    const sigs: CiSignals = {
+      uses: [{ value: "docker/build-push-action", source: "ci.yml" }],
+      shell: [{ text: "semgrep --config p/java .", source: "ci.yml" }],
+    };
+    const analysis = sastGap();
+    const config = configWith({
+      verdicts: [
+        verdict({
+          pair: "sast:semgrep",
+          verdict: "provides",
+          signalId: signalIdFor(analysis, sigs, "semgrep"),
+          quote: "run: semgrep --config p/java .",
+        }),
+      ],
+      detectFindings: [
+        {
+          kind: "image-build",
+          signalId: signalIdFor(analysis, sigs, "docker/build"),
+          quote: "[s2] uses: docker/build-push-action",
+        },
+      ],
+    });
+    const result = await run(analysis, sigs, config);
+    expect(result.categories[0].capabilities[0].present[0].evidence).toBe(
+      "semgrep --config p/java .",
+    );
+    expect(result.buildSteps).toEqual([
+      {
+        kind: "image-build",
+        evidence: "docker/build-push-action",
+        source: "ci.yml",
+      },
+    ]);
+  });
+
+  it("applies several rescues for one capability in candidate order, whatever order the response lists them", async () => {
+    const twoSast: AnalysisTool[] = [
+      tools[1],
+      {
+        id: "bandit",
+        name: "Bandit",
+        capabilities: ["sast"],
+        stacks: ["any"],
+        detect: { commands: ["bandit"] },
+      },
+    ];
+    const sigs: CiSignals = {
+      uses: [],
+      shell: [
+        { text: "semgrep --config p/golang .", source: "ci.yml" },
+        { text: "bandit -r src --severity-level high", source: "ci.yml" },
+      ],
+    };
+    const analysis = sastGap();
+    const id = (needle: string) =>
+      signalIdForTools(twoSast, analysis, sigs, needle);
+    const semgrepVerdict = verdict({
+      pair: "sast:semgrep",
+      verdict: "provides",
+      signalId: id("semgrep"),
+      quote: "semgrep --config p/golang .",
+    });
+    const banditVerdict = verdict({
+      pair: "sast:bandit",
+      verdict: "provides",
+      signalId: id("bandit"),
+      quote: "bandit -r src --severity-level high",
+    });
+
+    const outputs = [];
+    for (const verdicts of [
+      [semgrepVerdict, banditVerdict],
+      [banditVerdict, semgrepVerdict],
+    ]) {
+      outputs.push(
+        await run(
+          analysis,
+          sigs,
+          configWith({ verdicts, detectFindings: [] }),
+          twoSast,
+        ),
+      );
+    }
+    expect(outputs[0]).toEqual(outputs[1]);
+    expect(outputs[0].categories[0].capabilities[0].present).toHaveLength(1);
+    expect(outputs[0].categories[0].capabilities[0].present[0].id).toBe(
+      "semgrep",
+    );
+  });
+
+  it("collapses identical verdicts on a pair and drops a pair only when its verdicts differ", async () => {
+    const quote = "semgrep --config p/golang .";
+    const id = signalIdFor(sastGap(), signals, quote);
+    const provides = verdict({
+      pair: "sast:semgrep",
+      verdict: "provides",
+      signalId: id,
+      quote,
+    });
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+
+    const same = await run(
+      sastGap(),
+      signals,
+      configWith({ verdicts: [provides, { ...provides }], detectFindings: [] }),
+    );
+    expect(same.categories[0].capabilities[0].satisfied).toBe(true);
+    expect(info).toHaveBeenLastCalledWith(
+      "gap LLM pass: completed",
+      expect.objectContaining({
+        verdictsApplied: 1,
+        verdictsNoop: 1,
+        verdictsDropped: 0,
+      }),
+    );
+
+    const conflict = await run(
+      sastGap(),
+      signals,
+      configWith({
+        verdicts: [
+          provides,
+          { ...provides, verdict: "does-not-provide", reason: "no" },
+        ],
+        detectFindings: [],
+      }),
+    );
+    expect(conflict.categories).toEqual(sastGap().categories);
+    expect(info).toHaveBeenLastCalledWith(
+      "gap LLM pass: completed",
+      expect.objectContaining({ verdictsApplied: 0, verdictsDropped: 2 }),
+    );
+  });
+
+  it("never demotes a tool that a config file or dependency also credits, even with CI evidence", async () => {
+    const analysis = baseAnalysis();
+    analysis.categories[0].capabilities[1].present[0].nonCiCredit = true;
+    const quote = "trivy fs . --severity HIGH,CRITICAL";
+    const config = configWith({
+      verdicts: [
+        verdict({
+          pair: "sca:trivy",
+          verdict: "does-not-provide",
+          signalId: signalIdFor(analysis, signals, quote),
+          quote,
+          reason: "only fs",
+        }),
+      ],
+      detectFindings: [],
+    });
+    expect(await run(analysis, signals, config)).toEqual(analysis);
+  });
+
+  it("makes no call when there is no signal text, and logs one line on a cache hit", async () => {
+    const config = configWith({ verdicts: [], detectFindings: [] });
+    await run(baseAnalysis(), { uses: [], shell: [] }, config);
+    expect(config.client.complete).not.toHaveBeenCalled();
+    expect(config.readCache).not.toHaveBeenCalled();
+
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const cached = configWith({ verdicts: [], detectFindings: [] });
+    cached.readCache = vi.fn().mockResolvedValue({
+      model: "m",
+      response: { verdicts: [], detectFindings: [] },
+      inputTokens: 1,
+      outputTokens: 1,
+    });
+    await run(baseAnalysis(), signals, cached);
+    expect(cached.client.complete).not.toHaveBeenCalled();
+    expect(info).toHaveBeenCalledTimes(1);
+    expect(info).toHaveBeenCalledWith("gap LLM pass: served from cache", {
+      repo: "korza/example",
+      verdictsApplied: 0,
+      verdictsNoop: 0,
+      verdictsDropped: 0,
+      detectFindingsKept: 0,
+    });
+  });
+
+  it("clips model-written text in logs to 200 characters", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const config = configWith({
+      verdicts: [
+        verdict({ pair: "x".repeat(500), verdict: "provides", quote: "q" }),
+      ],
+      detectFindings: [],
+    });
+    await run(baseAnalysis(), signals, config);
+    const logged = warn.mock.calls.find((call) =>
+      String(call[0]).includes("pair is not a candidate"),
+    )![1] as { pair: string };
+    expect(logged.pair).toHaveLength(200);
+
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const badJson = configWith({ verdicts: [], detectFindings: [] });
+    badJson.client = {
+      complete: vi.fn().mockResolvedValue({
+        ok: true,
+        text: `{"a": ${"y".repeat(500)}`,
+        inputTokens: 1,
+        outputTokens: 1,
+        costUsd: 0,
+      }),
+    };
+    await run(baseAnalysis(), signals, badJson);
+    const detail = error.mock.calls[0][1] as { error: string };
+    expect(detail.error.length).toBeLessThanOrEqual(250);
   });
 });

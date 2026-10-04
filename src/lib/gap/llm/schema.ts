@@ -6,7 +6,7 @@ import {
 import { buildStepKinds } from "../types";
 import type { AnalysisTool, Analysis } from "../types";
 import type { CiSignals } from "../detect";
-import { budgetSignals } from "./guard";
+import { budgetSignals, formatSignalLine } from "./guard";
 import type { IndexedSignal, RawSignalEntry } from "./guard";
 
 /** The boundary markers wrapped around the raw signal block in the prompt, so a model reading a
@@ -59,11 +59,6 @@ export function toRawEntries(signals: CiSignals): RawSignalEntry[] {
       source: entry.source,
     })),
   ];
-}
-
-function formatSignalLine(entry: IndexedSignal): string {
-  const label = entry.kind === "uses" ? "uses" : "run";
-  return `[${entry.id}] ${label}: ${entry.text} (${entry.source})`;
 }
 
 /**
@@ -162,10 +157,6 @@ export function buildPrompt(
   user: string;
   candidates: CandidatePair[];
   signals: IndexedSignal[];
-  /** True when there is at least one pair to ask about, or any raw signal text at all for detect
-   * to search - the caller uses this to skip the call entirely rather than pay for a request that
-   * structurally cannot produce anything useful. */
-  worthCalling: boolean;
 } {
   const candidates = candidatePairsFor(analysis, catalogue.tools);
   const toolById = new Map(catalogue.tools.map((tool) => [tool.id, tool]));
@@ -272,7 +263,6 @@ export function buildPrompt(
     user,
     candidates,
     signals: entries,
-    worthCalling: candidates.length > 0 || entries.length > 0,
   };
 }
 

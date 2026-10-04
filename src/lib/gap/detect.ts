@@ -322,11 +322,7 @@ function usesEvidence(action: string, value: string): string {
 }
 
 /** Signals are OR'd. CI evidence is preferred because this reports on pipelines, not checkouts. */
-function evidenceFor(
-  tool: AnalysisTool,
-  snapshot: RepoSnapshot,
-  signals: CiSignals,
-): string | null {
+function ciEvidence(tool: AnalysisTool, signals: CiSignals): string | null {
   for (const action of tool.detect.ciUses ?? []) {
     // A catalogue entry can name an action family (e.g. github/codeql-action), invoked in the
     // wild only through a specific sub-action (.../analyze, /init, /upload-sarif); the trailing
@@ -343,6 +339,13 @@ function evidenceFor(
     if (hit) return `runs ${command} in ${hit.source}`;
   }
 
+  return null;
+}
+
+function nonCiEvidence(
+  tool: AnalysisTool,
+  snapshot: RepoSnapshot,
+): string | null {
   for (const candidate of tool.detect.configFiles ?? []) {
     const hit = configFileMatch(snapshot.paths, candidate);
     if (!hit) continue;
@@ -366,8 +369,16 @@ export function detectTools(
   const found: DetectedTool[] = [];
 
   for (const tool of tools) {
-    const evidence = evidenceFor(tool, snapshot, signals);
-    if (evidence) found.push({ id: tool.id, name: tool.name, evidence });
+    const ci = ciEvidence(tool, signals);
+    const nonCi = nonCiEvidence(tool, snapshot);
+    const evidence = ci ?? nonCi;
+    if (!evidence) continue;
+    found.push({
+      id: tool.id,
+      name: tool.name,
+      evidence,
+      ...(nonCi ? { nonCiCredit: true as const } : {}),
+    });
   }
 
   return found;

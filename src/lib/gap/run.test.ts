@@ -39,7 +39,7 @@ function noopLlmConfig(overrides: Partial<LlmConfig> = {}): LlmConfig {
   return {
     enabled: true,
     client: { complete: vi.fn() },
-    model: "claude-sonnet-5",
+    model: "claude-sonnet-5-5",
     effort: "low",
     readCache: vi.fn().mockResolvedValue(null),
     writeCache: vi.fn().mockResolvedValue(undefined),

@@ -18,11 +18,9 @@ import { buildPrompt, responseSchema, toRawEntries } from "./schema";
 import type { CandidatePair } from "./schema";
 import {
   escapeSignalText,
-  normalize,
   relatesToTool,
-  stripShellComments,
   toDisplayText,
-  verifyQuote,
+  verifiedQuote,
 } from "./guard";
 import type { IndexedSignal } from "./guard";
 import type {
@@ -38,6 +36,17 @@ const promptVersion = "v3";
 const maxQuoteChars = 400;
 const maxReasonChars = 300;
 const maxDetectFindings = 20;
+const maxLoggedChars = 200;
+
+function clip(text: string): string {
+  return text.slice(0, maxLoggedChars);
+}
+
+function describeError(error: unknown): string {
+  return error instanceof Error
+    ? `${error.name}: ${clip(error.message)}`
+    : clip(String(error));
+}
 
 /** Content-addressed: same model, same prompt version, same effort, same response schema, and
  * same exact system and user prompt text always maps to the same key, so an unchanged repo hits
@@ -141,37 +150,33 @@ function filterFindings<T>(
   return valid;
 }
 
-/** Validates and filters a raw (shape-checked but not item-checked) response into one whose
- * arrays are individually well-formed.
- *
- * An empty `candidates` or `signalIds` list means the model had nothing to answer about; its
- * arrays are expected to be empty too, not a validation error worth logging. */
+/** Keeps only the well-formed items of a shape-checked response. With no candidate pairs the
+ * model has nothing to answer about, so its verdicts are dropped without a warning. */
 function filterResponse(
   raw: { verdicts: unknown[]; detectFindings: unknown[] },
-  hasCandidates: boolean,
-  hasSignals: boolean,
+  hasPairs: boolean,
   repo: string,
 ): LlmResponse {
   return {
-    verdicts:
-      !hasCandidates || !hasSignals
-        ? []
-        : filterFindings(raw.verdicts, isValidVerdict, repo, "verdict"),
-    detectFindings: !hasSignals
-      ? []
-      : filterFindings(
-          raw.detectFindings,
-          isValidDetectFinding,
-          repo,
-          "detect finding",
-        ),
+    verdicts: hasPairs
+      ? filterFindings(raw.verdicts, isValidVerdict, repo, "verdict")
+      : [],
+    detectFindings: filterFindings(
+      raw.detectFindings,
+      isValidDetectFinding,
+      repo,
+      "detect finding",
+    ),
   };
 }
 
-/** Drops every pair the response answered more than once, instead of trusting whichever verdict
- * happened to apply last - the resolved action must not depend on response order. Logs once per
- * pair dropped this way. */
-function dedupeByPair(verdicts: LlmVerdict[], repo: string): LlmVerdict[] {
+/** Groups verdicts by pair. Identical verdicts on a pair stay together as one group; a pair
+ * answered with differing verdicts is dropped, since no verdict is more trustworthy than another
+ * and the result must not depend on response order. */
+function groupByPair(
+  verdicts: LlmVerdict[],
+  repo: string,
+): { groups: LlmVerdict[][]; dropped: number } {
   const byPair = new Map<string, LlmVerdict[]>();
   for (const verdict of verdicts) {
     const group = byPair.get(verdict.pair);
@@ -179,18 +184,20 @@ function dedupeByPair(verdicts: LlmVerdict[], repo: string): LlmVerdict[] {
     else byPair.set(verdict.pair, [verdict]);
   }
 
-  const kept: LlmVerdict[] = [];
+  const groups: LlmVerdict[][] = [];
+  let dropped = 0;
   for (const [pair, group] of byPair) {
-    if (group.length > 1) {
-      console.warn("gap LLM pass: dropped multiple verdicts for one pair", {
+    if (new Set(group.map((verdict) => verdict.verdict)).size > 1) {
+      console.warn("gap LLM pass: dropped conflicting verdicts for one pair", {
         repo,
-        pair,
+        pair: clip(pair),
       });
-      continue;
+      dropped += group.length;
+    } else {
+      groups.push(group);
     }
-    kept.push(group[0]);
   }
-  return kept;
+  return { groups, dropped };
 }
 
 function findCapability(
@@ -228,11 +235,8 @@ type EvaluationContext = {
   stacks: BaselineStack[];
 };
 
-/** True when `evidence` names a step actually read from CI text (`uses: ...` or `runs ...`), as
- * opposed to a config file or manifest-dependency match (`detect.ts`'s `evidenceFor`). An audit
- * verdict only ever sees CI text, so it must never demote a tool credited the other way. */
-function isCiEvidence(evidence: string): boolean {
-  return evidence.startsWith("uses: ") || evidence.startsWith("runs ");
+function joinNotes(existing: string | undefined, note: string): string {
+  return existing ? `${existing} ${note}` : note;
 }
 
 /** Adds `tool` to `present`, then re-runs `evaluateCapability` against the augmented list instead
@@ -243,7 +247,7 @@ function isCiEvidence(evidence: string): boolean {
  * one of them, with a real `recommended` list naming what's still missing. */
 function applyRescue(
   capability: CapabilityReport,
-  verdict: LlmVerdict,
+  evidence: string,
   tool: AnalysisTool,
   context: EvaluationContext,
 ): CapabilityReport {
@@ -251,7 +255,7 @@ function applyRescue(
   const present: PresentTool = {
     id: tool.id,
     name: tool.name,
-    evidence: toDisplayText(verdict.quote),
+    evidence,
     stackLabels: stackLabelsFor(tool, owningStacks),
   };
   const augmented = [...capability.present, present];
@@ -270,7 +274,10 @@ function applyRescue(
     present: augmented,
     satisfied,
     recommended,
-    llmNote: `Rescued by the LLM pass: found ${tool.name} via "${toDisplayText(verdict.quote)}"`,
+    llmNote: joinNotes(
+      capability.llmNote,
+      `Rescued by the LLM pass: found ${tool.name} via "${evidence}"`,
+    ),
   };
 }
 
@@ -306,7 +313,7 @@ function applyAudit(
     present: remaining,
     satisfied,
     recommended,
-    llmNote: toDisplayText(reason),
+    llmNote: joinNotes(capability.llmNote, toDisplayText(reason)),
   };
 }
 
@@ -359,6 +366,23 @@ function relatedEntriesUncut(
     .every((entry) => uncut.has(escapeSignalText(entry.text)));
 }
 
+type CallMetrics = {
+  model: string;
+  latencyMs: number;
+  inputTokens: number;
+  outputTokens: number;
+  costUsd: number;
+};
+
+type PendingVerdict = {
+  order: number;
+  candidate: CandidatePair;
+  action: "rescue" | "audit";
+  tool: AnalysisTool;
+  verdict: LlmVerdict;
+  evidence: string;
+};
+
 export async function applyLlmPass(
   analysis: Analysis,
   signals: CiSignals,
@@ -372,21 +396,15 @@ export async function applyLlmPass(
     user,
     candidates,
     signals: sentSignals,
-    worthCalling,
   } = buildPrompt(analysis, signals, catalogue);
 
-  // Nothing to rescue, nothing to audit, and no raw signal text at all for detect to search: a
-  // call here cannot produce anything useful, so it is never worth the cost (or the risk) of
-  // making it. Checked before the spend cap too, since there is no reason to spend a cache/DB
-  // round trip on a call that would be a no-op regardless.
-  if (!worthCalling) return analysis;
+  // Without signal text a verdict or finding has nothing to quote, so the call cannot help.
+  if (sentSignals.length === 0) return analysis;
 
-  const signalIds = sentSignals.map((entry) => entry.id);
   const schema = responseSchema();
   const key = cacheKey(config.model, config.effort, system, user, schema);
 
-  // Read before the spend cap check, so a capped day still serves cached answers - a cache hit
-  // costs nothing and was already paid for when it was written.
+  // Read before the spend cap check so a capped day still serves cached answers.
   let cached: CachedLlmResponse | null;
   try {
     cached = await config.readCache(key);
@@ -399,28 +417,17 @@ export async function applyLlmPass(
   }
 
   let response: LlmResponse;
-  let callMetrics:
-    | {
-        model: string;
-        latencyMs: number;
-        inputTokens: number;
-        outputTokens: number;
-        costUsd: number;
-      }
-    | undefined;
+  let callMetrics: CallMetrics | undefined;
 
   if (cached && isValidLlmResponseShape(cached.response)) {
     response = filterResponse(
       cached.response,
       candidates.length > 0,
-      signalIds.length > 0,
       analysis.repo,
     );
   } else {
-    // A cached row that fails shape validation is treated exactly like a cache miss: warn
-    // distinctly (so a poisoned row is diagnosable), then fall through to a fresh call, which
-    // overwrites it via the normal writeCache below. Returning early here would make one bad
-    // cache write a permanent black hole for this prompt's key.
+    // A cached row that fails shape validation is treated as a miss, so the fresh answer
+    // overwrites it instead of the row blocking this key for good.
     if (cached) {
       console.warn(
         "gap LLM pass: cached response failed shape validation, bypassing the cache and making a fresh call",
@@ -458,18 +465,14 @@ export async function applyLlmPass(
           repo: analysis.repo,
           detail: result.detail,
         });
-        // `costUsd` is set whenever the adapter has a real or conservatively-estimated cost to
-        // report (a truncated response, or an Anthropic connection timeout); omitted only when
-        // the call never incurred one.
+        // Set whenever the adapter has a real or estimated cost to report.
         if (result.costUsd !== undefined) {
           await recordSpendSafely(config, result.costUsd, analysis.repo);
         }
         return analysis;
       }
 
-      // Recorded immediately: the call is billed the moment it returns, regardless of whether
-      // recording, parsing, or caching succeeds afterward - a bookkeeping failure here must never
-      // discard an already-paid-for response.
+      // Billed the moment the call returns, so recorded before anything that can fail.
       await recordSpendSafely(config, result.costUsd, analysis.repo);
       callMetrics = {
         model: config.model,
@@ -487,12 +490,7 @@ export async function applyLlmPass(
         );
         return analysis;
       }
-      response = filterResponse(
-        parsed,
-        candidates.length > 0,
-        signalIds.length > 0,
-        analysis.repo,
-      );
+      response = filterResponse(parsed, candidates.length > 0, analysis.repo);
 
       try {
         await config.writeCache(key, {
@@ -510,153 +508,196 @@ export async function applyLlmPass(
     } catch (error) {
       console.error(
         "gap LLM pass: call failed, falling back to the deterministic analysis",
-        { repo: analysis.repo, error },
+        { repo: analysis.repo, error: describeError(error) },
       );
       return analysis;
     }
   }
 
-  let result = analysis;
   const evalContext: EvaluationContext = {
     tools: catalogue.tools,
     toolById: new Map(catalogue.tools.map((tool) => [tool.id, tool])),
     stacks: analysis.stacks,
   };
-  const candidateByPair = new Map(
-    candidates.map((candidate): [string, CandidatePair] => [
+  const candidateOrder = new Map(
+    candidates.map((candidate, index): [string, number] => [
       candidate.pair,
-      candidate,
+      index,
     ]),
   );
   const signalById = new Map(sentSignals.map((entry) => [entry.id, entry]));
 
-  const verdicts = dedupeByPair(response.verdicts, analysis.repo);
   let verdictsApplied = 0;
+  let verdictsNoop = 0;
+  let verdictsDropped = 0;
 
-  for (const verdict of verdicts) {
-    // Re-verified against the candidates this analysis actually generated, never trusted from the
-    // response alone - defense in depth against a provider that names a pair outside the prompt.
-    const candidate = candidateByPair.get(verdict.pair);
-    if (!candidate) {
+  const { groups, dropped: conflicting } = groupByPair(
+    response.verdicts,
+    analysis.repo,
+  );
+  verdictsDropped += conflicting;
+
+  const pending: PendingVerdict[] = [];
+  for (const group of groups) {
+    const pair = clip(group[0].pair);
+    const order = candidateOrder.get(group[0].pair);
+    const candidate = order === undefined ? undefined : candidates[order];
+    const tool = candidate && evalContext.toolById.get(candidate.toolId);
+    if (order === undefined || !candidate || !tool) {
       console.warn(
         "gap LLM pass: dropped a verdict, pair is not a candidate for this analysis",
-        { repo: analysis.repo, pair: verdict.pair },
+        { repo: analysis.repo, pair },
       );
+      verdictsDropped += group.length;
       continue;
     }
-    const capability = findCapability(result, candidate.capabilityId);
-    const tool = evalContext.toolById.get(candidate.toolId);
-    if (!capability || !tool) continue;
 
-    // The action comes from the pair's fixed direction: only `provides` on a rescue pair can
-    // rescue, only `does-not-provide` on an audit pair can demote. A rescue still stops once the
-    // capability is satisfied, so a capability with several rescuable tools stops at the first
-    // that closes its gap rather than crediting every one.
+    // The pair's fixed direction decides the action: only `provides` on a rescue pair rescues,
+    // only `does-not-provide` on an audit pair demotes. Anything else agrees with the
+    // deterministic result.
     const action =
-      candidate.direction === "rescue" &&
-      verdict.verdict === "provides" &&
-      !capability.satisfied
+      candidate.direction === "rescue" && group[0].verdict === "provides"
         ? "rescue"
         : candidate.direction === "audit" &&
-            verdict.verdict === "does-not-provide"
+            group[0].verdict === "does-not-provide"
           ? "audit"
           : null;
-    // Every other combination - confirming an already-credited pair, denying a pair that was
-    // never credited - changes nothing, and isn't a drop worth logging.
-    if (!action) continue;
+    if (!action) {
+      verdictsNoop += group.length;
+      continue;
+    }
 
-    const entry = signalById.get(verdict.signalId);
-    if (!entry) {
-      console.warn(
-        `gap LLM pass: dropped the ${action} verdict, signalId is not in this analysis`,
-        { repo: analysis.repo, pair: verdict.pair },
-      );
+    let failure: string | undefined;
+    let accepted: { verdict: LlmVerdict; evidence: string } | undefined;
+    for (const verdict of group) {
+      const entry = signalById.get(verdict.signalId);
+      if (!entry) {
+        failure ??= "signalId is not in this analysis";
+        continue;
+      }
+      const quote = verifiedQuote(verdict.quote, entry);
+      if (quote === null) {
+        failure ??= "quote did not verify";
+        continue;
+      }
+      if (!relatesToTool(quote, tool)) {
+        failure ??= "quote does not relate to the tool";
+        continue;
+      }
+      accepted = {
+        verdict,
+        evidence: toDisplayText(quote, entry.truncated),
+      };
+      break;
+    }
+    if (!accepted) {
+      console.warn(`gap LLM pass: dropped the ${action} verdict, ${failure}`, {
+        repo: analysis.repo,
+        pair,
+      });
+      verdictsDropped += group.length;
       continue;
     }
-    if (!verifyQuote(verdict.quote, entry.text)) {
-      console.warn(
-        `gap LLM pass: dropped the ${action} verdict, quote did not verify`,
-        { repo: analysis.repo, pair: verdict.pair },
-      );
-      continue;
-    }
-    if (!relatesToTool(stripShellComments(verdict.quote), tool)) {
-      console.warn(
-        `gap LLM pass: dropped the ${action} verdict, quote does not relate to the tool`,
-        { repo: analysis.repo, pair: verdict.pair },
-      );
+    // Repeats of the accepted verdict add nothing.
+    verdictsNoop += group.length - 1;
+    pending.push({ order, candidate, action, tool, ...accepted });
+  }
+
+  // Candidate order, not response order, so the outcome never depends on how the model sorted
+  // its answer.
+  pending.sort((a, b) => a.order - b.order);
+
+  let result = analysis;
+  for (const { candidate, action, tool, verdict, evidence } of pending) {
+    const capability = findCapability(result, candidate.capabilityId);
+    if (!capability) {
+      verdictsDropped++;
       continue;
     }
 
     if (action === "rescue") {
-      result = updateCapability(result, capability.id, (c) =>
-        applyRescue(c, verdict, tool, evalContext),
-      );
-      verdictsApplied++;
-    } else {
-      const present = capability.present.find((p) => p.id === tool.id);
-      if (present && !isCiEvidence(present.evidence)) {
-        console.warn(
-          "gap LLM pass: skipped an audit verdict, the tool's credit is not CI text",
-          { repo: analysis.repo, pair: verdict.pair },
-        );
-        continue;
-      }
-      if (!relatedEntriesUncut(tool, signals, sentSignals)) {
-        console.warn(
-          "gap LLM pass: skipped an audit verdict, a related signal entry was truncated or omitted",
-          { repo: analysis.repo, pair: verdict.pair },
-        );
+      // A capability already closed by an earlier rescue needs no further tool.
+      if (capability.satisfied) {
+        verdictsNoop++;
         continue;
       }
       result = updateCapability(result, capability.id, (c) =>
-        applyAudit(c, verdict, tool.id, evalContext),
+        applyRescue(c, evidence, tool, evalContext),
       );
       verdictsApplied++;
+      continue;
     }
+
+    const present = capability.present.find((p) => p.id === tool.id);
+    if (!present) {
+      verdictsNoop++;
+      continue;
+    }
+    if (present.nonCiCredit) {
+      console.warn(
+        "gap LLM pass: skipped an audit verdict, the tool is also credited by a config file or dependency",
+        { repo: analysis.repo, pair: clip(verdict.pair) },
+      );
+      verdictsDropped++;
+      continue;
+    }
+    if (!relatedEntriesUncut(tool, signals, sentSignals)) {
+      console.warn(
+        "gap LLM pass: skipped an audit verdict, a related signal entry was truncated or omitted",
+        { repo: analysis.repo, pair: clip(verdict.pair) },
+      );
+      verdictsDropped++;
+      continue;
+    }
+    result = updateCapability(result, capability.id, (c) =>
+      applyAudit(c, verdict, tool.id, evalContext),
+    );
+    verdictsApplied++;
   }
 
   const seenFindings = new Set<string>();
-  const dedupedFindings = response.detectFindings.filter((finding) => {
-    const key = `${finding.kind}:${finding.signalId}:${normalize(finding.quote)}`;
-    if (seenFindings.has(key)) return false;
-    seenFindings.add(key);
-    return true;
-  });
-
-  const buildSteps = dedupedFindings
-    .map((finding) => {
-      const entry = signalById.get(finding.signalId);
-      if (!entry) {
-        console.warn(
-          "gap LLM pass: dropped a detect finding, signalId is not in this analysis",
-          { repo: analysis.repo, kind: finding.kind },
-        );
-        return null;
-      }
-      if (!verifyQuote(finding.quote, entry.text)) {
-        console.warn(
-          "gap LLM pass: dropped a detect finding, quote did not verify",
-          { repo: analysis.repo, kind: finding.kind },
-        );
-        return null;
-      }
-      return {
+  const buildSteps: Analysis["buildSteps"] = [];
+  for (const finding of response.detectFindings) {
+    const entry = signalById.get(finding.signalId);
+    const quote = entry && verifiedQuote(finding.quote, entry);
+    if (!entry || quote === null || quote === undefined) {
+      console.warn("gap LLM pass: dropped a detect finding", {
+        repo: analysis.repo,
         kind: finding.kind,
-        evidence: toDisplayText(finding.quote),
-        source: entry.rawSource,
-      };
-    })
-    .filter((step): step is NonNullable<typeof step> => step !== null)
-    .slice(0, maxDetectFindings);
+        reason: entry
+          ? "quote did not verify"
+          : "signalId is not in this analysis",
+      });
+      continue;
+    }
+    // One finding per kind per source file.
+    const findingKey = `${finding.kind}:${entry.rawSource}`;
+    if (seenFindings.has(findingKey)) continue;
+    seenFindings.add(findingKey);
+    buildSteps.push({
+      kind: finding.kind,
+      evidence: toDisplayText(quote, entry.truncated),
+      source: entry.rawSource,
+    });
+    if (buildSteps.length === maxDetectFindings) break;
+  }
 
+  const counts = {
+    verdictsApplied,
+    verdictsNoop,
+    verdictsDropped,
+    detectFindingsKept: buildSteps.length,
+  };
   if (callMetrics) {
     console.info("gap LLM pass: completed", {
       repo: analysis.repo,
       ...callMetrics,
-      verdictsApplied,
-      verdictsDropped: verdicts.length - verdictsApplied,
-      detectFindingsKept: buildSteps.length,
+      ...counts,
+    });
+  } else {
+    console.info("gap LLM pass: served from cache", {
+      repo: analysis.repo,
+      ...counts,
     });
   }
 

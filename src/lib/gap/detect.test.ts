@@ -259,6 +259,43 @@ describe("detectTools", () => {
     ]);
   });
 
+  it("flags a tool as non-CI credited when a config file or manifest dependency also credits it, and never otherwise", () => {
+    const ciOnly = snapshot({
+      paths: ["ci.yml"],
+      files: { "ci.yml": "steps:\n  - run: trivy fs .\n" },
+    });
+    const trivy = tool("trivy", {
+      commands: ["trivy fs"],
+      configFiles: ["trivy.yaml"],
+      manifestDeps: ["trivy-dep"],
+    });
+    expect(detectTools(ciOnly, [trivy])[0]).not.toHaveProperty("nonCiCredit");
+
+    const withConfig = snapshot({
+      paths: ["ci.yml", "trivy.yaml"],
+      files: ciOnly.files,
+    });
+    expect(detectTools(withConfig, [trivy])).toEqual([
+      {
+        id: "trivy",
+        name: "trivy",
+        evidence: "runs trivy fs in ci.yml",
+        nonCiCredit: true,
+      },
+    ]);
+
+    const withDependency = snapshot({
+      paths: ["ci.yml", "package.json"],
+      files: {
+        ...ciOnly.files,
+        "package.json": JSON.stringify({
+          devDependencies: { "trivy-dep": "1" },
+        }),
+      },
+    });
+    expect(detectTools(withDependency, [trivy])[0].nonCiCredit).toBe(true);
+  });
+
   it("matches a ciUses family name against a specific sub-action", () => {
     const found = detectTools(
       snapshot({

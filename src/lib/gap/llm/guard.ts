@@ -6,16 +6,15 @@ export function normalize(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
-/** The literal marker substituted for every real newline before a signal's text goes into the
- * prompt, so a `run: |` block (or the raw-file fallback in `detect.ts`) always reaches the model
- * as one visible line, never mistaken for a heading or instruction.
+/** Rewrites repo text so it can sit inside the prompt as one line of inert data. Real newlines
+ * become `⏎`; a literal `⏎` in the repo becomes `↵` so the two never collide. A run of three or
+ * more `<` or `>` (the shape of the block markers below) becomes `‹`/`›`.
  *
- * Also neutralizes any run of three or more `<` or `>` characters - the shape of the block
- * markers below - wherever repo text (entry text, source paths, `with:` values) might otherwise
- * carry a fake one into the prompt. Escaping is a 1:1 substitution, so it never changes a quote's
- * normalized length and a quote reproducing exactly what the model was shown still matches. */
+ * Every substitution is 1:1 in length, so a quote that reproduces what the model saw still
+ * matches, and `toDisplayText` can undo exactly what this introduced. */
 export function escapeSignalText(text: string): string {
   return text
+    .replace(/⏎/g, "↵")
     .replace(/\r\n|\r|\n/g, "⏎")
     .replace(/<{3,}/g, (run) => "‹".repeat(run.length))
     .replace(/>{3,}/g, (run) => "›".repeat(run.length));
@@ -30,10 +29,8 @@ export function escapeSignalText(text: string): string {
  * against those two shapes, never as a fragment of a longer line. */
 const MIN_QUOTE_LENGTH = 20;
 
-/** True when `quote` appears verbatim (after whitespace normalization) inside `entryText` - the
- * one signal entry the finding named via `signalId`, never any other entry. This is the
- * hallucination guard: a finding whose quote fails this check is dropped by the caller, never
- * trusted. */
+/** True when `quote` appears verbatim (after whitespace normalization) inside `entryText`, the
+ * one entry the finding named via `signalId`. Findings that fail this are dropped. */
 export function verifyQuote(quote: string, entryText: string): boolean {
   const needle = normalize(quote);
   if (needle.length === 0) return false;
@@ -45,18 +42,15 @@ export function verifyQuote(quote: string, entryText: string): boolean {
 }
 
 /** Word boundaries, so `trivy` does not match `trivyignore` and `tsc` does not match `tscpath`.
- * Mirrors `detect.ts`'s `mentions`, kept separate so this module stays free of a dependency on
- * detection internals. */
+ * Unlike `detect.ts`'s `mentions`, case-insensitive. */
 function mentionsToken(text: string, token: string): boolean {
   const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp(`(?:^|[^\\w./-])${escaped}(?![\\w./-])`, "i").test(text);
 }
 
-/** True when `text` relates to `tool`: one of its catalogue detection commands or `uses:` refs,
- * or its id or name, appears as a whole token - never a raw substring, the same word-boundary
- * rule `detect.ts` uses. Backs two checks: a verdict citing an unrelated quote is dropped
- * (`apply.ts`), and an entry related to a candidate pair's tool is prioritized by the input
- * budget below. */
+/** True when `text` names `tool`: a catalogue command or `uses:` ref, or the tool's id or name,
+ * as a whole token. A topical check, not proof the tool runs. Used to drop verdicts whose quote
+ * is about something else and to order budgeted entries. */
 export function relatesToTool(text: string, tool: AnalysisTool): boolean {
   const needles = [
     ...(tool.detect.commands ?? []),
@@ -67,14 +61,49 @@ export function relatesToTool(text: string, tool: AnalysisTool): boolean {
   return needles.some((needle) => needle && mentionsToken(text, needle));
 }
 
-/** Drops everything from a `#` to the end of each line, so a comment naming a tool can't make a
- * quote elsewhere on the line "relate" to it. Entry text is single-line with `⏎` markers at this
- * point, so each `⏎`-separated segment is treated as its own line. */
+function stripLineComment(line: string): string {
+  let quote: string | null = null;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === "\\" && quote !== "'") {
+      i++;
+    } else if (quote) {
+      if (char === quote) quote = null;
+    } else if (char === "'" || char === '"') {
+      quote = char;
+    } else if (char === "#" && (i === 0 || /\s/.test(line[i - 1]))) {
+      return line.slice(0, i);
+    }
+  }
+  return line;
+}
+
+/** Drops each line's shell comment: an unquoted `#` at a word start, to the end of the line.
+ * Lines are the `⏎`-separated segments of an escaped entry. */
 export function stripShellComments(text: string): string {
-  return text
-    .split("⏎")
-    .map((line) => line.replace(/#.*$/, ""))
-    .join("⏎");
+  return text.split("⏎").map(stripLineComment).join("⏎");
+}
+
+const renderedPrefix = /^(?:\[s\d+\]\s*)?(?:(?:uses|run):\s*)?/;
+
+/** Removes a leading `[sN] `, `uses: ` or `run: ` the prompt rendered in front of an entry. */
+export function stripRenderedPrefix(quote: string): string {
+  return quote.replace(renderedPrefix, "");
+}
+
+/** The form of `quote` that appears in the cited entry outside any shell comment, tolerating a
+ * leaked rendered prefix, or null when neither form does. Returns the matching form so callers
+ * show and check the real text. */
+export function verifiedQuote(
+  quote: string,
+  entry: Pick<RawSignalEntry, "kind" | "text">,
+): string | null {
+  const visible =
+    entry.kind === "shell" ? stripShellComments(entry.text) : entry.text;
+  for (const candidate of [quote, stripRenderedPrefix(quote)]) {
+    if (verifyQuote(candidate, visible)) return candidate;
+  }
+  return null;
 }
 
 export type RawSignalEntry = {
@@ -97,13 +126,21 @@ export type SignalBudget = {
   omittedCount: number;
 };
 
-// Roughly the total character budget for the raw-signal block, and the default per-entry cap
-// within it. Both are "about" figures, not contract limits: a related entry can run over its own
-// cap up to `relatedEntryBudget`, and the last entry let through before the total budget runs out
-// can push the total slightly past `totalBudgetChars`.
+// Hard limits on the raw-signal block, counted over each rendered line (id, label, text, source).
 const totalBudgetChars = 60_000;
+const maxEntries = 400;
 const defaultEntryBudget = 1_500;
 const relatedEntryBudget = 4_000;
+// A clamped entry shorter than this carries no usable evidence, so it is omitted instead.
+const minClampedChars = 20;
+
+/** The prompt line for one entry, newline excluded. */
+export function formatSignalLine(
+  entry: Pick<IndexedSignal, "id" | "kind" | "text" | "source">,
+): string {
+  const label = entry.kind === "uses" ? "uses" : "run";
+  return `[${entry.id}] ${label}: ${entry.text} (${entry.source})`;
+}
 
 function truncate(
   text: string,
@@ -114,10 +151,10 @@ function truncate(
 }
 
 /**
- * Selects and numbers the signal entries that go into the prompt against one character budget
- * every entry counts against. Entries related to a candidate pair's tool go first, kept at up to
- * `relatedEntryBudget` chars each until the budget runs out; the rest fill the remaining budget
- * round-robin across source files, so no single workflow crowds out every other one.
+ * Selects and numbers the signal entries that go into the prompt, within one hard budget of
+ * `totalBudgetChars` and `maxEntries`. Entries related to a candidate pair's tool go first (up to
+ * `relatedEntryBudget` chars each); the rest fill what remains round-robin across source files,
+ * so no single workflow crowds out the others. The last entry is clamped to fit.
  *
  * Identical entries (same kind and text) are deduped first, keeping the first source seen.
  */
@@ -138,20 +175,40 @@ export function budgetSignals(
   const related = deduped.filter(isRelated);
   const other = deduped.filter((entry) => !isRelated(entry));
 
-  type Kept = RawSignalEntry & { truncated: boolean };
-  const kept: Kept[] = [];
+  const entries: IndexedSignal[] = [];
   let budget = totalBudgetChars;
   let omittedCount = 0;
 
-  for (const entry of related) {
-    if (budget <= 0) {
+  const place = (entry: RawSignalEntry, cap: number) => {
+    if (entries.length >= maxEntries) {
       omittedCount++;
-      continue;
+      return;
     }
-    const { text, truncated } = truncate(entry.text, relatedEntryBudget);
-    kept.push({ ...entry, text, truncated });
-    budget -= text.length;
-  }
+    const id = `s${entries.length + 1}`;
+    const source = escapeSignalText(entry.source);
+    // Each line costs its overhead plus the joining newline.
+    const overhead =
+      formatSignalLine({ id, kind: entry.kind, text: "", source }).length + 1;
+    const room = Math.min(cap, budget - overhead);
+    const fits = entry.text.length <= room;
+    if (!fits && room < minClampedChars) {
+      omittedCount++;
+      return;
+    }
+    const { text, truncated } = truncate(entry.text, room);
+    const indexed: IndexedSignal = {
+      id,
+      kind: entry.kind,
+      text: escapeSignalText(text),
+      source,
+      rawSource: entry.source,
+      truncated,
+    };
+    budget -= formatSignalLine(indexed).length + 1;
+    entries.push(indexed);
+  };
+
+  for (const entry of related) place(entry, relatedEntryBudget);
 
   const bySource = new Map<string, RawSignalEntry[]>();
   for (const entry of other) {
@@ -166,27 +223,11 @@ export function budgetSignals(
   while (remaining > 0) {
     const queue = queues[cursor % queues.length];
     cursor++;
-    if (queue.length === 0) continue;
     const entry = queue.shift();
     if (!entry) continue;
     remaining--;
-    if (budget <= 0) {
-      omittedCount++;
-      continue;
-    }
-    const { text, truncated } = truncate(entry.text, defaultEntryBudget);
-    kept.push({ ...entry, text, truncated });
-    budget -= text.length;
+    place(entry, defaultEntryBudget);
   }
-
-  const entries: IndexedSignal[] = kept.map((entry, index) => ({
-    id: `s${index + 1}`,
-    kind: entry.kind,
-    text: escapeSignalText(entry.text),
-    source: escapeSignalText(entry.source),
-    rawSource: entry.source,
-    truncated: entry.truncated,
-  }));
 
   return {
     entries,
@@ -195,9 +236,13 @@ export function budgetSignals(
   };
 }
 
-/** Undoes prompt-only formatting before a quote reaches a report field: the real newline a `⏎`
- * marker stands for, and the `…` a truncated entry was cut with - that character was added by
- * `budgetSignals` above, never real file text, so it is stripped rather than shown as if it were. */
-export function toDisplayText(text: string): string {
-  return text.replace(/⏎/g, "\n").replace(/…/g, "");
+/** Undoes what `escapeSignalText` and truncation added before text reaches a report field: `⏎`
+ * becomes a newline and `‹‹‹`/`›››` runs become `<`/`>` again. The trailing `…` is only stripped
+ * when `truncated`, so a real ellipsis in repo text stays. */
+export function toDisplayText(text: string, truncated = false): string {
+  const restored = text
+    .replace(/⏎/g, "\n")
+    .replace(/‹{3,}/g, (run) => "<".repeat(run.length))
+    .replace(/›{3,}/g, (run) => ">".repeat(run.length));
+  return truncated ? restored.replace(/…$/, "") : restored;
 }

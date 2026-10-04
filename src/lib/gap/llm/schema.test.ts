@@ -314,8 +314,8 @@ describe("buildPrompt: candidate pairs", () => {
     );
   });
 
-  it("reports worthCalling true when there are pairs, and also true with zero pairs as long as there is raw signal text for detect", () => {
-    expect(buildPrompt(analysis(), signals, { tools }).worthCalling).toBe(true);
+  it("still sends signal entries with zero pairs, and none when there is no raw signal text", () => {
+    expect(buildPrompt(analysis(), signals, { tools }).signals).not.toEqual([]);
 
     const nothingToRescueOrAudit = analysis({
       categories: [
@@ -342,12 +342,12 @@ describe("buildPrompt: candidate pairs", () => {
     });
     const result = buildPrompt(nothingToRescueOrAudit, signals, { tools });
     expect(result.candidates).toEqual([]);
-    expect(result.worthCalling).toBe(true); // signals still has one shell entry
+    expect(result.signals).toHaveLength(1);
 
     expect(
       buildPrompt(nothingToRescueOrAudit, { uses: [], shell: [] }, { tools })
-        .worthCalling,
-    ).toBe(false);
+        .signals,
+    ).toEqual([]);
   });
 });
 

@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   budgetSignals,
   escapeSignalText,
+  formatSignalLine,
   normalize,
   relatesToTool,
   stripShellComments,
   toDisplayText,
+  verifiedQuote,
   verifyQuote,
 } from "./guard";
 import type { RawSignalEntry } from "./guard";
@@ -93,10 +95,56 @@ describe("stripShellComments", () => {
   });
 });
 
+describe("stripShellComments (word starts, quotes)", () => {
+  it("only treats an unquoted # at a word start as a comment", () => {
+    expect(stripShellComments("echo $# a#b 'x # y' \"p # q\" \\# z # c")).toBe(
+      "echo $# a#b 'x # y' \"p # q\" \\# z ",
+    );
+    expect(stripShellComments("# whole line⏎ls")).toBe("⏎ls");
+  });
+});
+
+describe("verifiedQuote", () => {
+  const shell = (text: string) => ({ kind: "shell" as const, text });
+
+  it("returns the form that sits outside comments, tolerating a leaked [sN] / uses: / run: prefix", () => {
+    expect(
+      verifiedQuote(
+        "[s3] run: semgrep --config p/java .",
+        shell("semgrep --config p/java ."),
+      ),
+    ).toBe("semgrep --config p/java .");
+    expect(
+      verifiedQuote("uses: docker/build-push-action", {
+        kind: "uses",
+        text: "docker/build-push-action",
+      }),
+    ).toBe("docker/build-push-action");
+    expect(
+      verifiedQuote(
+        "semgrep --config p/java .",
+        shell("npm test # semgrep --config p/java ."),
+      ),
+    ).toBeNull();
+    expect(
+      verifiedQuote("semgrep --config p/java .", {
+        kind: "uses",
+        text: "x with note=# semgrep --config p/java .",
+      }),
+    ).toBe("semgrep --config p/java .");
+  });
+});
+
 describe("toDisplayText", () => {
-  it("turns the ⏎ marker back into a real newline and strips the truncation … marker", () => {
+  it("undoes only what the pipeline introduced: newline and fence markers always, the trailing … only for a truncated entry", () => {
     expect(toDisplayText("echo start⏎echo end")).toBe("echo start\necho end");
-    expect(toDisplayText("npm run build…")).toBe("npm run build");
+    expect(toDisplayText("cat <<‹‹‹")).toBe("cat <<<<<");
+    expect(toDisplayText("npm run build…", true)).toBe("npm run build");
+    expect(toDisplayText('echo "Installing…"', true)).toBe(
+      'echo "Installing…"',
+    );
+    expect(toDisplayText("npm run build…")).toBe("npm run build…");
+    expect(toDisplayText(escapeSignalText("a⏎b"))).toBe("a↵b");
   });
 });
 
@@ -232,5 +280,44 @@ describe("budgetSignals", () => {
     expect(omittedCount).toBeGreaterThan(0);
     expect(entries.length).toBeLessThan(manyRelated.length);
     expect(entries.every((e) => e.text.includes("semgrep"))).toBe(true);
+  });
+});
+
+describe("budgetSignals: hard budget", () => {
+  const entry = (text: string, source = "ci.yml"): RawSignalEntry => ({
+    kind: "shell",
+    text,
+    source,
+  });
+  const lineChars = (entries: ReturnType<typeof budgetSignals>["entries"]) =>
+    entries.reduce((sum, e) => sum + formatSignalLine(e).length + 1, 0);
+
+  it("counts the full rendered line, so long source paths cannot push the block past the budget", () => {
+    const source = `.github/workflows/${"w".repeat(100)}.yml`;
+    const many = Array.from({ length: 3000 }, (_, i) =>
+      entry(`echo ${i}`, `${source}`),
+    );
+    const { entries, omittedCount } = budgetSignals(many, []);
+    expect(lineChars(entries)).toBeLessThanOrEqual(60_000);
+    expect(entries.length).toBeLessThanOrEqual(400);
+    expect(omittedCount).toBe(3000 - entries.length);
+  });
+
+  it("clamps the last entry to fit the remaining budget instead of overshooting, and omits one with no usable room", () => {
+    const filler = Array.from({ length: 39 }, (_, i) =>
+      entry(`${i} ${"x".repeat(1_490)}`, `f${i}.yml`),
+    );
+    const tail = entry("y".repeat(1_400), "tail.yml");
+    const { entries } = budgetSignals([...filler, tail], []);
+    expect(lineChars(entries)).toBeLessThanOrEqual(60_000);
+    const last = entries[entries.length - 1];
+    expect(last.truncated).toBe(true);
+    expect(last.text.endsWith("…")).toBe(true);
+
+    const exact = budgetSignals(
+      [...filler.slice(0, 38), entry("z".repeat(10))],
+      [],
+    );
+    expect(exact.omittedCount).toBe(0);
   });
 });
