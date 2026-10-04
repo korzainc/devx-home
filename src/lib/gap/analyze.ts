@@ -53,11 +53,52 @@ function toRecommendedTools(
   });
 }
 
+/** Every stack in `stacks` that expects capability `id` - shared by `analyze()`, `schema.ts` and
+ * `apply.ts` so the three can never define "owning stack" differently. */
+export function owningStacksFor(
+  stacks: BaselineStack[],
+  id: string,
+): BaselineStack[] {
+  return stacks.filter((stack) => stack.expects[id] !== undefined);
+}
+
+/** The owning stacks `present` has no tool for - declaratively, by `tool.stacks`, not by what a
+ * tool's evidence actually demonstrated. Shared by `evaluateCapability` below, `schema.ts`'s
+ * rescue candidates and `apply.ts`'s audit re-evaluation, so "still uncovered" means one thing. */
+export function uncoveredStacks(
+  owningStacks: BaselineStack[],
+  present: PresentTool[],
+  toolById: Map<string, AnalysisTool>,
+): BaselineStack[] {
+  return owningStacks.filter(
+    (stack) =>
+      !present.some((entry) => {
+        const tool = toolById.get(entry.id);
+        return (
+          tool !== undefined &&
+          (tool.stacks.includes("any") || tool.stacks.includes(stack.id))
+        );
+      }),
+  );
+}
+
+/** The labels of every stack in `owningStacks` that `tool` itself declares. Shared by `analyze()`
+ * and `apply.ts`'s rescue, so a newly-credited tool is attributed to stacks the same way a
+ * deterministically-detected one is. */
+export function stackLabelsFor(
+  tool: AnalysisTool,
+  owningStacks: BaselineStack[],
+): string[] {
+  return owningStacks
+    .filter((stack) => tool.stacks.includes(stack.id))
+    .map((stack) => stack.label);
+}
+
 /**
  * Whether `tool` counts toward capability `id` given `owningStacks` - the rule `analyze()` uses to
- * decide which detected tools land in `present`, reused as-is by the LLM pass (`schema.ts`,
- * `apply.ts`) to find every catalogue entry that could rescue or re-credit a capability, so the
- * two can never recognize a tool differently.
+ * decide which detected tools land in `present`, reused by the LLM pass (`schema.ts`) to find
+ * every catalogue entry that could rescue or re-credit a capability, so the two can never
+ * recognize a tool differently.
  *
  * `owningStacks` empty means a universal capability: any tool declaring the capability counts,
  * with no stack to match against.
@@ -81,9 +122,9 @@ export function toolCreditsCapability(
  * via `baseline.universal`, which the real catalogue always leaves empty), checked by presence
  * alone with a generic catalogue-wide fallback recommendation instead of a per-stack one.
  *
- * Shared with the LLM audit pass (`apply.ts`): demoting a present tool re-evaluates its capability
- * through this same rule, so a capability held up by two tools covering different stacks drops to
- * unsatisfied once only one of them remains.
+ * Also used by `apply.ts` to re-evaluate a capability after the LLM pass adds or removes a
+ * present tool, so a capability held up by two tools across different stacks drops to unsatisfied
+ * once only one of them remains.
  */
 export function evaluateCapability(
   id: string,
@@ -123,23 +164,14 @@ export function evaluateCapability(
     return { satisfied, recommended };
   }
 
-  const uncoveredStacks = owningStacks.filter(
-    (stack) =>
-      !present.some((entry) => {
-        const tool = toolById.get(entry.id);
-        return (
-          tool !== undefined &&
-          (tool.stacks.includes("any") || tool.stacks.includes(stack.id))
-        );
-      }),
-  );
-  const satisfied = uncoveredStacks.length === 0;
+  const uncovered = uncoveredStacks(owningStacks, present, toolById);
+  const satisfied = uncovered.length === 0;
   if (satisfied) return { satisfied, recommended: [] };
 
   // Each uncovered stack's own baseline entry already names which tool applies here, so there's
   // no need to re-derive stack fit generically like the fallback above.
   const recommended = toRecommendedTools(
-    recommendationsByToolId(uncoveredStacks, id),
+    recommendationsByToolId(uncovered, id),
     toolById,
     id,
   );
@@ -177,9 +209,7 @@ export function analyze(
 
   const reports: CapabilityReport[] = [...expected].map((id) => {
     const meta = baseline.capabilities[id];
-    const owningStacks = stacks.filter(
-      (stack) => stack.expects[id] !== undefined,
-    );
+    const owningStacks = owningStacksFor(stacks, id);
 
     // Matching by capability id alone isn't enough: a detected tool can cover this capability
     // for a stack this repo doesn't own (e.g. a nested frontend's ESLint in a Java-only repo).
@@ -192,9 +222,7 @@ export function analyze(
     });
     const present: PresentTool[] = rawPresent.map((entry) => {
       const tool = toolById.get(entry.id);
-      const stackLabels = owningStacks
-        .filter((stack) => tool?.stacks.includes(stack.id))
-        .map((stack) => stack.label);
+      const stackLabels = tool ? stackLabelsFor(tool, owningStacks) : [];
       return { ...entry, stackLabels };
     });
 

@@ -178,9 +178,7 @@ function walkCi(node: unknown, source: string, into: CiSignals) {
       for (const line of lines) {
         if (typeof line === "string") into.shell.push({ text: line, source });
       }
-    } else if (key !== "with") {
-      // `with:` only ever carries inputs for the sibling `uses:` step handled above; walking into
-      // it separately would risk matching one of its input values as its own shell/uses signal.
+    } else {
       walkCi(value, source, into);
     }
   }

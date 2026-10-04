@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectStacks, detectTools, filesToRead } from "./detect";
+import { ciSignals, detectStacks, detectTools, filesToRead } from "./detect";
 import type { AnalysisTool, Baseline, RepoSnapshot } from "./types";
 
 // A fixture rather than the real catalogue: these cover the engine, and should not have to change
@@ -524,5 +524,77 @@ describe("detectTools", () => {
         tool("eslint", { configFiles: ["eslint.config.mjs"] }),
       ]),
     ).toEqual([]);
+  });
+
+  it("credits a tool invoked under with: run: on a docker-run-action step", () => {
+    const found = detectTools(
+      snapshot({
+        paths: [".github/workflows/ci.yml"],
+        files: {
+          ".github/workflows/ci.yml":
+            "jobs:\n  scan:\n    steps:\n      - uses: addnab/docker-run-action@v3\n        with:\n          run: trivy fs --scanners vuln,misconfig .\n",
+        },
+      }),
+      [tool("trivy", { commands: ["trivy"] })],
+    );
+
+    expect(found[0].evidence).toBe("runs trivy in .github/workflows/ci.yml");
+  });
+
+  it("credits a tool invoked under with: script: on a github-script step", () => {
+    const found = detectTools(
+      snapshot({
+        paths: [".github/workflows/ci.yml"],
+        files: {
+          ".github/workflows/ci.yml":
+            "jobs:\n  scan:\n    steps:\n      - uses: actions/github-script@v7\n        with:\n          script: exec('semgrep scan --config auto')\n",
+        },
+      }),
+      [tool("semgrep", { commands: ["semgrep"] })],
+    );
+
+    expect(found[0].evidence).toBe("runs semgrep in .github/workflows/ci.yml");
+  });
+});
+
+describe("ciSignals", () => {
+  it("collects a uses entry's scalar with: values as inputs", () => {
+    const signals = ciSignals(
+      snapshot({
+        paths: [".github/workflows/ci.yml"],
+        files: {
+          ".github/workflows/ci.yml":
+            "jobs:\n  scan:\n    steps:\n      - uses: aquasecurity/trivy-action@v0\n        with:\n          scan-type: fs\n          scanners: vuln\n          ignore-unfixed: true\n",
+        },
+      }),
+    );
+
+    expect(signals.uses).toEqual([
+      {
+        value: "aquasecurity/trivy-action",
+        source: ".github/workflows/ci.yml",
+        inputs: {
+          "scan-type": "fs",
+          scanners: "vuln",
+          "ignore-unfixed": "true",
+        },
+      },
+    ]);
+  });
+
+  it("leaves inputs undefined when with: has no scalar values", () => {
+    const signals = ciSignals(
+      snapshot({
+        paths: [".github/workflows/ci.yml"],
+        files: {
+          ".github/workflows/ci.yml":
+            "jobs:\n  scan:\n    steps:\n      - uses: actions/checkout@v4\n",
+        },
+      }),
+    );
+
+    expect(signals.uses).toEqual([
+      { value: "actions/checkout", source: ".github/workflows/ci.yml" },
+    ]);
   });
 });

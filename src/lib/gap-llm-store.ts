@@ -18,9 +18,10 @@ export async function readCache(
   return result.rows[0] ?? null;
 }
 
-/** The cache is content-addressed: the key hashes model, effort, and the exact prompt text (see
- * `apply.ts`'s `cacheKey`), so two writes under the same key can only disagree because one of
- * them is bad, never because the content legitimately changed.
+/** The cache is content-addressed: the key hashes model, effort, prompt version, the response
+ * schema, and the exact prompt text (see `apply.ts`'s `cacheKey`), so two writes under the same
+ * key can only disagree because one of them is bad, never because the content legitimately
+ * changed.
  *
  * `do update` lets a fresh good response overwrite a poisoned or malformed row instead of leaving
  * it there forever, so `apply.ts`'s shape-validation fallback always has a good row to fall

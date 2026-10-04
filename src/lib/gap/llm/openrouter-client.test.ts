@@ -6,10 +6,12 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function fakeFetch(body: unknown, ok = true) {
+function fakeFetch(body: unknown, ok = true, status = 200) {
   const fn = vi.fn().mockResolvedValue({
     ok,
+    status,
     json: () => Promise.resolve(body),
+    text: () => Promise.resolve(JSON.stringify(body)),
   });
   vi.stubGlobal("fetch", fn);
   return fn;
@@ -145,10 +147,11 @@ describe("createOpenRouterClient", () => {
       inputTokens: 100,
       outputTokens: 0,
       costUsd: 0,
+      detail: { message: "empty completion content" },
     });
   });
 
-  it("reports error with no cost when choices is empty or the HTTP response is not ok", async () => {
+  it("reports a diagnosable detail when choices is empty or the HTTP response is not ok", async () => {
     fakeFetch({
       choices: [],
       usage: { prompt_tokens: 100, completion_tokens: 0 },
@@ -161,19 +164,27 @@ describe("createOpenRouterClient", () => {
         effort: "low",
       },
     );
-    expect(emptyChoices).toEqual({ ok: false, reason: "error" });
+    expect(emptyChoices).toEqual({
+      ok: false,
+      reason: "error",
+      detail: { message: "response missing choices or usage" },
+    });
 
-    fakeFetch({ error: { message: "rate limited" } }, false);
+    fakeFetch({ error: { message: "rate limited" } }, false, 429);
     const notOk = await createOpenRouterClient("test-key", "m").complete({
       system: "s",
       user: "u",
       schema: {},
       effort: "low",
     });
-    expect(notOk).toEqual({ ok: false, reason: "error" });
+    expect(notOk).toMatchObject({
+      ok: false,
+      reason: "error",
+      detail: { status: 429 },
+    });
   });
 
-  it("reports cost 0 when fetch itself throws or a hung request aborts - OpenRouter's usage-based billing never incurred a charge either way", async () => {
+  it("reports cost 0 and a diagnosable detail when fetch itself throws or a hung request aborts - OpenRouter's usage-based billing never incurred a charge either way", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network")));
     const thrown = await createOpenRouterClient("test-key", "m").complete({
       system: "s",
@@ -181,14 +192,19 @@ describe("createOpenRouterClient", () => {
       schema: {},
       effort: "low",
     });
-    expect(thrown).toEqual({ ok: false, reason: "error", costUsd: 0 });
+    expect(thrown).toEqual({
+      ok: false,
+      reason: "error",
+      costUsd: 0,
+      detail: { type: undefined, message: "network" },
+    });
 
     // A real fetch rejects once the signal it was given aborts - this stands in for that, so the
     // test also proves the adapter actually wires a timeout into the request.
     const fetchMock = vi.fn((_url: string, init?: RequestInit) => {
       return new Promise((_resolve, reject) => {
         init?.signal?.addEventListener("abort", () => {
-          reject(new DOMException("The operation was aborted.", "AbortError"));
+          reject(new DOMException("Request timed out.", "TimeoutError"));
         });
       });
     });
@@ -199,7 +215,12 @@ describe("createOpenRouterClient", () => {
       schema: {},
       effort: "low",
     });
-    expect(aborted).toEqual({ ok: false, reason: "error", costUsd: 0 });
+    expect(aborted).toEqual({
+      ok: false,
+      reason: "error",
+      costUsd: 0,
+      detail: { type: "timeout", message: "Request timed out." },
+    });
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(init.signal).toBeInstanceOf(AbortSignal);
   });

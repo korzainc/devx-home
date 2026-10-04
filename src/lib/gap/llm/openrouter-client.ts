@@ -5,10 +5,9 @@ import type {
   LlmCompletionResult,
 } from "./types";
 
-/** OpenRouter always includes a `cost` in `usage` now (the `usage.include` request flag it used to
- * require is deprecated and has no effect). A free model reports `0` there, which is the real
- * cost. Falls back to `0` with a one-time warning if a future response ever omits it, rather than
- * recording nothing. */
+/** OpenRouter always includes a `cost` in `usage`; a free model reports `0` there, which is the
+ * real cost. Falls back to `0` with a one-time warning if a future response ever omits it, rather
+ * than recording nothing. */
 function costOf(usage: { cost?: number }): number {
   if (usage.cost !== undefined) return usage.cost;
   warnOnce(
@@ -68,7 +67,14 @@ export function createOpenRouterClient(
           },
         );
 
-        if (!response.ok) return { ok: false, reason: "error" };
+        if (!response.ok) {
+          const body = await response.text().catch(() => "");
+          return {
+            ok: false,
+            reason: "error",
+            detail: { status: response.status, message: body.slice(0, 300) },
+          };
+        }
 
         const body = (await response.json()) as {
           choices?: {
@@ -82,7 +88,12 @@ export function createOpenRouterClient(
           };
         };
         const choice = body.choices?.[0];
-        if (!choice || !body.usage) return { ok: false, reason: "error" };
+        if (!choice || !body.usage)
+          return {
+            ok: false,
+            reason: "error",
+            detail: { message: "response missing choices or usage" },
+          };
         const usage = {
           inputTokens: body.usage.prompt_tokens,
           outputTokens: body.usage.completion_tokens,
@@ -92,7 +103,13 @@ export function createOpenRouterClient(
           return { ok: false, reason: "truncated", ...usage, costUsd };
         }
         if (!choice.message.content)
-          return { ok: false, reason: "error", ...usage, costUsd };
+          return {
+            ok: false,
+            reason: "error",
+            ...usage,
+            costUsd,
+            detail: { message: "empty completion content" },
+          };
 
         return {
           ok: true,
@@ -100,12 +117,23 @@ export function createOpenRouterClient(
           ...usage,
           costUsd,
         };
-      } catch {
+      } catch (error) {
         // Either the request never reached OpenRouter (network error, our own abort) or the body
         // never parsed - either way, OpenRouter's usage-based billing never incurred a charge for
         // it, so `0` here is the real cost, not just a conservative floor the way Anthropic's
         // timeout estimate is.
-        return { ok: false, reason: "error", costUsd: 0 };
+        const timedOut =
+          error instanceof Error && error.name === "TimeoutError";
+        const message = error instanceof Error ? error.message : String(error);
+        return {
+          ok: false,
+          reason: "error",
+          costUsd: 0,
+          detail: {
+            type: timedOut ? "timeout" : undefined,
+            message: message.slice(0, 300),
+          },
+        };
       }
     },
   };

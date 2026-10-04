@@ -7,23 +7,27 @@ export function normalize(text: string): string {
 }
 
 /** The literal marker substituted for every real newline before a signal's text goes into the
- * prompt. A `run: |` block, or the raw-file fallback in `detect.ts`, would otherwise reach the
- * model as real newlines, indistinguishable from a heading or instruction in the surrounding
- * prompt.
+ * prompt, so a `run: |` block (or the raw-file fallback in `detect.ts`) always reaches the model
+ * as one visible line, never mistaken for a heading or instruction.
  *
- * Quote verification works over text escaped the same way, so a quote reproducing exactly what
- * the model was shown still matches; escaping is a 1:1 substitution, so it never changes a quote's
- * normalized length. */
+ * Also neutralizes any run of three or more `<` or `>` characters - the shape of the block
+ * markers below - wherever repo text (entry text, source paths, `with:` values) might otherwise
+ * carry a fake one into the prompt. Escaping is a 1:1 substitution, so it never changes a quote's
+ * normalized length and a quote reproducing exactly what the model was shown still matches. */
 export function escapeSignalText(text: string): string {
-  return text.replace(/\r\n|\r|\n/g, "⏎");
+  return text
+    .replace(/\r\n|\r|\n/g, "⏎")
+    .replace(/<{3,}/g, (run) => "‹".repeat(run.length))
+    .replace(/>{3,}/g, (run) => "›".repeat(run.length));
 }
 
 /** Minimum normalized quote length `verifyQuote` accepts from a partial match. A hallucination
  * guard that verifies single characters or trivial fragments verifies nothing; this floor forces
  * a quote to carry enough real text to prove the finding is grounded.
  *
- * A whole entry can still be shorter than this - `npm ci` is real evidence on its own - so a quote
- * under the floor is accepted when it equals the cited entry's entire text, never otherwise. */
+ * A whole entry, or one whole line of a multi-line entry, can still be shorter than this -
+ * `go build ./...` is real evidence on its own - so a quote under the floor is also accepted
+ * against those two shapes, never as a fragment of a longer line. */
 const MIN_QUOTE_LENGTH = 20;
 
 /** True when `quote` appears verbatim (after whitespace normalization) inside `entryText` - the
@@ -32,10 +36,12 @@ const MIN_QUOTE_LENGTH = 20;
  * trusted. */
 export function verifyQuote(quote: string, entryText: string): boolean {
   const needle = normalize(quote);
-  const hay = normalize(entryText);
   if (needle.length === 0) return false;
-  if (needle.length >= MIN_QUOTE_LENGTH) return hay.includes(needle);
-  return needle === hay;
+  if (needle.length >= MIN_QUOTE_LENGTH)
+    return normalize(entryText).includes(needle);
+
+  const lines = entryText.split("⏎").map(normalize);
+  return needle === normalize(entryText) || lines.includes(needle);
 }
 
 /** Word boundaries, so `trivy` does not match `trivyignore` and `tsc` does not match `tscpath`.
@@ -46,22 +52,29 @@ function mentionsToken(text: string, token: string): boolean {
   return new RegExp(`(?:^|[^\\w./-])${escaped}(?![\\w./-])`, "i").test(text);
 }
 
-/** True when `text` relates to `tool`: it contains one of the tool's catalogue detection commands
- * or `uses:` refs (case-insensitive substring), or names the tool's id or name as a whole token.
- * The guard behind two things: a verdict citing an unrelated entry is dropped (`apply.ts`), and an
- * entry related to a candidate pair's tool is prioritized and never dropped by the input budget
- * (`budgetSignals` below). */
+/** True when `text` relates to `tool`: one of its catalogue detection commands or `uses:` refs,
+ * or its id or name, appears as a whole token - never a raw substring, the same word-boundary
+ * rule `detect.ts` uses. Backs two checks: a verdict citing an unrelated quote is dropped
+ * (`apply.ts`), and an entry related to a candidate pair's tool is prioritized by the input
+ * budget below. */
 export function relatesToTool(text: string, tool: AnalysisTool): boolean {
-  const lower = text.toLowerCase();
-  const substrings = [
+  const needles = [
     ...(tool.detect.commands ?? []),
     ...(tool.detect.ciUses ?? []),
+    tool.id,
+    tool.name,
   ];
-  if (
-    substrings.some((needle) => needle && lower.includes(needle.toLowerCase()))
-  )
-    return true;
-  return mentionsToken(text, tool.id) || mentionsToken(text, tool.name);
+  return needles.some((needle) => needle && mentionsToken(text, needle));
+}
+
+/** Drops everything from a `#` to the end of each line, so a comment naming a tool can't make a
+ * quote elsewhere on the line "relate" to it. Entry text is single-line with `⏎` markers at this
+ * point, so each `⏎`-separated segment is treated as its own line. */
+export function stripShellComments(text: string): string {
+  return text
+    .split("⏎")
+    .map((line) => line.replace(/#.*$/, ""))
+    .join("⏎");
 }
 
 export type RawSignalEntry = {
@@ -101,11 +114,10 @@ function truncate(
 }
 
 /**
- * Selects and numbers the signal entries that go into the prompt. Replaces a flat entry-count cap
- * with a character budget: every entry relating to a `relatedTools` tool is kept in full (up to
- * `relatedEntryBudget` each) so a rescue or audit tool's own evidence is never the casualty of an
- * unrelated workflow's volume, then the remaining budget is filled round-robin across the other
- * entries' source files, so no single workflow crowds out every other one.
+ * Selects and numbers the signal entries that go into the prompt against one character budget
+ * every entry counts against. Entries related to a candidate pair's tool go first, kept at up to
+ * `relatedEntryBudget` chars each until the budget runs out; the rest fill the remaining budget
+ * round-robin across source files, so no single workflow crowds out every other one.
  *
  * Identical entries (same kind and text) are deduped first, keeping the first source seen.
  */
@@ -127,12 +139,19 @@ export function budgetSignals(
   const other = deduped.filter((entry) => !isRelated(entry));
 
   type Kept = RawSignalEntry & { truncated: boolean };
-  const kept: Kept[] = related.map((entry) => {
+  const kept: Kept[] = [];
+  let budget = totalBudgetChars;
+  let omittedCount = 0;
+
+  for (const entry of related) {
+    if (budget <= 0) {
+      omittedCount++;
+      continue;
+    }
     const { text, truncated } = truncate(entry.text, relatedEntryBudget);
-    return { ...entry, text, truncated };
-  });
-  let budget =
-    totalBudgetChars - kept.reduce((sum, entry) => sum + entry.text.length, 0);
+    kept.push({ ...entry, text, truncated });
+    budget -= text.length;
+  }
 
   const bySource = new Map<string, RawSignalEntry[]>();
   for (const entry of other) {
@@ -142,7 +161,6 @@ export function budgetSignals(
   }
   const queues = [...bySource.values()];
 
-  let omittedCount = 0;
   let remaining = other.length;
   let cursor = 0;
   while (remaining > 0) {
@@ -175,4 +193,11 @@ export function budgetSignals(
     truncatedCount: entries.filter((entry) => entry.truncated).length,
     omittedCount,
   };
+}
+
+/** Undoes prompt-only formatting before a quote reaches a report field: the real newline a `⏎`
+ * marker stands for, and the `…` a truncated entry was cut with - that character was added by
+ * `budgetSignals` above, never real file text, so it is stripped rather than shown as if it were. */
+export function toDisplayText(text: string): string {
+  return text.replace(/⏎/g, "\n").replace(/…/g, "");
 }

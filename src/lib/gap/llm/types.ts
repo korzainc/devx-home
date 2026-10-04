@@ -1,12 +1,11 @@
 import type { BuildStepKind } from "../types";
 
-/** Reasoning-depth levels shared across every provider-facing effort field in this module (and,
- * `src/lib/gap-llm-config.ts`), so the union is declared once. */
+/** Reasoning-depth levels shared across every provider-facing effort field in this module and in
+ * `src/lib/gap-llm-config.ts`, so the union is declared once. */
 export type LlmEffort = "low" | "medium" | "high" | "xhigh" | "max";
 
 /** One structured-output completion request, provider-agnostic. `schema` is a plain JSON Schema
- * object (this plan never uses Zod); `effort` maps onto whichever reasoning-depth control the
- * concrete provider exposes. */
+ * object; `effort` maps onto whichever reasoning-depth control the concrete provider exposes. */
 export type LlmCompletionRequest = {
   system: string;
   user: string;
@@ -25,15 +24,20 @@ export type LlmCompletionResult =
   | {
       ok: false;
       reason: "truncated" | "error";
-      // Anthropic bills for a truncated response's tokens exactly as it would a successful one,
-      // so a failure with real usage data still has a real cost to record against the daily spend
-      // cap. `costUsd` is omitted only when the call never returned usage data and the adapter has
-      // no reason to believe a real cost was incurred (e.g. it was rejected before any inference
-      // ran) - a connection timeout is the one exception, where the adapter itself estimates a
-      // conservative cost since real inference may already be running server-side.
+      // `costUsd` is set whenever a real cost was or may have been incurred: real usage on a
+      // truncated response, or a connection timeout's conservative estimate. Omitted only when
+      // the call was rejected before any inference ran.
       inputTokens?: number;
       outputTokens?: number;
       costUsd?: number;
+      /** Diagnostic detail for a failed call, logged by `apply.ts` - never the request body or an
+       * API key. */
+      detail?: {
+        status?: number;
+        type?: string;
+        message?: string;
+        requestId?: string;
+      };
     };
 
 /** The only surface `apply.ts` calls. Implemented once for the real Anthropic API and once for
@@ -72,15 +76,15 @@ export type CachedLlmResponse = {
 export type Verdict = "provides" | "does-not-provide";
 
 /** One answer to one candidate pair: does the cited CI config actually run `pair`'s tool in a way
- * that provides `pair`'s capability. `pair` is a closed enum of `"<capabilityId>:<toolId>"`
- * strings built per analysis, so the model can never mismatch a capability and a tool the way two
- * separately-enumerated fields could. A pair with no clear evidence is omitted from the response
- * entirely rather than given a verdict - omission changes nothing.
+ * that provides `pair`'s capability. `pair` is `"<capabilityId>:<toolId>"`, so the model can never
+ * mismatch a capability and a tool the way two separately-named fields could. A pair with no
+ * clear evidence is omitted from the response entirely rather than given a verdict.
  *
  * `signalId` names exactly one entry from the numbered signal block; `quote` must be verbatim text
- * from that entry only (`guard.ts`'s `verifyQuote`). What a verdict actually does depends on the
- * pair's *current* state at apply time (`apply.ts`), never on which direction produced the
- * candidate - a model that confirms existing credit, or denies a gap, changes nothing either way. */
+ * from that entry only (`guard.ts`'s `verifyQuote`). What a verdict does depends on the pair's
+ * fixed direction (`CandidatePair.direction` in `schema.ts`), not on the capability's state when
+ * the response arrives: only `provides` on a rescue pair, or `does-not-provide` on an audit pair,
+ * changes anything (`apply.ts`). */
 export type LlmVerdict = {
   pair: string;
   signalId: string;

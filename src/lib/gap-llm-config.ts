@@ -21,7 +21,8 @@ const validEfforts: readonly LlmEffort[] = [
 
 // `getLlmConfig()` runs on every `/api/analyze` call, so an invalid value would otherwise warn on
 // every request forever - matching the one-time-warning pattern `gap-llm-store.ts` and
-// `gap/llm/apply.ts` already use for their own invalid-env-value and unknown-model cases.
+// `gap/llm/anthropic-client.ts` already use for their own invalid-env-value and unknown-model
+// cases.
 function effortFromEnv(): LlmEffort {
   const raw = process.env.GAP_LLM_EFFORT;
   if (raw && (validEfforts as readonly string[]).includes(raw))
@@ -48,7 +49,7 @@ function buildProvider(): { client: LlmClient; model: string } | undefined {
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return undefined;
-  const model = "claude-sonnet-5";
+  const model = "claude-sonnet-5-5";
   const sdk = new Anthropic({ apiKey, maxRetries: 0, timeout: 30_000 });
   return { client: createAnthropicClient(sdk, model), model };
 }

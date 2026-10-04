@@ -80,7 +80,7 @@ describe("getLlmConfig provider selection", () => {
     vi.stubEnv("ANTHROPIC_API_KEY", "key");
     const { getLlmConfig } = await loadConfig();
 
-    expect(getLlmConfig()?.model).toBe("claude-sonnet-5");
+    expect(getLlmConfig()?.model).toBe("claude-sonnet-5-5");
   });
 
   it("returns a real config for OpenRouter when both required vars are present", async () => {
