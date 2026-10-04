@@ -70,18 +70,11 @@ export async function runAnalysis(
     const signals = ciSignals(snapshot);
     let analysis = analyze(snapshot, catalogue, signals);
 
-    // Defense-in-depth, not the primary guarantee: for `/api/analyze`, `src/proxy.ts` already
-    // requires a session and org membership upstream. A truthy token only proves sign-in with some
-    // GitHub account, not membership, so it stops anonymous visitors and nothing more.
-    //
-    // `/ci-coverage` is in `src/lib/gate.ts`'s OPEN list, so the proxy never checks membership
-    // there and a signed-in non-member gets a token. That route must never pass an enabled
-    // `LlmConfig` into this function.
+    // A token only proves sign-in, not org membership; `src/proxy.ts` checks membership for
+    // `/api/analyze`. `/ci-coverage` skips that check, so it must never pass an enabled `llm`.
     if (llm?.enabled && token) {
-      // Redundant with `applyLlmPass` already being internally exhaustive (every branch falls
-      // back to `analysis` rather than throwing); this holds that guarantee by construction here
-      // too, not only by inspection of `apply.ts`. A future change there, or a different
-      // `LlmClient`, isn't bound by that discipline, so this catch keeps the pass harmless regardless.
+      // applyLlmPass already falls back instead of throwing; this catch keeps that true if a later
+      // change or another LlmClient throws.
       try {
         analysis = await applyLlmPass(analysis, signals, catalogue, llm);
       } catch (error) {

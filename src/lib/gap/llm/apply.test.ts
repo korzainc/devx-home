@@ -920,10 +920,7 @@ describe("applyLlmPass: multi-stack and partial-gap rescue", () => {
       gapCount: 0,
       buildSteps: [],
     };
-    // Neither tool here declares more than one capability, so this pair only exists because
-    // `candidatePairsFor` widened audit to also build pairs for a capability-declaring-once tool -
-    // it doesn't: both trivy and npm-audit only declare `sca`, so there is no audit candidate for
-    // this fixture's `sca` at all. Use trivy's real multi-capability set instead.
+    // Audit pairs need a tool declaring more than one capability, so use trivy's real set.
     const multiCapTools: AnalysisTool[] = [
       {
         id: "trivy",

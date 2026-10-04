@@ -1,9 +1,5 @@
--- Content-addressed cache for the gap-analysis LLM pass, and a running daily spend total used to
--- enforce GAP_LLM_DAILY_USD_CAP. No repo/commit column: RepoSnapshot carries no commit SHA, so a
--- key on the exact capped prompt text is the only one that can't silently go stale.
---
--- snake_case table names with quoted camelCase columns, matching 0002's convention
--- ("roadmap_vote" with "userId", "createdAt").
+-- Response cache and daily spend tally for the gap-analysis LLM pass. Keyed on the exact prompt
+-- text, since RepoSnapshot has no commit SHA to key on. Tables and columns follow 0002's naming.
 
 create table "gap_llm_cache" (
   "key" text primary key,

@@ -40,10 +40,8 @@ export type LlmCompletionResult =
       };
     };
 
-/** The only surface `apply.ts` calls. Implemented once for the real Anthropic API and once for
- * OpenRouter, so swapping providers for local testing is a config change, never a code change in
- * the orchestrator. Each adapter computes its own `costUsd`, so `apply.ts` never needs to know a
- * model's price or which provider served a response. */
+/** The only surface `apply.ts` calls, with one adapter per provider. Each adapter computes its own
+ * `costUsd`. */
 export type LlmClient = {
   complete(request: LlmCompletionRequest): Promise<LlmCompletionResult>;
 };
@@ -75,12 +73,8 @@ export type CachedLlmResponse = {
 
 export type Verdict = "provides" | "does-not-provide";
 
-/** One answer to one candidate pair: does the cited CI config run `pair`'s tool in a way that
- * provides `pair`'s capability. `pair` is `"<capabilityId>:<toolId>"`. A pair without clear
- * evidence is omitted.
- *
- * `signalId` names one numbered signal entry and `quote` must come verbatim from that entry.
- * Only `provides` on a rescue pair or `does-not-provide` on an audit pair changes anything. */
+/** One verdict on a pair (`"<capabilityId>:<toolId>"`), quoting verbatim from the entry `signalId`
+ * names. Only `provides` on a rescue pair or `does-not-provide` on an audit pair changes anything. */
 export type LlmVerdict = {
   pair: string;
   signalId: string;

@@ -51,16 +51,12 @@ function buildProvider(): { client: LlmClient; model: string } | undefined {
   return { client: createAnthropicClient(sdk, model), model };
 }
 
-// Built once per server instance, not per request: the underlying SDK/fetch client holds its own
-// connection handling, and `db.ts`'s `getPool()` uses this same lazy-singleton shape for the same
-// reason. `undefined` (missing credentials) is retried on every call rather than cached, since it
-// costs nothing and lets credentials appear without a restart in local development.
+// One provider per server instance, like `getPool()`. A missing key is not cached, so a key added
+// in local development works without a restart.
 let provider: { client: LlmClient; model: string } | undefined;
 
-/**
- * Builds the LLM pass's config from the environment, or undefined if it can't run at all.
- * `runAnalysis` treats a missing `llm` the same as `enabled: false`, so callers pass this through.
- */
+/** Config for the LLM pass, or undefined when it can't run. `runAnalysis` treats undefined as
+ * disabled. */
 export function getLlmConfig(): LlmConfig | undefined {
   provider ??= buildProvider();
   if (!provider) return undefined;

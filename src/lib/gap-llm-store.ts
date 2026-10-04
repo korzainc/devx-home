@@ -52,10 +52,8 @@ function today(): string {
 
 const defaultDailyUsdCap = 5;
 
-/** Falls back to the default cap when `GAP_LLM_DAILY_USD_CAP` is set but doesn't parse to a valid
- * finite number - `Number("abc")` is `NaN`, and `spent < NaN` is always `false`, which would
- * otherwise disable the pass silently by making every day look already over budget. Warns once so
- * a broken value doesn't fail with zero signal. */
+/** `GAP_LLM_DAILY_USD_CAP`, or the default when it isn't a finite number (a NaN cap would block
+ * every call). Warns once on a bad value. */
 export function dailyUsdCap(): number {
   const raw = process.env.GAP_LLM_DAILY_USD_CAP;
   // `if (!raw)`, not `??`: an empty string is a real risk since `.env.example`'s blank-value
@@ -71,13 +69,8 @@ export function dailyUsdCap(): number {
   return defaultDailyUsdCap;
 }
 
-/** Soft and non-atomic: this reads today's spend, and the caller acts on that answer with a
- * separate call to `recordSpend`, so concurrent requests can each pass the check before any of
- * them records its cost. Spend can overshoot the cap by up to concurrent-request-volume times
- * per-call-cost, accepted at this feature's current scale (a handful of org-gated engineers).
- *
- * The real backstop is the provider-side monthly spend cap on the dedicated Anthropic Console key
- * in `.env.example`; this check alone is not a guaranteed ceiling. */
+/** Soft cap: concurrent requests can all pass this check before any records its cost. The real
+ * ceiling is the monthly spend limit on the provider key. */
 export async function underDailySpendCap(): Promise<boolean> {
   const capUsd = dailyUsdCap();
   const result = await getPool().query<{ usd: string }>(

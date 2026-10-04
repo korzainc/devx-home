@@ -17,14 +17,8 @@ function costOf(usage: { cost?: number }): number {
   return 0;
 }
 
-/**
- * OpenRouter is not wire-compatible with the Anthropic Messages API: it speaks an OpenAI-style
- * `chat/completions` shape (`response_format`, a `reasoning` block instead of `thinking`), so this
- * is a real adapter, not a `baseURL` swap.
- *
- * Meant for local development against a free or low-cost OpenRouter model without a dedicated
- * Anthropic key; wired in behind an environment variable, never used in production.
- */
+/** OpenRouter speaks an OpenAI-style `chat/completions` API, not Anthropic's, so this is a full
+ * adapter rather than a `baseURL` swap. Local development only. */
 export function createOpenRouterClient(
   apiKey: string,
   model: string,

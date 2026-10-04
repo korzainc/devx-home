@@ -6,12 +6,9 @@ export function normalize(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
-/** Rewrites repo text so it can sit inside the prompt as one line of inert data. Real newlines
- * become `⏎`; a literal `⏎` in the repo becomes `↵` so the two never collide. A run of three or
- * more `<` or `>` (the shape of the block markers below) becomes `‹`/`›`.
- *
- * Every substitution is 1:1 in length, so a quote that reproduces what the model saw still
- * matches, and `toDisplayText` can undo exactly what this introduced. */
+/** Makes repo text one inert prompt line: newlines become `⏎` (a literal `⏎` becomes `↵`) and runs
+ * of 3+ `<`/`>` become `‹`/`›`. All 1:1 in length, so quotes still match and `toDisplayText` can
+ * undo it. */
 export function escapeSignalText(text: string): string {
   return text
     .replace(/⏎/g, "↵")
@@ -20,13 +17,8 @@ export function escapeSignalText(text: string): string {
     .replace(/>{3,}/g, (run) => "›".repeat(run.length));
 }
 
-/** Minimum normalized quote length `verifyQuote` accepts from a partial match. A hallucination
- * guard that verifies single characters or trivial fragments verifies nothing; this floor forces
- * a quote to carry enough real text to prove the finding is grounded.
- *
- * A whole entry, or one whole line of a multi-line entry, can still be shorter than this -
- * `go build ./...` is real evidence on its own - so a quote under the floor is also accepted
- * against those two shapes, never as a fragment of a longer line. */
+/** Shortest partial quote `verifyQuote` accepts, so a finding can't rest on a trivial fragment. A
+ * shorter quote passes only if it is a whole entry or a whole line, like `go build ./...`. */
 const MIN_QUOTE_LENGTH = 20;
 
 /** True when `quote` appears verbatim (after whitespace normalization) inside `entryText`, the
@@ -150,14 +142,9 @@ function truncate(
   return { text: `${text.slice(0, Math.max(0, max - 1))}…`, truncated: true };
 }
 
-/**
- * Selects and numbers the signal entries that go into the prompt, within one hard budget of
- * `totalBudgetChars` and `maxEntries`. Entries related to a candidate pair's tool go first (up to
- * `relatedEntryBudget` chars each); the rest fill what remains round-robin across source files,
- * so no single workflow crowds out the others. The last entry is clamped to fit.
- *
- * Identical entries (same kind and text) are deduped first, keeping the first source seen.
- */
+/** Picks and numbers the entries sent to the model, deduped, within `totalBudgetChars` and
+ * `maxEntries` (the last entry is clamped to fit). Entries about candidate tools go first, up to
+ * `relatedEntryBudget` each; the rest fill round-robin across files. */
 export function budgetSignals(
   rawEntries: RawSignalEntry[],
   relatedTools: AnalysisTool[],

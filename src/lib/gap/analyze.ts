@@ -94,15 +94,8 @@ export function stackLabelsFor(
     .map((stack) => stack.label);
 }
 
-/**
- * Whether `tool` counts toward capability `id` given `owningStacks` - the rule `analyze()` uses to
- * decide which detected tools land in `present`, reused by the LLM pass (`schema.ts`) to find
- * every catalogue entry that could rescue or re-credit a capability, so the two can never
- * recognize a tool differently.
- *
- * `owningStacks` empty means a universal capability: any tool declaring the capability counts,
- * with no stack to match against.
- */
+/** Whether `tool` counts toward capability `id` for `owningStacks` (empty means universal). Shared
+ * with the LLM pass so both credit tools the same way. */
 export function toolCreditsCapability(
   tool: AnalysisTool,
   id: string,
@@ -116,16 +109,9 @@ export function toolCreditsCapability(
   );
 }
 
-/**
- * Whether `present` covers every stack in `owningStacks` for capability `id`, and what to
- * recommend when it doesn't. `owningStacks` empty means a universal capability (only reachable
- * via `baseline.universal`, which the real catalogue always leaves empty), checked by presence
- * alone with a generic catalogue-wide fallback recommendation instead of a per-stack one.
- *
- * Also used by `apply.ts` to re-evaluate a capability after the LLM pass adds or removes a
- * present tool, so a capability held up by two tools across different stacks drops to unsatisfied
- * once only one of them remains.
- */
+/** Whether `present` covers every stack in `owningStacks` for capability `id`, and what to
+ * recommend if not. Empty `owningStacks` means universal: presence alone counts. Also re-run by
+ * the LLM pass after it adds or removes a tool. */
 export function evaluateCapability(
   id: string,
   present: PresentTool[],
@@ -188,8 +174,7 @@ export function evaluateCapability(
 /**
  * The whole diff. Deterministic: same snapshot and same catalogue give the same report, with no
  * model in the path. The catalogue and baseline arrive as arguments so this stays independent of
- * where that data is loaded from. `signals` defaults to a fresh parse of `snapshot`; callers that
- * also run the LLM pass on the same snapshot (`run.ts`) pass their own to avoid parsing it twice.
+ * where that data is loaded from. `signals` lets `run.ts` reuse its own parse.
  */
 export function analyze(
   snapshot: RepoSnapshot,

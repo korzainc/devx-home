@@ -270,10 +270,8 @@ function applyRescue(
   };
 }
 
-/** After removing the demoted tool from `present`, re-runs `evaluateCapability`, the same
- * stack-coverage rule `analyze()` uses, against the reduced list. A capability held up by two
- * tools across different stacks drops to unsatisfied when only one remains, and `recommended`
- * names what's now missing. */
+/** Removes the demoted tool and re-runs `evaluateCapability`, so a multi-stack capability drops to
+ * unsatisfied when a needed stack loses its tool. */
 function applyAudit(
   capability: CapabilityReport,
   verdict: LlmVerdict,

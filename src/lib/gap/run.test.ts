@@ -27,10 +27,8 @@ vi.mock("./github", () => ({
   },
 }));
 
-// Mocked so these tests can assert whether `runAnalysis` calls into `applyLlmPass` at all,
-// rather than on a side effect inside it. `applyLlmPass` already returns early via its own
-// `if (!config.enabled)` check, so asserting on `client.complete` or `underDailySpendCap`
-// can't distinguish runAnalysis skipping the call from applyLlmPass catching it anyway.
+// Mocked so tests can check whether `runAnalysis` calls `applyLlmPass` at all; side effects inside
+// it can't tell that apart from its own `enabled` check.
 const applyLlmPass = vi.hoisted(() => vi.fn());
 
 vi.mock("./llm/apply", () => ({ applyLlmPass }));
@@ -114,10 +112,6 @@ describe("runAnalysis", () => {
       llm,
     );
 
-    // Asserts on the mocked applyLlmPass function itself, not a side effect inside it: apply.ts
-    // has its own internal `if (!config.enabled) return analysis` check before it ever touches
-    // client.complete or underDailySpendCap, so an assertion on either of those can't tell
-    // runAnalysis skipping the call apart from applyLlmPass's own check catching it regardless.
     expect(applyLlmPass).not.toHaveBeenCalled();
   });
 
@@ -150,10 +144,7 @@ describe("runAnalysis", () => {
   });
 
   it("falls back to the deterministic analysis instead of throwing when applyLlmPass throws unexpectedly", async () => {
-    // Pure defense in depth: apply.ts is already internally exhaustive and should never actually
-    // throw, but a future change there, or a different LlmClient port implementation, isn't bound
-    // by that discipline. This is what makes "never worse than today" true by construction at this
-    // call site too, not only by inspection of apply.ts.
+    // apply.ts shouldn't throw, but runAnalysis must fall back even if it does.
     loadSnapshot.mockResolvedValue(snapshot);
     applyLlmPass.mockRejectedValue(new Error("unexpected"));
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
