@@ -87,31 +87,25 @@ describe("runAnalysis", () => {
     }
   });
 
-  it("does not invoke the LLM pass when no token is present", async () => {
+  it.each([
+    { name: "there is no token", token: null, llm: noopLlmConfig() },
+    {
+      name: "llm.enabled is false",
+      token: "a-token",
+      llm: noopLlmConfig({ enabled: false }),
+    },
+    { name: "there is no llm config", token: "a-token", llm: undefined },
+  ])("does not invoke the LLM pass when $name", async ({ token, llm }) => {
     loadSnapshot.mockResolvedValue(snapshot);
-    const llm = noopLlmConfig();
 
-    await runAnalysis(
+    const result = await runAnalysis(
       "korzainc/example",
-      null,
+      token,
       { tools: [], baseline: emptyBaseline },
       llm,
     );
 
-    expect(applyLlmPass).not.toHaveBeenCalled();
-  });
-
-  it("does not invoke the LLM pass when llm.enabled is false", async () => {
-    loadSnapshot.mockResolvedValue(snapshot);
-    const llm = noopLlmConfig({ enabled: false });
-
-    await runAnalysis(
-      "korzainc/example",
-      "a-token",
-      { tools: [], baseline: emptyBaseline },
-      llm,
-    );
-
+    expect(result.ok).toBe(true);
     expect(applyLlmPass).not.toHaveBeenCalled();
   });
 
@@ -130,17 +124,6 @@ describe("runAnalysis", () => {
 
     expect(applyLlmPass).toHaveBeenCalledTimes(1);
     expect(result).toEqual({ ok: true, analysis: rescuedAnalysis });
-  });
-
-  it("keeps working with no llm argument at all", async () => {
-    loadSnapshot.mockResolvedValue(snapshot);
-
-    const result = await runAnalysis("korzainc/example", "a-token", {
-      tools: [],
-      baseline: emptyBaseline,
-    });
-
-    expect(result.ok).toBe(true);
   });
 
   it("falls back to the deterministic analysis instead of throwing when applyLlmPass throws unexpectedly", async () => {

@@ -15,30 +15,66 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 /** Re-imported per test: `getLlmConfig()` memoizes the built provider in a module-level
- * singleton, so a stale import would keep serving the first test's provider to every case
- * after it, same as `session.test.ts`'s pattern. */
+ * singleton, so a stale import would serve the first test's provider to every later case. */
 async function loadConfig() {
   vi.resetModules();
   return import("./gap-llm-config");
 }
 
-describe("effortFromEnv (via getLlmConfig)", () => {
-  it("defaults to low when unset", async () => {
-    vi.stubEnv("ANTHROPIC_API_KEY", "key");
-    const { getLlmConfig } = await loadConfig();
+const anthropic = { ANTHROPIC_API_KEY: "key" };
+const openrouter = {
+  GAP_LLM_PROVIDER: "openrouter",
+  OPENROUTER_API_KEY: "key",
+  GAP_LLM_OPENROUTER_MODEL: "some/free-model",
+};
 
-    expect(getLlmConfig()?.effort).toBe("low");
+describe("getLlmConfig", () => {
+  it.each([
+    { name: "no provider configured", env: {}, expected: undefined },
+    {
+      name: "openrouter without an API key",
+      env: { ...openrouter, OPENROUTER_API_KEY: undefined },
+      expected: undefined,
+    },
+    {
+      name: "openrouter without a model",
+      env: { ...openrouter, GAP_LLM_OPENROUTER_MODEL: undefined },
+      expected: undefined,
+    },
+    {
+      name: "anthropic, disabled by default",
+      env: anthropic,
+      expected: { model: "claude-sonnet-5-5", effort: "low", enabled: false },
+    },
+    {
+      name: "anthropic, enabled only by the literal 'true'",
+      env: { ...anthropic, GAP_LLM_ENABLED: "yes" },
+      expected: { model: "claude-sonnet-5-5", effort: "low", enabled: false },
+    },
+    {
+      name: "anthropic with a valid effort, enabled",
+      env: { ...anthropic, GAP_LLM_EFFORT: "high", GAP_LLM_ENABLED: "true" },
+      expected: { model: "claude-sonnet-5-5", effort: "high", enabled: true },
+    },
+    {
+      name: "openrouter with both required vars",
+      env: openrouter,
+      expected: { model: "some/free-model", effort: "low", enabled: false },
+    },
+  ])("$name", async ({ env, expected }) => {
+    for (const [key, value] of Object.entries(env)) vi.stubEnv(key, value);
+    const { getLlmConfig } = await loadConfig();
+    const config = getLlmConfig();
+    expect(
+      config && {
+        model: config.model,
+        effort: config.effort,
+        enabled: config.enabled,
+      },
+    ).toEqual(expected);
   });
 
-  it("uses the env value when it is valid", async () => {
-    vi.stubEnv("ANTHROPIC_API_KEY", "key");
-    vi.stubEnv("GAP_LLM_EFFORT", "high");
-    const { getLlmConfig } = await loadConfig();
-
-    expect(getLlmConfig()?.effort).toBe("high");
-  });
-
-  it("falls back to low and warns once on an invalid value", async () => {
+  it("falls back to low and warns once on an invalid effort", async () => {
     vi.stubEnv("ANTHROPIC_API_KEY", "key");
     vi.stubEnv("GAP_LLM_EFFORT", "bogus");
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -50,61 +86,5 @@ describe("effortFromEnv (via getLlmConfig)", () => {
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn.mock.calls[0][0]).toContain("bogus");
     warn.mockRestore();
-  });
-});
-
-describe("getLlmConfig provider selection", () => {
-  it("returns undefined with no Anthropic key and no openrouter provider", async () => {
-    const { getLlmConfig } = await loadConfig();
-
-    expect(getLlmConfig()).toBeUndefined();
-  });
-
-  it("returns undefined when openrouter is selected but the API key is missing", async () => {
-    vi.stubEnv("GAP_LLM_PROVIDER", "openrouter");
-    vi.stubEnv("GAP_LLM_OPENROUTER_MODEL", "some/model");
-    const { getLlmConfig } = await loadConfig();
-
-    expect(getLlmConfig()).toBeUndefined();
-  });
-
-  it("returns undefined when openrouter is selected but the model is missing", async () => {
-    vi.stubEnv("GAP_LLM_PROVIDER", "openrouter");
-    vi.stubEnv("OPENROUTER_API_KEY", "key");
-    const { getLlmConfig } = await loadConfig();
-
-    expect(getLlmConfig()).toBeUndefined();
-  });
-
-  it("returns a real config for Anthropic when the API key is present", async () => {
-    vi.stubEnv("ANTHROPIC_API_KEY", "key");
-    const { getLlmConfig } = await loadConfig();
-
-    expect(getLlmConfig()?.model).toBe("claude-sonnet-5-5");
-  });
-
-  it("returns a real config for OpenRouter when both required vars are present", async () => {
-    vi.stubEnv("GAP_LLM_PROVIDER", "openrouter");
-    vi.stubEnv("OPENROUTER_API_KEY", "key");
-    vi.stubEnv("GAP_LLM_OPENROUTER_MODEL", "some/free-model");
-    const { getLlmConfig } = await loadConfig();
-
-    expect(getLlmConfig()?.model).toBe("some/free-model");
-  });
-
-  it("reads GAP_LLM_ENABLED as the literal string 'true'", async () => {
-    vi.stubEnv("ANTHROPIC_API_KEY", "key");
-    vi.stubEnv("GAP_LLM_ENABLED", "yes");
-    const { getLlmConfig } = await loadConfig();
-
-    expect(getLlmConfig()?.enabled).toBe(false);
-  });
-
-  it("enables the pass when GAP_LLM_ENABLED is the literal string 'true'", async () => {
-    vi.stubEnv("ANTHROPIC_API_KEY", "key");
-    vi.stubEnv("GAP_LLM_ENABLED", "true");
-    const { getLlmConfig } = await loadConfig();
-
-    expect(getLlmConfig()?.enabled).toBe(true);
   });
 });

@@ -1,149 +1,72 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { applyLlmPass, cacheKey } from "./apply";
 import { buildPrompt } from "./schema";
 import { analyze } from "../analyze";
 import { ciSignals } from "../detect";
 import { getBaseline, tools as realTools } from "@/lib/catalogue";
-import type { LlmConfig, LlmResponse, LlmVerdict } from "./types";
-import type { Analysis, AnalysisTool, Baseline, RepoSnapshot } from "../types";
-import type { CiSignals } from "../detect";
+import { scenario, tool } from "@/test/gap-fixtures";
+import type { Scenario } from "@/test/gap-fixtures";
+import type { LlmConfig, LlmResponse, Verdict } from "./types";
+import type { Analysis, BuildStepKind, RepoSnapshot } from "../types";
 
-const baseline: Baseline = {
-  categories: ["Security"],
-  capabilities: {
-    sast: { label: "SAST", category: "Security" },
-    sca: { label: "Dependency scanning", category: "Security" },
-  },
-  universal: [],
-  stacks: [
-    {
-      id: "any",
-      label: "Any",
-      markers: [],
-      expects: {
-        sast: { recommended: "semgrep", acceptable: [] },
-        sca: { recommended: "trivy", acceptable: [] },
-      },
-    },
-  ],
+const SEMGREP = "semgrep --config p/golang .";
+const NPM = "npm ci --frozen-lockfile";
+const TRIVY = "trivy fs . --severity HIGH,CRITICAL";
+
+/** sast is a gap the rules missed (semgrep is only seen by the model), sca is satisfied by trivy. */
+const base = () =>
+  scenario({ shell: [SEMGREP, NPM, TRIVY], deterministic: [TRIVY] });
+
+type VerdictSpec = {
+  pair: string;
+  verdict: Verdict;
+  quote: string;
+  reason?: string;
+  /** Substring that finds the cited entry; defaults to the quote. */
+  in?: string;
+  /** Overrides the lookup, for wrong or unknown ids. */
+  signalId?: string;
+};
+type DetectSpec = Pick<VerdictSpec, "quote" | "in" | "signalId"> & {
+  kind: BuildStepKind;
 };
 
-const tools: AnalysisTool[] = [
-  {
-    id: "trivy",
-    name: "Trivy",
-    capabilities: ["sca", "iac-config", "image-scan"],
-    stacks: ["any"],
-    detect: { commands: ["trivy"] },
-  },
-  {
-    id: "semgrep",
-    name: "Semgrep",
-    capabilities: ["sast"],
-    stacks: ["any"],
-    detect: { commands: ["semgrep"] },
-  },
-];
+const provides = (
+  pair: string,
+  quote: string,
+  extra: Partial<VerdictSpec> = {},
+): VerdictSpec => ({ pair, verdict: "provides", quote, ...extra });
+const denies = (
+  pair: string,
+  quote: string,
+  reason = "does not cover it",
+  extra: Partial<VerdictSpec> = {},
+): VerdictSpec => ({
+  pair,
+  verdict: "does-not-provide",
+  quote,
+  reason,
+  ...extra,
+});
+const found = (
+  kind: BuildStepKind,
+  quote: string,
+  extra: Partial<DetectSpec> = {},
+): DetectSpec => ({ kind, quote, ...extra });
 
-function baseAnalysis(): Analysis {
-  return {
-    repo: "korza/example",
-    defaultBranch: "main",
-    stacks: baseline.stacks,
-    filesRead: [],
-    categories: [
-      {
-        category: "Security",
-        capabilities: [
-          {
-            id: "sast",
-            label: "SAST",
-            satisfied: false,
-            present: [],
-            recommended: [
-              { id: "semgrep", name: "Semgrep", stackLabels: ["Any"] },
-            ],
-          },
-          {
-            id: "sca",
-            label: "Dependency scanning",
-            satisfied: true,
-            // Realistic shape: `detect.ts`'s `evidenceFor` always synthesizes a label like this
-            // one, never raw CI text. `applyAudit` must select the tool to demote by `toolId`, not
-            // by matching a model's quote against this string.
-            present: [
-              {
-                id: "trivy",
-                name: "Trivy",
-                evidence: "runs trivy in ci.yml",
-                stackLabels: ["Any"],
-              },
-            ],
-            recommended: [],
-          },
-        ],
-      },
-    ],
-    satisfiedCount: 1,
-    partialCount: 0,
-    gapCount: 1,
-    buildSteps: [],
-  };
-}
-
-const signals: CiSignals = {
-  uses: [],
-  shell: [
-    { text: "semgrep --config p/golang .", source: ".github/workflows/ci.yml" },
-    { text: "npm ci --frozen-lockfile", source: ".github/workflows/ci.yml" },
-    {
-      text: "trivy fs . --severity HIGH,CRITICAL",
-      source: ".github/workflows/ci.yml",
-    },
-  ],
-};
-
-/** Finds the signal id a real `buildPrompt` call assigned to the entry containing `needle` -
- * matches what a real model sees, so tests never hardcode an id order `budgetSignals` is free to
- * change. */
-function signalIdFor(
-  analysis: Analysis,
-  sigs: CiSignals,
-  needle: string,
-): string {
-  const { signals: sent } = buildPrompt(analysis, sigs, { tools });
-  const entry = sent.find((e) => e.text.includes(needle));
+/** The signal id a real `buildPrompt` assigned, so tests never hardcode id order. */
+function idOf(sc: Scenario, needle: string): string {
+  const { signals } = buildPrompt(sc.analysis, sc.signals, sc.catalogue);
+  const entry =
+    signals.find((e) => e.text === needle) ??
+    signals.find((e) => e.text.includes(needle));
   if (!entry) throw new Error(`no signal entry contains "${needle}"`);
   return entry.id;
 }
 
-/** Same as `signalIdFor`, for a test that needs its own tool catalogue rather than the module's
- * default `tools`. */
-function signalIdForTools(
-  toolsForPrompt: AnalysisTool[],
-  analysis: Analysis,
-  sigs: CiSignals,
-  needle: string,
-): string {
-  const { signals: sent } = buildPrompt(analysis, sigs, {
-    tools: toolsForPrompt,
-  });
-  const entry = sent.find((e) => e.text.includes(needle));
-  if (!entry) throw new Error(`no signal entry contains "${needle}"`);
-  return entry.id;
-}
-
-function verdict(
-  overrides: Partial<LlmVerdict> & Pick<LlmVerdict, "pair" | "verdict">,
-): LlmVerdict {
-  return { signalId: "s1", quote: "", reason: "", ...overrides };
-}
-
-function configWith(response: LlmResponse, costUsd = 0.0042): LlmConfig {
+function llm(response: LlmResponse, costUsd = 0.0042): LlmConfig {
   return {
     enabled: true,
-    // LlmClient is a plain, one-method interface, so a real fake satisfies it directly - no cast
-    // needed, and nothing here knows or cares which provider a real LlmClient would wrap.
     client: {
       complete: vi.fn().mockResolvedValue({
         ok: true,
@@ -162,1383 +85,771 @@ function configWith(response: LlmResponse, costUsd = 0.0042): LlmConfig {
   };
 }
 
-describe("cacheKey", () => {
-  const schema = { type: "object" };
+function responseFor(
+  sc: Scenario,
+  verdicts: VerdictSpec[],
+  detect: DetectSpec[],
+): LlmResponse {
+  return {
+    verdicts: verdicts.map((spec) => ({
+      pair: spec.pair,
+      verdict: spec.verdict,
+      quote: spec.quote,
+      reason: spec.reason ?? "",
+      signalId: spec.signalId ?? idOf(sc, spec.in ?? spec.quote),
+    })),
+    detectFindings: detect.map((spec) => ({
+      kind: spec.kind,
+      quote: spec.quote,
+      signalId: spec.signalId ?? idOf(sc, spec.in ?? spec.quote),
+    })),
+  };
+}
 
-  it("is stable for identical inputs, and changes when the model, effort, prompt text, or schema shape changes", () => {
-    expect(cacheKey("m", "low", "s", "u", schema)).toBe(
-      cacheKey("m", "low", "s", "u", schema),
-    );
-    expect(cacheKey("m", "low", "s", "u", schema)).not.toBe(
-      cacheKey("m2", "low", "s", "u", schema),
-    );
-    expect(cacheKey("m", "low", "s", "u", schema)).not.toBe(
-      cacheKey("m", "medium", "s", "u", schema),
-    );
-    expect(cacheKey("m", "low", "s", "u", schema)).not.toBe(
-      cacheKey("m", "low", "s2", "u", schema),
-    );
-    expect(cacheKey("m", "low", "s", "u", schema)).not.toBe(
-      cacheKey("m", "low", "s", "u2", schema),
-    );
-    expect(cacheKey("m", "low", "s", "u", schema)).not.toBe(
-      cacheKey("m", "low", "s", "u", { type: "object", extra: true }),
-    );
+async function run(
+  sc: Scenario,
+  verdicts: VerdictSpec[] = [],
+  detect: DetectSpec[] = [],
+  tweak: (config: LlmConfig) => void = () => {},
+) {
+  const config = llm(responseFor(sc, verdicts, detect));
+  tweak(config);
+  const result = await applyLlmPass(
+    sc.analysis,
+    sc.signals,
+    sc.catalogue,
+    config,
+  );
+  return { result, config };
+}
+
+const cap = (analysis: Analysis, id: string) =>
+  analysis.categories
+    .flatMap((category) => category.capabilities)
+    .find((capability) => capability.id === id)!;
+
+const counts = ({ satisfiedCount, partialCount, gapCount }: Analysis) => ({
+  satisfiedCount,
+  partialCount,
+  gapCount,
+});
+
+const cached = (response: unknown) => ({
+  model: "claude-sonnet-5-5",
+  response,
+  inputTokens: 10,
+  outputTokens: 10,
+});
+
+beforeEach(() => {
+  for (const level of ["info", "warn", "error"] as const)
+    vi.spyOn(console, level).mockImplementation(() => {});
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+describe("cacheKey", () => {
+  it("is stable, and changes with the model, effort, prompt text or schema", () => {
+    const key = cacheKey("m", "low", "s", "u", { type: "object" });
+    expect(key).toBe(cacheKey("m", "low", "s", "u", { type: "object" }));
+    for (const other of [
+      cacheKey("m2", "low", "s", "u", { type: "object" }),
+      cacheKey("m", "medium", "s", "u", { type: "object" }),
+      cacheKey("m", "low", "s2", "u", { type: "object" }),
+      cacheKey("m", "low", "s", "u2", { type: "object" }),
+      cacheKey("m", "low", "s", "u", { type: "array" }),
+    ])
+      expect(other).not.toBe(key);
   });
 });
 
-describe("applyLlmPass: verdict direction", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("rescues a gap on a verified `provides` verdict, sets llmNote, and adds the tool as present evidence", async () => {
-    const quote = "semgrep --config p/golang .";
-    const config = configWith({
-      verdicts: [
-        verdict({
-          pair: "sast:semgrep",
-          verdict: "provides",
-          signalId: signalIdFor(baseAnalysis(), signals, quote),
-          quote,
-        }),
-      ],
-      detectFindings: [],
+describe("applyLlmPass: rescue and audit", () => {
+  it("rescues a gap on a verified `provides` verdict and recomputes the counts", async () => {
+    const { result } = await run(base(), [provides("sast:semgrep", SEMGREP)]);
+    const sast = cap(result, "sast");
+    expect(sast).toMatchObject({
+      satisfied: true,
+      present: [{ id: "semgrep", evidence: SEMGREP }],
     });
-
-    const result = await applyLlmPass(
-      baseAnalysis(),
-      signals,
-      { tools, baseline },
-      config,
-    );
-    const sast = result.categories[0].capabilities.find(
-      (c) => c.id === "sast",
-    )!;
-    expect(sast.satisfied).toBe(true);
-    expect(sast.present[0]).toMatchObject({ id: "semgrep", evidence: quote });
     expect(sast.llmNote).toContain("semgrep");
-  });
-
-  it("demotes a present multi-capability tool on a verified `does-not-provide` verdict, setting llmNote to the given reason", async () => {
-    const quote = "trivy fs . --severity HIGH,CRITICAL";
-    const config = configWith({
-      verdicts: [
-        verdict({
-          pair: "sca:trivy",
-          verdict: "does-not-provide",
-          signalId: signalIdFor(baseAnalysis(), signals, quote),
-          quote,
-          reason: "only scans the filesystem for CVEs, not IaC or images",
-        }),
-      ],
-      detectFindings: [],
-    });
-
-    const result = await applyLlmPass(
-      baseAnalysis(),
-      signals,
-      { tools, baseline },
-      config,
-    );
-    const sca = result.categories[0].capabilities.find((c) => c.id === "sca")!;
-    expect(sca.satisfied).toBe(false);
-    expect(sca.present).toEqual([]);
-    expect(sca.llmNote).toBe(
-      "only scans the filesystem for CVEs, not IaC or images",
-    );
-    expect(sca.recommended).toEqual([
-      { id: "trivy", name: "Trivy", stackLabels: ["Any"] },
-    ]);
-  });
-
-  it("changes nothing for an omitted pair, for `provides` on a pair already present, or for `does-not-provide` on a pair that was never present", async () => {
-    const sastQuote = "semgrep --config p/golang .";
-    const scaQuote = "trivy fs . --severity HIGH,CRITICAL";
-    const config = configWith({
-      // A pair with no evidence is just absent from `verdicts` - there's nothing to assert for
-      // that case beyond `result` matching `analysis` below, same as the two no-op verdicts here.
-      verdicts: [
-        verdict({
-          pair: "sca:trivy",
-          verdict: "provides",
-          signalId: signalIdFor(baseAnalysis(), signals, scaQuote),
-          quote: scaQuote,
-        }),
-        verdict({
-          pair: "sast:semgrep",
-          verdict: "does-not-provide",
-          signalId: signalIdFor(baseAnalysis(), signals, sastQuote),
-          quote: sastQuote,
-        }),
-      ],
-      detectFindings: [],
-    });
-
-    const analysis = baseAnalysis();
-    const result = await applyLlmPass(
-      analysis,
-      signals,
-      { tools, baseline },
-      config,
-    );
-    expect(result).toEqual(analysis);
-  });
-
-  it("drops a verdict whose pair is not a candidate this analysis generated", async () => {
-    const quote = "trivy fs . --severity HIGH,CRITICAL";
-    const config = configWith({
-      verdicts: [
-        verdict({
-          pair: "sast:trivy",
-          verdict: "provides",
-          signalId: signalIdFor(baseAnalysis(), signals, quote),
-          quote,
-        }),
-      ],
-      detectFindings: [],
-    });
-
-    const analysis = baseAnalysis();
-    const result = await applyLlmPass(
-      analysis,
-      signals,
-      { tools, baseline },
-      config,
-    );
-    expect(result).toEqual(analysis);
-  });
-
-  it("drops a verdict whose quote does not verify - empty, not found at all, or found only in a different entry than the one cited, even when that quote relates to the tool", async () => {
-    const analysis = baseAnalysis();
-    const semgrepId = signalIdFor(analysis, signals, "semgrep --config");
-    const npmId = signalIdFor(analysis, signals, "npm ci");
-    const variants = [
-      { signalId: semgrepId, quote: "" },
-      { signalId: semgrepId, quote: "docker build --pull ." },
-      // Real, tool-relevant text, but from the semgrep entry while citing the npm entry.
-      { signalId: npmId, quote: "semgrep --config p/golang ." },
-    ];
-
-    for (const variant of variants) {
-      const config = configWith({
-        verdicts: [
-          verdict({ pair: "sast:semgrep", verdict: "provides", ...variant }),
-        ],
-        detectFindings: [],
-      });
-      const result = await applyLlmPass(
-        analysis,
-        signals,
-        { tools, baseline },
-        config,
-      );
-      expect(result).toEqual(analysis);
-    }
-  });
-
-  it("drops a verdict whose quote does not relate to the pair's tool, even though it verifies against its cited entry", async () => {
-    const npmId = signalIdFor(
-      baseAnalysis(),
-      signals,
-      "npm ci --frozen-lockfile",
-    );
-    const config = configWith({
-      verdicts: [
-        verdict({
-          pair: "sast:semgrep",
-          verdict: "provides",
-          signalId: npmId,
-          quote: "npm ci --frozen-lockfile",
-        }),
-      ],
-      detectFindings: [],
-    });
-
-    const analysis = baseAnalysis();
-    const result = await applyLlmPass(
-      analysis,
-      signals,
-      { tools, baseline },
-      config,
-    );
-    expect(result).toEqual(analysis);
-  });
-
-  it("accepts a short quote that equals its cited entry's entire text, but rejects a short quote that is only a fragment of a longer entry", async () => {
-    const shortSignals: CiSignals = {
-      uses: [],
-      shell: [{ text: "npm ci", source: "ci.yml" }],
-    };
-    const wholeId = signalIdFor(baseAnalysis(), shortSignals, "npm ci");
-    const detectConfig = configWith({
-      verdicts: [],
-      detectFindings: [{ kind: "install", signalId: wholeId, quote: "npm ci" }],
-    });
-    const whole = await applyLlmPass(
-      baseAnalysis(),
-      shortSignals,
-      { tools, baseline },
-      detectConfig,
-    );
-    expect(whole.buildSteps).toEqual([
-      { kind: "install", evidence: "npm ci", source: "ci.yml" },
-    ]);
-
-    const longId = signalIdFor(
-      baseAnalysis(),
-      signals,
-      "npm ci --frozen-lockfile",
-    );
-    const fragmentConfig = configWith({
-      verdicts: [],
-      // 14 characters - under the 20-character floor, and only a fragment of the real entry.
-      detectFindings: [
-        { kind: "install", signalId: longId, quote: "npm ci --froze" },
-      ],
-    });
-    const fragment = await applyLlmPass(
-      baseAnalysis(),
-      signals,
-      { tools, baseline },
-      fragmentConfig,
-    );
-    expect(fragment.buildSteps).toEqual([]);
-  });
-
-  it("drops a rescue verdict when the tool is named only in a shell comment, even though the quote is the whole (comment-included) entry", async () => {
-    const commentSignals: CiSignals = {
-      uses: [],
-      shell: [
-        {
-          text: "# semgrep covers this\nnpm test -- --coverage",
-          source: "ci.yml",
-        },
-      ],
-    };
-    const entryId = signalIdFor(baseAnalysis(), commentSignals, "npm test");
-    const quote = "# semgrep covers this⏎npm test -- --coverage";
-    const config = configWith({
-      verdicts: [
-        verdict({
-          pair: "sast:semgrep",
-          verdict: "provides",
-          signalId: entryId,
-          quote,
-        }),
-      ],
-      detectFindings: [],
-    });
-
-    const analysis = baseAnalysis();
-    const result = await applyLlmPass(
-      analysis,
-      commentSignals,
-      { tools, baseline },
-      config,
-    );
-    expect(result).toEqual(analysis);
-  });
-
-  it("drops a pair entirely when the response answers it more than once, regardless of order - no order dependence", async () => {
-    const quote = "trivy fs . --severity HIGH,CRITICAL";
-    const id = signalIdFor(baseAnalysis(), signals, quote);
-    const bothVerdicts = [
-      verdict({
-        pair: "sca:trivy",
-        verdict: "does-not-provide",
-        signalId: id,
-        quote,
-        reason: "only scans dependencies",
-      }),
-      verdict({ pair: "sca:trivy", verdict: "provides", signalId: id, quote }),
-    ];
-
-    for (const verdicts of [bothVerdicts, [...bothVerdicts].reverse()]) {
-      const analysis = baseAnalysis();
-      const config = configWith({ verdicts, detectFindings: [] });
-      const result = await applyLlmPass(
-        analysis,
-        signals,
-        { tools, baseline },
-        config,
-      );
-      expect(result).toEqual(analysis);
-    }
-  });
-
-  it("stops rescuing a capability once it is satisfied, so a second rescue verdict for the same capability (a different tool) is a no-op", async () => {
-    const twoSastTools: AnalysisTool[] = [
-      {
-        id: "semgrep",
-        name: "Semgrep",
-        capabilities: ["sast"],
-        stacks: ["any"],
-        detect: { commands: ["semgrep"] },
-      },
-      {
-        id: "bandit",
-        name: "Bandit",
-        capabilities: ["sast"],
-        stacks: ["any"],
-        detect: { commands: ["bandit"] },
-      },
-    ];
-    const twoSastSignals: CiSignals = {
-      uses: [],
-      shell: [
-        { text: "semgrep --config p/golang .", source: "ci.yml" },
-        { text: "bandit -r .", source: "ci.yml" },
-      ],
-    };
-    const twoCandidateAnalysis: Analysis = {
-      ...baseAnalysis(),
-      categories: [
-        {
-          category: "Security",
-          capabilities: [
-            {
-              id: "sast",
-              label: "SAST",
-              satisfied: false,
-              present: [],
-              recommended: [
-                { id: "semgrep", name: "Semgrep", stackLabels: ["Any"] },
-              ],
-            },
-          ],
-        },
-      ],
-    };
-    const semgrepQuote = "semgrep --config p/golang .";
-    const banditQuote = "bandit -r .";
-    const config = configWith({
-      verdicts: [
-        verdict({
-          pair: "sast:semgrep",
-          verdict: "provides",
-          signalId: signalIdForTools(
-            twoSastTools,
-            twoCandidateAnalysis,
-            twoSastSignals,
-            semgrepQuote,
-          ),
-          quote: semgrepQuote,
-        }),
-        verdict({
-          pair: "sast:bandit",
-          verdict: "provides",
-          signalId: signalIdForTools(
-            twoSastTools,
-            twoCandidateAnalysis,
-            twoSastSignals,
-            banditQuote,
-          ),
-          quote: banditQuote,
-        }),
-      ],
-      detectFindings: [],
-    });
-
-    const result = await applyLlmPass(
-      twoCandidateAnalysis,
-      twoSastSignals,
-      { tools: twoSastTools, baseline },
-      config,
-    );
-    const sast = result.categories[0].capabilities[0];
-    expect(sast.satisfied).toBe(true);
-    expect(sast.present.map((p) => p.id)).toEqual(["semgrep"]);
-  });
-
-  it("stays satisfied after a demotion when a second present tool still covers the same stack, instead of being forced to unsatisfied", async () => {
-    const dualToolTools: AnalysisTool[] = [
-      {
-        id: "trivy",
-        name: "Trivy",
-        capabilities: ["sca", "iac-config"],
-        stacks: ["any"],
-        detect: { commands: ["trivy"] },
-      },
-      {
-        id: "snyk",
-        name: "Snyk",
-        capabilities: ["sca", "sast"],
-        stacks: ["any"],
-        detect: { commands: ["snyk"] },
-      },
-    ];
-    const dualSignals: CiSignals = {
-      uses: [],
-      shell: [
-        { text: "trivy fs . --severity HIGH,CRITICAL", source: "ci.yml" },
-        { text: "snyk test", source: "ci.yml" },
-      ],
-    };
-    const dualAnalysis: Analysis = {
-      ...baseAnalysis(),
-      categories: [
-        {
-          category: "Security",
-          capabilities: [
-            {
-              id: "sca",
-              label: "Dependency scanning",
-              satisfied: true,
-              present: [
-                {
-                  id: "trivy",
-                  name: "Trivy",
-                  evidence: "runs trivy in ci.yml",
-                  stackLabels: ["Any"],
-                },
-                {
-                  id: "snyk",
-                  name: "Snyk",
-                  evidence: "runs snyk in ci.yml",
-                  stackLabels: ["Any"],
-                },
-              ],
-              recommended: [],
-            },
-          ],
-        },
-      ],
-    };
-    const quote = "trivy fs . --severity HIGH,CRITICAL";
-    const config = configWith({
-      verdicts: [
-        verdict({
-          pair: "sca:trivy",
-          verdict: "does-not-provide",
-          signalId: signalIdForTools(
-            dualToolTools,
-            dualAnalysis,
-            dualSignals,
-            quote,
-          ),
-          quote,
-          reason: "only scans dependencies, not images",
-        }),
-      ],
-      detectFindings: [],
-    });
-
-    const result = await applyLlmPass(
-      dualAnalysis,
-      dualSignals,
-      { tools: dualToolTools, baseline },
-      config,
-    );
-    const sca = result.categories[0].capabilities[0];
-    expect(sca.satisfied).toBe(true);
-    expect(sca.present.map((p) => p.id)).toEqual(["snyk"]);
-  });
-
-  it("skips a demotion when the present tool's deterministic credit came from a config file or manifest dependency, not CI text", async () => {
-    const configCreditedAnalysis: Analysis = {
-      ...baseAnalysis(),
-      categories: [
-        {
-          category: "Security",
-          capabilities: [
-            {
-              id: "sca",
-              label: "Dependency scanning",
-              satisfied: true,
-              present: [
-                {
-                  id: "trivy",
-                  name: "Trivy",
-                  evidence: "trivy.yaml",
-                  nonCiCredit: true,
-                  stackLabels: ["Any"],
-                },
-              ],
-              recommended: [],
-            },
-          ],
-        },
-      ],
-      satisfiedCount: 1,
+    expect(counts(result)).toEqual({
+      satisfiedCount: 2,
       partialCount: 0,
       gapCount: 0,
-    };
-    const quote = "trivy fs . --severity HIGH,CRITICAL";
-    const config = configWith({
-      verdicts: [
-        verdict({
-          pair: "sca:trivy",
-          verdict: "does-not-provide",
-          signalId: signalIdFor(configCreditedAnalysis, signals, quote),
-          quote,
-          reason: "only covers dependencies",
+    });
+  });
+
+  it("demotes a present multi-capability tool on a verified `does-not-provide` verdict", async () => {
+    const reason = "only scans the filesystem for CVEs";
+    const { result } = await run(base(), [denies("sca:trivy", TRIVY, reason)]);
+    expect(cap(result, "sca")).toMatchObject({
+      satisfied: false,
+      present: [],
+      llmNote: reason,
+      recommended: [{ id: "trivy", name: "trivy", stackLabels: ["Any"] }],
+    });
+    expect(counts(result)).toEqual({
+      satisfiedCount: 0,
+      partialCount: 0,
+      gapCount: 2,
+    });
+  });
+
+  const poly = (shell: string[], deterministic: string[]) =>
+    scenario({
+      tools: [
+        tool("trivy", ["sca", "iac-config"], { stacks: ["go"] }),
+        tool("npm-audit", ["sca"], {
+          name: "npm audit",
+          stacks: ["javascript"],
+          commands: ["npm audit"],
         }),
       ],
-      detectFindings: [],
+      stacks: [
+        { id: "go", label: "Go", expects: { sca: "trivy" } },
+        {
+          id: "javascript",
+          label: "JavaScript",
+          expects: { sca: "npm-audit" },
+        },
+      ],
+      shell,
+      deterministic,
+    });
+  const GO = "trivy fs ./go-service --severity HIGH";
+  const JS = "npm audit --production";
+
+  it("recomputes stack coverage: a partial rescue stays unsatisfied, the last one satisfies, a demotion reopens the stack", async () => {
+    const partial = await run(poly([GO], []), [provides("sca:trivy", GO)]);
+    expect(cap(partial.result, "sca")).toMatchObject({
+      satisfied: false,
+      present: [{ id: "trivy", evidence: GO, stackLabels: ["Go"] }],
+      recommended: [
+        { id: "npm-audit", name: "npm audit", stackLabels: ["JavaScript"] },
+      ],
+    });
+    expect(counts(partial.result)).toEqual({
+      satisfiedCount: 0,
+      partialCount: 1,
+      gapCount: 1,
     });
 
-    const result = await applyLlmPass(
-      configCreditedAnalysis,
-      signals,
-      { tools, baseline },
-      config,
-    );
-    expect(result).toEqual(configCreditedAnalysis);
+    const rescued = await run(poly([GO, JS], [GO]), [
+      provides("sca:npm-audit", JS),
+    ]);
+    expect(cap(rescued.result, "sca").satisfied).toBe(true);
+    expect(cap(rescued.result, "sca").present.map((p) => p.id)).toEqual([
+      "trivy",
+      "npm-audit",
+    ]);
+
+    const demoted = await run(poly([GO, JS], [GO, JS]), [
+      denies("sca:trivy", GO, "only scans the Go module"),
+    ]);
+    expect(cap(demoted.result, "sca")).toMatchObject({
+      satisfied: false,
+      present: [{ id: "npm-audit", stackLabels: ["JavaScript"] }],
+      recommended: [{ id: "trivy", name: "trivy", stackLabels: ["Go"] }],
+    });
+    expect(counts(demoted.result)).toEqual({
+      satisfiedCount: 0,
+      partialCount: 1,
+      gapCount: 1,
+    });
+  });
+
+  it("stays satisfied after a demotion when another present tool still covers the stack", async () => {
+    const sc = scenario({
+      tools: [
+        tool("trivy", ["sca", "iac-config"]),
+        tool("snyk", ["sca", "sast"]),
+      ],
+      stacks: [{ id: "any", label: "Any", expects: { sca: "trivy" } }],
+      shell: [TRIVY, "snyk test"],
+      deterministic: [TRIVY, "snyk test"],
+    });
+    const { result } = await run(sc, [denies("sca:trivy", TRIVY)]);
+    expect(cap(result, "sca").satisfied).toBe(true);
+    expect(cap(result, "sca").present.map((p) => p.id)).toEqual(["snyk"]);
+  });
+
+  it("applies several rescues of one capability in candidate order, whatever order the response lists them", async () => {
+    const BANDIT = "bandit -r src --severity-level high";
+    const sc = scenario({
+      tools: [tool("semgrep", ["sast"]), tool("bandit", ["sast"])],
+      stacks: [{ id: "any", label: "Any", expects: { sast: "semgrep" } }],
+      shell: [SEMGREP, BANDIT],
+    });
+    const semgrep = provides("sast:semgrep", SEMGREP);
+    const bandit = provides("sast:bandit", BANDIT);
+    const [a, b] = await Promise.all([
+      run(sc, [semgrep, bandit]),
+      run(sc, [bandit, semgrep]),
+    ]);
+    expect(a.result).toEqual(b.result);
+    expect(cap(a.result, "sast").satisfied).toBe(true);
+    expect(cap(a.result, "sast").present.map((p) => p.id)).toEqual(["semgrep"]);
   });
 });
 
-describe("applyLlmPass: audit skipped on cut context", () => {
-  it("skips a does-not-provide demotion when a different entry related to the same tool was truncated, even though the cited entry itself verifies in full", async () => {
-    const bigRelatedEntry = `trivy ${"x".repeat(4100)}`;
-    const cutSignals: CiSignals = {
-      uses: [],
+describe("applyLlmPass: verdicts that change nothing", () => {
+  const credited = () =>
+    scenario({
+      tools: [
+        tool("semgrep", ["sast"]),
+        tool("trivy", ["sca", "iac-config"], { configFiles: ["trivy.yaml"] }),
+      ],
+      shell: [TRIVY],
+      paths: ["trivy.yaml"],
+    });
+  const cutRelated = () =>
+    scenario({
       shell: [
-        { text: bigRelatedEntry, source: "a.yml" },
-        { text: "trivy fs . --severity HIGH,CRITICAL", source: "b.yml" },
+        [`trivy ${"x".repeat(4100)}`, "a.yml"],
+        [TRIVY, "b.yml"],
       ],
-    };
-    const quote = "trivy fs . --severity HIGH,CRITICAL";
-    const config = configWith({
-      verdicts: [
-        verdict({
-          pair: "sca:trivy",
-          verdict: "does-not-provide",
-          signalId: signalIdFor(baseAnalysis(), cutSignals, quote),
-          quote,
-          reason: "only covers dependencies",
-        }),
-      ],
-      detectFindings: [],
+      deterministic: [TRIVY],
     });
+  const multiLine = (text: string) => () =>
+    scenario({ shell: [text], deterministic: [] });
+  const both = [
+    denies("sca:trivy", TRIVY, "only dependencies"),
+    provides("sca:trivy", TRIVY),
+  ];
 
-    const analysis = baseAnalysis();
-    const result = await applyLlmPass(
-      analysis,
-      cutSignals,
-      { tools, baseline },
-      config,
-    );
-    expect(result).toEqual(analysis);
-  });
-});
-
-describe("applyLlmPass: multi-stack and partial-gap rescue", () => {
-  const polyglotTools: AnalysisTool[] = [
+  const rows: {
+    name: string;
+    sc: () => Scenario;
+    verdicts: VerdictSpec[];
+    warns?: string;
+  }[] = [
     {
-      id: "trivy",
-      name: "Trivy",
-      capabilities: ["sca", "iac-config", "image-scan"],
-      stacks: ["go"],
-      detect: { commands: ["trivy"] },
+      name: "omitted pairs, `provides` on a present pair, `does-not-provide` on an absent one",
+      sc: base,
+      verdicts: [provides("sca:trivy", TRIVY), denies("sast:semgrep", SEMGREP)],
     },
     {
-      id: "npm-audit",
-      name: "npm audit",
-      capabilities: ["sca"],
-      stacks: ["javascript"],
-      detect: { commands: ["npm audit"] },
+      name: "a pair that is not a candidate",
+      sc: base,
+      verdicts: [provides("sast:trivy", TRIVY)],
+      warns: "pair is not a candidate",
+    },
+    {
+      name: "an empty quote",
+      sc: base,
+      verdicts: [provides("sast:semgrep", "", { in: "semgrep" })],
+      warns: "quote did not verify",
+    },
+    {
+      name: "a quote found nowhere",
+      sc: base,
+      verdicts: [
+        provides("sast:semgrep", "docker build --pull .", { in: "semgrep" }),
+      ],
+      warns: "quote did not verify",
+    },
+    {
+      name: "a quote found only in another entry than the cited one",
+      sc: base,
+      verdicts: [provides("sast:semgrep", SEMGREP, { in: "npm ci" })],
+      warns: "quote did not verify",
+    },
+    {
+      name: "a short fragment of a longer entry",
+      sc: base,
+      verdicts: [
+        provides("sast:semgrep", "semgrep --config p", { in: "semgrep" }),
+      ],
+      warns: "quote did not verify",
+    },
+    {
+      name: "an unknown signal id, without substituting another entry",
+      sc: base,
+      verdicts: [provides("sast:semgrep", SEMGREP, { signalId: "s999" })],
+      warns: "signalId is not in this analysis",
+    },
+    {
+      name: "a verifying quote that is about another tool",
+      sc: base,
+      verdicts: [provides("sast:semgrep", NPM)],
+      warns: "quote does not relate to the tool",
+    },
+    {
+      name: "relevance is judged on the quote, not the cited entry",
+      sc: multiLine(
+        "semgrep --config p/java .\nnpm run lint -- --max-warnings 0",
+      ),
+      verdicts: [
+        provides("sast:semgrep", "npm run lint -- --max-warnings 0", {
+          in: "semgrep",
+        }),
+      ],
+      warns: "quote does not relate to the tool",
+    },
+    {
+      name: "a tool named only in a shell comment line",
+      sc: multiLine("# semgrep covers this\nnpm test -- --coverage"),
+      verdicts: [
+        provides(
+          "sast:semgrep",
+          "# semgrep covers this⏎npm test -- --coverage",
+          { in: "npm test" },
+        ),
+      ],
+      warns: "quote did not verify",
+    },
+    {
+      name: "a quote inside a trailing shell comment",
+      sc: multiLine("npm test # semgrep --config p/java ."),
+      verdicts: [
+        provides("sast:semgrep", "semgrep --config p/java .", {
+          in: "npm test",
+        }),
+      ],
+      warns: "quote did not verify",
+    },
+    {
+      name: "conflicting verdicts on one pair",
+      sc: base,
+      verdicts: both,
+      warns: "conflicting verdicts",
+    },
+    {
+      name: "conflicting verdicts in the opposite order",
+      sc: base,
+      verdicts: [...both].reverse(),
+      warns: "conflicting verdicts",
+    },
+    {
+      name: "`provides` on an audit pair of a partial capability",
+      sc: () =>
+        scenario({
+          tools: [
+            tool("trivy", ["sca", "iac-config"], { stacks: ["go"] }),
+            tool("npm-audit", ["sca"], { stacks: ["javascript"] }),
+          ],
+          stacks: [
+            { id: "go", label: "Go", expects: { sca: "trivy" } },
+            { id: "javascript", label: "JS", expects: { sca: "npm-audit" } },
+          ],
+          shell: [TRIVY],
+          deterministic: [TRIVY],
+        }),
+      verdicts: [provides("sca:trivy", TRIVY)],
+    },
+    {
+      name: "a demotion of a tool a config file also credits",
+      sc: credited,
+      verdicts: [denies("sca:trivy", TRIVY)],
+      warns: "also credited by a config file or dependency",
+    },
+    {
+      name: "a demotion when another entry about the tool was truncated",
+      sc: cutRelated,
+      verdicts: [denies("sca:trivy", TRIVY)],
+      warns: "truncated or omitted",
     },
   ];
-  const polyglotBaseline: Baseline = {
-    categories: ["Security"],
-    capabilities: {
-      sca: { label: "Dependency scanning", category: "Security" },
-    },
-    universal: [],
-    stacks: [
-      {
-        id: "go",
-        label: "Go",
-        markers: [],
-        expects: { sca: { recommended: "trivy", acceptable: [] } },
-      },
-      {
-        id: "javascript",
-        label: "JavaScript",
-        markers: [],
-        expects: { sca: { recommended: "npm-audit", acceptable: [] } },
-      },
-    ],
-  };
 
-  function polyglotAnalysis(
-    present: Analysis["categories"][0]["capabilities"][0]["present"],
-  ): Analysis {
-    const uncoveredGo = !present.some((p) => p.stackLabels.includes("Go"));
-    const uncoveredJs = !present.some((p) =>
-      p.stackLabels.includes("JavaScript"),
-    );
-    return {
-      repo: "korza/example",
-      defaultBranch: "main",
-      stacks: polyglotBaseline.stacks,
-      filesRead: [],
-      categories: [
-        {
-          category: "Security",
-          capabilities: [
-            {
-              id: "sca",
-              label: "Dependency scanning",
-              satisfied: !uncoveredGo && !uncoveredJs,
-              present,
-              recommended: [
-                ...(uncoveredGo
-                  ? [{ id: "trivy", name: "Trivy", stackLabels: ["Go"] }]
-                  : []),
-                ...(uncoveredJs
-                  ? [
-                      {
-                        id: "npm-audit",
-                        name: "npm audit",
-                        stackLabels: ["JavaScript"],
-                      },
-                    ]
-                  : []),
-              ],
-            },
-          ],
-        },
-      ],
-      satisfiedCount: uncoveredGo || uncoveredJs ? 0 : 1,
-      partialCount: present.length > 0 && (uncoveredGo || uncoveredJs) ? 1 : 0,
-      gapCount: uncoveredGo || uncoveredJs ? 1 : 0,
-      buildSteps: [],
-    };
-  }
-
-  it("rescues only the stack a verdict's tool actually covers, leaving the capability partial with a real recommendation for what's still missing", async () => {
-    const gap = polyglotAnalysis([]);
-    const goSignals: CiSignals = {
-      uses: [],
-      shell: [
-        { text: "trivy fs ./go-service --severity HIGH", source: "ci.yml" },
-      ],
-    };
-    const quote = "trivy fs ./go-service --severity HIGH";
-    const config = configWith({
-      verdicts: [
-        verdict({
-          pair: "sca:trivy",
-          verdict: "provides",
-          signalId: signalIdForWith(polyglotTools, gap, goSignals, quote),
-          quote,
-        }),
-      ],
-      detectFindings: [],
-    });
-
-    const result = await applyLlmPass(
-      gap,
-      goSignals,
-      { tools: polyglotTools, baseline: polyglotBaseline },
-      config,
-    );
-    const sca = result.categories[0].capabilities[0];
-    expect(sca.satisfied).toBe(false);
-    expect(sca.present).toEqual([
-      { id: "trivy", name: "Trivy", evidence: quote, stackLabels: ["Go"] },
-    ]);
-    expect(sca.recommended).toEqual([
-      { id: "npm-audit", name: "npm audit", stackLabels: ["JavaScript"] },
-    ]);
+  it.each(rows)("$name", async ({ sc: build, verdicts, warns }) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const sc = build();
+    const { result } = await run(sc, verdicts);
+    expect(result).toEqual(sc.analysis);
+    const messages = warn.mock.calls.map((call) => String(call[0]));
+    if (warns) expect(messages.join("\n")).toContain(warns);
+    else expect(messages).toEqual([]);
   });
-
-  it("satisfies a partial capability once a rescue verdict covers its one remaining uncovered stack", async () => {
-    const partial = polyglotAnalysis([
-      {
-        id: "trivy",
-        name: "Trivy",
-        evidence: "runs trivy in ci.yml",
-        stackLabels: ["Go"],
-      },
-    ]);
-    const jsSignals: CiSignals = {
-      uses: [],
-      shell: [{ text: "npm audit --production", source: "ci.yml" }],
-    };
-    const quote = "npm audit --production";
-    const config = configWith({
-      verdicts: [
-        verdict({
-          pair: "sca:npm-audit",
-          verdict: "provides",
-          signalId: signalIdForWith(polyglotTools, partial, jsSignals, quote),
-          quote,
-        }),
-      ],
-      detectFindings: [],
-    });
-
-    const result = await applyLlmPass(
-      partial,
-      jsSignals,
-      { tools: polyglotTools, baseline: polyglotBaseline },
-      config,
-    );
-    const sca = result.categories[0].capabilities[0];
-    expect(sca.satisfied).toBe(true);
-    expect(sca.present.map((p) => p.id).sort()).toEqual(["npm-audit", "trivy"]);
-  });
-
-  it("drops to unsatisfied when a does-not-provide demotion removes the only tool covering one of two stacks", async () => {
-    const satisfied: Analysis = {
-      repo: "korza/example",
-      defaultBranch: "main",
-      stacks: polyglotBaseline.stacks,
-      filesRead: [],
-      categories: [
-        {
-          category: "Security",
-          capabilities: [
-            {
-              id: "sca",
-              label: "Dependency scanning",
-              satisfied: true,
-              present: [
-                {
-                  id: "trivy",
-                  name: "Trivy",
-                  evidence: "runs trivy in ci.yml",
-                  stackLabels: ["Go"],
-                },
-                {
-                  id: "npm-audit",
-                  name: "npm audit",
-                  evidence: "runs npm audit in ci.yml",
-                  stackLabels: ["JavaScript"],
-                },
-              ],
-              recommended: [],
-            },
-          ],
-        },
-      ],
-      satisfiedCount: 1,
-      partialCount: 0,
-      gapCount: 0,
-      buildSteps: [],
-    };
-    // Audit pairs need a tool declaring more than one capability, so use trivy's real set.
-    const multiCapTools: AnalysisTool[] = [
-      {
-        id: "trivy",
-        name: "Trivy",
-        capabilities: ["sca", "iac-config"],
-        stacks: ["go"],
-        detect: { commands: ["trivy"] },
-      },
-      {
-        id: "npm-audit",
-        name: "npm audit",
-        capabilities: ["sca"],
-        stacks: ["javascript"],
-        detect: { commands: ["npm audit"] },
-      },
-    ];
-    const sigs: CiSignals = {
-      uses: [],
-      shell: [{ text: "trivy fs ./go-service", source: "ci.yml" }],
-    };
-    const quote = "trivy fs ./go-service";
-    const config = configWith({
-      verdicts: [
-        verdict({
-          pair: "sca:trivy",
-          verdict: "does-not-provide",
-          signalId: signalIdForWith(multiCapTools, satisfied, sigs, quote),
-          quote,
-          reason: "only scans the Go module, not the whole tree",
-        }),
-      ],
-      detectFindings: [],
-    });
-
-    const result = await applyLlmPass(
-      satisfied,
-      sigs,
-      { tools: multiCapTools, baseline: polyglotBaseline },
-      config,
-    );
-    const sca = result.categories[0].capabilities[0];
-    expect(sca.satisfied).toBe(false);
-    expect(sca.present).toEqual([
-      {
-        id: "npm-audit",
-        name: "npm audit",
-        evidence: "runs npm audit in ci.yml",
-        stackLabels: ["JavaScript"],
-      },
-    ]);
-    expect(sca.recommended).toEqual([
-      { id: "trivy", name: "Trivy", stackLabels: ["Go"] },
-    ]);
-  });
-
-  function signalIdForWith(
-    toolsForPrompt: AnalysisTool[],
-    analysis: Analysis,
-    sigs: CiSignals,
-    needle: string,
-  ): string {
-    const { signals: sent } = buildPrompt(analysis, sigs, {
-      tools: toolsForPrompt,
-    });
-    const entry = sent.find((e) => e.text.includes(needle));
-    if (!entry) throw new Error(`no signal entry contains "${needle}"`);
-    return entry.id;
-  }
 });
 
-describe("applyLlmPass: detect", () => {
-  it("populates buildSteps from verified install/build/image-build findings, dropping one whose quote does not verify", async () => {
-    const config = configWith({
-      verdicts: [],
-      detectFindings: [
-        {
-          kind: "install",
-          signalId: signalIdFor(
-            baseAnalysis(),
-            signals,
-            "npm ci --frozen-lockfile",
-          ),
-          quote: "npm ci --frozen-lockfile",
-        },
-        {
-          kind: "build",
-          signalId: "s1",
-          quote: "a quote that appears nowhere in the signals",
-        },
-      ],
+describe("applyLlmPass: quotes", () => {
+  it("accepts a leaked rendered prefix or a `#` inside quotes, and reports the clean text", async () => {
+    const sc = scenario({
+      shell: [SEMGREP],
+      uses: [{ value: "docker/build-push-action", source: "ci.yml" }],
     });
-
-    const result = await applyLlmPass(
-      baseAnalysis(),
-      signals,
-      { tools, baseline },
-      config,
-    );
-    expect(result.buildSteps).toEqual([
-      {
-        kind: "install",
-        evidence: "npm ci --frozen-lockfile",
-        source: ".github/workflows/ci.yml",
-      },
-    ]);
-  });
-
-  it("recomputes satisfiedCount, partialCount, and gapCount after a rescue, an audit demotion, and a detect finding together", async () => {
-    const sastQuote = "semgrep --config p/golang .";
-    const scaQuote = "trivy fs . --severity HIGH,CRITICAL";
-    const config = configWith({
-      verdicts: [
-        verdict({
-          pair: "sast:semgrep",
-          verdict: "provides",
-          signalId: signalIdFor(baseAnalysis(), signals, sastQuote),
-          quote: sastQuote,
-        }),
-        verdict({
-          pair: "sca:trivy",
-          verdict: "does-not-provide",
-          signalId: signalIdFor(baseAnalysis(), signals, scaQuote),
-          quote: scaQuote,
-          reason: "does not cover the whole tree",
+    const { result } = await run(
+      sc,
+      [provides("sast:semgrep", `run: ${SEMGREP}`, { in: "semgrep" })],
+      [
+        found("image-build", "[s2] uses: docker/build-push-action", {
+          in: "docker/build",
         }),
       ],
-      detectFindings: [
-        {
-          kind: "install",
-          signalId: signalIdFor(
-            baseAnalysis(),
-            signals,
-            "npm ci --frozen-lockfile",
-          ),
-          quote: "npm ci --frozen-lockfile",
-        },
-      ],
-    });
-
-    const result = await applyLlmPass(
-      baseAnalysis(),
-      signals,
-      { tools, baseline },
-      config,
     );
-    expect(result.satisfiedCount).toBe(1); // sast rescued
-    expect(result.gapCount).toBe(1); // sca demoted
-    expect(result.partialCount).toBe(0);
-    expect(result.buildSteps).toHaveLength(1);
-  });
-
-  it("drops a detect finding whose quote only verifies against a different entry than the one cited", async () => {
-    const twoEntrySignals: CiSignals = {
-      uses: [],
-      shell: [
-        { text: "npm ci --frozen-lockfile", source: "a.yml" },
-        { text: "go build ./...", source: "b.yml" },
-      ],
-    };
-    const npmId = signalIdFor(baseAnalysis(), twoEntrySignals, "npm ci");
-    const config = configWith({
-      verdicts: [],
-      detectFindings: [
-        { kind: "build", signalId: npmId, quote: "go build ./..." },
-      ],
-    });
-
-    const result = await applyLlmPass(
-      baseAnalysis(),
-      twoEntrySignals,
-      { tools, baseline },
-      config,
-    );
-    expect(result.buildSteps).toEqual([]);
-  });
-
-  it("attributes a detect finding to its cited entry's own source file, not the first file seen", async () => {
-    const twoFileSignals: CiSignals = {
-      uses: [],
-      shell: [
-        { text: "npm ci --frozen-lockfile", source: "a.yml" },
-        { text: "go build ./...", source: "b.yml" },
-      ],
-    };
-    const goId = signalIdFor(baseAnalysis(), twoFileSignals, "go build");
-    const config = configWith({
-      verdicts: [],
-      detectFindings: [
-        { kind: "build", signalId: goId, quote: "go build ./..." },
-      ],
-    });
-
-    const result = await applyLlmPass(
-      baseAnalysis(),
-      twoFileSignals,
-      { tools, baseline },
-      config,
-    );
-    expect(result.buildSteps).toEqual([
-      { kind: "build", evidence: "go build ./...", source: "b.yml" },
-    ]);
-  });
-
-  it("dedupes identical detect findings and caps the total kept at 20", async () => {
-    const manySignals: CiSignals = {
-      uses: [],
-      shell: Array.from({ length: 25 }, (_, i) => ({
-        text: `npm run build-${i}`,
-        source: `f${i}.yml`,
-      })),
-    };
-    const { signals: sent } = buildPrompt(baseAnalysis(), manySignals, {
-      tools,
-    });
-    const findings = sent.map((entry, i) => ({
-      kind: "build" as const,
-      signalId: entry.id,
-      quote: `npm run build-${i}`,
-    }));
-    const config = configWith({
-      verdicts: [],
-      detectFindings: [...findings, findings[0]],
-    });
-
-    const result = await applyLlmPass(
-      baseAnalysis(),
-      manySignals,
-      { tools, baseline },
-      config,
-    );
-    expect(result.buildSteps).toHaveLength(20);
-    const evidence = result.buildSteps.map((s) => s.evidence);
-    expect(new Set(evidence).size).toBe(evidence.length);
-  });
-
-  it("restores the real newline in a report field when the quote spans a whole multi-line entry", async () => {
-    const multilineSignals: CiSignals = {
-      uses: [],
-      shell: [{ text: "echo one\ngo build ./...\necho two", source: "ci.yml" }],
-    };
-    const entryId = signalIdFor(baseAnalysis(), multilineSignals, "go build");
-    const config = configWith({
-      verdicts: [],
-      detectFindings: [
-        {
-          kind: "build",
-          signalId: entryId,
-          quote: "echo one⏎go build ./...⏎echo two",
-        },
-      ],
-    });
-
-    const result = await applyLlmPass(
-      baseAnalysis(),
-      multilineSignals,
-      { tools, baseline },
-      config,
-    );
+    expect(cap(result, "sast").present[0].evidence).toBe(SEMGREP);
     expect(result.buildSteps).toEqual([
       {
-        kind: "build",
-        evidence: "echo one\ngo build ./...\necho two",
+        kind: "image-build",
+        evidence: "docker/build-push-action",
         source: "ci.yml",
       },
     ]);
+
+    const quoted = scenario({
+      shell: ['echo "a # b"; semgrep --config p/java .'],
+    });
+    const { result: rescued } = await run(quoted, [
+      provides("sast:semgrep", "semgrep --config p/java .", { in: "semgrep" }),
+    ]);
+    expect(cap(rescued, "sast").satisfied).toBe(true);
   });
 
-  it("strips the truncation marker from a report field, since it is not real file text", async () => {
-    const longSignals: CiSignals = {
-      uses: [],
-      shell: [{ text: `echo ${"x".repeat(2000)}`, source: "ci.yml" }],
-    };
-    const { signals: sent } = buildPrompt(baseAnalysis(), longSignals, {
-      tools,
-    });
-    const truncatedEntry = sent.find((e) => e.truncated)!;
-    expect(truncatedEntry.text.endsWith("…")).toBe(true);
-    // A quote near the cut end, including the trailing marker - short enough to stay under the
-    // 400-char quote cap, unlike the full 1500-char truncated entry.
-    const quote = truncatedEntry.text.slice(-30);
-    const config = configWith({
-      verdicts: [],
-      detectFindings: [{ kind: "build", signalId: truncatedEntry.id, quote }],
-    });
+  it("enforces the 400-character quote and 300-character reason caps", async () => {
+    for (const [length, kept] of [
+      [401, false],
+      [400, true],
+    ] as const) {
+      const command = `semgrep --config ${"p".repeat(length - 17)}`;
+      const { result } = await run(
+        scenario({ shell: [command] }),
+        [provides("sast:semgrep", command)],
+        [found("build", command)],
+      );
+      expect(cap(result, "sast").satisfied).toBe(kept);
+      expect(result.buildSteps).toHaveLength(kept ? 1 : 0);
+    }
 
-    const result = await applyLlmPass(
-      baseAnalysis(),
-      longSignals,
-      { tools, baseline },
-      config,
+    for (const [length, note] of [
+      [301, `${"é".repeat(300)}…`],
+      [300, "é".repeat(300)],
+    ] as const) {
+      const { result } = await run(base(), [
+        denies("sca:trivy", TRIVY, "é".repeat(length)),
+      ]);
+      expect(cap(result, "sca").llmNote).toBe(note);
+    }
+  });
+
+  it("restores real newlines in reports and keeps the raw source path, while the prompt stays escaped", async () => {
+    const sc = scenario({
+      shell: [
+        ["semgrep --config p/java .\nsemgrep ci", "dir<<<x/ci.yml"],
+        [`echo ${"x".repeat(2000)}`, "long.yml"],
+        [TRIVY, "ci.yml"],
+      ],
+      deterministic: [TRIVY],
+    });
+    const truncated = buildPrompt(
+      sc.analysis,
+      sc.signals,
+      sc.catalogue,
+    ).signals.find((entry) => entry.truncated)!;
+    expect(truncated.text.endsWith("…")).toBe(true);
+    const tail = truncated.text.slice(-30);
+    const { result, config } = await run(
+      sc,
+      [
+        provides("sast:semgrep", "semgrep --config p/java .⏎semgrep ci", {
+          in: "semgrep --config",
+        }),
+        denies("sca:trivy", TRIVY, "line one⏎line two"),
+      ],
+      [
+        found("build", "semgrep ci", { in: "semgrep --config" }),
+        found("install", tail, { signalId: truncated.id }),
+      ],
     );
-    expect(result.buildSteps[0]!.evidence.endsWith("…")).toBe(false);
-    expect(result.buildSteps[0]!.evidence).toBe(quote.replace(/…/g, ""));
+    const evidence = "semgrep --config p/java .\nsemgrep ci";
+    expect(cap(result, "sast").present[0].evidence).toBe(evidence);
+    expect(cap(result, "sast").llmNote).toContain(`via "${evidence}"`);
+    expect(cap(result, "sca").llmNote).toBe("line one\nline two");
+    expect(result.buildSteps).toEqual([
+      { kind: "build", evidence: "semgrep ci", source: "dir<<<x/ci.yml" },
+      { kind: "install", evidence: tail.replace("…", ""), source: "long.yml" },
+    ]);
+    const prompt = vi.mocked(config.client.complete).mock.calls[0][0].user;
+    expect(prompt).toContain("dir‹‹‹x/ci.yml");
+    expect(prompt).not.toContain("dir<<<x");
   });
 });
 
-describe("applyLlmPass: cache, spend cap, and cost", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("skips the call entirely, without touching cache or the spend cap, when disabled or when there is nothing to rescue, audit, or detect", async () => {
-    const config = configWith({ verdicts: [], detectFindings: [] });
-    config.enabled = false;
-    const analysis = baseAnalysis();
-    expect(
-      await applyLlmPass(analysis, signals, { tools, baseline }, config),
-    ).toEqual(analysis);
-    expect(config.client.complete).not.toHaveBeenCalled();
-
-    const nothingToDo: Analysis = {
-      ...baseAnalysis(),
-      categories: [{ category: "Security", capabilities: [] }],
-    };
-    const config2 = configWith({ verdicts: [], detectFindings: [] });
-    expect(
-      await applyLlmPass(
-        nothingToDo,
-        { uses: [], shell: [] },
-        { tools, baseline },
-        config2,
-      ),
-    ).toEqual(nothingToDo);
-    expect(config2.client.complete).not.toHaveBeenCalled();
-    expect(config2.readCache).not.toHaveBeenCalled();
-  });
-
-  it("reads the cache before checking the spend cap, so a capped day still serves a cached response", async () => {
-    const quote = "semgrep --config p/golang .";
-    const config = configWith({ verdicts: [], detectFindings: [] });
-    config.underDailySpendCap = vi.fn().mockResolvedValue(false);
-    config.readCache = vi.fn().mockResolvedValue({
-      model: "claude-sonnet-5-5",
-      response: {
-        verdicts: [
-          {
-            pair: "sast:semgrep",
-            verdict: "provides",
-            signalId: signalIdFor(baseAnalysis(), signals, quote),
-            quote,
-            reason: "",
-          },
-        ],
-        detectFindings: [],
-      },
-      inputTokens: 10,
-      outputTokens: 10,
+describe("applyLlmPass: detect", () => {
+  it("keeps verified findings attributed to the cited entry's file, one per kind per file", async () => {
+    const INSTALL = "npm install --no-audit --prefer-offline";
+    const YARN = "yarn install --frozen-lockfile";
+    const DOCKER = "docker build -t app .";
+    const sc = scenario({
+      shell: [
+        [NPM, "a.yml"],
+        [INSTALL, "a.yml"],
+        [YARN, "b.yml"],
+        ["mkdir -p out\ngo build ./...\necho done", "c.yml"],
+        [DOCKER, "d.yml"],
+        ["npm ci", "e.yml"],
+      ],
     });
-
-    const result = await applyLlmPass(
-      baseAnalysis(),
-      signals,
-      { tools, baseline },
-      config,
+    const { result } = await run(
+      sc,
+      [],
+      [
+        found("install", NPM),
+        found("install", NPM),
+        found("install", INSTALL),
+        found("install", YARN),
+        found("install", "go build ./...", { in: NPM }),
+        found("build", "a quote found nowhere", { in: "yarn" }),
+        found("build", "go build ./...", { signalId: "s999" }),
+        { kind: "deploy" as never, quote: DOCKER },
+        found("image-build", DOCKER),
+        found("build", "go build .", { in: "go build" }),
+        found("build", "go build ./...", { in: "go build" }),
+        found("build", "npm ci --froze", { in: NPM }),
+        found("install", "npm ci"),
+      ],
     );
+    expect(result.buildSteps).toEqual([
+      { kind: "install", evidence: NPM, source: "a.yml" },
+      { kind: "install", evidence: YARN, source: "b.yml" },
+      { kind: "image-build", evidence: DOCKER, source: "d.yml" },
+      { kind: "build", evidence: "go build ./...", source: "c.yml" },
+      { kind: "install", evidence: "npm ci", source: "e.yml" },
+    ]);
+  });
+
+  it("caps the findings kept at 20", async () => {
+    const shell = Array.from({ length: 25 }, (_, i): [string, string] => [
+      `npm run build-${i}`,
+      `f${i}.yml`,
+    ]);
+    const { result } = await run(
+      scenario({ shell }),
+      [],
+      shell.map(([text]) => found("build", text)),
+    );
+    expect(result.buildSteps).toHaveLength(20);
+  });
+});
+
+describe("applyLlmPass: cache, spend cap and cost", () => {
+  it("makes no call when disabled or when there is no signal text", async () => {
+    const cases: [Scenario, (config: LlmConfig) => void][] = [
+      [base(), (config) => void (config.enabled = false)],
+      [scenario({ shell: [] }), () => {}],
+    ];
+    for (const [sc, tweak] of cases) {
+      const { result, config } = await run(sc, [], [], tweak);
+      expect(result).toEqual(sc.analysis);
+      expect(config.client.complete).not.toHaveBeenCalled();
+      expect(config.readCache).not.toHaveBeenCalled();
+    }
+  });
+
+  it("serves a cache hit without checking the spend cap, calling the model or recording spend", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const sc = base();
+    const { result, config } = await run(sc, [], [], (c) => {
+      c.underDailySpendCap = vi.fn().mockResolvedValue(false);
+      c.readCache = vi
+        .fn()
+        .mockResolvedValue(
+          cached(responseFor(sc, [provides("sast:semgrep", SEMGREP)], [])),
+        );
+    });
+    expect(cap(result, "sast").satisfied).toBe(true);
     expect(config.underDailySpendCap).not.toHaveBeenCalled();
     expect(config.client.complete).not.toHaveBeenCalled();
-    expect(
-      result.categories[0].capabilities.find((c) => c.id === "sast")!.satisfied,
-    ).toBe(true);
+    expect(config.recordSpend).not.toHaveBeenCalled();
+    expect(config.writeCache).not.toHaveBeenCalled();
+    expect(info).toHaveBeenCalledTimes(1);
+    expect(info).toHaveBeenCalledWith("gap LLM pass: served from cache", {
+      repo: "korza/example",
+      verdictsApplied: 1,
+      verdictsNoop: 0,
+      verdictsDropped: 0,
+      detectFindingsKept: 0,
+    });
   });
 
-  it("skips the call on a cache miss when over the daily spend cap", async () => {
-    const config = configWith({ verdicts: [], detectFindings: [] });
-    config.underDailySpendCap = vi.fn().mockResolvedValue(false);
-    const analysis = baseAnalysis();
-    expect(
-      await applyLlmPass(analysis, signals, { tools, baseline }, config),
-    ).toEqual(analysis);
-    expect(config.client.complete).not.toHaveBeenCalled();
-  });
+  it("on a miss: skips over the daily cap, otherwise records the cost, caches the response and logs a summary", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const sc = base();
+    const capped = await run(sc, [], [], (c) => {
+      c.underDailySpendCap = vi.fn().mockResolvedValue(false);
+    });
+    expect(capped.result).toEqual(sc.analysis);
+    expect(capped.config.client.complete).not.toHaveBeenCalled();
+    expect(info).toHaveBeenCalledWith(
+      "gap LLM pass: skipped, daily spend cap reached",
+      { repo: "korza/example" },
+    );
 
-  it("records the adapter's costUsd on a fresh success, and not at all on a cache hit", async () => {
-    const config = configWith({ verdicts: [], detectFindings: [] }, 0.00071);
-    await applyLlmPass(baseAnalysis(), signals, { tools, baseline }, config);
+    const verdicts = [provides("sast:semgrep", SEMGREP)];
+    const { config } = await run(sc, verdicts, [], (c) => {
+      c.client.complete = vi.fn().mockResolvedValue({
+        ok: true,
+        text: JSON.stringify(responseFor(sc, verdicts, [])),
+        inputTokens: 100,
+        outputTokens: 50,
+        costUsd: 0.00071,
+      });
+    });
     expect(config.recordSpend).toHaveBeenCalledWith(0.00071);
-
-    const cachedConfig = configWith({ verdicts: [], detectFindings: [] });
-    cachedConfig.readCache = vi.fn().mockResolvedValue({
-      model: "claude-sonnet-5-5",
-      response: { verdicts: [], detectFindings: [] },
-      inputTokens: 10,
-      outputTokens: 10,
-    });
-    await applyLlmPass(
-      baseAnalysis(),
-      signals,
-      { tools, baseline },
-      cachedConfig,
-    );
-    expect(cachedConfig.recordSpend).not.toHaveBeenCalled();
-  });
-
-  it("records a failure's costUsd when the adapter reports one (a truncated or timed-out call), and records nothing when it doesn't", async () => {
-    const truncated = configWith({ verdicts: [], detectFindings: [] });
-    truncated.client.complete = vi.fn().mockResolvedValue({
-      ok: false,
-      reason: "truncated",
-      inputTokens: 100,
-      outputTokens: 8000,
-      costUsd: 0.082,
-    });
-    await applyLlmPass(baseAnalysis(), signals, { tools, baseline }, truncated);
-    expect(truncated.recordSpend).toHaveBeenCalledWith(0.082);
-
-    const noCost = configWith({ verdicts: [], detectFindings: [] });
-    noCost.client.complete = vi
-      .fn()
-      .mockResolvedValue({ ok: false, reason: "error" });
-    await applyLlmPass(baseAnalysis(), signals, { tools, baseline }, noCost);
-    expect(noCost.recordSpend).not.toHaveBeenCalled();
-
-    const thrown = configWith({ verdicts: [], detectFindings: [] });
-    thrown.client.complete = vi.fn().mockRejectedValue(new Error("network"));
-    const analysis = baseAnalysis();
-    expect(
-      await applyLlmPass(analysis, signals, { tools, baseline }, thrown),
-    ).toEqual(analysis);
-    expect(thrown.recordSpend).not.toHaveBeenCalled();
-  });
-
-  it("calls writeCache once with the model, response, and token counts on a cache miss", async () => {
-    const response: LlmResponse = { verdicts: [], detectFindings: [] };
-    const config = configWith(response);
-    await applyLlmPass(baseAnalysis(), signals, { tools, baseline }, config);
     expect(config.writeCache).toHaveBeenCalledTimes(1);
-    const [, entry] = vi.mocked(config.writeCache).mock.calls[0];
-    expect(entry).toEqual({
+    expect(vi.mocked(config.writeCache).mock.calls[0][1]).toEqual({
       model: "claude-sonnet-5-5",
-      response,
+      response: responseFor(sc, verdicts, []),
       inputTokens: 100,
       outputTokens: 50,
     });
-  });
-
-  it("falls through to a fresh call when a cached response fails shape validation, and treats a response missing detectFindings as invalid", async () => {
-    const config = configWith({ verdicts: [], detectFindings: [] });
-    config.readCache = vi.fn().mockResolvedValue({
+    expect(info).toHaveBeenLastCalledWith("gap LLM pass: completed", {
+      repo: "korza/example",
       model: "claude-sonnet-5-5",
-      response: { verdicts: "not an array", detectFindings: [] },
-      inputTokens: 1,
-      outputTokens: 1,
-    });
-    await applyLlmPass(baseAnalysis(), signals, { tools, baseline }, config);
-    expect(config.client.complete).toHaveBeenCalledTimes(1);
-
-    const badShape = configWith({ verdicts: [], detectFindings: [] });
-    badShape.client.complete = vi.fn().mockResolvedValue({
-      ok: true,
-      text: JSON.stringify({ verdicts: [] }),
+      latencyMs: expect.any(Number),
       inputTokens: 100,
       outputTokens: 50,
-      costUsd: 0.001,
+      costUsd: 0.00071,
+      verdictsApplied: 1,
+      verdictsNoop: 0,
+      verdictsDropped: 0,
+      detectFindingsKept: 0,
     });
-    const analysis = baseAnalysis();
-    expect(
-      await applyLlmPass(analysis, signals, { tools, baseline }, badShape),
-    ).toEqual(analysis);
   });
 
-  it("drops a malformed item from a findings array without discarding a well-formed one sitting beside it", async () => {
-    const quote = "semgrep --config p/golang .";
-    const config = configWith({
-      verdicts: [
-        verdict({
-          pair: "sast:semgrep",
-          verdict: "provides",
-          signalId: signalIdFor(baseAnalysis(), signals, quote),
-          quote,
-        }),
-        // Missing `reason` - malformed, must be dropped without affecting the entry above.
-        {
-          pair: "sast:semgrep",
-          verdict: "provides",
-          signalId: "s1",
-          quote,
-        } as unknown as LlmVerdict,
-      ],
-      detectFindings: [],
-    });
+  it.each([
+    {
+      name: "a truncated call is still billed",
+      failure: {
+        ok: false,
+        reason: "truncated",
+        inputTokens: 100,
+        outputTokens: 8000,
+        costUsd: 0.082,
+      },
+      spend: 0.082,
+      detail: undefined,
+    },
+    {
+      name: "an error without a cost is not billed",
+      failure: {
+        ok: false,
+        reason: "error",
+        detail: { status: 429, type: "rate_limit_error", requestId: "req_1" },
+      },
+      spend: undefined,
+      detail: { status: 429, type: "rate_limit_error", requestId: "req_1" },
+    },
+  ])(
+    "falls back on a failed call: $name",
+    async ({ failure, spend, detail }) => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const sc = base();
+      const { result, config } = await run(sc, [], [], (c) => {
+        c.client.complete = vi.fn().mockResolvedValue(failure);
+      });
+      expect(result).toEqual(sc.analysis);
+      if (spend === undefined)
+        expect(config.recordSpend).not.toHaveBeenCalled();
+      else expect(config.recordSpend).toHaveBeenCalledWith(spend);
+      expect(config.writeCache).not.toHaveBeenCalled();
+      expect(warn).toHaveBeenCalledWith(
+        `gap LLM pass: call did not succeed (${failure.reason})`,
+        { repo: "korza/example", detail },
+      );
+    },
+  );
 
-    const result = await applyLlmPass(
-      baseAnalysis(),
-      signals,
-      { tools, baseline },
-      config,
+  it("records no spend when the client throws", async () => {
+    const config = llm({ verdicts: [], detectFindings: [] });
+    config.client.complete = vi.fn().mockRejectedValue(new Error("network"));
+    const sc = base();
+    await applyLlmPass(sc.analysis, sc.signals, sc.catalogue, config).catch(
+      () => undefined,
     );
-    expect(
-      result.categories[0].capabilities.find((c) => c.id === "sast")!.satisfied,
-    ).toBe(true);
+    expect(config.recordSpend).not.toHaveBeenCalled();
   });
 
-  it("still applies a good finding when recordSpend or writeCache rejects", async () => {
-    const quote = "semgrep --config p/golang .";
-    const response: LlmResponse = {
-      verdicts: [
-        verdict({
-          pair: "sast:semgrep",
-          verdict: "provides",
-          signalId: signalIdFor(baseAnalysis(), signals, quote),
-          quote,
-        }),
-      ],
-      detectFindings: [],
-    };
-    const config = configWith(response);
-    config.recordSpend = vi.fn().mockRejectedValue(new Error("db down"));
-    config.writeCache = vi.fn().mockRejectedValue(new Error("db down"));
-
-    const result = await applyLlmPass(
-      baseAnalysis(),
-      signals,
-      { tools, baseline },
-      config,
+  it("treats a bad cached row as a miss, and survives malformed items and store failures", async () => {
+    const sc = base();
+    const refetched = await run(
+      sc,
+      [provides("sast:semgrep", SEMGREP)],
+      [],
+      (c) => {
+        c.readCache = vi
+          .fn()
+          .mockResolvedValue(
+            cached({ verdicts: "not an array", detectFindings: [] }),
+          );
+      },
     );
-    expect(
-      result.categories[0].capabilities.find((c) => c.id === "sast")!.satisfied,
-    ).toBe(true);
-  });
+    expect(refetched.config.client.complete).toHaveBeenCalledTimes(1);
+    expect(cap(refetched.result, "sast").satisfied).toBe(true);
 
-  it("treats an empty candidate/signal response as trivially valid rather than a validation error", async () => {
-    const config = configWith({ verdicts: [], detectFindings: [] });
-    config.client.complete = vi.fn().mockResolvedValue({
-      ok: true,
-      text: JSON.stringify({ verdicts: [{}], detectFindings: [{}] }),
-      inputTokens: 10,
-      outputTokens: 10,
-      costUsd: 0.0001,
+    const missingFindings = await run(sc, [], [], (c) => {
+      c.client.complete = vi.fn().mockResolvedValue({
+        ok: true,
+        text: JSON.stringify({ verdicts: [] }),
+        inputTokens: 1,
+        outputTokens: 1,
+        costUsd: 0.001,
+      });
     });
-    const analysis = baseAnalysis();
-    expect(
-      await applyLlmPass(analysis, signals, { tools, baseline }, config),
-    ).toEqual(analysis);
+    expect(missingFindings.result).toEqual(sc.analysis);
+
+    const good = provides("sast:semgrep", SEMGREP);
+    const mixed = responseFor(sc, [good], []);
+    const { result } = await run(sc, [], [], (c) => {
+      c.client.complete = vi.fn().mockResolvedValue({
+        ok: true,
+        text: JSON.stringify({
+          verdicts: [
+            { ...mixed.verdicts[0], reason: undefined },
+            mixed.verdicts[0],
+            {},
+          ],
+          detectFindings: [{}, { kind: "build" }],
+        }),
+        inputTokens: 1,
+        outputTokens: 1,
+        costUsd: 0,
+      });
+      c.recordSpend = vi.fn().mockRejectedValue(new Error("db down"));
+      c.writeCache = vi.fn().mockRejectedValue(new Error("db down"));
+    });
+    expect(cap(result, "sast").satisfied).toBe(true);
+    expect(result.buildSteps).toEqual([]);
   });
 });
 
-describe("applyLlmPass: against the real catalogue shape", () => {
-  it("rescues sast via semgrep (a plain tool) on a bare invocation, even though the java baseline's own recommended tool is the ci-base-checks bundle", async () => {
-    const realBaseline = getBaseline();
-    const javaStack = realBaseline.stacks.find((s) => s.id === "java")!;
-    const analysis: Analysis = {
-      repo: "korza/gap-analysis-demo",
-      defaultBranch: "main",
-      stacks: [javaStack],
-      filesRead: [],
-      categories: [
-        {
-          category: "Security",
-          capabilities: [
-            {
-              id: "sast",
-              label: "SAST",
-              satisfied: false,
-              present: [],
-              recommended: [],
-            },
-          ],
-        },
-      ],
-      satisfiedCount: 0,
-      partialCount: 0,
-      gapCount: 1,
-      buildSteps: [],
-    };
-    const realSignals: CiSignals = {
-      uses: [],
-      shell: [
-        {
-          text: "semgrep --config p/java --error gateway-runtime/src",
-          source: ".github/workflows/ci.yml",
-        },
-      ],
-    };
-    const quote = "semgrep --config p/java --error gateway-runtime/src";
-    const config = configWith({
-      verdicts: [
-        verdict({
-          pair: "sast:semgrep",
-          verdict: "provides",
-          signalId: signalIdForWithTools(
-            realTools,
-            analysis,
-            realSignals,
-            quote,
-          ),
-          quote,
-        }),
-      ],
-      detectFindings: [],
-    });
+describe("applyLlmPass: logs", () => {
+  it("counts identical repeats as no-ops and drops a pair only when its verdicts differ, clipping logged pairs", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const verdict = provides("sast:semgrep", SEMGREP);
 
-    const result = await applyLlmPass(
-      analysis,
-      realSignals,
-      { tools: realTools, baseline: realBaseline },
-      config,
+    await run(base(), [verdict, { ...verdict }]);
+    expect(info).toHaveBeenLastCalledWith(
+      "gap LLM pass: completed",
+      expect.objectContaining({
+        verdictsApplied: 1,
+        verdictsNoop: 1,
+        verdictsDropped: 0,
+      }),
     );
-    const sast = result.categories[0].capabilities[0];
-    expect(sast.satisfied).toBe(true);
-    expect(sast.present[0]).toMatchObject({ id: "semgrep", evidence: quote });
+
+    await run(base(), [
+      verdict,
+      { ...verdict, verdict: "does-not-provide", reason: "no" },
+    ]);
+    expect(info).toHaveBeenLastCalledWith(
+      "gap LLM pass: completed",
+      expect.objectContaining({ verdictsApplied: 0, verdictsDropped: 2 }),
+    );
+
+    await run(base(), [provides("x".repeat(500), SEMGREP, { in: "semgrep" })]);
+    const logged = warn.mock.calls.find((call) =>
+      String(call[0]).includes("pair is not a candidate"),
+    )![1] as { pair: string };
+    expect(logged.pair).toHaveLength(200);
   });
+});
 
-  function signalIdForWithTools(
-    toolsForPrompt: AnalysisTool[],
-    analysis: Analysis,
-    sigs: CiSignals,
-    needle: string,
-  ): string {
-    const { signals: sent } = buildPrompt(analysis, sigs, {
-      tools: toolsForPrompt,
-    });
-    const entry = sent.find((e) => e.text.includes(needle));
-    if (!entry) throw new Error(`no signal entry contains "${needle}"`);
-    return entry.id;
-  }
-
-  it("end-to-end: ciSignals -> analyze -> applyLlmPass on a real snapshot rescues sast via semgrep, demotes trivy on image-scan and iac-config, and keeps it on sca", async () => {
-    const realBaseline = getBaseline();
+describe("applyLlmPass: real catalogue", () => {
+  it("rescues sast via semgrep and demotes trivy on image-scan and iac-config from a real snapshot", async () => {
+    const catalogue = { tools: realTools, baseline: getBaseline() };
     const snapshot: RepoSnapshot = {
       ref: { provider: "github", owner: "korza", repo: "gap-analysis-demo" },
       defaultBranch: "main",
@@ -1555,777 +866,44 @@ describe("applyLlmPass: against the real catalogue shape", () => {
         ].join("\n"),
       },
     };
-    const realSignals = ciSignals(snapshot);
-    const analysis = analyze(
-      snapshot,
-      { tools: realTools, baseline: realBaseline },
-      realSignals,
-    );
+    const signals = ciSignals(snapshot);
+    const analysis = analyze(snapshot, catalogue, signals);
+    expect(cap(analysis, "sast").present).toEqual([]);
+    for (const id of ["sca", "image-scan"])
+      expect(cap(analysis, id).present.map((p) => p.id)).toEqual(["trivy"]);
 
-    const sastBefore = analysis.categories
-      .flatMap((c) => c.capabilities)
-      .find((c) => c.id === "sast")!;
-    const scaBefore = analysis.categories
-      .flatMap((c) => c.capabilities)
-      .find((c) => c.id === "sca")!;
-    const imageScanBefore = analysis.categories
-      .flatMap((c) => c.capabilities)
-      .find((c) => c.id === "image-scan")!;
-    // Rules alone miss a bare `semgrep --config` invocation and credit `trivy fs` with every
-    // capability trivy declares.
-    expect(sastBefore.present).toEqual([]);
-    expect(scaBefore.present.map((p) => p.id)).toEqual(["trivy"]);
-    expect(imageScanBefore.present.map((p) => p.id)).toEqual(["trivy"]);
-
-    const semgrepQuote = "semgrep --config p/java --error gateway-runtime/src";
-    const trivyQuote = "trivy fs --scanners vuln --exit-code 1 .";
-    const config = configWith({
-      verdicts: [
-        verdict({
-          pair: "sast:semgrep",
-          verdict: "provides",
-          signalId: signalIdForWithTools(
-            realTools,
-            analysis,
-            realSignals,
-            semgrepQuote,
-          ),
-          quote: semgrepQuote,
-        }),
-        verdict({
-          pair: "image-scan:trivy",
-          verdict: "does-not-provide",
-          signalId: signalIdForWithTools(
-            realTools,
-            analysis,
-            realSignals,
-            trivyQuote,
-          ),
-          quote: trivyQuote,
-          reason: "scans the filesystem for vulnerabilities, not a built image",
-        }),
-        verdict({
-          pair: "iac-config:trivy",
-          verdict: "does-not-provide",
-          signalId: signalIdForWithTools(
-            realTools,
-            analysis,
-            realSignals,
-            trivyQuote,
-          ),
-          quote: trivyQuote,
-          reason: "scans dependencies, not IaC configuration",
-        }),
-        // The live model also confirms sca:trivy; confirming a credited pair is a no-op.
-        verdict({
-          pair: "sca:trivy",
-          verdict: "provides",
-          signalId: signalIdForWithTools(
-            realTools,
-            analysis,
-            realSignals,
-            trivyQuote,
-          ),
-          quote: trivyQuote,
-          reason: "scans dependencies",
-        }),
-      ],
-      detectFindings: [],
-    });
-
-    const result = await applyLlmPass(
-      analysis,
-      realSignals,
-      { tools: realTools, baseline: realBaseline },
-      config,
-    );
-    const byId = new Map(
-      result.categories.flatMap((c) => c.capabilities).map((c) => [c.id, c]),
-    );
-    expect(byId.get("sast")!.satisfied).toBe(true);
-    expect(byId.get("sast")!.present.map((p) => p.id)).toEqual(["semgrep"]);
-    expect(byId.get("image-scan")!.present).toEqual([]);
-    expect(byId.get("iac-config")!.present).toEqual([]);
-    expect(byId.get("sca")!.present.map((p) => p.id)).toEqual(["trivy"]);
-    expect(byId.get("sca")!.satisfied).toBe(true);
-    expect(byId.get("sca")!.llmNote).toBeUndefined();
-    expect(byId.get("image-scan")!.llmNote).toBe(
-      "scans the filesystem for vulnerabilities, not a built image",
-    );
-    expect(byId.get("iac-config")!.llmNote).toBe(
-      "scans dependencies, not IaC configuration",
-    );
-  });
-});
-
-describe("applyLlmPass: quote verification and ordering", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  const sastGap = (): Analysis => ({
-    ...baseAnalysis(),
-    categories: [
-      {
-        category: "Security",
-        capabilities: [baseAnalysis().categories[0].capabilities[0]],
-      },
-    ],
-  });
-  const run = (
-    analysis: Analysis,
-    sigs: CiSignals,
-    config: LlmConfig,
-    toolList: AnalysisTool[] = tools,
-  ) => applyLlmPass(analysis, sigs, { tools: toolList, baseline }, config);
-
-  it("rejects a quote that sits inside a shell comment of its cited entry, with or without the `#`, but accepts it after a `#` inside quotes", async () => {
-    const commented: CiSignals = {
-      uses: [],
-      shell: [
-        { text: "npm test # semgrep --config p/java .", source: "ci.yml" },
-      ],
-    };
-    const quote = "semgrep --config p/java .";
-    const config = configWith({
-      verdicts: [
-        verdict({
-          pair: "sast:semgrep",
-          verdict: "provides",
-          signalId: signalIdFor(sastGap(), commented, "npm test"),
-          quote,
-        }),
-      ],
-      detectFindings: [],
-    });
-    expect((await run(sastGap(), commented, config)).categories).toEqual(
-      sastGap().categories,
-    );
-
-    const quoted: CiSignals = {
-      uses: [],
-      shell: [
-        { text: 'echo "a # b"; semgrep --config p/java .', source: "ci.yml" },
-      ],
-    };
-    const rescued = await run(
-      sastGap(),
-      quoted,
-      configWith({
-        verdicts: [
-          verdict({
-            pair: "sast:semgrep",
-            verdict: "provides",
-            signalId: signalIdFor(sastGap(), quoted, "semgrep"),
-            quote,
-          }),
-        ],
-        detectFindings: [],
-      }),
-    );
-    expect(rescued.categories[0].capabilities[0].satisfied).toBe(true);
-  });
-
-  it("verifies a quote that carries the rendered label or id prefix, and shows the unprefixed text", async () => {
-    const sigs: CiSignals = {
-      uses: [{ value: "docker/build-push-action", source: "ci.yml" }],
-      shell: [{ text: "semgrep --config p/java .", source: "ci.yml" }],
-    };
-    const analysis = sastGap();
-    const config = configWith({
-      verdicts: [
-        verdict({
-          pair: "sast:semgrep",
-          verdict: "provides",
-          signalId: signalIdFor(analysis, sigs, "semgrep"),
-          quote: "run: semgrep --config p/java .",
-        }),
-      ],
-      detectFindings: [
-        {
-          kind: "image-build",
-          signalId: signalIdFor(analysis, sigs, "docker/build"),
-          quote: "[s2] uses: docker/build-push-action",
-        },
-      ],
-    });
-    const result = await run(analysis, sigs, config);
-    expect(result.categories[0].capabilities[0].present[0].evidence).toBe(
-      "semgrep --config p/java .",
-    );
-    expect(result.buildSteps).toEqual([
-      {
-        kind: "image-build",
-        evidence: "docker/build-push-action",
-        source: "ci.yml",
-      },
+    const semgrep = "semgrep --config p/java --error gateway-runtime/src";
+    const trivy = "trivy fs --scanners vuln --exit-code 1 .";
+    const { result } = await run({ analysis, signals, catalogue }, [
+      provides("sast:semgrep", semgrep),
+      denies("image-scan:trivy", trivy, "scans the filesystem, not an image"),
+      denies("iac-config:trivy", trivy, "scans dependencies, not IaC"),
+      // Confirming a credited pair changes nothing.
+      provides("sca:trivy", trivy, { reason: "scans dependencies" }),
     ]);
-  });
-
-  it("applies several rescues for one capability in candidate order, whatever order the response lists them", async () => {
-    const twoSast: AnalysisTool[] = [
-      tools[1],
-      {
-        id: "bandit",
-        name: "Bandit",
-        capabilities: ["sast"],
-        stacks: ["any"],
-        detect: { commands: ["bandit"] },
-      },
-    ];
-    const sigs: CiSignals = {
-      uses: [],
-      shell: [
-        { text: "semgrep --config p/golang .", source: "ci.yml" },
-        { text: "bandit -r src --severity-level high", source: "ci.yml" },
-      ],
-    };
-    const analysis = sastGap();
-    const id = (needle: string) =>
-      signalIdForTools(twoSast, analysis, sigs, needle);
-    const semgrepVerdict = verdict({
-      pair: "sast:semgrep",
-      verdict: "provides",
-      signalId: id("semgrep"),
-      quote: "semgrep --config p/golang .",
+    expect(cap(result, "sast")).toMatchObject({
+      satisfied: true,
+      present: [{ id: "semgrep" }],
     });
-    const banditVerdict = verdict({
-      pair: "sast:bandit",
-      verdict: "provides",
-      signalId: id("bandit"),
-      quote: "bandit -r src --severity-level high",
+    expect(cap(result, "image-scan")).toMatchObject({
+      present: [],
+      llmNote: "scans the filesystem, not an image",
     });
-
-    const outputs = [];
-    for (const verdicts of [
-      [semgrepVerdict, banditVerdict],
-      [banditVerdict, semgrepVerdict],
-    ]) {
-      outputs.push(
-        await run(
-          analysis,
-          sigs,
-          configWith({ verdicts, detectFindings: [] }),
-          twoSast,
-        ),
-      );
-    }
-    expect(outputs[0]).toEqual(outputs[1]);
-    expect(outputs[0].categories[0].capabilities[0].present).toHaveLength(1);
-    expect(outputs[0].categories[0].capabilities[0].present[0].id).toBe(
-      "semgrep",
-    );
-  });
-
-  it("collapses identical verdicts on a pair and drops a pair only when its verdicts differ", async () => {
-    const quote = "semgrep --config p/golang .";
-    const id = signalIdFor(sastGap(), signals, quote);
-    const provides = verdict({
-      pair: "sast:semgrep",
-      verdict: "provides",
-      signalId: id,
-      quote,
+    expect(cap(result, "iac-config").present).toEqual([]);
+    expect(cap(result, "sca")).toMatchObject({
+      satisfied: true,
+      present: [{ id: "trivy" }],
     });
-    const info = vi.spyOn(console, "info").mockImplementation(() => {});
-
-    const same = await run(
-      sastGap(),
-      signals,
-      configWith({ verdicts: [provides, { ...provides }], detectFindings: [] }),
-    );
-    expect(same.categories[0].capabilities[0].satisfied).toBe(true);
-    expect(info).toHaveBeenLastCalledWith(
-      "gap LLM pass: completed",
-      expect.objectContaining({
-        verdictsApplied: 1,
-        verdictsNoop: 1,
-        verdictsDropped: 0,
-      }),
-    );
-
-    const conflict = await run(
-      sastGap(),
-      signals,
-      configWith({
-        verdicts: [
-          provides,
-          { ...provides, verdict: "does-not-provide", reason: "no" },
-        ],
-        detectFindings: [],
-      }),
-    );
-    expect(conflict.categories).toEqual(sastGap().categories);
-    expect(info).toHaveBeenLastCalledWith(
-      "gap LLM pass: completed",
-      expect.objectContaining({ verdictsApplied: 0, verdictsDropped: 2 }),
-    );
-  });
-
-  it("never demotes a tool that a config file or dependency also credits, even with CI evidence", async () => {
-    const analysis = baseAnalysis();
-    analysis.categories[0].capabilities[1].present[0].nonCiCredit = true;
-    const quote = "trivy fs . --severity HIGH,CRITICAL";
-    const config = configWith({
-      verdicts: [
-        verdict({
-          pair: "sca:trivy",
-          verdict: "does-not-provide",
-          signalId: signalIdFor(analysis, signals, quote),
-          quote,
-          reason: "only fs",
-        }),
-      ],
-      detectFindings: [],
+    expect(cap(result, "sca").llmNote).toBeUndefined();
+    expect(counts(analysis)).toEqual({
+      satisfiedCount: 3,
+      partialCount: 0,
+      gapCount: 7,
     });
-    expect(await run(analysis, signals, config)).toEqual(analysis);
-  });
-
-  it("makes no call when there is no signal text, and logs one line on a cache hit", async () => {
-    const config = configWith({ verdicts: [], detectFindings: [] });
-    await run(baseAnalysis(), { uses: [], shell: [] }, config);
-    expect(config.client.complete).not.toHaveBeenCalled();
-    expect(config.readCache).not.toHaveBeenCalled();
-
-    const info = vi.spyOn(console, "info").mockImplementation(() => {});
-    const cached = configWith({ verdicts: [], detectFindings: [] });
-    cached.readCache = vi.fn().mockResolvedValue({
-      model: "m",
-      response: { verdicts: [], detectFindings: [] },
-      inputTokens: 1,
-      outputTokens: 1,
+    expect(counts(result)).toEqual({
+      satisfiedCount: 2,
+      partialCount: 0,
+      gapCount: 8,
     });
-    await run(baseAnalysis(), signals, cached);
-    expect(cached.client.complete).not.toHaveBeenCalled();
-    expect(info).toHaveBeenCalledTimes(1);
-    expect(info).toHaveBeenCalledWith("gap LLM pass: served from cache", {
-      repo: "korza/example",
-      verdictsApplied: 0,
-      verdictsNoop: 0,
-      verdictsDropped: 0,
-      detectFindingsKept: 0,
-    });
-  });
-
-  it("clips model-written text in logs to 200 characters", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const config = configWith({
-      verdicts: [
-        verdict({ pair: "x".repeat(500), verdict: "provides", quote: "q" }),
-      ],
-      detectFindings: [],
-    });
-    await run(baseAnalysis(), signals, config);
-    const logged = warn.mock.calls.find((call) =>
-      String(call[0]).includes("pair is not a candidate"),
-    )![1] as { pair: string };
-    expect(logged.pair).toHaveLength(200);
-
-    const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    const badJson = configWith({ verdicts: [], detectFindings: [] });
-    badJson.client = {
-      complete: vi.fn().mockResolvedValue({
-        ok: true,
-        text: `{"a": ${"y".repeat(500)}`,
-        inputTokens: 1,
-        outputTokens: 1,
-        costUsd: 0,
-      }),
-    };
-    await run(baseAnalysis(), signals, badJson);
-    const detail = error.mock.calls[0][1] as { error: string };
-    expect(detail.error.length).toBeLessThanOrEqual(250);
-  });
-});
-
-describe("applyLlmPass: caps, relevance, display and logs", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  const sastGap = (): Analysis => ({
-    ...baseAnalysis(),
-    categories: [
-      {
-        category: "Security",
-        capabilities: [baseAnalysis().categories[0].capabilities[0]],
-      },
-    ],
-  });
-  const run = (
-    analysis: Analysis,
-    sigs: CiSignals,
-    config: LlmConfig,
-    toolList: AnalysisTool[] = tools,
-  ) => applyLlmPass(analysis, sigs, { tools: toolList, baseline }, config);
-  const sastOf = (analysis: Analysis) =>
-    analysis.categories[0].capabilities.find((c) => c.id === "sast")!;
-  const scaOf = (analysis: Analysis) =>
-    analysis.categories[0].capabilities.find((c) => c.id === "sca")!;
-
-  it("enforces the 400-character quote and 300-character reason caps on the server", async () => {
-    const longCommand = `semgrep --config ${"p".repeat(384)}`;
-    const exactCommand = `semgrep --config ${"p".repeat(383)}`;
-    expect(longCommand).toHaveLength(401);
-    expect(exactCommand).toHaveLength(400);
-    const sigs: CiSignals = {
-      uses: [],
-      shell: [{ text: longCommand, source: "ci.yml" }],
-    };
-    const sigsExact: CiSignals = {
-      uses: [],
-      shell: [{ text: exactCommand, source: "ci.yml" }],
-    };
-
-    const tooLong = configWith({
-      verdicts: [
-        verdict({
-          pair: "sast:semgrep",
-          verdict: "provides",
-          signalId: signalIdFor(sastGap(), sigs, "semgrep"),
-          quote: longCommand,
-        }),
-      ],
-      detectFindings: [
-        {
-          kind: "build",
-          signalId: signalIdFor(sastGap(), sigs, "semgrep"),
-          quote: longCommand,
-        },
-      ],
-    });
-    const rejected = await run(sastGap(), sigs, tooLong);
-    expect(sastOf(rejected).satisfied).toBe(false);
-    expect(rejected.buildSteps).toEqual([]);
-
-    const exact = configWith({
-      verdicts: [
-        verdict({
-          pair: "sast:semgrep",
-          verdict: "provides",
-          signalId: signalIdFor(sastGap(), sigsExact, "semgrep"),
-          quote: exactCommand,
-        }),
-      ],
-      detectFindings: [
-        {
-          kind: "build",
-          signalId: signalIdFor(sastGap(), sigsExact, "semgrep"),
-          quote: exactCommand,
-        },
-      ],
-    });
-    const accepted = await run(sastGap(), sigsExact, exact);
-    expect(sastOf(accepted).satisfied).toBe(true);
-    expect(accepted.buildSteps).toHaveLength(1);
-
-    const quote = "trivy fs . --severity HIGH,CRITICAL";
-    const reasons = [301, 300].map((length) => "é".repeat(length));
-    const notes: string[] = [];
-    for (const reason of reasons) {
-      const result = await run(
-        baseAnalysis(),
-        signals,
-        configWith({
-          verdicts: [
-            verdict({
-              pair: "sca:trivy",
-              verdict: "does-not-provide",
-              signalId: signalIdFor(baseAnalysis(), signals, quote),
-              quote,
-              reason,
-            }),
-          ],
-          detectFindings: [],
-        }),
-      );
-      notes.push(scaOf(result).llmNote!);
-    }
-    expect(notes[0]).toBe(`${"é".repeat(300)}…`);
-    expect(notes[1]).toBe("é".repeat(300));
-  });
-
-  it("checks relevance on the quote, not on the cited entry, and rejects an unknown pair or signal id without substituting another", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const mixed: CiSignals = {
-      uses: [],
-      shell: [
-        {
-          text: "semgrep --config p/java .\nnpm run lint -- --max-warnings 0",
-          source: "ci.yml",
-        },
-      ],
-    };
-    const id = signalIdFor(sastGap(), mixed, "semgrep");
-    const unrelatedQuote = configWith({
-      verdicts: [
-        verdict({
-          pair: "sast:semgrep",
-          verdict: "provides",
-          signalId: id,
-          quote: "npm run lint -- --max-warnings 0",
-        }),
-      ],
-      detectFindings: [],
-    });
-    expect(sastOf(await run(sastGap(), mixed, unrelatedQuote)).satisfied).toBe(
-      false,
-    );
-
-    const relevantQuote = "semgrep --config p/golang .";
-    const sigId = signalIdFor(baseAnalysis(), signals, relevantQuote);
-    const unknownPair = configWith({
-      verdicts: [
-        verdict({
-          pair: "sast:nonexistent",
-          verdict: "provides",
-          signalId: sigId,
-          quote: relevantQuote,
-        }),
-        verdict({
-          pair: "sast:semgrep",
-          verdict: "provides",
-          signalId: "s999",
-          quote: relevantQuote,
-        }),
-      ],
-      detectFindings: [],
-    });
-    expect(
-      sastOf(await run(baseAnalysis(), signals, unknownPair)).satisfied,
-    ).toBe(false);
-    const messages = warn.mock.calls.map((call) => String(call[0]));
-    expect(messages).toContain(
-      "gap LLM pass: dropped a verdict, pair is not a candidate for this analysis",
-    );
-    expect(messages).toContain(
-      "gap LLM pass: dropped the rescue verdict, signalId is not in this analysis",
-    );
-  });
-
-  it("ignores `provides` on an audit pair of a partial capability instead of adding the tool twice", async () => {
-    const polyglot: AnalysisTool[] = [
-      {
-        id: "trivy",
-        name: "Trivy",
-        capabilities: ["sca", "iac-config"],
-        stacks: ["go"],
-        detect: { commands: ["trivy"] },
-      },
-      {
-        id: "npm-audit",
-        name: "npm audit",
-        capabilities: ["sca"],
-        stacks: ["javascript"],
-        detect: { commands: ["npm audit"] },
-      },
-    ];
-    const polyglotBaseline: Baseline = {
-      ...baseline,
-      stacks: [
-        {
-          id: "go",
-          label: "Go",
-          markers: [],
-          expects: { sca: { recommended: "trivy", acceptable: [] } },
-        },
-        {
-          id: "javascript",
-          label: "JavaScript",
-          markers: [],
-          expects: { sca: { recommended: "npm-audit", acceptable: [] } },
-        },
-      ],
-    };
-    const partial: Analysis = {
-      ...baseAnalysis(),
-      stacks: polyglotBaseline.stacks,
-      categories: [
-        {
-          category: "Security",
-          capabilities: [
-            {
-              id: "sca",
-              label: "Dependency scanning",
-              satisfied: false,
-              present: [
-                {
-                  id: "trivy",
-                  name: "Trivy",
-                  evidence: "runs trivy in ci.yml",
-                  stackLabels: ["Go"],
-                },
-              ],
-              recommended: [
-                {
-                  id: "npm-audit",
-                  name: "npm audit",
-                  stackLabels: ["JavaScript"],
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    };
-    const quote = "trivy fs . --severity HIGH,CRITICAL";
-    const result = await applyLlmPass(
-      partial,
-      signals,
-      { tools: polyglot, baseline: polyglotBaseline },
-      configWith({
-        verdicts: [
-          verdict({
-            pair: "sca:trivy",
-            verdict: "provides",
-            signalId: signalIdForTools(polyglot, partial, signals, quote),
-            quote,
-          }),
-        ],
-        detectFindings: [],
-      }),
-    );
-    expect(result.categories).toEqual(partial.categories);
-  });
-
-  it("keeps one detect finding per kind per source file, deduping identical findings even among fewer than 20", async () => {
-    const sigs: CiSignals = {
-      uses: [],
-      shell: [
-        { text: "npm ci --frozen-lockfile", source: "a.yml" },
-        { text: "npm install --no-audit --prefer-offline", source: "a.yml" },
-        { text: "npm ci --frozen-lockfile", source: "b.yml" },
-      ],
-    };
-    const id = (needle: string) => signalIdFor(baseAnalysis(), sigs, needle);
-    const first = {
-      kind: "install" as const,
-      signalId: id("--frozen-lockfile"),
-      quote: "npm ci --frozen-lockfile",
-    };
-    const result = await run(
-      baseAnalysis(),
-      sigs,
-      configWith({
-        verdicts: [],
-        detectFindings: [
-          first,
-          { ...first },
-          {
-            kind: "install",
-            signalId: id("--no-audit"),
-            quote: "npm install --no-audit --prefer-offline",
-          },
-        ],
-      }),
-    );
-    expect(result.buildSteps).toEqual([
-      { kind: "install", evidence: first.quote, source: "a.yml" },
-    ]);
-  });
-
-  it("restores real newlines in rescue evidence and notes, and keeps the repo's source path in reports while escaping it in the prompt", async () => {
-    const sigs: CiSignals = {
-      uses: [],
-      shell: [
-        {
-          text: "semgrep --config p/java .\nsemgrep ci",
-          source: "dir<<<x/ci.yml",
-        },
-      ],
-    };
-    const quote = "semgrep --config p/java .⏎semgrep ci";
-    const config = configWith({
-      verdicts: [
-        verdict({
-          pair: "sast:semgrep",
-          verdict: "provides",
-          signalId: "s1",
-          quote,
-        }),
-      ],
-      detectFindings: [{ kind: "build", signalId: "s1", quote: "semgrep ci" }],
-    });
-    const result = await run(sastGap(), sigs, config);
-    const sast = sastOf(result);
-    expect(sast.present[0].evidence).toBe(
-      "semgrep --config p/java .\nsemgrep ci",
-    );
-    expect(sast.llmNote).toContain(
-      'via "semgrep --config p/java .\nsemgrep ci"',
-    );
-    expect(result.buildSteps[0].source).toBe("dir<<<x/ci.yml");
-    const prompt = vi.mocked(config.client.complete).mock.calls[0][0].user;
-    expect(prompt).toContain("dir‹‹‹x/ci.yml");
-    expect(prompt).not.toContain("dir<<<x");
-
-    const audit = await run(
-      baseAnalysis(),
-      signals,
-      configWith({
-        verdicts: [
-          verdict({
-            pair: "sca:trivy",
-            verdict: "does-not-provide",
-            signalId: signalIdFor(
-              baseAnalysis(),
-              signals,
-              "trivy fs . --severity HIGH,CRITICAL",
-            ),
-            quote: "trivy fs . --severity HIGH,CRITICAL",
-            reason: "line one⏎line two",
-          }),
-        ],
-        detectFindings: [],
-      }),
-    );
-    expect(scaOf(audit).llmNote).toBe("line one\nline two");
-  });
-
-  it("logs a success summary with metrics, the spend-cap skip, and a failure with its detail and request id", async () => {
-    const info = vi.spyOn(console, "info").mockImplementation(() => {});
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    await run(
-      baseAnalysis(),
-      signals,
-      configWith({ verdicts: [], detectFindings: [] }, 0.5),
-    );
-    expect(info).toHaveBeenCalledWith("gap LLM pass: completed", {
-      repo: "korza/example",
-      model: "claude-sonnet-5-5",
-      latencyMs: expect.any(Number),
-      inputTokens: 100,
-      outputTokens: 50,
-      costUsd: 0.5,
-      verdictsApplied: 0,
-      verdictsNoop: 0,
-      verdictsDropped: 0,
-      detectFindingsKept: 0,
-    });
-
-    const capped = configWith({ verdicts: [], detectFindings: [] });
-    capped.underDailySpendCap = vi.fn().mockResolvedValue(false);
-    await run(baseAnalysis(), signals, capped);
-    expect(info).toHaveBeenCalledWith(
-      "gap LLM pass: skipped, daily spend cap reached",
-      { repo: "korza/example" },
-    );
-
-    const failing = configWith({ verdicts: [], detectFindings: [] });
-    const detail = {
-      status: 429,
-      type: "rate_limit_error",
-      requestId: "req_1",
-    };
-    failing.client = {
-      complete: vi
-        .fn()
-        .mockResolvedValue({ ok: false, reason: "error", detail }),
-    };
-    await run(baseAnalysis(), signals, failing);
-    expect(warn).toHaveBeenCalledWith(
-      "gap LLM pass: call did not succeed (error)",
-      { repo: "korza/example", detail },
-    );
   });
 });

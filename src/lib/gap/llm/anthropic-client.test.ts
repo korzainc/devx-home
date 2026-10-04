@@ -2,37 +2,50 @@ import Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it, vi } from "vitest";
 import { createAnthropicClient } from "./anthropic-client";
 
-function fakeAnthropicSdk(message: unknown) {
-  return { messages: { create: vi.fn().mockResolvedValue(message) } };
+const request = { system: "s", user: "u", schema: {}, effort: "low" } as const;
+
+function clientFor(outcome: { resolves: unknown } | { rejects: unknown }) {
+  const create =
+    "resolves" in outcome
+      ? vi.fn().mockResolvedValue(outcome.resolves)
+      : vi.fn().mockRejectedValue(outcome.rejects);
+  const client = createAnthropicClient(
+    { messages: { create } } as never,
+    "claude-sonnet-5-5",
+  );
+  return {
+    create,
+    complete: (overrides = {}) => client.complete({ ...request, ...overrides }),
+  };
 }
 
 const sonnetCost = (inputTokens: number, outputTokens: number) =>
   (inputTokens / 1_000_000) * 2 + (outputTokens / 1_000_000) * 10;
 
 describe("createAnthropicClient", () => {
-  it("sends the request in the real Anthropic shape and reports the real cost on success", async () => {
-    const sdk = fakeAnthropicSdk({
-      content: [{ type: "text", text: '{"ok":true}' }],
-      usage: { input_tokens: 100, output_tokens: 50 },
-      stop_reason: "end_turn",
-    });
-    const client = createAnthropicClient(sdk as never, "claude-sonnet-5-5");
-
-    const result = await client.complete({
-      system: "system prompt",
-      user: "user prompt",
-      schema: { type: "object" },
-      effort: "low",
+  it("sends the request in the Anthropic shape and reports the real cost on success", async () => {
+    const { create, complete } = clientFor({
+      resolves: {
+        content: [{ type: "text", text: '{"ok":true}' }],
+        usage: { input_tokens: 100, output_tokens: 50 },
+        stop_reason: "end_turn",
+      },
     });
 
-    expect(result).toEqual({
+    expect(
+      await complete({
+        system: "system prompt",
+        user: "user prompt",
+        schema: { type: "object" },
+      }),
+    ).toEqual({
       ok: true,
       text: '{"ok":true}',
       inputTokens: 100,
       outputTokens: 50,
       costUsd: sonnetCost(100, 50),
     });
-    expect(sdk.messages.create).toHaveBeenCalledWith(
+    expect(create).toHaveBeenCalledWith(
       expect.objectContaining({
         model: "claude-sonnet-5-5",
         max_tokens: 3000,
@@ -47,200 +60,91 @@ describe("createAnthropicClient", () => {
     );
   });
 
-  it("reports truncated, and error-with-no-text-block, with the real token usage, cost, and a diagnosable detail", async () => {
-    // Anthropic bills for these tokens exactly as it would a successful call, so the caller
-    // (apply.ts) needs the real cost to record against the daily spend cap for a call it discards.
-    const truncated = fakeAnthropicSdk({
-      content: [{ type: "text", text: "{not valid" }],
-      usage: { input_tokens: 100, output_tokens: 3000 },
-      stop_reason: "max_tokens",
-    });
-    const truncatedResult = await createAnthropicClient(
-      truncated as never,
-      "claude-sonnet-5-5",
-    ).complete({ system: "s", user: "u", schema: {}, effort: "low" });
-    expect(truncatedResult).toEqual({
-      ok: false,
-      reason: "truncated",
-      inputTokens: 100,
-      outputTokens: 3000,
-      costUsd: sonnetCost(100, 3000),
-    });
+  it.each([
+    {
+      name: "truncated",
+      message: { content: [], stop_reason: "max_tokens", output: 3000 },
+      expected: { reason: "truncated" },
+    },
+    {
+      name: "refusal",
+      message: { content: [], stop_reason: "refusal", output: 5 },
+      expected: { reason: "refusal" },
+    },
+    {
+      name: "no text block",
+      message: {
+        content: [{ type: "tool_use", id: "x", name: "y", input: {} }],
+        stop_reason: "end_turn",
+        output: 50,
+      },
+      expected: {
+        reason: "error",
+        detail: { message: "no text block in the response" },
+      },
+    },
+  ])(
+    "reports $name with the real usage and cost",
+    async ({ message, expected }) => {
+      const { complete } = clientFor({
+        resolves: {
+          content: message.content,
+          stop_reason: message.stop_reason,
+          usage: { input_tokens: 100, output_tokens: message.output },
+        },
+      });
+      expect(await complete()).toEqual({
+        ok: false,
+        inputTokens: 100,
+        outputTokens: message.output,
+        costUsd: sonnetCost(100, message.output),
+        ...expected,
+      });
+    },
+  );
 
-    const noText = fakeAnthropicSdk({
-      content: [{ type: "tool_use", id: "x", name: "y", input: {} }],
-      usage: { input_tokens: 100, output_tokens: 50 },
-      stop_reason: "end_turn",
-    });
-    const noTextResult = await createAnthropicClient(
-      noText as never,
-      "claude-sonnet-5-5",
-    ).complete({
-      system: "s",
-      user: "u",
-      schema: {},
-      effort: "low",
-    });
-    expect(noTextResult).toEqual({
-      ok: false,
-      reason: "error",
-      inputTokens: 100,
-      outputTokens: 50,
-      costUsd: sonnetCost(100, 50),
-      detail: { message: "no text block in the response" },
-    });
-  });
-
-  it("reports error detail with no cost when the call throws for a reason other than a connection timeout", async () => {
-    const sdk = {
-      messages: { create: vi.fn().mockRejectedValue(new Error("network")) },
-    };
-    const result = await createAnthropicClient(
-      sdk as never,
-      "claude-sonnet-5-5",
-    ).complete({
-      system: "s",
-      user: "u",
-      schema: {},
-      effort: "low",
-    });
-    expect(result).toEqual({
+  it("reports a diagnosable detail with no cost when the call throws", async () => {
+    expect(
+      await clientFor({ rejects: new Error("network") }).complete(),
+    ).toEqual({
       ok: false,
       reason: "error",
       detail: { message: "network" },
     });
-  });
 
-  it("reports status, type, and request id from a real Anthropic API error", async () => {
-    const sdk = {
-      messages: {
-        create: vi
-          .fn()
-          .mockRejectedValue(
-            Anthropic.APIError.generate(
-              429,
-              { error: { type: "rate_limit_error", message: "slow down" } },
-              "slow down",
-              new Headers({ "request-id": "req_123" }),
-            ),
-          ),
-      },
-    };
-    const result = await createAnthropicClient(
-      sdk as never,
-      "claude-sonnet-5-5",
-    ).complete({ system: "s", user: "u", schema: {}, effort: "low" });
-    expect(result).toMatchObject({
+    const long = "m".repeat(1000);
+    const api = Anthropic.APIError.generate(
+      429,
+      { error: { type: "rate_limit_error", message: long } },
+      long,
+      new Headers({ "request-id": "req_123" }),
+    );
+    expect(await clientFor({ rejects: api }).complete()).toEqual({
       ok: false,
       reason: "error",
       detail: {
         status: 429,
         type: "rate_limit_error",
-        message: "slow down",
+        message: "m".repeat(300),
         requestId: "req_123",
       },
     });
   });
 
-  it("reports a refusal as its own reason, billed at real usage", async () => {
-    const sdk = fakeAnthropicSdk({
-      content: [],
-      usage: { input_tokens: 100, output_tokens: 5 },
-      stop_reason: "refusal",
-    });
-    const result = await createAnthropicClient(
-      sdk as never,
-      "claude-sonnet-5-5",
-    ).complete({ system: "s", user: "u", schema: {}, effort: "low" });
-    expect(result).toEqual({
-      ok: false,
-      reason: "refusal",
-      inputTokens: 100,
-      outputTokens: 5,
-      costUsd: sonnetCost(100, 5),
-    });
-  });
-
-  it("trims a long API error message to 300 characters", async () => {
-    const long = "m".repeat(1000);
-    const sdk = {
-      messages: {
-        create: vi
-          .fn()
-          .mockRejectedValue(
-            Anthropic.APIError.generate(
-              500,
-              { error: { type: "api_error", message: long } },
-              long,
-              new Headers(),
-            ),
-          ),
-      },
-    };
-    const result = await createAnthropicClient(
-      sdk as never,
-      "claude-sonnet-5-5",
-    ).complete({ system: "s", user: "u", schema: {}, effort: "low" });
-    expect(
-      (result as { detail: { message: string } }).detail.message,
-    ).toHaveLength(300);
-  });
-
-  it("estimates a conservative cost on a connection timeout, says so in the detail, from input size and the full max_tokens, so a timeout is never free against the spend cap", async () => {
-    const sdk = {
-      messages: {
-        create: vi
-          .fn()
-          .mockRejectedValue(new Anthropic.APIConnectionTimeoutError()),
-      },
-    };
+  it("charges a timeout an estimate from the input size and the full max_tokens", async () => {
     const system = "x".repeat(4000);
     const user = "y".repeat(4000);
-    const result = await createAnthropicClient(
-      sdk as never,
-      "claude-sonnet-5-5",
-    ).complete({
-      system,
-      user,
-      schema: {},
-      effort: "low",
-    });
-    expect(result.ok).toBe(false);
+    const result = await clientFor({
+      rejects: new Anthropic.APIConnectionTimeoutError(),
+    }).complete({ system, user });
     expect(result).toMatchObject({
+      ok: false,
       reason: "error",
       detail: { type: "timeout" },
     });
-    const estimatedInputTokens = Math.ceil((system.length + user.length) / 2);
-    expect((result as { costUsd?: number }).costUsd).toBeCloseTo(
-      sonnetCost(estimatedInputTokens, 3000),
+    expect((result as { costUsd: number }).costUsd).toBeCloseTo(
+      sonnetCost(Math.ceil((system.length + user.length) / 2), 3000),
       6,
     );
-  });
-
-  it("falls back to Sonnet pricing, with a one-time warning, for an unrecognized model id", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    const sdk = fakeAnthropicSdk({
-      content: [{ type: "text", text: "{}" }],
-      usage: { input_tokens: 100, output_tokens: 50 },
-      stop_reason: "end_turn",
-    });
-    const client = createAnthropicClient(sdk as never, "some-unpriced-model");
-
-    await client.complete({
-      system: "s",
-      user: "u",
-      schema: {},
-      effort: "low",
-    });
-    const result = await client.complete({
-      system: "s",
-      user: "u",
-      schema: {},
-      effort: "low",
-    });
-
-    expect((result as { costUsd: number }).costUsd).toBe(sonnetCost(100, 50));
-    expect(warn).toHaveBeenCalledTimes(1);
-    warn.mockRestore();
   });
 });

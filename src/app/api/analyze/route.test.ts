@@ -31,41 +31,35 @@ describe("POST /api/analyze", () => {
     vi.clearAllMocks();
   });
 
-  it("returns 401 with no GitHub token, before ever checking membership", async () => {
-    getGitHubToken.mockResolvedValue(null);
-
-    const res = await POST(postRequest({ repo: "korzainc/example" }));
-
-    expect(res.status).toBe(401);
-    expect(isOrgMember).not.toHaveBeenCalled();
-    expect(runAnalysis).not.toHaveBeenCalled();
-  });
-
-  it(
-    "returns 401 as defense-in-depth when a token exists but org membership fails, " +
-      "without depending on proxy.ts having run",
-    async () => {
-      getGitHubToken.mockResolvedValue("a-token");
-      getSession.mockResolvedValue({
-        user: { id: "u1", orgMember: false, orgCheckedAt: null },
-      });
-      isOrgMember.mockResolvedValue(false);
-
-      const res = await POST(postRequest({ repo: "korzainc/example" }));
-
-      expect(res.status).toBe(401);
-      expect(runAnalysis).not.toHaveBeenCalled();
+  it.each([
+    {
+      name: "no GitHub token, before any session or membership check",
+      token: null,
+      session: undefined,
+      member: undefined,
     },
-  );
-
-  it("returns 401 when a token exists but there is no session to check membership against", async () => {
-    getGitHubToken.mockResolvedValue("a-token");
-    getSession.mockResolvedValue(null);
+    {
+      name: "a token but no session",
+      token: "a-token",
+      session: null,
+      member: undefined,
+    },
+    {
+      name: "a token and session but no org membership, whatever proxy.ts did",
+      token: "a-token",
+      session: { user: { id: "u1", orgMember: false, orgCheckedAt: null } },
+      member: false,
+    },
+  ])("returns 401 for $name", async ({ token, session, member }) => {
+    getGitHubToken.mockResolvedValue(token);
+    getSession.mockResolvedValue(session);
+    isOrgMember.mockResolvedValue(member);
 
     const res = await POST(postRequest({ repo: "korzainc/example" }));
 
     expect(res.status).toBe(401);
-    expect(isOrgMember).not.toHaveBeenCalled();
+    expect(getSession).toHaveBeenCalledTimes(token ? 1 : 0);
+    expect(isOrgMember).toHaveBeenCalledTimes(session ? 1 : 0);
     expect(runAnalysis).not.toHaveBeenCalled();
   });
 

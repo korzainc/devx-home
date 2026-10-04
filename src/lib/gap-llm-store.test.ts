@@ -1,32 +1,28 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// `dailyUsdCap()` is a pure function of the environment, unlike this file's other exports
-// (`readCache`, `writeCache`, `underDailySpendCap`, `recordSpend`), which all touch `getPool()`
-// and stay untested here per this codebase's established convention for `db.ts`-touching modules.
+// Only `dailyUsdCap()` is a pure function of the environment. The other exports touch `getPool()`
+// and stay untested here, per this codebase's convention for `db.ts`-touching modules.
 
 beforeEach(() => {
   vi.stubEnv("GAP_LLM_DAILY_USD_CAP", undefined);
 });
 afterEach(() => vi.unstubAllEnvs());
 
-/** Re-imported per test: `warnOnce` (shared with `gap-llm-config.ts` and `gap/llm/apply.ts`)
- * keeps its "already warned" state in a module-level `Set`, so a stale import would leak a warning
- * from one test into the next. */
+/** Re-imported per test so the once-only warning state never leaks between tests. */
 async function loadStore() {
   vi.resetModules();
   return import("./gap-llm-store");
 }
 
 describe("dailyUsdCap", () => {
-  it("defaults to 5 when unset", async () => {
+  it.each([
+    [undefined, 5],
+    ["12.5", 12.5],
+    ["", 5],
+  ])("%j gives %s", async (raw, expected) => {
+    vi.stubEnv("GAP_LLM_DAILY_USD_CAP", raw);
     const { dailyUsdCap } = await loadStore();
-    expect(dailyUsdCap()).toBe(5);
-  });
-
-  it("uses a valid override", async () => {
-    vi.stubEnv("GAP_LLM_DAILY_USD_CAP", "12.5");
-    const { dailyUsdCap } = await loadStore();
-    expect(dailyUsdCap()).toBe(12.5);
+    expect(dailyUsdCap()).toBe(expected);
   });
 
   it("falls back to the default and warns once on an invalid value", async () => {
