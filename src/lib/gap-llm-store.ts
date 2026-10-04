@@ -1,16 +1,12 @@
 import { getPool } from "./db";
-import { warnOnce } from "./gap/warn-once";
 import type { CachedLlmResponse } from "./gap/llm/types";
 
-// The Postgres-backed store for the gap-analysis LLM pass: the response cache and the daily spend
-// cap. Lives outside src/lib/gap so nothing in that directory touches the database or reads the
-// environment directly.
+// Postgres store for the LLM pass: the response cache and the daily spend cap. Lives outside
+// src/lib/gap so nothing there touches the database or the environment.
 
 export async function readCache(
   key: string,
 ): Promise<CachedLlmResponse | null> {
-  // The selected columns line up with CachedLlmResponse's fields exactly, so the row can be
-  // returned as-is instead of rebuilt field by field.
   const result = await getPool().query<CachedLlmResponse>(
     `select "model", "response", "inputTokens", "outputTokens" from "gap_llm_cache" where "key" = $1`,
     [key],
@@ -18,9 +14,7 @@ export async function readCache(
   return result.rows[0] ?? null;
 }
 
-/** `do update` lets a fresh response replace a malformed row, so the shape-validation fallback in
- * `apply.ts` heals the key instead of leaving it broken. The model is not deterministic, so two
- * writes under one key can legitimately differ. */
+/** `do update` lets a fresh response replace a malformed row. */
 export async function writeCache(
   key: string,
   entry: CachedLlmResponse,
@@ -44,28 +38,28 @@ export async function writeCache(
   );
 }
 
-// UTC, not the operator's local day: the budget window rolls over at midnight UTC regardless of
-// where the pass runs from.
+// UTC: the budget window rolls over at midnight UTC wherever the pass runs.
 function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
 const defaultDailyUsdCap = 5;
+let warnedCap = false;
 
-/** `GAP_LLM_DAILY_USD_CAP`, or the default when it isn't a finite number (a NaN cap would block
- * every call). Warns once on a bad value. */
+/** `GAP_LLM_DAILY_USD_CAP`, or the default when unset, blank or not a finite number: `""` parses
+ * as 0 and NaN fails every comparison, and either would block every call. Warns once on a bad
+ * value. */
 export function dailyUsdCap(): number {
   const raw = process.env.GAP_LLM_DAILY_USD_CAP;
-  // `if (!raw)`, not `??`: an empty string is a real risk since `.env.example`'s blank-value
-  // convention for secrets could get copied into `.env.local` for this non-secret var, and
-  // `Number("") === 0` would otherwise disable the pass the same way `NaN` does above.
   if (!raw) return defaultDailyUsdCap;
   const parsed = Number(raw);
   if (Number.isFinite(parsed)) return parsed;
-  warnOnce(
-    "GAP_LLM_DAILY_USD_CAP",
-    `gap LLM pass: GAP_LLM_DAILY_USD_CAP="${raw}" is not a valid number, using the default cap of ${defaultDailyUsdCap} instead`,
-  );
+  if (!warnedCap) {
+    warnedCap = true;
+    console.warn(
+      `gap LLM pass: GAP_LLM_DAILY_USD_CAP="${raw}" is not a valid number, using the default cap of ${defaultDailyUsdCap} instead`,
+    );
+  }
   return defaultDailyUsdCap;
 }
 

@@ -27,8 +27,7 @@ vi.mock("./github", () => ({
   },
 }));
 
-// Mocked so tests can check whether `runAnalysis` calls `applyLlmPass` at all; side effects inside
-// it can't tell that apart from its own `enabled` check.
+// Mocked to observe whether `runAnalysis` calls `applyLlmPass` at all.
 const applyLlmPass = vi.hoisted(() => vi.fn());
 
 vi.mock("./llm/apply", () => ({ applyLlmPass }));
@@ -127,7 +126,6 @@ describe("runAnalysis", () => {
   });
 
   it("falls back to the deterministic analysis instead of throwing when applyLlmPass throws unexpectedly", async () => {
-    // apply.ts shouldn't throw, but runAnalysis must fall back even if it does.
     loadSnapshot.mockResolvedValue(snapshot);
     applyLlmPass.mockRejectedValue(new Error("unexpected"));
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});

@@ -151,15 +151,14 @@ afterEach(() => {
 });
 
 describe("cacheKey", () => {
-  it("is stable, and changes with the model, effort, prompt text or schema", () => {
-    const key = cacheKey("m", "low", "s", "u", { type: "object" });
-    expect(key).toBe(cacheKey("m", "low", "s", "u", { type: "object" }));
+  it("is stable, and changes with the model, effort or prompt text", () => {
+    const key = cacheKey("m", "low", "s", "u");
+    expect(key).toBe(cacheKey("m", "low", "s", "u"));
     for (const other of [
-      cacheKey("m2", "low", "s", "u", { type: "object" }),
-      cacheKey("m", "medium", "s", "u", { type: "object" }),
-      cacheKey("m", "low", "s2", "u", { type: "object" }),
-      cacheKey("m", "low", "s", "u2", { type: "object" }),
-      cacheKey("m", "low", "s", "u", { type: "array" }),
+      cacheKey("m2", "low", "s", "u"),
+      cacheKey("m", "medium", "s", "u"),
+      cacheKey("m", "low", "s2", "u"),
+      cacheKey("m", "low", "s", "u2"),
     ])
       expect(other).not.toBe(key);
   });
@@ -751,15 +750,55 @@ describe("applyLlmPass: cache, spend cap and cost", () => {
     },
   );
 
-  it("records no spend when the client throws", async () => {
-    const config = llm({ verdicts: [], detectFindings: [] });
-    config.client.complete = vi.fn().mockRejectedValue(new Error("network"));
-    const sc = base();
-    await applyLlmPass(sc.analysis, sc.signals, sc.catalogue, config).catch(
-      () => undefined,
-    );
-    expect(config.recordSpend).not.toHaveBeenCalled();
-  });
+  it.each([
+    {
+      name: "the cache read",
+      tweak: (c: LlmConfig) => {
+        c.readCache = vi.fn().mockRejectedValue(new Error("db down"));
+      },
+      spend: false,
+    },
+    {
+      name: "the spend cap check",
+      tweak: (c: LlmConfig) => {
+        c.underDailySpendCap = vi.fn().mockRejectedValue(new Error("db down"));
+      },
+      spend: false,
+    },
+    {
+      name: "the client",
+      tweak: (c: LlmConfig) => {
+        c.client.complete = vi.fn().mockRejectedValue(new Error("network"));
+      },
+      spend: false,
+    },
+    {
+      name: "unparsable output, after the call was billed",
+      tweak: (c: LlmConfig) => {
+        c.client.complete = vi.fn().mockResolvedValue({
+          ok: true,
+          text: "{not json",
+          inputTokens: 1,
+          outputTokens: 1,
+          costUsd: 0.5,
+        });
+      },
+      spend: true,
+    },
+  ])(
+    "throws for runAnalysis to handle when $name fails",
+    async ({ tweak, spend }) => {
+      const sc = base();
+      const config = llm({ verdicts: [], detectFindings: [] });
+      tweak(config);
+      await expect(
+        applyLlmPass(sc.analysis, sc.signals, sc.catalogue, config),
+      ).rejects.toThrow();
+      expect(vi.mocked(config.recordSpend).mock.calls.length).toBe(
+        spend ? 1 : 0,
+      );
+    },
+  );
 
   it("treats a bad cached row as a miss, and survives malformed items and store failures", async () => {
     const sc = base();

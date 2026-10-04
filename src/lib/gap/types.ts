@@ -118,7 +118,7 @@ export type DetectedTool = Match & {
   id: string;
   name: string;
   /** Set when a config file or manifest dependency also credits the tool, whatever `evidence`
-   * shows. Absent otherwise. */
+   * shows. */
   nonCiCredit?: true;
 };
 
@@ -144,8 +144,7 @@ export type CapabilityReport = {
   present: PresentTool[];
   /** Catalogue tools that would cover it, limited to the stacks detected. Empty when satisfied. */
   recommended: RecommendedTool[];
-  /** Set only when the LLM pass changed this capability from the static result. Not rendered by
-   * the UI. */
+  /** Set only when the LLM pass changed this capability. Not rendered. */
   llmNote?: string;
 };
 
@@ -154,9 +153,7 @@ export type CategoryReport = {
   capabilities: CapabilityReport[];
 };
 
-/** The three kinds of build step the LLM detect pass can find. Declared once here so
- * `schema.ts`'s JSON Schema enum and `apply.ts`'s runtime validation set are both derived from
- * this list rather than repeating it, and can never drift from `BuildStepKind`. */
+/** The kinds of build step the LLM detect pass can find. */
 export const buildStepKinds = ["install", "build", "image-build"] as const;
 
 export type BuildStepKind = (typeof buildStepKinds)[number];
@@ -180,7 +177,6 @@ export type Analysis = {
   /** Not satisfied, but some owning stack's requirement is covered. A subset of `gapCount`. */
   partialCount: number;
   gapCount: number;
-  /** Install and build/image-build steps found by the LLM detect pass. Empty when the pass
-   * didn't run. */
+  /** Steps found by the LLM detect pass. Empty when it didn't run. */
   buildSteps: DetectedBuildStep[];
 };

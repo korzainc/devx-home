@@ -1,5 +1,4 @@
--- Response cache and daily spend tally for the gap-analysis LLM pass. Keyed on the exact prompt
--- text, since RepoSnapshot has no commit SHA to key on. Tables and columns follow 0002's naming.
+-- Response cache and daily spend tally for the gap-analysis LLM pass.
 
 create table "gap_llm_cache" (
   "key" text primary key,

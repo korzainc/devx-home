@@ -53,8 +53,7 @@ function toRecommendedTools(
   });
 }
 
-/** Every stack in `stacks` that expects capability `id` - shared by `analyze()`, `schema.ts` and
- * `apply.ts` so the three can never define "owning stack" differently. */
+/** Every stack in `stacks` that expects capability `id`. */
 export function owningStacksFor(
   stacks: BaselineStack[],
   id: string,
@@ -62,9 +61,8 @@ export function owningStacksFor(
   return stacks.filter((stack) => stack.expects[id] !== undefined);
 }
 
-/** The owning stacks `present` has no tool for - declaratively, by `tool.stacks`, not by what a
- * tool's evidence actually demonstrated. Shared by `evaluateCapability` and `schema.ts`'s rescue
- * candidates, so "still uncovered" means one thing. */
+/** The owning stacks `present` has no tool for, judged by `tool.stacks` rather than by what a
+ * tool's evidence showed. */
 export function uncoveredStacks(
   owningStacks: BaselineStack[],
   present: PresentTool[],
@@ -82,9 +80,7 @@ export function uncoveredStacks(
   );
 }
 
-/** The labels of every stack in `owningStacks` that `tool` itself declares. Shared by `analyze()`
- * and `apply.ts`'s rescue, so a newly-credited tool is attributed to stacks the same way a
- * deterministically-detected one is. */
+/** The labels of the stacks in `owningStacks` that `tool` declares. */
 export function stackLabelsFor(
   tool: AnalysisTool,
   owningStacks: BaselineStack[],
@@ -94,8 +90,7 @@ export function stackLabelsFor(
     .map((stack) => stack.label);
 }
 
-/** Whether `tool` counts toward capability `id` for `owningStacks` (empty means universal). Shared
- * with the LLM pass so both credit tools the same way. */
+/** Whether `tool` counts toward capability `id` for `owningStacks` (empty means universal). */
 export function toolCreditsCapability(
   tool: AnalysisTool,
   id: string,
@@ -110,8 +105,7 @@ export function toolCreditsCapability(
 }
 
 /** Whether `present` covers every stack in `owningStacks` for capability `id`, and what to
- * recommend if not. Empty `owningStacks` means universal: presence alone counts. Also re-run by
- * the LLM pass after it adds or removes a tool. */
+ * recommend if not. Empty `owningStacks` means universal: presence alone counts. */
 export function evaluateCapability(
   id: string,
   present: PresentTool[],
@@ -169,6 +163,32 @@ export function evaluateCapability(
     );
   }
   return { satisfied, recommended };
+}
+
+/** The capability report with this id, in any category. */
+export function findCapability(
+  analysis: Pick<Analysis, "categories">,
+  id: string,
+): CapabilityReport | undefined {
+  for (const category of analysis.categories) {
+    const found = category.capabilities.find(
+      (capability) => capability.id === id,
+    );
+    if (found) return found;
+  }
+  return undefined;
+}
+
+export function countCapabilities(
+  reports: CapabilityReport[],
+): Pick<Analysis, "satisfiedCount" | "partialCount" | "gapCount"> {
+  return {
+    satisfiedCount: reports.filter((report) => report.satisfied).length,
+    partialCount: reports.filter(
+      (report) => !report.satisfied && report.present.length > 0,
+    ).length,
+    gapCount: reports.filter((report) => !report.satisfied).length,
+  };
 }
 
 /**
@@ -267,11 +287,7 @@ export function analyze(
     stacks,
     filesRead: Object.keys(snapshot.files).sort(),
     categories,
-    satisfiedCount: reports.filter((report) => report.satisfied).length,
-    partialCount: reports.filter(
-      (report) => !report.satisfied && report.present.length > 0,
-    ).length,
-    gapCount: reports.filter((report) => !report.satisfied).length,
+    ...countCapabilities(reports),
     buildSteps: [],
   };
 }

@@ -1,11 +1,9 @@
 import type { BuildStepKind } from "../types";
 
-/** Reasoning-depth levels shared across every provider-facing effort field in this module and in
- * `src/lib/gap-llm-config.ts`, so the union is declared once. */
+/** Reasoning-depth levels, mapped onto each provider's own control. */
 export type LlmEffort = "low" | "medium" | "high" | "xhigh" | "max";
 
-/** One structured-output completion request, provider-agnostic. `schema` is a plain JSON Schema
- * object; `effort` maps onto whichever reasoning-depth control the concrete provider exposes. */
+/** One structured-output completion request. `schema` is a plain JSON Schema object. */
 export type LlmCompletionRequest = {
   system: string;
   user: string;
@@ -24,14 +22,12 @@ export type LlmCompletionResult =
   | {
       ok: false;
       reason: "truncated" | "refusal" | "error";
-      // `costUsd` is set whenever a real cost was or may have been incurred: real usage on a
-      // truncated response, or a connection timeout's conservative estimate. Omitted only when
-      // the call was rejected before any inference ran.
+      // `costUsd` is set whenever a cost was or may have been incurred: real usage on a truncated
+      // response, or a timeout's estimate. Omitted when the call was rejected before inference.
       inputTokens?: number;
       outputTokens?: number;
       costUsd?: number;
-      /** Diagnostic detail for a failed call, logged by `apply.ts` - never the request body or an
-       * API key. */
+      /** Logged by `apply.ts`, so never the request body or an API key. */
       detail?: {
         status?: number;
         type?: string;
@@ -40,15 +36,13 @@ export type LlmCompletionResult =
       };
     };
 
-/** The only surface `apply.ts` calls, with one adapter per provider. Each adapter computes its own
- * `costUsd`. */
+/** The only provider surface `apply.ts` calls. Each adapter computes its own `costUsd`. */
 export type LlmClient = {
   complete(request: LlmCompletionRequest): Promise<LlmCompletionResult>;
 };
 
-/** Everything the LLM pass needs from outside `src/lib/gap`. Built by the Next-side caller from
- * environment variables and the Postgres-backed store; nothing in this directory reads either
- * directly, matching how `token` and `catalogue` are already passed as arguments. */
+/** Everything the LLM pass needs from outside `src/lib/gap`, built by the caller from the
+ * environment and the Postgres store. */
 export type LlmConfig = {
   enabled: boolean;
   client: LlmClient;
@@ -58,9 +52,9 @@ export type LlmConfig = {
   readCache: (key: string) => Promise<CachedLlmResponse | null>;
   /** Persists a fresh response under its key. */
   writeCache: (key: string, entry: CachedLlmResponse) => Promise<void>;
-  /** Returns false when today's spend cap has already been reached; the pass is skipped. */
+  /** False once today's spend cap is reached; the pass is skipped. */
   underDailySpendCap: () => Promise<boolean>;
-  /** Records the real cost of a call that was actually made (not a cache hit). */
+  /** Records the cost of a call actually made, never of a cache hit. */
   recordSpend: (usd: number) => Promise<void>;
 };
 
@@ -74,7 +68,7 @@ export type CachedLlmResponse = {
 export type Verdict = "provides" | "does-not-provide";
 
 /** One verdict on a pair (`"<capabilityId>:<toolId>"`), quoting verbatim from the entry `signalId`
- * names. Only `provides` on a rescue pair or `does-not-provide` on an audit pair changes anything. */
+ * names. */
 export type LlmVerdict = {
   pair: string;
   signalId: string;

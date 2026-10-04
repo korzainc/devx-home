@@ -1,29 +1,14 @@
-import { warnOnce } from "../warn-once";
 import type {
   LlmClient,
   LlmCompletionRequest,
   LlmCompletionResult,
 } from "./types";
 
-/** OpenRouter always includes a `cost` in `usage`; a free model reports `0` there, which is the
- * real cost. Falls back to `0` with a one-time warning if a future response ever omits it, rather
- * than recording nothing. */
-function costOf(usage: { cost?: number }): number {
-  if (usage.cost !== undefined) return usage.cost;
-  warnOnce(
-    "openrouter-usage-cost-missing",
-    "gap LLM pass: OpenRouter response had no usage.cost, recording $0",
-  );
-  return 0;
-}
-
-/** OpenRouter speaks an OpenAI-style `chat/completions` API, not Anthropic's, so this is a full
- * adapter rather than a `baseURL` swap. Local development only. */
+/** OpenAI-style `chat/completions` adapter, not a `baseURL` swap. Local development only. */
 export function createOpenRouterClient(
   apiKey: string,
   model: string,
-  // Matches the Anthropic adapter's timeout in production; a parameter only so tests can exercise
-  // the abort behavior itself without a real 30-second wait.
+  // A parameter only so tests can exercise the abort without waiting 30 seconds.
   timeoutMs = 30_000,
 ): LlmClient {
   return {
@@ -55,8 +40,7 @@ export function createOpenRouterClient(
                 },
               },
             }),
-            // Without this, a hung connection would block indefinitely, bounded only by whatever
-            // the hosting platform eventually kills it at.
+            // A hung connection must not block until the platform kills the request.
             signal: AbortSignal.timeout(timeoutMs),
           },
         );
@@ -97,7 +81,7 @@ export function createOpenRouterClient(
           inputTokens: body.usage.prompt_tokens,
           outputTokens: body.usage.completion_tokens,
         };
-        const costUsd = costOf(body.usage);
+        const costUsd = body.usage.cost ?? 0;
         if (choice.finish_reason === "length") {
           return { ok: false, reason: "truncated", ...usage, costUsd };
         }
@@ -121,8 +105,7 @@ export function createOpenRouterClient(
           costUsd,
         };
       } catch (error) {
-        // Cost is unknown here (network error, abort or unparsable body) and recorded as 0. This
-        // adapter is for local development only.
+        // Cost is unknown here and recorded as 0.
         const timedOut =
           error instanceof Error && error.name === "TimeoutError";
         const message = error instanceof Error ? error.message : String(error);

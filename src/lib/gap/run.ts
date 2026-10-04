@@ -65,16 +65,14 @@ export async function runAnalysis(
       token,
       catalogue.baseline,
     );
-    // Parsed once and reused for the LLM pass below: both would otherwise re-walk the same CI
-    // YAML independently.
+    // Shared with the LLM pass so the CI YAML is parsed once.
     const signals = ciSignals(snapshot);
     let analysis = analyze(snapshot, catalogue, signals);
 
     // A token only proves sign-in, not org membership; `src/proxy.ts` checks membership for
     // `/api/analyze`. `/ci-coverage` skips that check, so it must never pass an enabled `llm`.
     if (llm?.enabled && token) {
-      // applyLlmPass already falls back instead of throwing; this catch keeps that true if a later
-      // change or another LlmClient throws.
+      // The pass throws on unexpected failures; the deterministic report is the fallback.
       try {
         analysis = await applyLlmPass(analysis, signals, catalogue, llm);
       } catch (error) {

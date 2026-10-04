@@ -1,8 +1,10 @@
 import { createHash } from "node:crypto";
 import {
+  countCapabilities,
   evaluateCapability,
-  stackLabelsFor,
+  findCapability,
   owningStacksFor,
+  stackLabelsFor,
 } from "../analyze";
 import { buildStepKinds } from "../types";
 import type {
@@ -24,7 +26,6 @@ import {
 } from "./guard";
 import type { IndexedSignal } from "./guard";
 import type {
-  CachedLlmResponse,
   DetectFinding,
   LlmConfig,
   LlmResponse,
@@ -32,7 +33,8 @@ import type {
   Verdict,
 } from "./types";
 
-const promptVersion = "v3";
+// Bump when the key format changes, so stale entries miss.
+const promptVersion = "v4";
 const maxQuoteChars = 400;
 const maxReasonChars = 300;
 const maxDetectFindings = 20;
@@ -42,29 +44,16 @@ function clip(text: string): string {
   return text.slice(0, maxLoggedChars);
 }
 
-function describeError(error: unknown): string {
-  return error instanceof Error
-    ? `${error.name}: ${clip(error.message)}`
-    : clip(String(error));
-}
-
-/** Content-addressed over model, effort, prompt version, schema and exact prompt text, so an
- * unchanged repo hits the cache and any prompt or setting change misses it. The schema is fixed,
- * so its hash only serves as a manual cache-bust lever. */
+/** Content-addressed over model, effort, prompt version and exact prompt text, so an unchanged
+ * repo hits the cache and any prompt or setting change misses it. */
 export function cacheKey(
   model: string,
   effort: string,
   system: string,
   user: string,
-  schema: Record<string, unknown>,
 ): string {
-  const schemaHash = createHash("sha256")
-    .update(JSON.stringify(schema))
-    .digest("hex");
   return createHash("sha256")
-    .update(
-      `${model}:${effort}:${promptVersion}:${schemaHash}:${system}:${user}`,
-    )
+    .update(`${model}:${effort}:${promptVersion}:${system}:${user}`)
     .digest("hex");
 }
 
@@ -107,8 +96,8 @@ function isValidDetectFinding(item: unknown): item is DetectFinding {
   );
 }
 
-/** Rejects a response without both arrays (or a `null` body). Items are checked individually by
- * `filterFindings`. Runs on cache hits too, since a stored row is as untrusted as a fresh parse. */
+/** Rejects a response without both arrays. Runs on cache hits too: a stored row is as untrusted
+ * as a fresh parse. */
 function isValidLlmResponseShape(value: unknown): value is {
   verdicts: unknown[];
   detectFindings: unknown[];
@@ -120,9 +109,8 @@ function isValidLlmResponseShape(value: unknown): value is {
   );
 }
 
-/** Keeps only the individually well-formed entries of a findings array. Drops are logged by count
- * only, never with the item itself - a malformed item can still carry repo text via `quote` or
- * `reason`, and logs are not the place for that. */
+/** Keeps the well-formed items. Drops are logged by count only: a malformed item can still carry
+ * repo text. */
 function filterFindings<T>(
   items: unknown[],
   isValid: (item: unknown) => item is T,
@@ -143,8 +131,7 @@ function filterFindings<T>(
   return valid;
 }
 
-/** Keeps only the well-formed items of a shape-checked response. With no candidate pairs the
- * model has nothing to answer about, so its verdicts are dropped without a warning. */
+/** With no candidate pairs the model has nothing to answer, so its verdicts are dropped silently. */
 function filterResponse(
   raw: { verdicts: unknown[]; detectFindings: unknown[] },
   hasPairs: boolean,
@@ -163,9 +150,8 @@ function filterResponse(
   };
 }
 
-/** Groups verdicts by pair. Identical verdicts on a pair stay together as one group; a pair
- * answered with differing verdicts is dropped, since no verdict is more trustworthy than another
- * and the result must not depend on response order. */
+/** Groups verdicts by pair. A pair answered with differing verdicts is dropped, so the result
+ * never depends on response order. */
 function groupByPair(
   verdicts: LlmVerdict[],
   repo: string,
@@ -193,17 +179,6 @@ function groupByPair(
   return { groups, dropped };
 }
 
-function findCapability(
-  analysis: Analysis,
-  capabilityId: string,
-): CapabilityReport | undefined {
-  for (const category of analysis.categories) {
-    const found = category.capabilities.find((c) => c.id === capabilityId);
-    if (found) return found;
-  }
-  return undefined;
-}
-
 function updateCapability(
   analysis: Analysis,
   capabilityId: string,
@@ -220,49 +195,52 @@ function updateCapability(
   };
 }
 
-/** Context `applyAudit` and `applyRescue` both need to re-evaluate a capability's coverage the
- * same way `analyze()` does, after `present` changes. */
 type EvaluationContext = {
   tools: AnalysisTool[];
   toolById: Map<string, AnalysisTool>;
   stacks: BaselineStack[];
+  stackIds: Set<string>;
 };
 
 function joinNotes(existing: string | undefined, note: string): string {
   return existing ? `${existing} ${note}` : note;
 }
 
-/** Adds `tool` to `present` and re-runs `evaluateCapability`, so a capability owned by several
- * stacks stays unsatisfied, with a real `recommended` list, when the tool covers only some. */
+/** Swaps in `present` and re-runs `evaluateCapability`, so a capability owned by several stacks is
+ * satisfied only when every stack is covered. */
+function reevaluate(
+  capability: CapabilityReport,
+  present: PresentTool[],
+  context: EvaluationContext,
+): CapabilityReport {
+  const { satisfied, recommended } = evaluateCapability(
+    capability.id,
+    present,
+    owningStacksFor(context.stacks, capability.id),
+    context.tools,
+    context.toolById,
+    context.stackIds,
+  );
+  return { ...capability, present, satisfied, recommended };
+}
+
 function applyRescue(
   capability: CapabilityReport,
   evidence: string,
   tool: AnalysisTool,
   context: EvaluationContext,
 ): CapabilityReport {
-  const owningStacks = owningStacksFor(context.stacks, capability.id);
-  const present: PresentTool = {
+  const added: PresentTool = {
     id: tool.id,
     name: tool.name,
     evidence,
-    stackLabels: stackLabelsFor(tool, owningStacks),
+    stackLabels: stackLabelsFor(
+      tool,
+      owningStacksFor(context.stacks, capability.id),
+    ),
   };
-  const augmented = [...capability.present, present];
-  const stackIds = new Set(context.stacks.map((stack) => stack.id));
-  const { satisfied, recommended } = evaluateCapability(
-    capability.id,
-    augmented,
-    owningStacks,
-    context.tools,
-    context.toolById,
-    stackIds,
-  );
-
   return {
-    ...capability,
-    present: augmented,
-    satisfied,
-    recommended,
+    ...reevaluate(capability, [...capability.present, added], context),
     llmNote: joinNotes(
       capability.llmNote,
       `Rescued by the LLM pass: found ${tool.name} via "${evidence}"`,
@@ -270,8 +248,6 @@ function applyRescue(
   };
 }
 
-/** Removes the demoted tool and re-runs `evaluateCapability`, so a multi-stack capability drops to
- * unsatisfied when a needed stack loses its tool. */
 function applyAudit(
   capability: CapabilityReport,
   verdict: LlmVerdict,
@@ -279,48 +255,18 @@ function applyAudit(
   context: EvaluationContext,
 ): CapabilityReport {
   const remaining = capability.present.filter((tool) => tool.id !== toolId);
-  const owningStacks = owningStacksFor(context.stacks, capability.id);
-  const stackIds = new Set(context.stacks.map((stack) => stack.id));
-  const { satisfied, recommended } = evaluateCapability(
-    capability.id,
-    remaining,
-    owningStacks,
-    context.tools,
-    context.toolById,
-    stackIds,
-  );
-
   const reasonChars = Array.from(verdict.reason);
   const reason =
     reasonChars.length > maxReasonChars
       ? `${reasonChars.slice(0, maxReasonChars).join("")}…`
       : verdict.reason;
-
   return {
-    ...capability,
-    present: remaining,
-    satisfied,
-    recommended,
+    ...reevaluate(capability, remaining, context),
     llmNote: joinNotes(capability.llmNote, toDisplayText(reason)),
   };
 }
 
-function recomputeCounts(
-  analysis: Analysis,
-): Pick<Analysis, "satisfiedCount" | "partialCount" | "gapCount"> {
-  const capabilities = analysis.categories.flatMap((c) => c.capabilities);
-  return {
-    satisfiedCount: capabilities.filter((c) => c.satisfied).length,
-    partialCount: capabilities.filter(
-      (c) => !c.satisfied && c.present.length > 0,
-    ).length,
-    gapCount: capabilities.filter((c) => !c.satisfied).length,
-  };
-}
-
-/** Never lets a bookkeeping failure discard an already-paid-for response - the caller has already
- * decided the cost is real (a success, or a failure that still reports a real cost); this only
- * shields that decision from a store outage. */
+/** A store outage must not discard a response that was already paid for. */
 async function recordSpendSafely(
   config: LlmConfig,
   cost: number,
@@ -336,9 +282,8 @@ async function recordSpendSafely(
   }
 }
 
-/** True when every entry related to `tool` reached the model in full. A truncated or omitted entry
- * can hide the argument that changes the verdict, so an audit demotion needs all of them.
- * Compares by escaped text, not id, so omitted entries are caught too. */
+/** True when every entry related to `tool` reached the model in full: a cut entry can hide what
+ * changes the verdict. Compares by text, not id, so omitted entries count as cut. */
 function relatedEntriesUncut(
   tool: AnalysisTool,
   signals: CiSignals,
@@ -369,6 +314,8 @@ type PendingVerdict = {
   evidence: string;
 };
 
+/** Returns `analysis` untouched when the pass can't help. Unexpected failures (store or client
+ * errors, unparsable output) throw, and `runAnalysis` falls back on them. */
 export async function applyLlmPass(
   analysis: Analysis,
   signals: CiSignals,
@@ -384,23 +331,14 @@ export async function applyLlmPass(
     signals: sentSignals,
   } = buildPrompt(analysis, signals, catalogue);
 
-  // Without signal text a verdict or finding has nothing to quote, so the call cannot help.
+  // With no signal text there is nothing to quote.
   if (sentSignals.length === 0) return analysis;
 
   const schema = responseSchema();
-  const key = cacheKey(config.model, config.effort, system, user, schema);
+  const key = cacheKey(config.model, config.effort, system, user);
 
   // Read before the spend cap check so a capped day still serves cached answers.
-  let cached: CachedLlmResponse | null;
-  try {
-    cached = await config.readCache(key);
-  } catch (error) {
-    console.error(
-      "gap LLM pass: cache read failed, falling back to the deterministic analysis",
-      { repo: analysis.repo, error },
-    );
-    return analysis;
-  }
+  const cached = await config.readCache(key);
 
   let response: LlmResponse;
   let callMetrics: CallMetrics | undefined;
@@ -412,8 +350,8 @@ export async function applyLlmPass(
       analysis.repo,
     );
   } else {
-    // A cached row that fails shape validation is treated as a miss, so the fresh answer
-    // overwrites it instead of the row blocking this key for good.
+    // A cached row that fails shape validation counts as a miss, so the fresh answer overwrites
+    // it instead of the row blocking this key for good.
     if (cached) {
       console.warn(
         "gap LLM pass: cached response failed shape validation, bypassing the cache and making a fresh call",
@@ -421,82 +359,66 @@ export async function applyLlmPass(
       );
     }
 
-    try {
-      if (!(await config.underDailySpendCap())) {
-        console.info("gap LLM pass: skipped, daily spend cap reached", {
-          repo: analysis.repo,
-        });
-        return analysis;
-      }
-    } catch (error) {
-      console.warn(
-        "gap LLM pass: underDailySpendCap check failed, treating as over the cap",
-        { repo: analysis.repo, error },
-      );
+    if (!(await config.underDailySpendCap())) {
+      console.info("gap LLM pass: skipped, daily spend cap reached", {
+        repo: analysis.repo,
+      });
       return analysis;
     }
 
-    try {
-      const callStart = Date.now();
-      const result = await config.client.complete({
-        system,
-        user,
-        schema,
-        effort: config.effort,
+    const callStart = Date.now();
+    const result = await config.client.complete({
+      system,
+      user,
+      schema,
+      effort: config.effort,
+    });
+    const latencyMs = Date.now() - callStart;
+
+    if (!result.ok) {
+      console.warn(`gap LLM pass: call did not succeed (${result.reason})`, {
+        repo: analysis.repo,
+        detail: result.detail,
       });
-      const latencyMs = Date.now() - callStart;
-
-      if (!result.ok) {
-        console.warn(`gap LLM pass: call did not succeed (${result.reason})`, {
-          repo: analysis.repo,
-          detail: result.detail,
-        });
-        // Set whenever the adapter has a real or estimated cost to report.
-        if (result.costUsd !== undefined) {
-          await recordSpendSafely(config, result.costUsd, analysis.repo);
-        }
-        return analysis;
+      // Set whenever the adapter has a real or estimated cost to report.
+      if (result.costUsd !== undefined) {
+        await recordSpendSafely(config, result.costUsd, analysis.repo);
       }
+      return analysis;
+    }
 
-      // Billed the moment the call returns, so recorded before anything that can fail.
-      await recordSpendSafely(config, result.costUsd, analysis.repo);
-      callMetrics = {
-        model: config.model,
-        latencyMs,
-        inputTokens: result.inputTokens,
-        outputTokens: result.outputTokens,
-        costUsd: result.costUsd,
-      };
+    // Billed the moment the call returns, so recorded before anything that can fail.
+    await recordSpendSafely(config, result.costUsd, analysis.repo);
+    callMetrics = {
+      model: config.model,
+      latencyMs,
+      inputTokens: result.inputTokens,
+      outputTokens: result.outputTokens,
+      costUsd: result.costUsd,
+    };
 
-      const parsed = JSON.parse(result.text) as unknown;
-      if (!isValidLlmResponseShape(parsed)) {
-        console.warn(
-          "gap LLM pass: response failed shape validation, falling back to the deterministic analysis",
-          { repo: analysis.repo },
-        );
-        return analysis;
-      }
-      response = filterResponse(parsed, candidates.length > 0, analysis.repo);
-
-      try {
-        await config.writeCache(key, {
-          model: config.model,
-          response,
-          inputTokens: result.inputTokens,
-          outputTokens: result.outputTokens,
-        });
-      } catch (error) {
-        console.error(
-          "gap LLM pass: writeCache failed, continuing with the response anyway",
-          { repo: analysis.repo, error },
-        );
-      }
-    } catch (error) {
-      console.error(
-        "gap LLM pass: call failed, falling back to the deterministic analysis",
-        { repo: analysis.repo, error: describeError(error) },
+    const parsed = JSON.parse(result.text) as unknown;
+    if (!isValidLlmResponseShape(parsed)) {
+      console.warn(
+        "gap LLM pass: response failed shape validation, falling back to the deterministic analysis",
+        { repo: analysis.repo },
       );
       return analysis;
+    }
+    response = filterResponse(parsed, candidates.length > 0, analysis.repo);
+
+    try {
+      await config.writeCache(key, {
+        model: config.model,
+        response,
+        inputTokens: result.inputTokens,
+        outputTokens: result.outputTokens,
+      });
+    } catch (error) {
+      console.error(
+        "gap LLM pass: writeCache failed, continuing with the response anyway",
+        { repo: analysis.repo, error },
+      );
     }
   }
 
@@ -504,6 +426,7 @@ export async function applyLlmPass(
     tools: catalogue.tools,
     toolById: new Map(catalogue.tools.map((tool) => [tool.id, tool])),
     stacks: analysis.stacks,
+    stackIds: new Set(analysis.stacks.map((stack) => stack.id)),
   };
   const candidateOrder = new Map(
     candidates.map((candidate, index): [string, number] => [
@@ -538,9 +461,8 @@ export async function applyLlmPass(
       continue;
     }
 
-    // The pair's fixed direction decides the action: only `provides` on a rescue pair rescues,
-    // only `does-not-provide` on an audit pair demotes. Anything else agrees with the
-    // deterministic result.
+    // Only `provides` on a rescue pair rescues and only `does-not-provide` on an audit pair
+    // demotes. Anything else agrees with the deterministic result.
     const action =
       candidate.direction === "rescue" && group[0].verdict === "provides"
         ? "rescue"
@@ -589,8 +511,7 @@ export async function applyLlmPass(
     pending.push({ order, candidate, action, tool, ...accepted });
   }
 
-  // Candidate order, not response order, so the outcome never depends on how the model sorted
-  // its answer.
+  // Candidate order, so the outcome never depends on how the model ordered its answer.
   pending.sort((a, b) => a.order - b.order);
 
   let result = analysis;
@@ -602,7 +523,7 @@ export async function applyLlmPass(
     }
 
     if (action === "rescue") {
-      // A capability already closed by an earlier rescue needs no further tool.
+      // An earlier rescue already closed this capability.
       if (capability.satisfied) {
         verdictsNoop++;
         continue;
@@ -687,5 +608,9 @@ export async function applyLlmPass(
     });
   }
 
-  return { ...result, buildSteps, ...recomputeCounts(result) };
+  return {
+    ...result,
+    buildSteps,
+    ...countCapabilities(result.categories.flatMap((c) => c.capabilities)),
+  };
 }

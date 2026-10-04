@@ -1,7 +1,7 @@
 import type { AnalysisTool } from "../types";
 
-/** Collapses whitespace runs to a single space and trims, so a quote separated only by a line
- * break or extra spacing from the source still verifies. */
+/** Collapses whitespace runs and trims, so a quote that differs only in line breaks or spacing
+ * still verifies. */
 export function normalize(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
@@ -17,12 +17,12 @@ export function escapeSignalText(text: string): string {
     .replace(/>{3,}/g, (run) => "›".repeat(run.length));
 }
 
-/** Shortest partial quote `verifyQuote` accepts, so a finding can't rest on a trivial fragment. A
- * shorter quote passes only if it is a whole entry or a whole line, like `go build ./...`. */
+/** Shortest partial quote `verifyQuote` accepts. A shorter one passes only as a whole entry or a
+ * whole line, like `go build ./...`. */
 const MIN_QUOTE_LENGTH = 20;
 
-/** True when `quote` appears verbatim (after whitespace normalization) inside `entryText`, the
- * one entry the finding named via `signalId`. Findings that fail this are dropped. */
+/** True when `quote` appears verbatim, after whitespace normalization, in the entry the finding
+ * cited. */
 export function verifyQuote(quote: string, entryText: string): boolean {
   const needle = normalize(quote);
   if (needle.length === 0) return false;
@@ -41,8 +41,7 @@ function mentionsToken(text: string, token: string): boolean {
 }
 
 /** True when `text` names `tool`: a catalogue command or `uses:` ref, or the tool's id or name,
- * as a whole token. A topical check, not proof the tool runs. Used to drop verdicts whose quote
- * is about something else and to order budgeted entries. */
+ * as a whole token. Topical, not proof the tool runs. */
 export function relatesToTool(text: string, tool: AnalysisTool): boolean {
   const needles = [
     ...(tool.detect.commands ?? []),
@@ -83,9 +82,8 @@ export function stripRenderedPrefix(quote: string): string {
   return quote.replace(renderedPrefix, "");
 }
 
-/** The form of `quote` that appears in the cited entry outside any shell comment, tolerating a
- * leaked rendered prefix, or null when neither form does. Returns the matching form so callers
- * show and check the real text. */
+/** The form of `quote` found in the cited entry outside shell comments, tolerating a leaked
+ * rendered prefix, or null. Returns the matching form so callers show the real text. */
 export function verifiedQuote(
   quote: string,
   entry: Pick<RawSignalEntry, "kind" | "text">,
@@ -106,8 +104,7 @@ export type RawSignalEntry = {
 
 export type IndexedSignal = RawSignalEntry & {
   id: string;
-  /** The real, unescaped source path - what a `DetectedBuildStep` should attribute a finding to.
-   * `source` above is escaped for prompt rendering and must never reach a report field. */
+  /** The unescaped source path for reports. `source` is escaped for the prompt. */
   rawSource: string;
   truncated: boolean;
 };
@@ -118,12 +115,12 @@ export type SignalBudget = {
   omittedCount: number;
 };
 
-// Hard limits on the raw-signal block, counted over each rendered line (id, label, text, source).
+// Hard limits on the raw-signal block, counted over each rendered line.
 const totalBudgetChars = 60_000;
 const maxEntries = 400;
 const defaultEntryBudget = 1_500;
 const relatedEntryBudget = 4_000;
-// A clamped entry shorter than this carries no usable evidence, so it is omitted instead.
+// A clamped entry shorter than this is omitted instead.
 const minClampedChars = 20;
 
 /** The prompt line for one entry, newline excluded. */
@@ -142,9 +139,9 @@ function truncate(
   return { text: `${text.slice(0, Math.max(0, max - 1))}…`, truncated: true };
 }
 
-/** Picks and numbers the entries sent to the model, deduped, within `totalBudgetChars` and
- * `maxEntries` (the last entry is clamped to fit). Entries about candidate tools go first, up to
- * `relatedEntryBudget` each; the rest fill round-robin across files. */
+/** Picks and numbers the deduped entries sent to the model, within `totalBudgetChars` and
+ * `maxEntries` (the last one is clamped to fit). Entries about candidate tools go first; the rest
+ * fill round-robin across files. */
 export function budgetSignals(
   rawEntries: RawSignalEntry[],
   relatedTools: AnalysisTool[],
