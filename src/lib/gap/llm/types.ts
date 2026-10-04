@@ -23,7 +23,7 @@ export type LlmCompletionResult =
     }
   | {
       ok: false;
-      reason: "truncated" | "error";
+      reason: "truncated" | "refusal" | "error";
       // `costUsd` is set whenever a real cost was or may have been incurred: real usage on a
       // truncated response, or a connection timeout's conservative estimate. Omitted only when
       // the call was rejected before any inference ran.

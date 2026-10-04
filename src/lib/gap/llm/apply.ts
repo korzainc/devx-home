@@ -303,9 +303,10 @@ function applyAudit(
     stackIds,
   );
 
+  const reasonChars = Array.from(verdict.reason);
   const reason =
-    verdict.reason.length > maxReasonChars
-      ? verdict.reason.slice(0, maxReasonChars)
+    reasonChars.length > maxReasonChars
+      ? `${reasonChars.slice(0, maxReasonChars).join("")}…`
       : verdict.reason;
 
   return {

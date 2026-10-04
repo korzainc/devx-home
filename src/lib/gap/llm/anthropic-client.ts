@@ -41,19 +41,24 @@ function costOf(
   );
 }
 
-// Keeps a runaway response from ever threatening the route's 30s budget: at normal output speeds
-// this is a few seconds of generation, well inside the timeout, with room to spare for input
-// processing and network time.
+// Output cap, thinking included. The 30s client timeout is the real latency limit.
 const maxTokens = 3000;
+
+// Conservative input estimate for a timed-out call; real runs measure about 1.9.
+const charsPerToken = 2;
 
 type FailureDetail = Extract<LlmCompletionResult, { ok: false }>["detail"];
 
 function errorDetail(error: unknown): FailureDetail {
   if (error instanceof Anthropic.APIError) {
+    // The SDK's own `message` is the status plus the raw JSON body; the body's error object is
+    // the readable part.
+    const body = error.error as
+      { error?: { type?: string; message?: string } } | undefined;
     return {
       status: error.status,
-      type: error.type ?? undefined,
-      message: error.message?.slice(0, 300),
+      type: body?.error?.type ?? error.type ?? undefined,
+      message: (body?.error?.message ?? error.message)?.slice(0, 300),
       requestId: error.requestID ?? undefined,
     };
   }
@@ -87,10 +92,13 @@ export function createAnthropicClient(
           messages: [{ role: "user", content: request.user }],
         });
 
-        if (message.stop_reason === "max_tokens")
+        if (
+          message.stop_reason === "max_tokens" ||
+          message.stop_reason === "refusal"
+        )
           return {
             ok: false,
-            reason: "truncated",
+            reason: message.stop_reason === "refusal" ? "refusal" : "truncated",
             inputTokens: message.usage.input_tokens,
             outputTokens: message.usage.output_tokens,
             costUsd: costOf(
@@ -129,13 +137,11 @@ export function createAnthropicClient(
           ),
         };
       } catch (error) {
-        // A connection timeout is the one failure mode where inference may already be running
-        // server-side with nothing to show for it, so it gets a real cost estimate rather than
-        // none. The estimate uses worst-case input size (4 chars/token) and the full `maxTokens`
-        // output, so a model/effort combination that reliably times out never looks free.
+        // A timeout may leave inference running server-side, so it is charged an estimate
+        // instead of nothing: full `maxTokens` output plus input at `charsPerToken`.
         if (error instanceof Anthropic.APIConnectionTimeoutError) {
           const estimatedInputTokens = Math.ceil(
-            (request.system.length + request.user.length) / 4,
+            (request.system.length + request.user.length) / charsPerToken,
           );
           return {
             ok: false,

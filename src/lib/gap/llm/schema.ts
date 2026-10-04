@@ -27,20 +27,34 @@ export type CandidatePair = {
   direction: "rescue" | "audit";
 };
 
-const secretInputKey = /token|password|secret|key|credentials/i;
+const secretInputKey =
+  /token|passw|passphrase|secret|key|credential|auth|(^|[^a-z])pat($|[^a-z])|cert|webhook|private/i;
 
+// A secret passed as a CLI flag inside a free-form input such as `args`.
+const secretFlag =
+  /(--?[\w.-]*(?:token|passw|passphrase|secret|key|credential|auth)[\w.-]*)(=|\s+)(?!\$\{\{)\S+/gi;
+
+// Only a value that is one whole expression is safe to show; text around or between
+// expressions can hide a literal secret.
 function isExpression(value: string): boolean {
-  return /^\$\{\{.*\}\}$/.test(value.trim());
+  return /^\$\{\{(?:(?!\}\})[\s\S])*\}\}$/.test(value.trim());
 }
 
+function redact(key: string, value: string): string {
+  if (secretInputKey.test(key) && !isExpression(value)) return "<redacted>";
+  return value.replace(secretFlag, "$1$2<redacted>");
+}
+
+/** Renders `with:` inputs as JSON so no value can pass for another key. */
 function formatInputs(inputs: Record<string, string> | undefined): string {
   if (!inputs) return "";
-  const pairs = Object.entries(inputs).map(([key, value]) => {
-    const shown =
-      secretInputKey.test(key) && !isExpression(value) ? "<redacted>" : value;
-    return `${key}=${shown}`;
-  });
-  return pairs.length ? ` with ${pairs.join("; ")}` : "";
+  const entries = Object.entries(inputs).map(([key, value]) => [
+    key,
+    redact(key, value),
+  ]);
+  return entries.length
+    ? ` with ${JSON.stringify(Object.fromEntries(entries))}`
+    : "";
 }
 
 /** Flattens `CiSignals` into the raw entries the prompt is built from, before dedup/budgeting. A
@@ -216,14 +230,15 @@ export function buildPrompt(
     ].join(" "),
     [
       "Detect three kinds of step anywhere in the signal text, each a `DetectFinding` naming its",
-      "`kind`, a `signalId`, and a `quote`: `install` (fetching dependencies, e.g. `npm ci`,",
+      "`kind`, a `signalId`, and a `quote`: `install` (only fetching dependencies, e.g. `npm ci`,",
       "`pnpm install`, `pip install -r requirements.txt`, `mvn dependency:go-offline`,",
       "`go mod download`), `build` (compiling or packaging the project, e.g. `mvn -B package`,",
-      "`go build`, `npm run build`, `gradle build`), and `image-build` (building a container",
-      "image, e.g. `docker build`, the `docker/build-push-action` action, `buildah`, `jib`). Give",
-      "at most one finding per kind per source file, and at most 20 in total. Omit a step rather",
-      "than guess if you aren't confident it genuinely belongs to one of these three kinds. Quote",
-      "the shortest exact span that shows the step, usually a single command.",
+      "`go build`, `gradle build`, `npm run build`) and `image-build` (building a container image,",
+      "e.g. `docker build`, the `docker/build-push-action` action, `buildah`, `jib`). Maven's",
+      "`install` phase compiles and packages, so `mvn install` and `./mvnw install` are `build`,",
+      "not `install`. Give at most one finding per kind per source file, and at most 20 in total.",
+      "Omit a step rather than guess if you aren't confident it genuinely belongs to one of these",
+      "three kinds. Quote the shortest exact span that shows the step, usually a single command.",
     ].join(" "),
   ];
   const system = systemParagraphs.join("\n\n");

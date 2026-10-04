@@ -143,13 +143,14 @@ const shellKeys = new Set([
   "commands",
 ]);
 
-/** Stringifies a step's `with:` block for the LLM prompt. Scalar values only - a list or nested
- * map under `with:` isn't a real action input and nothing here knows how to render it. */
+/** Scalar `with:` values for the LLM prompt. Keys in `shellKeys` are skipped: `walkCi` already
+ * emits them as shell entries, and repeating them would spend the prompt budget twice. */
 function stepInputs(withBlock: unknown): Record<string, string> | undefined {
   if (!withBlock || typeof withBlock !== "object" || Array.isArray(withBlock))
     return undefined;
   const entries = Object.entries(withBlock as Record<string, unknown>).filter(
     (entry): entry is [string, string | number | boolean] =>
+      !shellKeys.has(entry[0]) &&
       ["string", "number", "boolean"].includes(typeof entry[1]),
   );
   if (entries.length === 0) return undefined;

@@ -184,6 +184,31 @@ describe("createOpenRouterClient", () => {
     });
   });
 
+  it("keeps the provider's message on a 200 error body, and trims a long non-ok body to 300 characters", async () => {
+    fakeFetch({ error: { message: "upstream model unavailable" } });
+    const withError = await createOpenRouterClient("test-key", "m").complete({
+      system: "s",
+      user: "u",
+      schema: {},
+      effort: "low",
+    });
+    expect(withError).toMatchObject({
+      ok: false,
+      detail: { message: "upstream model unavailable" },
+    });
+
+    fakeFetch({ error: { message: "x".repeat(1000) } }, false, 500);
+    const longBody = await createOpenRouterClient("test-key", "m").complete({
+      system: "s",
+      user: "u",
+      schema: {},
+      effort: "low",
+    });
+    expect(
+      (longBody as { detail: { message: string } }).detail.message,
+    ).toHaveLength(300);
+  });
+
   it("reports cost 0 and a diagnosable detail when fetch itself throws or a hung request aborts - OpenRouter's usage-based billing never incurred a charge either way", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network")));
     const thrown = await createOpenRouterClient("test-key", "m").complete({

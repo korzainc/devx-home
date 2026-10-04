@@ -77,6 +77,7 @@ export function createOpenRouterClient(
         }
 
         const body = (await response.json()) as {
+          error?: { message?: string };
           choices?: {
             message: { content: string | null };
             finish_reason: string;
@@ -92,7 +93,11 @@ export function createOpenRouterClient(
           return {
             ok: false,
             reason: "error",
-            detail: { message: "response missing choices or usage" },
+            detail: {
+              message: (
+                body.error?.message ?? "response missing choices or usage"
+              ).slice(0, 300),
+            },
           };
         const usage = {
           inputTokens: body.usage.prompt_tokens,
@@ -108,7 +113,11 @@ export function createOpenRouterClient(
             reason: "error",
             ...usage,
             costUsd,
-            detail: { message: "empty completion content" },
+            detail: {
+              message: (
+                body.error?.message ?? "empty completion content"
+              ).slice(0, 300),
+            },
           };
 
         return {

@@ -133,8 +133,57 @@ describe("createAnthropicClient", () => {
     expect(result).toMatchObject({
       ok: false,
       reason: "error",
-      detail: { status: 429, type: "rate_limit_error" },
+      detail: {
+        status: 429,
+        type: "rate_limit_error",
+        message: "slow down",
+        requestId: "req_123",
+      },
     });
+  });
+
+  it("reports a refusal as its own reason, billed at real usage", async () => {
+    const sdk = fakeAnthropicSdk({
+      content: [],
+      usage: { input_tokens: 100, output_tokens: 5 },
+      stop_reason: "refusal",
+    });
+    const result = await createAnthropicClient(
+      sdk as never,
+      "claude-sonnet-5-5",
+    ).complete({ system: "s", user: "u", schema: {}, effort: "low" });
+    expect(result).toEqual({
+      ok: false,
+      reason: "refusal",
+      inputTokens: 100,
+      outputTokens: 5,
+      costUsd: sonnetCost(100, 5),
+    });
+  });
+
+  it("trims a long API error message to 300 characters", async () => {
+    const long = "m".repeat(1000);
+    const sdk = {
+      messages: {
+        create: vi
+          .fn()
+          .mockRejectedValue(
+            Anthropic.APIError.generate(
+              500,
+              { error: { type: "api_error", message: long } },
+              long,
+              new Headers(),
+            ),
+          ),
+      },
+    };
+    const result = await createAnthropicClient(
+      sdk as never,
+      "claude-sonnet-5-5",
+    ).complete({ system: "s", user: "u", schema: {}, effort: "low" });
+    expect(
+      (result as { detail: { message: string } }).detail.message,
+    ).toHaveLength(300);
   });
 
   it("estimates a conservative cost on a connection timeout, says so in the detail, from input size and the full max_tokens, so a timeout is never free against the spend cap", async () => {
@@ -161,9 +210,10 @@ describe("createAnthropicClient", () => {
       reason: "error",
       detail: { type: "timeout" },
     });
-    const estimatedInputTokens = Math.ceil((system.length + user.length) / 4);
+    const estimatedInputTokens = Math.ceil((system.length + user.length) / 2);
     expect((result as { costUsd?: number }).costUsd).toBeCloseTo(
       sonnetCost(estimatedInputTokens, 3000),
+      6,
     );
   });
 

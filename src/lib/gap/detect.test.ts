@@ -619,19 +619,24 @@ describe("ciSignals", () => {
     ]);
   });
 
-  it("leaves inputs undefined when with: has no scalar values", () => {
+  it("leaves inputs undefined when with: holds no scalar, or only a script already emitted as shell", () => {
     const signals = ciSignals(
       snapshot({
         paths: [".github/workflows/ci.yml"],
         files: {
           ".github/workflows/ci.yml":
-            "jobs:\n  scan:\n    steps:\n      - uses: actions/checkout@v4\n",
+            "jobs:\n  scan:\n    steps:\n      - uses: actions/checkout@v4\n      - uses: actions/cache@v4\n        with:\n          path: [a, b]\n          opts: { x: 1 }\n      - uses: actions/github-script@v7\n        with:\n          script: console.log(1)\n",
         },
       }),
     );
 
     expect(signals.uses).toEqual([
       { value: "actions/checkout", source: ".github/workflows/ci.yml" },
+      { value: "actions/cache", source: ".github/workflows/ci.yml" },
+      { value: "actions/github-script", source: ".github/workflows/ci.yml" },
+    ]);
+    expect(signals.shell.map((entry) => entry.text)).toEqual([
+      "console.log(1)",
     ]);
   });
 });

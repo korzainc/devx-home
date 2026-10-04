@@ -375,12 +375,12 @@ describe("buildPrompt: numbered signals and inputs", () => {
       tools,
     });
     expect(user).toContain(
-      "uses: aquasecurity/trivy-action with scan-type=fs; scanners=vuln (ci.yml)",
+      'uses: aquasecurity/trivy-action with {"scan-type":"fs","scanners":"vuln"} (ci.yml)',
     );
-    expect(sent[0].text).toContain("scan-type=fs");
+    expect(sent[0].text).toContain('"scan-type":"fs"');
   });
 
-  it("redacts a with: value whose key looks secret, unless the value is an expression", () => {
+  it("redacts secret-looking with: values, unless the whole value is one expression, and keeps a value from spoofing another key", () => {
     const withSecret: CiSignals = {
       uses: [
         {
@@ -389,15 +389,37 @@ describe("buildPrompt: numbered signals and inputs", () => {
           inputs: {
             token: "ghp_realtoken123",
             "api-key": "${{ secrets.API_KEY }}",
+            passphrase: "hunter2",
+            auth: "hunter3",
+            "github-pat": "hunter4",
+            "webhook-url": "https://hooks.example/x",
+            "private-key": "${{ a }}hunter5${{ b }}",
+            args: "--token=sk-live-123 --password hunter6 --verbose",
+            note: "x; token=y",
           },
         },
       ],
       shell: [],
     };
     const { user } = buildPrompt(analysis(), withSecret, { tools });
-    expect(user).toContain("token=<redacted>");
-    expect(user).toContain("api-key=${{ secrets.API_KEY }}");
-    expect(user).not.toContain("ghp_realtoken123");
+    expect(user).toContain('"token":"<redacted>"');
+    expect(user).toContain('"api-key":"${{ secrets.API_KEY }}"');
+    expect(user).toContain('"private-key":"<redacted>"');
+    expect(user).toContain(
+      '"args":"--token=<redacted> --password <redacted> --verbose"',
+    );
+    expect(user).toContain('"note":"x; token=y"');
+    for (const secret of [
+      "ghp_realtoken123",
+      "hunter2",
+      "hunter3",
+      "hunter4",
+      "hooks.example",
+      "hunter5",
+      "sk-live-123",
+      "hunter6",
+    ])
+      expect(user).not.toContain(secret);
   });
 
   it("wraps the raw signal block in an explicit boundary and escapes a real newline in its text", () => {
@@ -475,7 +497,7 @@ describe("toRawEntries", () => {
     });
     expect(entry).toEqual({
       kind: "uses",
-      text: "actions/setup-node with node-version=20",
+      text: 'actions/setup-node with {"node-version":"20"}',
       source: "ci.yml",
     });
   });
