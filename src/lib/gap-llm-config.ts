@@ -19,10 +19,7 @@ const validEfforts: readonly LlmEffort[] = [
   "max",
 ];
 
-// `getLlmConfig()` runs on every `/api/analyze` call, so an invalid value would otherwise warn on
-// every request forever - matching the one-time-warning pattern `gap-llm-store.ts` and
-// `gap/llm/anthropic-client.ts` already use for their own invalid-env-value and unknown-model
-// cases.
+// Warns once: this runs on every request.
 function effortFromEnv(): LlmEffort {
   const raw = process.env.GAP_LLM_EFFORT;
   if (raw && (validEfforts as readonly string[]).includes(raw))

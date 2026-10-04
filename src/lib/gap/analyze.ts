@@ -63,8 +63,8 @@ export function owningStacksFor(
 }
 
 /** The owning stacks `present` has no tool for - declaratively, by `tool.stacks`, not by what a
- * tool's evidence actually demonstrated. Shared by `evaluateCapability` below, `schema.ts`'s
- * rescue candidates and `apply.ts`'s audit re-evaluation, so "still uncovered" means one thing. */
+ * tool's evidence actually demonstrated. Shared by `evaluateCapability` and `schema.ts`'s rescue
+ * candidates, so "still uncovered" means one thing. */
 export function uncoveredStacks(
   owningStacks: BaselineStack[],
   present: PresentTool[],

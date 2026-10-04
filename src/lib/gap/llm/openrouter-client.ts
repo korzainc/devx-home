@@ -127,10 +127,8 @@ export function createOpenRouterClient(
           costUsd,
         };
       } catch (error) {
-        // Either the request never reached OpenRouter (network error, our own abort) or the body
-        // never parsed - either way, OpenRouter's usage-based billing never incurred a charge for
-        // it, so `0` here is the real cost, not just a conservative floor the way Anthropic's
-        // timeout estimate is.
+        // Cost is unknown here (network error, abort or unparsable body) and recorded as 0. This
+        // adapter is for local development only.
         const timedOut =
           error instanceof Error && error.name === "TimeoutError";
         const message = error instanceof Error ? error.message : String(error);

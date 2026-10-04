@@ -48,11 +48,9 @@ function describeError(error: unknown): string {
     : clip(String(error));
 }
 
-/** Content-addressed: same model, same prompt version, same effort, same response schema, and
- * same exact system and user prompt text always maps to the same key, so an unchanged repo hits
- * cache and an edited prompt or changed effort level never serves a stale answer. The schema is
- * fixed across requests (`schema.ts`), so its hash here is a manual cache-bust lever, not a source
- * of real variance. */
+/** Content-addressed over model, effort, prompt version, schema and exact prompt text, so an
+ * unchanged repo hits the cache and any prompt or setting change misses it. The schema is fixed,
+ * so its hash only serves as a manual cache-bust lever. */
 export function cacheKey(
   model: string,
   effort: string,
@@ -109,13 +107,8 @@ function isValidDetectFinding(item: unknown): item is DetectFinding {
   );
 }
 
-/** Guards the two application loops below from a response that isn't even the right shape: a
- * missing findings array, or a `null` body. It does not guarantee every individual item is
- * well-formed; `filterFindings` below drops entries that aren't, so one bad item never discards
- * the good ones next to it.
- *
- * Runs on both the cache-hit and fresh-parse paths: a stale or corrupted cache row is exactly as
- * untrusted as a fresh parse. */
+/** Rejects a response without both arrays (or a `null` body). Items are checked individually by
+ * `filterFindings`. Runs on cache hits too, since a stored row is as untrusted as a fresh parse. */
 function isValidLlmResponseShape(value: unknown): value is {
   verdicts: unknown[];
   detectFindings: unknown[];
@@ -239,12 +232,8 @@ function joinNotes(existing: string | undefined, note: string): string {
   return existing ? `${existing} ${note}` : note;
 }
 
-/** Adds `tool` to `present`, then re-runs `evaluateCapability` against the augmented list instead
- * of crediting the whole capability outright - the pair came from `candidateByPair`, built by
- * `candidatePairsFor` (`schema.ts`) from the same crediting rule `analyze()` uses.
- *
- * A capability owned by more than one stack correctly stays unsatisfied when this tool covers only
- * one of them, with a real `recommended` list naming what's still missing. */
+/** Adds `tool` to `present` and re-runs `evaluateCapability`, so a capability owned by several
+ * stacks stays unsatisfied, with a real `recommended` list, when the tool covers only some. */
 function applyRescue(
   capability: CapabilityReport,
   evidence: string,
@@ -349,11 +338,9 @@ async function recordSpendSafely(
   }
 }
 
-/** True when every signal entry related to `tool` that was sent to the model arrived in full - a
- * truncated or wholly omitted entry can hide the exact argument that would have changed the
- * verdict, so an audit demotion is skipped rather than trusted on cut context. Compares by the
- * entry's own escaped text, not by id, so it works the same whether the entry survived budgeting
- * or not. */
+/** True when every entry related to `tool` reached the model in full. A truncated or omitted entry
+ * can hide the argument that changes the verdict, so an audit demotion needs all of them.
+ * Compares by escaped text, not id, so omitted entries are caught too. */
 function relatedEntriesUncut(
   tool: AnalysisTool,
   signals: CiSignals,

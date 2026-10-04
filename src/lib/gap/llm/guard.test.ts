@@ -232,23 +232,32 @@ describe("budgetSignals", () => {
     expect(entries[0].source).toBe("a.yml");
   });
 
-  it("never drops or shrinks below 4000 chars an entry related to a candidate pair's tool, even when unrelated entries are also present", () => {
-    const relatedText = `semgrep --config p/java ${"x".repeat(4100)}`;
-    const { entries } = budgetSignals(
-      [entry(relatedText), entry("echo unrelated")],
-      [semgrep],
+  it("keeps an entry related to a candidate pair's tool whole up to exactly 4000 chars and cuts it to exactly 4000 beyond", () => {
+    const related = (length: number) =>
+      "semgrep ".concat("x".repeat(length - "semgrep ".length));
+    const [exact, over] = [4000, 4001].map(
+      (length) =>
+        budgetSignals(
+          [entry(related(length)), entry("echo unrelated")],
+          [semgrep],
+        ).entries,
     );
-    const related = entries.find((e) => e.text.startsWith("semgrep"))!;
-    expect(related.text.length).toBeLessThanOrEqual(4000);
-    expect(related.truncated).toBe(true);
-    expect(entries.some((e) => e.text === "echo unrelated")).toBe(true);
+    expect(exact[0]).toMatchObject({ truncated: false });
+    expect(exact[0].text).toHaveLength(4000);
+    expect(over[0]).toMatchObject({ truncated: true });
+    expect(over[0].text).toHaveLength(4000);
+    expect(over.some((e) => e.text === "echo unrelated")).toBe(true);
   });
 
-  it("truncates an unrelated entry over the default per-entry budget with a trailing marker", () => {
-    const { entries } = budgetSignals([entry("x".repeat(2000))], []);
-    expect(entries[0].text.length).toBe(1500);
-    expect(entries[0].text.endsWith("…")).toBe(true);
-    expect(entries[0].truncated).toBe(true);
+  it("keeps an unrelated entry whole up to exactly 1500 chars and cuts it to exactly 1500 with a trailing marker beyond", () => {
+    const [exact, over] = [1500, 1501].map(
+      (length) => budgetSignals([entry("x".repeat(length))], []).entries[0],
+    );
+    expect(exact).toMatchObject({ truncated: false });
+    expect(exact.text).toHaveLength(1500);
+    expect(over).toMatchObject({ truncated: true });
+    expect(over.text).toHaveLength(1500);
+    expect(over.text.endsWith("…")).toBe(true);
   });
 
   it("fills the remaining budget round-robin across source files instead of letting one crowd out another", () => {
@@ -301,6 +310,41 @@ describe("budgetSignals: hard budget", () => {
     expect(lineChars(entries)).toBeLessThanOrEqual(60_000);
     expect(entries.length).toBeLessThanOrEqual(400);
     expect(omittedCount).toBe(3000 - entries.length);
+  });
+
+  it("keeps a final entry that lands the rendered total on exactly 60,000 and clamps one char more", () => {
+    const filler = Array.from({ length: 39 }, (_, i) =>
+      entry(`${i} ${"x".repeat(1_490)}`, `f${i}.yml`),
+    );
+    const { entries: base } = budgetSignals(filler, []);
+    const used = lineChars(base);
+    const finalSource = "tail.yml";
+    // Line overhead for id s40 with a shell label: `[s40] run:  (tail.yml)` plus a newline.
+    const overhead =
+      formatSignalLine({
+        id: "s40",
+        kind: "shell",
+        text: "",
+        source: finalSource,
+      }).length + 1;
+    const exactLength = 60_000 - used - overhead;
+    expect(exactLength).toBeGreaterThan(20);
+    expect(exactLength).toBeLessThan(1_500);
+
+    const fits = budgetSignals(
+      [...filler, entry("t".repeat(exactLength), finalSource)],
+      [],
+    );
+    expect(fits.entries).toHaveLength(40);
+    expect(fits.entries[39].truncated).toBe(false);
+    expect(lineChars(fits.entries)).toBe(60_000);
+
+    const over = budgetSignals(
+      [...filler, entry("t".repeat(exactLength + 1), finalSource)],
+      [],
+    );
+    expect(over.entries[39].truncated).toBe(true);
+    expect(lineChars(over.entries)).toBe(60_000);
   });
 
   it("clamps the last entry to fit the remaining budget instead of overshooting, and omits one with no usable room", () => {

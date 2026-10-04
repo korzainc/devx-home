@@ -144,8 +144,8 @@ export type CapabilityReport = {
   present: PresentTool[];
   /** Catalogue tools that would cover it, limited to the stacks detected. Empty when satisfied. */
   recommended: RecommendedTool[];
-  /** Set only when the LLM pass changed this capability's verdict from what static matching
-   * alone produced. Carried for a future frontend to use; nothing renders it today. */
+  /** Set only when the LLM pass changed this capability from the static result. Not rendered by
+   * the UI. */
   llmNote?: string;
 };
 

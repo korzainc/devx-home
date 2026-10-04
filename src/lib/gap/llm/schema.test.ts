@@ -573,6 +573,37 @@ describe("responseSchema", () => {
   });
 });
 
+describe("responseSchema: closed objects and prompt layout", () => {
+  it("sets additionalProperties: false on every object in the response schema", () => {
+    const open: string[] = [];
+    let objects = 0;
+    const walk = (node: unknown, path: string): void => {
+      if (Array.isArray(node)) {
+        node.forEach((item, index) => walk(item, `${path}[${index}]`));
+        return;
+      }
+      if (!node || typeof node !== "object") return;
+      const record = node as Record<string, unknown>;
+      if (record.type === "object") {
+        objects++;
+        if (record.additionalProperties !== false) open.push(path);
+      }
+      for (const [key, value] of Object.entries(record))
+        walk(value, `${path}.${key}`);
+    };
+    walk(responseSchema(), "$");
+    expect(objects).toBe(3);
+    expect(open).toEqual([]);
+  });
+
+  it("separates the system paragraphs and the user sections with a blank line", () => {
+    const { system, user } = buildPrompt(analysis(), signals, { tools });
+    expect(system.split("\n\n")).toHaveLength(5);
+    expect(system).not.toContain("\n\n\n");
+    expect(user).toMatch(/\n\n## Raw CI signal text\n/);
+  });
+});
+
 describe("against the real catalogue shape", () => {
   it("builds a sast rescue pair for semgrep (a plain tool) even though the java baseline recommends only ci-base-checks (a bundle)", () => {
     const baseline = getBaseline();

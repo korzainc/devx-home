@@ -75,16 +75,12 @@ export type CachedLlmResponse = {
 
 export type Verdict = "provides" | "does-not-provide";
 
-/** One answer to one candidate pair: does the cited CI config actually run `pair`'s tool in a way
- * that provides `pair`'s capability. `pair` is `"<capabilityId>:<toolId>"`, so the model can never
- * mismatch a capability and a tool the way two separately-named fields could. A pair with no
- * clear evidence is omitted from the response entirely rather than given a verdict.
+/** One answer to one candidate pair: does the cited CI config run `pair`'s tool in a way that
+ * provides `pair`'s capability. `pair` is `"<capabilityId>:<toolId>"`. A pair without clear
+ * evidence is omitted.
  *
- * `signalId` names exactly one entry from the numbered signal block; `quote` must be verbatim text
- * from that entry only (`guard.ts`'s `verifyQuote`). What a verdict does depends on the pair's
- * fixed direction (`CandidatePair.direction` in `schema.ts`), not on the capability's state when
- * the response arrives: only `provides` on a rescue pair, or `does-not-provide` on an audit pair,
- * changes anything (`apply.ts`). */
+ * `signalId` names one numbered signal entry and `quote` must come verbatim from that entry.
+ * Only `provides` on a rescue pair or `does-not-provide` on an audit pair changes anything. */
 export type LlmVerdict = {
   pair: string;
   signalId: string;
