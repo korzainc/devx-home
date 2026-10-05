@@ -14,6 +14,7 @@ import type {
   Baseline,
   BaselineStack,
   CapabilityReport,
+  LlmChange,
   PresentTool,
 } from "../types";
 import type { CiSignals } from "../detect";
@@ -38,14 +39,13 @@ import type {
 const promptVersion = "v4";
 const maxQuoteChars = 400;
 const maxReasonChars = 300;
+const maxEvidenceChars = 120;
 const maxDetectFindings = 20;
 const maxLoggedChars = 200;
 
 function clip(text: string): string {
   return text.slice(0, maxLoggedChars);
 }
-
-const maxEvidenceChars = 120;
 
 /** Clips by code point, so a surrogate pair is never split. */
 function clipQuote(text: string, max = maxEvidenceChars): string {
@@ -55,10 +55,9 @@ function clipQuote(text: string, max = maxEvidenceChars): string {
 
 /** Evidence in the shape the rules write: `uses: <ref>` or `runs <command> in <file>`. */
 function rescueEvidence(quote: string, entry: IndexedSignal): string {
-  const oneLine = toDisplayText(quote, entry.truncated).replace(
-    /\s*[\r\n]\s*/g,
-    " ",
-  );
+  const oneLine = toDisplayText(quote, entry.truncated)
+    .replace(/\s*[\r\n]\s*/g, " ")
+    .trim();
   const clipped = clipQuote(oneLine);
   return entry.kind === "uses"
     ? `uses: ${clipped}`
@@ -223,8 +222,22 @@ type EvaluationContext = {
   stackIds: Set<string>;
 };
 
-function joinNotes(existing: string | undefined, note: string): string {
-  return existing ? `${existing} ${note}` : note;
+/** Clips by code point, so a surrogate pair is never split. */
+function cappedReason(reason: string): string {
+  const chars = Array.from(reason);
+  return chars.length > maxReasonChars
+    ? `${chars.slice(0, maxReasonChars).join("")}…`
+    : reason;
+}
+
+function withChange(
+  capability: CapabilityReport,
+  change: LlmChange,
+): CapabilityReport {
+  return {
+    ...capability,
+    llmChanges: [...(capability.llmChanges ?? []), change],
+  };
 }
 
 /** Swaps in `present` and re-runs `evaluateCapability`, so a capability owned by several stacks is
@@ -257,6 +270,7 @@ function applyRescue({
   capability,
   evidence,
   tool,
+  verdict,
   context,
 }: RescueInput): CapabilityReport {
   const added: PresentTool = {
@@ -268,31 +282,32 @@ function applyRescue({
       owningStacksFor(context.stacks, capability.id),
     ),
   };
-  return {
-    ...reevaluate(capability, [...capability.present, added], context),
-    llmNote: joinNotes(
-      capability.llmNote,
-      `Rescued by the LLM pass: found ${tool.name} via "${evidence}"`,
-    ),
-  };
+  return withChange(
+    reevaluate(capability, [...capability.present, added], context),
+    {
+      action: "rescued",
+      toolId: tool.id,
+      toolName: tool.name,
+      reason:
+        toDisplayText(cappedReason(verdict.reason)) ||
+        `Found ${tool.name} running in the CI config.`,
+    },
+  );
 }
 
 function applyAudit(
   capability: CapabilityReport,
   verdict: LlmVerdict,
-  toolId: string,
+  tool: PresentTool,
   context: EvaluationContext,
 ): CapabilityReport {
-  const remaining = capability.present.filter((tool) => tool.id !== toolId);
-  const reasonChars = Array.from(verdict.reason);
-  const reason =
-    reasonChars.length > maxReasonChars
-      ? `${reasonChars.slice(0, maxReasonChars).join("")}…`
-      : verdict.reason;
-  return {
-    ...reevaluate(capability, remaining, context),
-    llmNote: joinNotes(capability.llmNote, toDisplayText(reason)),
-  };
+  const remaining = capability.present.filter((p) => p.id !== tool.id);
+  return withChange(reevaluate(capability, remaining, context), {
+    action: "demoted",
+    toolId: tool.id,
+    toolName: tool.name,
+    reason: toDisplayText(cappedReason(verdict.reason)),
+  });
 }
 
 /** A store outage must not discard a response that was already paid for. */
@@ -592,7 +607,7 @@ export async function applyLlmPass(
       continue;
     }
     result = updateCapability(result, capability.id, (c) =>
-      applyAudit(c, verdict, tool.id, evalContext),
+      applyAudit(c, verdict, present, evalContext),
     );
     verdictsApplied++;
   }
