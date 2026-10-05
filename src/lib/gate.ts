@@ -42,7 +42,8 @@ const OPEN = [
   // by anybody who finds the URL. That was true before the gate as well, and a signed-out visitor
   // exhausting it degrades this page rather than any other.
   //
-  // The LLM pass inside it checks org membership itself, since this gate does not.
+  // The page grants the LLM pass through `getMemberLlmConfig`, which checks org membership since
+  // this gate does not. The pass itself does no membership check.
   "/ci-coverage",
 ];
 

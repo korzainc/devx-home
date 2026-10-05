@@ -14,16 +14,15 @@ export async function getMemberLlmConfig(): Promise<LlmConfig | undefined> {
     const config = getLlmConfig();
     if (!config?.enabled) return undefined;
     const session = await getSession();
-    // A stored "no" skips the GitHub re-check, so non-members cost nothing extra.
-    if (!session?.user.orgMember) return undefined;
+    if (!session) return undefined;
+    // Only a stored, checked "no" skips GitHub. A never-checked account (null `orgCheckedAt`)
+    // is verified once, so a member whose first sign-in is this page still gets the pass.
+    if (!session.user.orgMember && session.user.orgCheckedAt) return undefined;
     return (await isOrgMember(await headers(), session.user))
       ? config
       : undefined;
   } catch (error) {
-    console.error(
-      "gap LLM pass: membership check failed, skipping the pass",
-      error,
-    );
+    console.error("gap LLM pass: gating failed, skipping the LLM pass", error);
     return undefined;
   }
 }
