@@ -318,7 +318,12 @@ export function buildFixPrompt(
     ),
   );
 
-  // Empty without changes, so a rules-only prompt stays byte-identical.
+  // Continues the verify paragraph's last line, so its first line is short.
+  const demotedVerifyText = `A check listed under Missing whose tool is marked "Tool not credited" above
+stays a gap: that tool runs, but not in a way that covers the check. Check the reason against the CI
+file; if it holds, close the gap rather than recording a false positive.`;
+
+  // Empty unless the AI review changed a check.
   const changedSection =
     changedRows.length > 0
       ? `### Checks the AI review changed
@@ -409,13 +414,7 @@ ${changedSection}## Rules of engagement
 
 **Verify before you build.** For each gap, search the repo first. If the check already runs
 somewhere the portal could not see, do not add a second one. Record it as a false positive in your
-final summary instead.${
-    demotedGapRemains
-      ? ` A check listed under Missing whose tool is marked "Tool not credited" above
-stays a gap even if that tool runs elsewhere in the repo. Check the reason against the CI file; if
-it holds, close the gap rather than recording a false positive.`
-      : ""
-  }
+final summary instead.${demotedGapRemains ? ` ${demotedVerifyText}` : ""}
 
 **Find the configuration, do not assume it.** The report knows nothing about this repo's layout.
 Before configuring a tool, work out what it needs here and justify each choice:

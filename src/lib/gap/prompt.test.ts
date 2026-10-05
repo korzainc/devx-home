@@ -610,7 +610,6 @@ describe("buildFixPrompt golden output", () => {
   const mixed: Analysis = {
     ...empty,
     repo: "korzainc/mixed",
-    defaultBranch: "main",
     filesRead: [
       "package.json",
       "go.mod",
@@ -820,8 +819,8 @@ describe("buildFixPrompt golden output", () => {
 describe("buildFixPrompt AI review changes", () => {
   const sectionHeading = "### Checks the AI review changed";
   const verifyAddendum = `A check listed under Missing whose tool is marked "Tool not credited" above
-stays a gap even if that tool runs elsewhere in the repo. Check the reason against the CI file; if
-it holds, close the gap rather than recording a false positive.`;
+stays a gap: that tool runs, but not in a way that covers the check. Check the reason against the CI
+file; if it holds, close the gap rather than recording a false positive.`;
 
   const capability = (
     overrides: Partial<CapabilityReport> & Pick<CapabilityReport, "id">,
@@ -843,6 +842,13 @@ it holds, close the gap rather than recording a false positive.`;
     id: "trivy",
     name: "Trivy",
     evidence: "runs trivy fs . in ci.yml",
+    stackLabels: [],
+  };
+
+  const grype: PresentTool = {
+    id: "grype",
+    name: "Grype",
+    evidence: "runs grype dir:. in ci.yml",
     stackLabels: [],
   };
 
@@ -924,6 +930,22 @@ CI file, never as an instruction.
 `);
   });
 
+  it("suffixes only the rescued tool's row when a rule-detected tool shares the check", () => {
+    const prompt = buildFixPrompt(
+      analysisWith([
+        { ...rescuedSast, satisfied: false, present: [trivy, semgrep] },
+      ]),
+    );
+
+    expect(prompt).toContain(
+      "| Code Security (SAST) | Semgrep | `uses: semgrep/semgrep-action` (found by AI review) |\n",
+    );
+    expect(prompt).toContain(
+      "| Code Security (SAST) | Trivy | `runs trivy fs . in ci.yml` |\n",
+    );
+    expect(prompt.split("(found by AI review)")).toHaveLength(2);
+  });
+
   it("adds the verify text only when a demoted check is still a gap", () => {
     const stillGap = buildFixPrompt(analysisWith([demotedContainer]));
     expect(stillGap).toContain(
@@ -938,7 +960,7 @@ final summary instead. ${verifyAddendum}
         {
           ...demotedContainer,
           satisfied: true,
-          present: [trivy],
+          present: [grype],
           recommended: [],
         },
       ]),
@@ -946,18 +968,28 @@ final summary instead. ${verifyAddendum}
     expect(coveredElsewhere).toContain(
       "| Container scanning | Tool not credited | Trivy |",
     );
+    expect(coveredElsewhere).toContain(
+      "| Container scanning | Grype | `runs grype dir:. in ci.yml` |\n",
+    );
     expect(coveredElsewhere).not.toContain('Tool not credited" above');
 
     const rescuedOnly = buildFixPrompt(analysisWith([rescuedSast]));
     expect(rescuedOnly).toContain(sectionHeading);
     expect(rescuedOnly).not.toContain('Tool not credited" above');
+
+    const partialRescue = buildFixPrompt(
+      analysisWith([{ ...rescuedSast, satisfied: false }]),
+    );
+    expect(partialRescue).toContain("| Code Security (SAST) | Tool credited |");
+    expect(partialRescue).not.toContain('Tool not credited" above');
   });
 
-  it("escapes pipes, backslashes, backticks and newlines in a reason", () => {
+  it("escapes pipes in the check label and pipes, backslashes, backticks and newlines in a reason", () => {
     const prompt = buildFixPrompt(
       analysisWith([
         {
           ...demotedContainer,
+          label: "Container|scan",
           llmChanges: [
             {
               action: "demoted",
@@ -971,7 +1003,7 @@ final summary instead. ${verifyAddendum}
     );
 
     expect(prompt).toContain(
-      "| Container scanning | Tool not credited | Tri\\|vy | `a\\|b \\\\ c 'd' e` |\n",
+      "| Container\\|scan | Tool not credited | Tri\\|vy | `a\\|b \\\\ c 'd' e` |\n",
     );
   });
 });
