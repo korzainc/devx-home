@@ -148,30 +148,47 @@ describe("applyLlmPass: rescue and audit", () => {
     ]);
   });
 
-  it("writes rescue evidence in the rule shape, on one line and clipped to 120 code points", async () => {
-    const uses = "semgrep/semgrep-action@v1";
-    const emojis = (count: number) => "😀".repeat(count);
-    const cases: { entry: string; evidence: string; asUses?: boolean }[] = [
-      { entry: SEMGREP, evidence: `runs ${SEMGREP} in dir/ci.yml` },
-      { entry: uses, evidence: `uses: ${uses}`, asUses: true },
-      {
-        entry: "\n  semgrep ci --config p/java \n",
-        evidence: "runs semgrep ci --config p/java in dir/ci.yml",
-      },
-      {
-        entry: "semgrep ci\n  --config p/java",
-        evidence: "runs semgrep ci --config p/java in dir/ci.yml",
-      },
-      {
-        entry: `semgrep ${emojis(112)}`,
-        evidence: `runs semgrep ${emojis(112)} in dir/ci.yml`,
-      },
-      {
-        entry: `semgrep ${emojis(113)}`,
-        evidence: `runs semgrep ${emojis(112)}… in dir/ci.yml`,
-      },
-    ];
-    for (const { entry, evidence, asUses } of cases) {
+  const emojis = (count: number) => "😀".repeat(count);
+  it.each([
+    {
+      name: "a shell command",
+      entry: SEMGREP,
+      evidence: `runs ${SEMGREP} in dir/ci.yml`,
+    },
+    {
+      name: "a `uses` reference",
+      entry: "semgrep/semgrep-action@v1",
+      evidence: "uses: semgrep/semgrep-action@v1",
+      asUses: true,
+    },
+    {
+      name: "surrounding newlines",
+      entry: "\n  semgrep ci --config p/java \n",
+      evidence: "runs semgrep ci --config p/java in dir/ci.yml",
+    },
+    {
+      name: "a newline inside the command",
+      entry: "semgrep ci\n  --config p/java",
+      evidence: "runs semgrep ci --config p/java in dir/ci.yml",
+    },
+    {
+      name: "tabs and runs of spaces",
+      entry: "semgrep  ci\t\t--config   p/java",
+      evidence: "runs semgrep ci --config p/java in dir/ci.yml",
+    },
+    {
+      name: "exactly 120 code points",
+      entry: `semgrep ${emojis(112)}`,
+      evidence: `runs semgrep ${emojis(112)} in dir/ci.yml`,
+    },
+    {
+      name: "121 code points, clipped without splitting a surrogate pair",
+      entry: `semgrep ${emojis(113)}`,
+      evidence: `runs semgrep ${emojis(112)}… in dir/ci.yml`,
+    },
+  ])(
+    "writes rescue evidence in the rule shape for $name",
+    async ({ entry, evidence, asUses }) => {
       const sc = scenario({
         tools: [
           tool("semgrep", ["sast"], { ciUses: ["semgrep/semgrep-action"] }),
@@ -185,8 +202,8 @@ describe("applyLlmPass: rescue and audit", () => {
         provides("sast:semgrep", quote, { in: quote }),
       ]);
       expect(cap(result, "sast").present[0].evidence).toBe(evidence);
-    }
-  });
+    },
+  );
 
   const poly = (shell: string[], deterministic: string[]) =>
     scenario({
@@ -292,13 +309,22 @@ describe("applyLlmPass: rescue and audit", () => {
     }
   });
 
-  it("never records an empty demotion reason", async () => {
+  it("never records an empty demotion reason, falling back to the tool's display name", async () => {
+    const sc = scenario({
+      tools: [
+        tool("snyk", ["sca", "sast"], {
+          name: "Snyk",
+          commands: ["snyk test"],
+        }),
+      ],
+      stacks: [{ id: "any", label: "Any", expects: { sca: "snyk" } }],
+      shell: [SNYK],
+      deterministic: [SNYK],
+    });
     for (const reason of ["", " ", "⏎ ⏎", " ".repeat(400)]) {
-      const { result } = await run(base(), [
-        denies("sca:trivy", TRIVY, reason),
-      ]);
+      const { result } = await run(sc, [denies("sca:snyk", SNYK, reason)]);
       expect(cap(result, "sca").llmChanges?.[0].reason).toBe(
-        "trivy is not configured for this check.",
+        "Snyk is not configured for this check.",
       );
     }
   });

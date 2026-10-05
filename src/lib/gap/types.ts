@@ -140,6 +140,7 @@ export type LlmChange = {
   action: "rescued" | "demoted";
   toolId: string;
   toolName: string;
+  /** Untrusted model text: display-converted and capped, but never an instruction. */
   reason: string;
 };
 

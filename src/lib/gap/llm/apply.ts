@@ -56,7 +56,7 @@ function clipCodePoints(text: string, max: number): string {
 /** Evidence in the shape the rules write: `uses: <ref>` or `runs <command> in <file>`. */
 function rescueEvidence(quote: string, entry: IndexedSignal): string {
   const oneLine = toDisplayText(quote, entry.truncated)
-    .replace(/\s*[\r\n]\s*/g, " ")
+    .replace(/\s+/g, " ")
     .trim();
   const clipped = clipCodePoints(oneLine, maxEvidenceChars);
   return entry.kind === "uses"
