@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { buildFixPrompt, type BundleCatalogue } from "./prompt";
 import type { Analysis } from "./types";
@@ -399,42 +400,42 @@ describe("buildFixPrompt", () => {
   });
 });
 
-describe("buildFixPrompt bundle details", () => {
-  const wellFormedBundle: BundleEntry = {
-    id: "ci-base-checks",
-    name: "Korza CI Base Checks",
-    summary: "test",
-    cardSummary: "test",
-    problem: "",
-    benefits: [],
-    category: "Security",
-    capabilities: ["secrets", "sast"],
-    stacks: ["any"],
-    docsUrl: "https://example.test/ci-base-checks",
-    detect: {},
-    wraps: [
-      { tool: "kingfisher", capabilities: ["secrets"] },
-      { tool: "semgrep", capabilities: ["sast"] },
-    ],
-    invocation: {
-      github: {
-        runner: "docker-run",
-        image: "example.test/ci-common:9.9.9",
-        steps: [{ name: "scan", args: "ci-run scan --out /out" }],
-        env: { CI: { value: "true", note: "Marks a real CI run." } },
-        requires: ["Full working recipe: https://example.test/README.md"],
-      },
+const wellFormedBundle: BundleEntry = {
+  id: "ci-base-checks",
+  name: "Korza CI Base Checks",
+  summary: "test",
+  cardSummary: "test",
+  problem: "",
+  benefits: [],
+  category: "Security",
+  capabilities: ["secrets", "sast"],
+  stacks: ["any"],
+  docsUrl: "https://example.test/ci-base-checks",
+  detect: {},
+  wraps: [
+    { tool: "kingfisher", capabilities: ["secrets"] },
+    { tool: "semgrep", capabilities: ["sast"] },
+  ],
+  invocation: {
+    github: {
+      runner: "docker-run",
+      image: "example.test/ci-common:9.9.9",
+      steps: [{ name: "scan", args: "ci-run scan --out /out" }],
+      env: { CI: { value: "true", note: "Marks a real CI run." } },
+      requires: ["Full working recipe: https://example.test/README.md"],
     },
+  },
+};
+
+function catalogueWith(bundle: BundleEntry): BundleCatalogue {
+  return {
+    bundleById: { [bundle.id]: bundle },
+    toolNameById: { kingfisher: "Kingfisher", semgrep: "Semgrep" },
+    capabilityLabels: { secrets: "Secret scanning", sast: "Code Security" },
   };
+}
 
-  function catalogueWith(bundle: BundleEntry): BundleCatalogue {
-    return {
-      bundleById: { [bundle.id]: bundle },
-      toolNameById: { kingfisher: "Kingfisher", semgrep: "Semgrep" },
-      capabilityLabels: { secrets: "Secret scanning", sast: "Code Security" },
-    };
-  }
-
+describe("buildFixPrompt bundle details", () => {
   it("inlines a bundle's recipe, wraps mapping and env/requires when a gap recommends it", () => {
     const analysis = withGap();
     analysis.categories[0].capabilities[0].recommended = [
@@ -602,5 +603,207 @@ describe("buildFixPrompt bundle details", () => {
 
     const prompt = buildFixPrompt(analysis, catalogueWith(wellFormedBundle));
     expect(prompt.split("example.test/ci-common:9.9.9").length - 1).toBe(1);
+  });
+});
+
+describe("buildFixPrompt golden output", () => {
+  const mixed: Analysis = {
+    ...empty,
+    repo: "korzainc/mixed",
+    defaultBranch: "main",
+    filesRead: [
+      "package.json",
+      "go.mod",
+      ".github/workflows/ci.yml",
+      "docs/a|b.md",
+    ],
+    stacks: [
+      {
+        id: "javascript",
+        label: "JavaScript",
+        markers: ["package.json"],
+        expects: {},
+      },
+      { id: "go", label: "Go", markers: ["go.mod"], expects: {} },
+    ],
+    categories: [
+      {
+        category: "Security",
+        capabilities: [
+          {
+            id: "secrets",
+            label: "Secret scanning",
+            satisfied: true,
+            present: [
+              {
+                id: "gitleaks",
+                name: "Gitleaks",
+                evidence: ".github/workflows/ci.yml",
+                stackLabels: [],
+              },
+            ],
+            recommended: [],
+          },
+          {
+            id: "sast",
+            label: "Code Security (SAST)",
+            satisfied: false,
+            present: [],
+            recommended: [
+              { id: "semgrep", name: "Semgrep", stackLabels: [] },
+              { id: "codeql", name: "CodeQL", stackLabels: [] },
+            ],
+          },
+        ],
+      },
+      {
+        category: "Testing",
+        capabilities: [
+          {
+            id: "unit-tests",
+            label: "Unit tests",
+            satisfied: false,
+            present: [
+              {
+                id: "jest",
+                name: "Jest",
+                evidence: "runs jest in a|b/`c`.json",
+                stackLabels: ["JavaScript"],
+              },
+            ],
+            recommended: [
+              { id: "go-test", name: "go test", stackLabels: ["Go"] },
+            ],
+          },
+        ],
+      },
+      {
+        category: "Code Quality",
+        capabilities: [
+          {
+            id: "lint",
+            label: "Style Linting",
+            satisfied: true,
+            present: [
+              {
+                id: "eslint",
+                name: "ESLint",
+                evidence: "eslint.config.mjs",
+                stackLabels: ["JavaScript"],
+              },
+              {
+                id: "golangci-lint",
+                name: "golangci-lint",
+                evidence: ".golangci.yml",
+                stackLabels: ["Go"],
+              },
+            ],
+            recommended: [],
+          },
+          {
+            id: "coverage",
+            label: "Test coverage",
+            satisfied: false,
+            present: [],
+            recommended: [
+              { id: "c8", name: "c8", stackLabels: ["JavaScript"] },
+              {
+                id: "ci-base-checks",
+                name: "Korza CI Base Checks",
+                stackLabels: ["Docker", "Go"],
+              },
+            ],
+          },
+          {
+            id: "docs",
+            label: "Docs build",
+            satisfied: false,
+            present: [],
+            recommended: [],
+          },
+        ],
+      },
+    ],
+    satisfiedCount: 2,
+    partialCount: 1,
+    gapCount: 4,
+  };
+
+  const bundled = withGap({
+    repo: "korzainc/bundled",
+    categories: [
+      {
+        category: "Security",
+        capabilities: [
+          {
+            id: "secrets",
+            label: "Secret scanning",
+            satisfied: false,
+            present: [],
+            recommended: [
+              {
+                id: "ci-base-checks",
+                name: "Korza CI Base Checks",
+                stackLabels: [],
+              },
+            ],
+          },
+          {
+            id: "sast",
+            label: "Code Security (SAST)",
+            satisfied: false,
+            present: [],
+            recommended: [
+              {
+                id: "ci-base-checks",
+                name: "Korza CI Base Checks",
+                stackLabels: [],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    gapCount: 2,
+  });
+
+  const bundleWithNotes: BundleEntry = {
+    ...wellFormedBundle,
+    invocation: {
+      github: {
+        runner: "docker-run",
+        image: "example.test/ci-common:9.9.9",
+        steps: [
+          { name: "login", args: "ci-run login", note: "Once per job." },
+          { name: "scan", args: "ci-run scan --out /out" },
+        ],
+        env: {
+          CI: { value: "true", note: "Marks a real CI run." },
+          OUT: { value: "/out" },
+        },
+        requires: [
+          "Full working recipe: https://example.test/README.md",
+          "A checkout with full history.",
+        ],
+      },
+    },
+  };
+
+  // Pins the whole prompt, not fragments, so a change to any branch of the builder shows up
+  // as a diff against the file.
+  it.each([
+    ["nothing-detected", () => buildFixPrompt(empty)],
+    ["mixed-report", () => buildFixPrompt(mixed)],
+    [
+      "bundle-recipe",
+      () => buildFixPrompt(bundled, catalogueWith(bundleWithNotes)),
+    ],
+  ])("renders %s exactly as pinned", (name, render) => {
+    const golden = readFileSync(
+      new URL(`./__golden__/${name}.md`, import.meta.url),
+      "utf8",
+    );
+
+    expect(render()).toBe(golden);
   });
 });
