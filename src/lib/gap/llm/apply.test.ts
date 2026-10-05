@@ -170,7 +170,7 @@ describe("applyLlmPass: rescue and audit", () => {
     const sast = cap(result, "sast");
     expect(sast).toMatchObject({
       satisfied: true,
-      present: [{ id: "semgrep", evidence: SEMGREP }],
+      present: [{ id: "semgrep", evidence: `runs ${SEMGREP} in ci.yml` }],
     });
     expect(sast.llmNote).toContain("semgrep");
     expect(counts(result)).toEqual({
@@ -194,6 +194,58 @@ describe("applyLlmPass: rescue and audit", () => {
       partialCount: 0,
       gapCount: 2,
     });
+  });
+
+  it("re-sorts each category after flips, so gaps stay first", async () => {
+    const sc = base();
+    expect(sc.analysis.categories[0].capabilities.map((c) => c.id)).toEqual([
+      "sast",
+      "sca",
+    ]);
+    const { result } = await run(sc, [
+      provides("sast:semgrep", SEMGREP),
+      denies("sca:trivy", TRIVY),
+    ]);
+    expect(result.categories[0].capabilities.map((c) => c.id)).toEqual([
+      "sca",
+      "sast",
+    ]);
+  });
+
+  it("writes rescue evidence in the rule shape, on one line and clipped to 120 code points", async () => {
+    const uses = "semgrep/semgrep-action@v1";
+    const emojis = (count: number) => "😀".repeat(count);
+    const cases: { entry: string; evidence: string; asUses?: boolean }[] = [
+      { entry: SEMGREP, evidence: `runs ${SEMGREP} in dir/ci.yml` },
+      { entry: uses, evidence: `uses: ${uses}`, asUses: true },
+      {
+        entry: "semgrep ci\n  --config p/java",
+        evidence: "runs semgrep ci --config p/java in dir/ci.yml",
+      },
+      {
+        entry: `semgrep ${emojis(112)}`,
+        evidence: `runs semgrep ${emojis(112)} in dir/ci.yml`,
+      },
+      {
+        entry: `semgrep ${emojis(113)}`,
+        evidence: `runs semgrep ${emojis(112)}… in dir/ci.yml`,
+      },
+    ];
+    for (const { entry, evidence, asUses } of cases) {
+      const sc = scenario({
+        tools: [
+          tool("semgrep", ["sast"], { ciUses: ["semgrep/semgrep-action"] }),
+        ],
+        stacks: [{ id: "any", label: "Any", expects: { sast: "semgrep" } }],
+        shell: asUses ? [] : [[entry, "dir/ci.yml"]],
+        uses: asUses ? [{ value: entry, source: "dir/ci.yml" }] : [],
+      });
+      const quote = entry.replace(/\n/g, "⏎");
+      const { result } = await run(sc, [
+        provides("sast:semgrep", quote, { in: quote }),
+      ]);
+      expect(cap(result, "sast").present[0].evidence).toBe(evidence);
+    }
   });
 
   const poly = (shell: string[], deterministic: string[]) =>
@@ -224,7 +276,9 @@ describe("applyLlmPass: rescue and audit", () => {
     const partial = await run(poly([GO], []), [provides("sca:trivy", GO)]);
     expect(cap(partial.result, "sca")).toMatchObject({
       satisfied: false,
-      present: [{ id: "trivy", evidence: GO, stackLabels: ["Go"] }],
+      present: [
+        { id: "trivy", evidence: `runs ${GO} in ci.yml`, stackLabels: ["Go"] },
+      ],
       recommended: [
         { id: "npm-audit", name: "npm audit", stackLabels: ["JavaScript"] },
       ],
@@ -478,7 +532,9 @@ describe("applyLlmPass: quotes", () => {
         }),
       ],
     );
-    expect(cap(result, "sast").present[0].evidence).toBe(SEMGREP);
+    expect(cap(result, "sast").present[0].evidence).toBe(
+      `runs ${SEMGREP} in ci.yml`,
+    );
     expect(result.buildSteps).toEqual([
       {
         kind: "image-build",
@@ -551,7 +607,8 @@ describe("applyLlmPass: quotes", () => {
         found("install", tail, { signalId: truncated.id }),
       ],
     );
-    const evidence = "semgrep --config p/java .\nsemgrep ci";
+    const evidence =
+      "runs semgrep --config p/java . semgrep ci in dir<<<x/ci.yml";
     expect(cap(result, "sast").present[0].evidence).toBe(evidence);
     expect(cap(result, "sast").llmNote).toContain(`via "${evidence}"`);
     expect(cap(result, "sca").llmNote).toBe("line one\nline two");

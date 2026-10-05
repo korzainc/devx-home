@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import {
+  compareCapabilities,
   countCapabilities,
   evaluateCapability,
   findCapability,
@@ -42,6 +43,26 @@ const maxLoggedChars = 200;
 
 function clip(text: string): string {
   return text.slice(0, maxLoggedChars);
+}
+
+const maxEvidenceChars = 120;
+
+/** Clips by code point, so a surrogate pair is never split. */
+function clipQuote(text: string, max = maxEvidenceChars): string {
+  const chars = Array.from(text);
+  return chars.length > max ? `${chars.slice(0, max).join("")}…` : text;
+}
+
+/** Evidence in the shape the rules write: `uses: <ref>` or `runs <command> in <file>`. */
+function rescueEvidence(quote: string, entry: IndexedSignal): string {
+  const oneLine = toDisplayText(quote, entry.truncated).replace(
+    /\s*[\r\n]\s*/g,
+    " ",
+  );
+  const clipped = clipQuote(oneLine);
+  return entry.kind === "uses"
+    ? `uses: ${clipped}`
+    : `runs ${clipped} in ${entry.rawSource}`;
 }
 
 /** Content-addressed over model, effort, prompt version and exact prompt text, so an unchanged
@@ -224,12 +245,20 @@ function reevaluate(
   return { ...capability, present, satisfied, recommended };
 }
 
-function applyRescue(
-  capability: CapabilityReport,
-  evidence: string,
-  tool: AnalysisTool,
-  context: EvaluationContext,
-): CapabilityReport {
+type RescueInput = {
+  capability: CapabilityReport;
+  evidence: string;
+  tool: AnalysisTool;
+  verdict: LlmVerdict;
+  context: EvaluationContext;
+};
+
+function applyRescue({
+  capability,
+  evidence,
+  tool,
+  context,
+}: RescueInput): CapabilityReport {
   const added: PresentTool = {
     id: tool.id,
     name: tool.name,
@@ -311,7 +340,8 @@ type PendingVerdict = {
   action: "rescue" | "audit";
   tool: AnalysisTool;
   verdict: LlmVerdict;
-  evidence: string;
+  quote: string;
+  entry: IndexedSignal;
 };
 
 /** Returns `analysis` untouched when the pass can't help. Unexpected failures (store or client
@@ -476,7 +506,8 @@ export async function applyLlmPass(
     }
 
     let failure: string | undefined;
-    let accepted: { verdict: LlmVerdict; evidence: string } | undefined;
+    let accepted:
+      { verdict: LlmVerdict; quote: string; entry: IndexedSignal } | undefined;
     for (const verdict of group) {
       const entry = signalById.get(verdict.signalId);
       if (!entry) {
@@ -492,10 +523,7 @@ export async function applyLlmPass(
         failure ??= "quote does not relate to the tool";
         continue;
       }
-      accepted = {
-        verdict,
-        evidence: toDisplayText(quote, entry.truncated),
-      };
+      accepted = { verdict, quote, entry };
       break;
     }
     if (!accepted) {
@@ -515,7 +543,7 @@ export async function applyLlmPass(
   pending.sort((a, b) => a.order - b.order);
 
   let result = analysis;
-  for (const { candidate, action, tool, verdict, evidence } of pending) {
+  for (const { candidate, action, tool, verdict, quote, entry } of pending) {
     const capability = findCapability(result, candidate.capabilityId);
     if (!capability) {
       verdictsDropped++;
@@ -528,8 +556,15 @@ export async function applyLlmPass(
         verdictsNoop++;
         continue;
       }
+      const evidence = rescueEvidence(quote, entry);
       result = updateCapability(result, capability.id, (c) =>
-        applyRescue(c, evidence, tool, evalContext),
+        applyRescue({
+          capability: c,
+          evidence,
+          tool,
+          verdict,
+          context: evalContext,
+        }),
       );
       verdictsApplied++;
       continue;
@@ -610,6 +645,10 @@ export async function applyLlmPass(
 
   return {
     ...result,
+    categories: result.categories.map((category) => ({
+      ...category,
+      capabilities: [...category.capabilities].sort(compareCapabilities),
+    })),
     buildSteps,
     ...countCapabilities(result.categories.flatMap((c) => c.capabilities)),
   };

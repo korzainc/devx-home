@@ -191,6 +191,16 @@ export function countCapabilities(
   };
 }
 
+/** Gaps first: the report exists to surface what is missing. */
+export function compareCapabilities(
+  a: CapabilityReport,
+  b: CapabilityReport,
+): number {
+  return (
+    Number(a.satisfied) - Number(b.satisfied) || a.label.localeCompare(b.label)
+  );
+}
+
 /**
  * The whole diff. Deterministic: same snapshot and same catalogue give the same report, with no
  * model in the path. The catalogue and baseline arrive as arguments so this stays independent of
@@ -263,12 +273,7 @@ export function analyze(
   const categories: CategoryReport[] = [...grouped]
     .map(([category, capabilities]) => ({
       category,
-      // Gaps first: the report exists to surface what is missing.
-      capabilities: capabilities.sort(
-        (a, b) =>
-          Number(a.satisfied) - Number(b.satisfied) ||
-          a.label.localeCompare(b.label),
-      ),
+      capabilities: capabilities.sort(compareCapabilities),
     }))
     .sort((a, b) => {
       const order = (category: string) => {

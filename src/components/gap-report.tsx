@@ -122,7 +122,7 @@ function Capability({ capability }: { capability: CapabilityReport }) {
               <li key={tool.id} className="text-sm text-ink-muted">
                 {tool.name}
                 {attributionSuffix(tool, attribute)}{" "}
-                <span className="font-mono text-xs text-ink-faint">
+                <span className="font-mono text-xs text-ink-faint [overflow-wrap:anywhere]">
                   {tool.evidence}
                 </span>
               </li>
@@ -137,7 +137,7 @@ function Capability({ capability }: { capability: CapabilityReport }) {
                 <li key={tool.id} className="text-sm text-ink-muted">
                   {tool.name}
                   {attributionSuffix(tool, true)}{" "}
-                  <span className="font-mono text-xs text-ink-faint">
+                  <span className="font-mono text-xs text-ink-faint [overflow-wrap:anywhere]">
                     {tool.evidence}
                   </span>
                 </li>
