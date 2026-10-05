@@ -247,12 +247,16 @@ session lookups. The page gate treats a failed lookup as signed out and redirect
 to login without deleting the session cookie. This availability tradeoff is
 intentional; actual deployed database wake-up latency still needs acceptance.
 
-Plugin installation totals are grouped by both client and source. Claude's native
-reports and installs verified through Korza CLI are displayed separately because
-they can describe the same installation; they must not be added together. Codex
-installation counts cover only installs verified through Korza CLI. Repeated
-delivery of the same device/event ID is deduplicated. These counts are not unique
-users or download totals.
+Plugin installation totals are grouped by both client and source. Native Claude
+and Codex reports are displayed separately from installs verified through Korza
+CLI because sources can describe the same installation; they must not be added
+together. Native Codex reports currently require the tested custom source build
+and explicit `korza telemetry configure --client codex --native-install-logs`
+opt-in; official released-client coverage is not established. Codex otherwise
+defaults to skill-load metrics only. The logging opt-in sends diagnostics to the
+local collector, which forwards only recognized install fields; prompts and
+traces remain off. Repeated delivery of the same device/event ID is deduplicated.
+These counts are not unique users or download totals.
 
 Metric points must be non-negative safe integers (at most 9,007,199,254,740,991).
 Aggregates retain exact decimal digits above that range. This numeric limit
