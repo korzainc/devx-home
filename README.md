@@ -266,7 +266,10 @@ These counts are not unique users or download totals.
 
 Codex skill-load counts accept only `codex.skill.injected` points with
 `status: ok`; failed, missing or unknown outcomes are excluded during filtering.
-A loaded skill does not prove task completion. Earlier normalized rows omit
+Use `$codezen:code-review` for explicit Codex selection; `codezen_code-review` is
+the normalized reporting label. Native implicit detection can miss a skill read
+together with other files in one shell command. Counts therefore describe reported
+loads, not every instruction-file access or completed task. Earlier normalized rows omit
 the original status, so this correction cannot reclassify historical counts or
 pending batches from an older collector. Use a fresh baseline for acceptance;
 upgrading does not silently delete earlier data or queued reports.
