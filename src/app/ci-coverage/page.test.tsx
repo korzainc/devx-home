@@ -78,6 +78,13 @@ const analyses = vi.hoisted(() => ({
 
 const usage = vi.hoisted(() => vi.fn());
 const record = vi.hoisted(() => vi.fn());
+const fixPrompts = vi.hoisted(() => [] as string[]);
+vi.mock("@/components/fix-prompt", () => ({
+  FixPromptButton: ({ prompt }: { prompt: string }) => {
+    fixPrompts.push(prompt);
+    return null;
+  },
+}));
 vi.mock("@/lib/analysis-usage", async (original) => ({
   ...(await original<typeof import("@/lib/analysis-usage")>()),
   readAnalysisUsage: usage,
@@ -147,6 +154,7 @@ afterEach(() => {
   analyses.result = null;
   usage.mockReset();
   record.mockReset();
+  fixPrompts.length = 0;
   afterResponse.length = 0;
   // Drained before asserting, or a failure here leaves the array full and every later test
   // fails with the first test's error. Any boundary error no test claimed is a crash that would
@@ -242,6 +250,45 @@ describe("the CI coverage page, for a client running no script", () => {
 // Separate, because both of these live inside the boundary: a client running no script sees
 // neither. They pin the server's output, which is a different subject from the suite above.
 describe("the CI coverage page, once the analysis resolves", () => {
+  it("includes the real bundle recipe in a recommended fix prompt", async () => {
+    analyses.result = {
+      ok: true,
+      repoId: 42,
+      analysis: {
+        ...analysis,
+        satisfiedCount: 0,
+        gapCount: 1,
+        categories: [
+          {
+            category: "Security",
+            capabilities: [
+              {
+                id: "secrets",
+                label: "Secrets scanning",
+                satisfied: false,
+                present: [],
+                recommended: [
+                  {
+                    id: "ci-base-checks",
+                    name: "Korza CI Base Checks",
+                    stackLabels: [],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    };
+
+    await render(page("facebook/react"));
+
+    expect(fixPrompts).toHaveLength(1);
+    expect(fixPrompts[0]).toContain("korzacitools.azurecr.io/ci-common:");
+    expect(fixPrompts[0]).toContain("ci-run scan --out /out");
+    expect(fixPrompts[0]).toContain("ci-run report --in /out");
+  });
+
   it("keeps public analysis available without exposing or reading aggregate usage", async () => {
     usage.mockResolvedValue({ runs: 413, repositories: 97 });
 
