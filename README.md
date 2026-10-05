@@ -230,6 +230,9 @@ scoped to the device for retry deduplication. No raw OTLP attributes, prompts,
 tool arguments, email or paths are accepted. Browser revocation lives at
 `/telemetry/devices`; the CLI uses idempotent bearer `POST /api/telemetry/revoke`.
 Revocation does not delete recorded counts or their device history.
+Korza-assisted install counts also cover the CLI's opt-in terminal command
+wrappers. They remain separate from native events and are not added together.
+Wrappers do not repair official Codex's in-session install reporting.
 The connected-devices page paginates retained history, so an older renewed device
 remains reachable for browser revocation.
 An expired or invalid revocation form shows a reload link; it never revokes a
