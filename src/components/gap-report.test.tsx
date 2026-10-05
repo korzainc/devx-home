@@ -433,13 +433,17 @@ describe("GapReport", () => {
         ),
       ),
     );
-    const stacks = catalogue.baseline.stacks;
-    const row = (label: string) =>
-      screen.getByRole("heading", { name: label, level: 4 }).parentElement!
-        .parentElement!;
+    const baselineStacks = catalogue.baseline.stacks;
+    const row = (label: string) => {
+      const found = screen
+        .getByRole("heading", { name: label, level: 4 })
+        .closest("div.py-4");
+      if (!found) throw new Error(`no row container for "${label}"`);
+      return found as HTMLElement;
+    };
 
     const { container } = render(
-      <GapReport stacks={stacks} analysis={flipped} />,
+      <GapReport stacks={baselineStacks} analysis={flipped} />,
     );
 
     expect(
@@ -451,9 +455,10 @@ describe("GapReport", () => {
 
     const sast = row("Code Security (SAST)");
     expect(within(sast).getByText("present")).toBeTruthy();
-    expect(
-      within(sast).getByText(`runs ${semgrep} in .github/workflows/ci.yml`),
-    ).toBeTruthy();
+    const evidence = within(sast).getByText(
+      `runs ${semgrep} in .github/workflows/ci.yml`,
+    );
+    expect(evidence.classList.contains("[overflow-wrap:anywhere]")).toBe(true);
     for (const label of ["Container Scanning", "Infrastructure Config"]) {
       expect(within(row(label)).getByText("missing")).toBeTruthy();
       expect(
@@ -466,7 +471,13 @@ describe("GapReport", () => {
       ).toBeTruthy();
     }
 
-    // Within a category, no running row may precede a missing one.
+    // Within a category, no running row may precede a missing one. The selector must match every
+    // row, or the loop below checks nothing.
+    const headings = container.querySelectorAll("h4");
+    expect(headings.length).toBeGreaterThan(0);
+    expect(container.querySelectorAll("h4 + span")).toHaveLength(
+      headings.length,
+    );
     for (const section of container.querySelectorAll("section")) {
       const chips = [...section.querySelectorAll("h4 + span")].map(
         (chip) => chip.textContent,
@@ -489,7 +500,9 @@ describe("GapReport", () => {
     };
     const flippedHtml = container.innerHTML;
     cleanup();
-    const plain = render(<GapReport stacks={stacks} analysis={stripped} />);
+    const plain = render(
+      <GapReport stacks={baselineStacks} analysis={stripped} />,
+    );
     expect(plain.container.innerHTML).toBe(flippedHtml);
   });
 });

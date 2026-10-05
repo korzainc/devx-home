@@ -240,21 +240,21 @@ describe("the CI coverage page's LLM pass", () => {
   const config = { enabled: true } as LlmConfig;
 
   it("passes the member config only when a token exists and the helper grants it", async () => {
-    // The helper is not consulted without a token: the check would spend the single-use refresh
-    // token concurrently with nothing to gain.
+    // Anonymous visitors do no membership work, and the helper is never consulted without a
+    // token: it would spend the single-use refresh token concurrently with nothing to gain.
     await render(page("facebook/react"));
     expect(memberLlm.calls).toBe(0);
     expect(analyses.llms).toEqual([undefined]);
 
     // A signed-in non-member: the helper answers undefined and the report stays rules-only.
     session.token = "gho_test";
-    memberLlm.config = undefined;
     await render(page("vercel/next.js"));
     expect(memberLlm.calls).toBe(1);
     expect(analyses.llms).toEqual([undefined, undefined]);
 
     memberLlm.config = config;
     await render(page("vercel/next.js"));
+    expect(memberLlm.calls).toBe(2);
     expect(analyses.llms[2]).toBe(config);
   });
 });

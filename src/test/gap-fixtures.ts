@@ -150,7 +150,7 @@ export const denies = (
   ...extra,
 });
 /** The signal id a real `buildPrompt` assigned, so tests never hardcode id order. */
-export function idOf(sc: Scenario, needle: string): string {
+function idOf(sc: Scenario, needle: string): string {
   const { signals } = buildPrompt(sc.analysis, sc.signals, sc.catalogue);
   const entry =
     signals.find((e) => e.text === needle) ??
