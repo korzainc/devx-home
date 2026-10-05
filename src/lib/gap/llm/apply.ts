@@ -48,7 +48,7 @@ function clip(text: string): string {
 }
 
 /** Clips by code point, so a surrogate pair is never split. */
-function clipQuote(text: string, max = maxEvidenceChars): string {
+function clipCodePoints(text: string, max: number): string {
   const chars = Array.from(text);
   return chars.length > max ? `${chars.slice(0, max).join("")}…` : text;
 }
@@ -58,7 +58,7 @@ function rescueEvidence(quote: string, entry: IndexedSignal): string {
   const oneLine = toDisplayText(quote, entry.truncated)
     .replace(/\s*[\r\n]\s*/g, " ")
     .trim();
-  const clipped = clipQuote(oneLine);
+  const clipped = clipCodePoints(oneLine, maxEvidenceChars);
   return entry.kind === "uses"
     ? `uses: ${clipped}`
     : `runs ${clipped} in ${entry.rawSource}`;
@@ -222,12 +222,9 @@ type EvaluationContext = {
   stackIds: Set<string>;
 };
 
-/** Clips by code point, so a surrogate pair is never split. */
-function cappedReason(reason: string): string {
-  const chars = Array.from(reason);
-  return chars.length > maxReasonChars
-    ? `${chars.slice(0, maxReasonChars).join("")}…`
-    : reason;
+/** Trimmed before capping, so a blank reason is empty rather than a run of spaces and `…`. */
+function reasonText(reason: string): string {
+  return clipCodePoints(toDisplayText(reason).trim(), maxReasonChars);
 }
 
 function withChange(
@@ -289,7 +286,7 @@ function applyRescue({
       toolId: tool.id,
       toolName: tool.name,
       reason:
-        toDisplayText(cappedReason(verdict.reason)) ||
+        reasonText(verdict.reason) ||
         `Found ${tool.name} running in the CI config.`,
     },
   );
@@ -298,15 +295,17 @@ function applyRescue({
 function applyAudit(
   capability: CapabilityReport,
   verdict: LlmVerdict,
-  tool: PresentTool,
+  present: PresentTool,
   context: EvaluationContext,
 ): CapabilityReport {
-  const remaining = capability.present.filter((p) => p.id !== tool.id);
+  const remaining = capability.present.filter((p) => p.id !== present.id);
   return withChange(reevaluate(capability, remaining, context), {
     action: "demoted",
-    toolId: tool.id,
-    toolName: tool.name,
-    reason: toDisplayText(cappedReason(verdict.reason)),
+    toolId: present.id,
+    toolName: present.name,
+    reason:
+      reasonText(verdict.reason) ||
+      `${present.name} is not configured for this check.`,
   });
 }
 

@@ -348,7 +348,10 @@ describe("applyLlmPass: rescue and audit", () => {
     const reasons: [string, string][] = [
       ["", "Found semgrep running in the CI config."],
       ["line one⏎line two", "line one\nline two"],
-      ["é".repeat(301), `${"é".repeat(300)}…`],
+      ["😀".repeat(301), `${"😀".repeat(300)}…`],
+      [" ", "Found semgrep running in the CI config."],
+      ["⏎ ⏎", "Found semgrep running in the CI config."],
+      [" ".repeat(400), "Found semgrep running in the CI config."],
     ];
     for (const [reason, expected] of reasons) {
       const { result } = await run(base(), [
@@ -362,6 +365,17 @@ describe("applyLlmPass: rescue and audit", () => {
           reason: expected,
         },
       ]);
+    }
+  });
+
+  it("never records an empty demotion reason", async () => {
+    for (const reason of ["", " ", "⏎ ⏎", " ".repeat(400)]) {
+      const { result } = await run(base(), [
+        denies("sca:trivy", TRIVY, reason),
+      ]);
+      expect(cap(result, "sca").llmChanges?.[0].reason).toBe(
+        "trivy is not configured for this check.",
+      );
     }
   });
 
@@ -638,11 +652,11 @@ describe("applyLlmPass: quotes", () => {
     }
 
     for (const [length, reason] of [
-      [301, `${"é".repeat(300)}…`],
-      [300, "é".repeat(300)],
+      [301, `${"😀".repeat(300)}…`],
+      [300, "😀".repeat(300)],
     ] as const) {
       const { result } = await run(base(), [
-        denies("sca:trivy", TRIVY, "é".repeat(length)),
+        denies("sca:trivy", TRIVY, "😀".repeat(length)),
       ]);
       expect(cap(result, "sca").llmChanges?.[0].reason).toBe(reason);
     }
@@ -1055,6 +1069,7 @@ describe("applyLlmPass: real catalogue", () => {
         {
           action: "rescued",
           toolId: "semgrep",
+          toolName: "Semgrep",
           reason: "Found Semgrep running in the CI config.",
         },
       ],
