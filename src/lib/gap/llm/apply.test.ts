@@ -4,9 +4,16 @@ import { buildPrompt } from "./schema";
 import { analyze } from "../analyze";
 import { ciSignals } from "../detect";
 import { getBaseline, tools as realTools } from "@/lib/catalogue";
-import { scenario, tool } from "@/test/gap-fixtures";
-import type { Scenario } from "@/test/gap-fixtures";
-import type { LlmConfig, LlmResponse, Verdict } from "./types";
+import {
+  denies,
+  llm,
+  provides,
+  responseFor,
+  scenario,
+  tool,
+} from "@/test/gap-fixtures";
+import type { DetectSpec, Scenario, VerdictSpec } from "@/test/gap-fixtures";
+import type { LlmConfig } from "./types";
 import type { Analysis, BuildStepKind, RepoSnapshot } from "../types";
 
 const SEMGREP = "semgrep --config p/golang .";
@@ -18,94 +25,11 @@ const SNYK = "snyk test --severity-threshold=high";
 const base = () =>
   scenario({ shell: [SEMGREP, NPM, TRIVY], deterministic: [TRIVY] });
 
-type VerdictSpec = {
-  pair: string;
-  verdict: Verdict;
-  quote: string;
-  reason?: string;
-  /** Substring that finds the cited entry; defaults to the quote. */
-  in?: string;
-  /** Overrides the lookup, for wrong or unknown ids. */
-  signalId?: string;
-};
-type DetectSpec = Pick<VerdictSpec, "quote" | "in" | "signalId"> & {
-  kind: BuildStepKind;
-};
-
-const provides = (
-  pair: string,
-  quote: string,
-  extra: Partial<VerdictSpec> = {},
-): VerdictSpec => ({ pair, verdict: "provides", quote, ...extra });
-const denies = (
-  pair: string,
-  quote: string,
-  reason = "does not cover it",
-  extra: Partial<VerdictSpec> = {},
-): VerdictSpec => ({
-  pair,
-  verdict: "does-not-provide",
-  quote,
-  reason,
-  ...extra,
-});
 const found = (
   kind: BuildStepKind,
   quote: string,
   extra: Partial<DetectSpec> = {},
 ): DetectSpec => ({ kind, quote, ...extra });
-
-/** The signal id a real `buildPrompt` assigned, so tests never hardcode id order. */
-function idOf(sc: Scenario, needle: string): string {
-  const { signals } = buildPrompt(sc.analysis, sc.signals, sc.catalogue);
-  const entry =
-    signals.find((e) => e.text === needle) ??
-    signals.find((e) => e.text.includes(needle));
-  if (!entry) throw new Error(`no signal entry contains "${needle}"`);
-  return entry.id;
-}
-
-function llm(response: LlmResponse, costUsd = 0.0042): LlmConfig {
-  return {
-    enabled: true,
-    client: {
-      complete: vi.fn().mockResolvedValue({
-        ok: true,
-        text: JSON.stringify(response),
-        inputTokens: 100,
-        outputTokens: 50,
-        costUsd,
-      }),
-    },
-    model: "claude-sonnet-5-5",
-    effort: "low",
-    readCache: vi.fn().mockResolvedValue(null),
-    writeCache: vi.fn().mockResolvedValue(undefined),
-    underDailySpendCap: vi.fn().mockResolvedValue(true),
-    recordSpend: vi.fn().mockResolvedValue(undefined),
-  };
-}
-
-function responseFor(
-  sc: Scenario,
-  verdicts: VerdictSpec[],
-  detect: DetectSpec[],
-): LlmResponse {
-  return {
-    verdicts: verdicts.map((spec) => ({
-      pair: spec.pair,
-      verdict: spec.verdict,
-      quote: spec.quote,
-      reason: spec.reason ?? "",
-      signalId: spec.signalId ?? idOf(sc, spec.in ?? spec.quote),
-    })),
-    detectFindings: detect.map((spec) => ({
-      kind: spec.kind,
-      quote: spec.quote,
-      signalId: spec.signalId ?? idOf(sc, spec.in ?? spec.quote),
-    })),
-  };
-}
 
 async function run(
   sc: Scenario,
