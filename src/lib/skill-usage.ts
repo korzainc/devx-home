@@ -60,6 +60,7 @@ export async function readSkillUsage(plugin: string, names: string[]) {
 export type PluginInstalls = {
   claudeNative?: UsageCount;
   claudeKorza?: UsageCount;
+  codexNative?: UsageCount;
   codexKorza?: UsageCount;
 };
 export async function readPluginInstalls(
@@ -83,6 +84,8 @@ export async function readPluginInstalls(
       counts.claudeNative = count;
     if (row.client === "claude" && row.source === "korza_cli")
       counts.claudeKorza = count;
+    if (row.client === "codex" && row.source === "native_otel")
+      counts.codexNative = count;
     if (row.client === "codex" && row.source === "korza_cli")
       counts.codexKorza = count;
   }

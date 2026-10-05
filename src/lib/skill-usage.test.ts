@@ -80,13 +80,14 @@ it("keeps potentially overlapping native and Korza install counts separate", asy
       { client: "claude", source: "native_otel", count: "4" },
       { client: "claude", source: "korza_cli", count: "3" },
       { client: "codex", source: "korza_cli", count: "2" },
-      { client: "codex", source: "native_otel", count: "99" },
+      { client: "codex", source: "native_otel", count: "5" },
       { client: "other", source: "korza_cli", count: "99" },
     ],
   });
   expect(await readPluginInstalls("superpowers")).toEqual({
     claudeNative: 4,
     claudeKorza: 3,
+    codexNative: 5,
     codexKorza: 2,
   });
   expect(query.mock.calls[0][0].text).toContain("group by client, source");

@@ -43,6 +43,33 @@ it("omits unavailable totals without blocking the page", async () => {
   expect(await PluginInstallUsage({ plugin: "humanizer" })).toBeNull();
 });
 
+it("shows native Codex installs without needing another reporting source", async () => {
+  mocks.session.mockResolvedValue({ user: { id: "test" } });
+  mocks.member.mockResolvedValue(true);
+  mocks.installs.mockResolvedValue({ codexNative: 1 });
+  const html = renderToStaticMarkup(
+    await PluginInstallUsage({ plugin: "codezen" }),
+  );
+  expect(html).toContain(">1</strong>");
+  expect(html).toContain("install reported by Codex");
+  expect(html).not.toContain("through Korza CLI");
+  expect(html).not.toContain("reported by Claude Code");
+});
+
+it("keeps native and Korza Codex reports distinct", async () => {
+  mocks.session.mockResolvedValue({ user: { id: "test" } });
+  mocks.member.mockResolvedValue(true);
+  mocks.installs.mockResolvedValue({ codexNative: 2, codexKorza: 3 });
+  const html = renderToStaticMarkup(
+    await PluginInstallUsage({ plugin: "codezen" }),
+  );
+  expect(html).toContain(">2</strong>");
+  expect(html).toContain("installs reported by Codex");
+  expect(html).toContain(">3</strong>");
+  expect(html).toContain("Codex installs through Korza CLI");
+  expect(html).not.toContain(">5</strong>");
+});
+
 it("shows Claude native and Korza counts independently without a combined total", async () => {
   mocks.session.mockResolvedValue({ user: { id: "test" } });
   mocks.member.mockResolvedValue(true);

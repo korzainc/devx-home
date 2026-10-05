@@ -18,7 +18,12 @@ export async function PluginInstallUsage({ plugin }: { plugin: string }) {
   } catch {
     return null;
   }
-  if (!count.claudeNative && !count.claudeKorza && !count.codexKorza)
+  if (
+    !count.claudeNative &&
+    !count.claudeKorza &&
+    !count.codexNative &&
+    !count.codexKorza
+  )
     return null;
   return (
     <aside
@@ -39,6 +44,12 @@ export async function PluginInstallUsage({ plugin }: { plugin: string }) {
             <strong className="font-mono text-xl">{count.claudeKorza}</strong>{" "}
             Claude Code {count.claudeKorza === 1 ? "install" : "installs"}{" "}
             through Korza CLI
+          </p>
+        )}
+        {count.codexNative !== undefined && (
+          <p>
+            <strong className="font-mono text-xl">{count.codexNative}</strong>{" "}
+            {count.codexNative === 1 ? "install" : "installs"} reported by Codex
           </p>
         )}
         {count.codexKorza !== undefined && (
