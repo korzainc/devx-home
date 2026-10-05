@@ -3,6 +3,7 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import CiCoveragePage from "@/app/ci-coverage/page";
+import type { LlmConfig } from "@/lib/gap/llm/types";
 import type { RunResult } from "@/lib/gap/run";
 import type { Analysis } from "@/lib/gap/types";
 import { noscriptBlocks } from "@/test-utils/noscript";
@@ -62,15 +63,32 @@ const analysis: Analysis = vi.hoisted(() => ({
 // so a mock that ignored the repo would be satisfied by `runAnalysis("wrong/repo", token)`.
 const analyses = vi.hoisted(() => ({
   calls: [] as { repo: string; token: string | null }[],
+  // Kept apart from `calls` so the assertions on the repo and token stay exact.
+  llms: [] as (LlmConfig | undefined)[],
   result: null as RunResult | null,
+}));
+
+const memberLlm = vi.hoisted(() => ({
+  calls: 0,
+  config: undefined as LlmConfig | undefined,
+}));
+
+vi.mock("@/lib/gap-llm-access", () => ({
+  getMemberLlmConfig: async () => {
+    memberLlm.calls++;
+    return memberLlm.config;
+  },
 }));
 
 vi.mock("@/lib/gap/run", () => ({
   runAnalysis: async (
     repo: string,
     token: string | null,
+    _catalogue: unknown,
+    llm?: LlmConfig,
   ): Promise<RunResult> => {
     analyses.calls.push({ repo, token });
+    analyses.llms.push(llm);
     return analyses.result ?? { ok: true, analysis };
   },
 }));
@@ -124,7 +142,10 @@ afterEach(() => {
   session.token = null;
   session.reads = 0;
   analyses.calls.length = 0;
+  analyses.llms.length = 0;
   analyses.result = null;
+  memberLlm.calls = 0;
+  memberLlm.config = undefined;
   // Drained before asserting, or a failure here leaves the array full and every later test
   // fails with the first test's error. Any boundary error no test claimed is a crash that would
   // otherwise pass unnoticed: the form and the recorded token survive it.
@@ -212,6 +233,29 @@ describe("the CI coverage page, for a client running no script", () => {
 
     expect(markup).toContain('value="facebook/react"');
     expect(takeErrors()).toEqual(["DATABASE_URL is not set."]);
+  });
+});
+
+describe("the CI coverage page's LLM pass", () => {
+  const config = { enabled: true } as LlmConfig;
+
+  it("passes the member config only when a token exists and the helper grants it", async () => {
+    // The helper is not consulted without a token: the check would spend the single-use refresh
+    // token concurrently with nothing to gain.
+    await render(page("facebook/react"));
+    expect(memberLlm.calls).toBe(0);
+    expect(analyses.llms).toEqual([undefined]);
+
+    // A signed-in non-member: the helper answers undefined and the report stays rules-only.
+    session.token = "gho_test";
+    memberLlm.config = undefined;
+    await render(page("vercel/next.js"));
+    expect(memberLlm.calls).toBe(1);
+    expect(analyses.llms).toEqual([undefined, undefined]);
+
+    memberLlm.config = config;
+    await render(page("vercel/next.js"));
+    expect(analyses.llms[2]).toBe(config);
   });
 });
 

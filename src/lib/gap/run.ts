@@ -69,8 +69,8 @@ export async function runAnalysis(
     const signals = ciSignals(snapshot);
     let analysis = analyze(snapshot, catalogue, signals);
 
-    // A token only proves sign-in, not org membership; `src/proxy.ts` checks membership for
-    // `/api/analyze`. `/ci-coverage` skips that check, so it must never pass an enabled `llm`.
+    // A token only proves sign-in, not org membership. `/api/analyze` is gated by `src/proxy.ts`;
+    // `/ci-coverage` passes an enabled `llm` only for org members, via `getMemberLlmConfig`.
     if (llm?.enabled && token) {
       // The pass throws on unexpected failures; the deterministic report is the fallback.
       try {

@@ -10,6 +10,7 @@ import {
   toolNameById,
   tools,
 } from "@/lib/catalogue";
+import { getMemberLlmConfig } from "@/lib/gap-llm-access";
 import { runAnalysis } from "@/lib/gap/run";
 import { getGitHubToken } from "@/lib/session";
 
@@ -25,11 +26,15 @@ export const metadata: Metadata = {
 // Signed out, the token is null and the read goes out anonymously, which GitHub serves for public
 // repositories. So an open source repo needs no account, and the sign-in prompt is kept for the
 // two failures where logging in is the actual remedy rather than a wall in front of everyone.
+//
+// Korza org members also get the LLM gap pass; `getMemberLlmConfig` decides who qualifies.
 async function Result({ repo }: { repo: string }) {
   const token = await getGitHubToken();
-
+  // Sequential on purpose: the GitHub refresh token is single-use, and a concurrent membership
+  // check could spend it and leave this read anonymous.
+  const llm = token ? await getMemberLlmConfig() : undefined;
   const baseline = getBaseline();
-  const result = await runAnalysis(repo, token, { tools, baseline });
+  const result = await runAnalysis(repo, token, { tools, baseline }, llm);
 
   if (!result.ok) {
     // Anonymously, 404 means no such public repo, which a private one is indistinguishable from,
@@ -177,6 +182,9 @@ type Params = Pick<PageProps<"/ci-coverage">, "searchParams">;
 // it for every visit including a bare nav click; `instant = false` only stops Next reporting that,
 // it does not cause it.
 export const instant = false;
+
+// GitHub reads plus an uncached LLM call (30s client timeout) for members.
+export const maxDuration = 60;
 
 export default async function CiCoveragePage({ searchParams }: Params) {
   const { repo } = await searchParams;
