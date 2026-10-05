@@ -119,6 +119,21 @@ describe("isOrgMember", () => {
     ).resolves.toBe(false);
   });
 
+  it("lets consent distinguish provider errors without changing portal fallback", async () => {
+    const isOrgMember = await subject();
+    const unavailable = new Error("provider unavailable");
+    fetchOrgMembership.mockRejectedValue(unavailable);
+    await expect(
+      isOrgMember(headers, user, { fresh: true, throwOnError: true }),
+    ).rejects.toBe(unavailable);
+    expect(query).not.toHaveBeenCalled();
+
+    fetchOrgMembership.mockResolvedValue(false);
+    await expect(
+      isOrgMember(headers, user, { fresh: true, throwOnError: true }),
+    ).resolves.toBe(false);
+  });
+
   it("re-checks a stored yes that has gone stale", async () => {
     // The revocation path. Without this, someone who leaves the organisation keeps access.
     const isOrgMember = await subject();

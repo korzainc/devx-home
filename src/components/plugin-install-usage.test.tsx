@@ -34,6 +34,7 @@ it("labels the count as recorded installs for Claude Code", async () => {
   expect(html).toContain("installations that opted in to monitoring");
   expect(html).toContain("not download totals or unique users");
   expect(html).not.toContain("About this count");
+  expect(html).not.toContain("These counts can overlap");
   expect(mocks.installs).toHaveBeenCalledWith("superpowers");
 });
 it("omits unavailable totals without blocking the page", async () => {
@@ -54,6 +55,7 @@ it("shows native Codex installs without needing another reporting source", async
   expect(html).toContain("install reported by Codex");
   expect(html).not.toContain("through Korza CLI");
   expect(html).not.toContain("reported by Claude Code");
+  expect(html).not.toContain("These counts can overlap");
 });
 
 it("keeps native and Korza Codex reports distinct", async () => {
@@ -68,6 +70,7 @@ it("keeps native and Korza Codex reports distinct", async () => {
   expect(html).toContain(">3</strong>");
   expect(html).toContain("Codex installs through Korza CLI");
   expect(html).not.toContain(">5</strong>");
+  expect(html).toContain("These counts can overlap");
 });
 
 it("shows Claude native and Korza counts independently without a combined total", async () => {

@@ -193,6 +193,7 @@ export async function connectGet(request: Request) {
 export async function connectPost(request: Request) {
   if (!enabled()) return empty(404);
   let stage: FailureStage = "request";
+  let verifiedCallback: ConnectParams | undefined;
   try {
     requireOrigin(request);
     stage = "session";
@@ -221,10 +222,17 @@ export async function connectPost(request: Request) {
     if (input.decision === "deny")
       return redirectCallback(params, "error", "access_denied");
     if (input.decision !== "allow") throw new HttpError(400);
+    // Only a session-bound, same-origin consent form may complete the CLI callback.
+    verifiedCallback = params;
     // A portal cache hit or outage fallback is insufficient to mint a new device credential.
     stage = "membership";
-    if (!(await isOrgMember(request.headers, session.user, { fresh: true })))
-      throw new HttpError(403);
+    if (
+      !(await isOrgMember(request.headers, session.user, {
+        fresh: true,
+        throwOnError: true,
+      }))
+    )
+      return redirectCallback(params, "error", "access_denied");
     stage = "storage";
     return redirectCallback(
       params,
@@ -232,7 +240,14 @@ export async function connectPost(request: Request) {
       await issueCode(getPool(), session.user.id, params),
     );
   } catch (error) {
-    return failure(error, "consent", stage);
+    const response = failure(error, "consent", stage);
+    return verifiedCallback
+      ? redirectCallback(
+          verifiedCallback,
+          "error",
+          response.status >= 500 ? "temporarily_unavailable" : "access_denied",
+        )
+      : response;
   }
 }
 export async function exchangePost(request: Request) {

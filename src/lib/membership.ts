@@ -108,8 +108,8 @@ export async function storeMembership(userId: string, orgMember: boolean) {
 /**
  * Whether this user may pass the gate, asking GitHub if the stored answer has gone stale.
  *
- * Never throws. The gate calls this on every request, and an exception here would be a 500 on
- * every page rather than a decision.
+ * The page gate never throws. Fresh consent checks can request provider errors separately so
+ * an unavailable provider is not reported as a membership denial.
  *
  * The failure rule is the part worth reading. When GitHub cannot answer, a previously confirmed
  * member is let through and nothing is written, so a rate limit or an outage costs nobody their
@@ -119,7 +119,7 @@ export async function storeMembership(userId: string, orgMember: boolean) {
 export async function isOrgMember(
   headers: Headers,
   user: { id: string } & StoredMembership,
-  options: { fresh?: boolean } = {},
+  options: { fresh?: boolean; throwOnError?: boolean } = {},
 ): Promise<boolean> {
   const maxAge = user.orgMember ? RECHECK_AFTER_MS : RETRY_DENIED_AFTER_MS;
   if (!options.fresh && isFresh(user.orgCheckedAt, maxAge))
@@ -140,6 +140,7 @@ export async function isOrgMember(
     );
     return member;
   } catch (error) {
+    if (options.throwOnError) throw error;
     console.error("The gate could not check organisation membership.", error);
     return options.fresh ? false : user.orgMember;
   }

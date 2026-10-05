@@ -63,6 +63,19 @@ function ingest(body: unknown, token = "korza_" + "a".repeat(43)) {
     body: JSON.stringify(body),
   });
 }
+function expectCallbackError(response: Response, error: string) {
+  expect(response.status).toBe(303);
+  const location = new URL(response.headers.get("location")!);
+  expect(location.origin + location.pathname).toBe(params.redirect_uri);
+  expect([...location.searchParams.entries()].sort()).toEqual(
+    [
+      ["error", error],
+      ["state", params.state],
+    ].sort(),
+  );
+  expect(response.headers.get("cache-control")).toBe("no-store");
+  expect(response.headers.get("referrer-policy")).toBe("no-referrer");
+}
 beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
   vi.stubEnv("VERCEL", "");
@@ -99,25 +112,37 @@ it("requires the real browser session and fails closed on denied fresh membershi
   expect((await connectPost(consent())).status).toBe(401);
   mocks.getSession.mockResolvedValue(session);
   mocks.member.mockResolvedValue(false);
-  expect((await connectPost(consent())).status).toBe(403);
+  expectCallbackError(await connectPost(consent()), "access_denied");
   expect(mocks.member).toHaveBeenCalledWith(expect.any(Headers), session.user, {
     fresh: true,
+    throwOnError: true,
   });
   expect(mocks.query).not.toHaveBeenCalled();
 });
 it("rejects cross-origin consent, missing token and callback tampering", async () => {
-  expect(
-    (await connectPost(consent({}, "https://attacker.example"))).status,
-  ).toBe(403);
-  expect((await connectPost(consent({ csrf: "" }))).status).toBe(403);
-  expect(
-    (
-      await connectPost(
-        consent({ redirect_uri: "http://127.0.0.1:50000/callback" }),
-      )
-    ).status,
-  ).toBe(403);
+  for (const request of [
+    consent({}, "https://attacker.example"),
+    consent({ csrf: "" }),
+    consent({ redirect_uri: "http://127.0.0.1:50000/callback" }),
+  ]) {
+    const response = await connectPost(request);
+    expect(response.status).toBe(403);
+    expect(response.headers.has("location")).toBe(false);
+  }
   expect(mocks.query).not.toHaveBeenCalled();
+});
+it("returns a verified consent outage to the CLI without exposing provider details", async () => {
+  mocks.member.mockRejectedValue(
+    new Error("fixture-private-provider-response"),
+  );
+  const response = await connectPost(consent());
+  expectCallbackError(response, "temporarily_unavailable");
+  expect(await response.text()).toBe("");
+  expect(mocks.query).not.toHaveBeenCalled();
+  expect(console.error).toHaveBeenCalledExactlyOnceWith(
+    "Telemetry request failed.",
+    { operation: "consent", stage: "membership", status: 503 },
+  );
 });
 it("denial returns state and no credential or code", async () => {
   const r = await connectPost(consent({ decision: "deny" }));
@@ -481,14 +506,14 @@ it("accepts CSRF-bound renewal only for the current user's device", async () => 
     (await connectPost(request("22222222-2222-4222-8222-222222222222"))).status,
   ).toBe(403);
   expect(mocks.query).not.toHaveBeenCalled();
-  expect((await connectPost(request())).status).toBe(503);
+  expectCallbackError(await connectPost(request()), "temporarily_unavailable");
   expect(mocks.query.mock.calls.some(([sql]) => sql.startsWith("INSERT"))).toBe(
     false,
   );
   mocks.query.mockImplementation(async (sql: string) => ({
     rows: sql.startsWith('SELECT id FROM "user"') ? [{ id: "user" }] : [],
   }));
-  expect((await connectPost(request())).status).toBe(403);
+  expectCallbackError(await connectPost(request()), "access_denied");
   expect(mocks.query.mock.calls.some(([sql]) => sql.startsWith("INSERT"))).toBe(
     false,
   );
@@ -646,7 +671,7 @@ it("rejects a null browser origin without trusting it as same-origin", async () 
 it("retries consent when stored membership cannot confirm the fresh verdict", async () => {
   // A rejoining member's positive provider verdict may fail to persist. A
   // concurrent removal produces the same mismatch, so never mint a grant.
-  expect((await connectPost(consent())).status).toBe(503);
+  expectCallbackError(await connectPost(consent()), "temporarily_unavailable");
   expect(mocks.query.mock.calls.some(([sql]) => sql.startsWith("INSERT"))).toBe(
     false,
   );

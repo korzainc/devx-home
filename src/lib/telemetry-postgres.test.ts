@@ -622,7 +622,12 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
       expect((await consent({}, "https://attacker.invalid")).status).toBe(403);
       expect((await consent({ csrf: "bad" })).status).toBe(403);
       identity.member = false;
-      expect((await consent()).status).toBe(403);
+      const refused = await consent();
+      expect(refused.status).toBe(303);
+      const refusal = new URL(refused.headers.get("location")!);
+      expect(refusal.searchParams.get("error")).toBe("access_denied");
+      expect(refusal.searchParams.get("state")).toBe(params.state);
+      expect(refusal.searchParams.has("code")).toBe(false);
       identity.member = true;
       const denial = await consent({ decision: "deny" });
       expect(denial.status).toBe(303);

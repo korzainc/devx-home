@@ -210,9 +210,12 @@ outages return 503 without changing membership or revoking devices, so the colle
 counts; they never fall back to a stale positive verdict. Cache freshness uses the
 database clock. If the cache expires before ingestion acquires its lock, the
 receiver also returns 503 so the collector retries without asking for new consent.
-Consent also returns 503 if the locked stored membership cannot confirm a fresh
-positive verdict, for example after a cache-write failure or concurrent removal;
-no grant is issued.
+Once a consent form is verified, denied access returns `error=access_denied`
+to the CLI callback. Provider or storage failures return
+`error=temporarily_unavailable`, including when locked stored membership cannot
+confirm the positive verdict. No grant is issued, and the CLI can end the wait
+with a retry message. Invalid origin, session or CSRF requests never redirect
+to a supplied callback.
 Provider verification
 has a ten-second wait budget and shares an in-flight refresh per owner. Better
 Auth may finish its own token refresh after that deadline; the timed-out request
