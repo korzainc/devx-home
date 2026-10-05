@@ -18,6 +18,7 @@ const validEfforts: readonly LlmEffort[] = [
 ];
 
 let warnedEffort = false;
+let warnedOpenRouter = false;
 
 // Runs on every request, so an invalid value warns once.
 function effortFromEnv(): LlmEffort {
@@ -36,7 +37,15 @@ function effortFromEnv(): LlmEffort {
 function buildProvider(): { client: LlmClient; model: string } | undefined {
   if (process.env.GAP_LLM_PROVIDER === "openrouter") {
     // Local testing only: private CI text must not go to OpenRouter in production.
-    if (process.env.NODE_ENV === "production") return undefined;
+    if (process.env.NODE_ENV === "production") {
+      if (!warnedOpenRouter) {
+        warnedOpenRouter = true;
+        console.warn(
+          "GAP_LLM_PROVIDER=openrouter is refused in production, the LLM pass stays off",
+        );
+      }
+      return undefined;
+    }
     const apiKey = process.env.OPENROUTER_API_KEY;
     const model = process.env.GAP_LLM_OPENROUTER_MODEL;
     // No default model: OpenRouter's free models change, so the slug is the operator's pick.
