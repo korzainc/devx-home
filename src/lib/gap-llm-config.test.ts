@@ -74,6 +74,20 @@ describe("getLlmConfig", () => {
     ).toEqual(expected);
   });
 
+  it.each([
+    { nodeEnv: "production", expected: undefined },
+    { nodeEnv: "development", expected: "some/free-model" },
+  ])(
+    "openrouter in $nodeEnv gives $expected",
+    async ({ nodeEnv, expected }) => {
+      vi.stubEnv("NODE_ENV", nodeEnv);
+      for (const [key, value] of Object.entries(openrouter))
+        vi.stubEnv(key, value);
+      const { getLlmConfig } = await loadConfig();
+      expect(getLlmConfig()?.model).toBe(expected);
+    },
+  );
+
   it("falls back to low and warns once on an invalid effort", async () => {
     vi.stubEnv("ANTHROPIC_API_KEY", "key");
     vi.stubEnv("GAP_LLM_EFFORT", "bogus");
