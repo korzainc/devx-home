@@ -41,6 +41,7 @@ function metrics(plugin = "codezen") {
     startTimeUnixNano: "1",
     timeUnixNano: "2",
     attributes: attrs({
+      status: "ok",
       plugin_id: `${plugin}_korza-marketplace`,
       skill: `${plugin}_review`,
       invoke_type: "explicit",
@@ -76,6 +77,36 @@ it("derives client allowlists from the catalogue across pilot and normalized inp
     filterLogs(logs("codezen", { "marketplace.name": "foreign" }), "device"),
   ).toEqual([]);
   expect(filterMetrics(metrics("foreign").body, "device")).toEqual([]);
+});
+it.each(["explicit", "implicit"])(
+  "counts only successful %s skill loads",
+  (invokeType) => {
+    for (const status of ["ok", "error", "unknown", undefined]) {
+      const { body, point } = metrics();
+      point.attributes = attrs({
+        ...(status === undefined ? {} : { status }),
+        plugin_id: "codezen_korza-marketplace",
+        skill: "codezen_review",
+        invoke_type: invokeType,
+      });
+      expect(filterMetrics(body, "device")).toHaveLength(
+        status === "ok" ? 1 : 0,
+      );
+    }
+  },
+);
+it("ignores malformed failed-load points without dropping successful loads", () => {
+  const { body, point, sum } = metrics();
+  sum.dataPoints.unshift({
+    ...point,
+    asInt: "invalid",
+    attributes: point.attributes.map((attribute) =>
+      attribute.key === "status"
+        ? { key: "status", value: { stringValue: "error" } }
+        : attribute,
+    ),
+  });
+  expect(filterMetrics(body, "device")).toMatchObject([{ value: 2 }]);
 });
 it("validates calendar dates consistently and excludes unsafe skill names", () => {
   expect(() =>

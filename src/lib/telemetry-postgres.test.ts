@@ -60,6 +60,7 @@ import { storeMembership } from "./membership";
 vi.mock("./org", () => ({ fetchOrgMembership: async () => identity.member }));
 import { telemetryMembership } from "./telemetry-membership";
 import { readPluginInstalls, readSkillUsage } from "./skill-usage";
+import { filterMetrics } from "./telemetry-metrics";
 import { recordAnalysisRun, readAnalysisUsage } from "./analysis-usage";
 const configured = process.env.TEST_TELEMETRY_DATABASE_URL;
 const run = promisify(execFile);
@@ -793,6 +794,67 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
     expect(await readSkillUsage("superpowers", ["exact-total"])).toEqual({
       "exact-total": { codex: "9007199254740993" },
     });
+  });
+  it("records successful skill loads without failed injections or replay duplicates", async () => {
+    const credential = (await exchangeCode(
+      db.pool,
+      payload(await issueCode(db.pool, "telemetry-test-user", params)),
+    ))!;
+    const body = {
+      resourceMetrics: [
+        {
+          scopeMetrics: [
+            {
+              metrics: [
+                {
+                  name: "codex.skill.injected",
+                  sum: {
+                    aggregationTemporality: 2,
+                    isMonotonic: true,
+                    dataPoints: ["ok", "error"].map((status) => ({
+                      asInt: status === "ok" ? "1" : "100",
+                      startTimeUnixNano: "1",
+                      timeUnixNano: "2",
+                      attributes: Object.entries({
+                        status,
+                        plugin_id: "codezen_korza-marketplace",
+                        skill: "codezen_status-filter",
+                        invoke_type: "explicit",
+                      }).map(([key, stringValue]) => ({
+                        key,
+                        value: { stringValue },
+                      })),
+                    })),
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const metrics = filterMetrics(body, credential.device_id);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const response = await receiveEvents(
+        new Request("http://localhost/api/telemetry/events", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${credential.token}`,
+          },
+          body: JSON.stringify({ events: [], metrics }),
+        }),
+      );
+      expect(response.status).toBe(200);
+    }
+    expect(await readSkillUsage("codezen", ["status-filter"])).toEqual({
+      "status-filter": { codex: 1 },
+    });
+    const { rows } = await db.pool.query(
+      "SELECT count(*)::int count,sum(value)::int total FROM telemetry_skill_metrics WHERE device_id=$1",
+      [credential.device_id],
+    );
+    expect(rows).toEqual([{ count: 1, total: 1 }]);
   });
   it("accepts a maximum-size metric batch and deduplicates its retry", async () => {
     const credential = (await exchangeCode(

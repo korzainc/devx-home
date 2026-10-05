@@ -261,6 +261,13 @@ local collector, which forwards only recognized install fields; prompts and
 traces remain off. Repeated delivery of the same device/event ID is deduplicated.
 These counts are not unique users or download totals.
 
+Codex skill-load counts accept only `codex.skill.injected` points with
+`status: ok`; failed, missing or unknown outcomes are excluded during filtering.
+A loaded skill does not prove task completion. Earlier normalized rows omit
+the original status, so this correction cannot reclassify historical counts or
+pending batches from an older collector. Use a fresh baseline for acceptance;
+upgrading does not silently delete earlier data or queued reports.
+
 Metric points must be non-negative safe integers (at most 9,007,199,254,740,991).
 Aggregates retain exact decimal digits above that range. This numeric limit
 prevents invalid values, not inflated client reports: smaller per-device quotas

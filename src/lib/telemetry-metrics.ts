@@ -38,6 +38,10 @@ export function filterMetrics(
           throw Error("Unsupported sum");
         for (const rawPoint of array(sum.dataPoints ?? [])) {
           const point = object(rawPoint);
+          const attrs = sorted(point.attributes);
+          const read = (key: string) =>
+            attrs.find((a) => a.key === key)?.value.stringValue;
+          if (read("status") !== "ok") continue;
           const rawValue = point.asInt ?? point.asDouble;
           if (
             (point.asInt !== undefined && point.asDouble !== undefined) ||
@@ -57,9 +61,6 @@ export function filterMetrics(
             BigInt(point.startTimeUnixNano) > BigInt(point.timeUnixNano)
           )
             throw Error("Invalid point");
-          const attrs = sorted(point.attributes);
-          const read = (key: string) =>
-            attrs.find((a) => a.key === key)?.value.stringValue;
           const plugin = metricPlugin(read("plugin_id"));
           if (!plugin) continue;
           const identity: unknown[] = [
