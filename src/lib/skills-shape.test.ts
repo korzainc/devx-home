@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import skillsData from "@/data/skills.json";
+import indexData from "@/data/index.json";
 import { problemsWithSkill } from "./skills-shape";
 
 const valid = {
@@ -121,7 +121,7 @@ describe("a skill row", () => {
 
 describe("the published index", () => {
   it("has a well shaped row for every skill, planned ones included", () => {
-    for (const skill of skillsData.skills as Record<string, unknown>[]) {
+    for (const skill of indexData.skills as Record<string, unknown>[]) {
       expect(problemsWithSkill(skill), `${skill.id}`).toEqual([]);
     }
   });

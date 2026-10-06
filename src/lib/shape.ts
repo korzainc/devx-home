@@ -1,5 +1,5 @@
-// Shared by the shape checks over `plugins.json` and `skills.json`, which validate
-// hand-authored and generated data against the same few rules.
+// Shared by the shape checks over the plugin rows and the skill rows arriving in `index.json`,
+// which hold both to the same few rules.
 
 /** A type guard, so callers narrow rather than cast. */
 export function isFilled(value: unknown): value is string {

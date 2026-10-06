@@ -1,7 +1,79 @@
 {
   "marketplace": "korza-marketplace",
   "placeholder": false,
-  "schemaVersion": 5,
+  "plugins": [
+    {
+      "agents": ["Claude Code", "Codex CLI"],
+      "benefits": [
+        "Covers requirements, build and test, so the work either side of writing code is part of the process.",
+        "Korza's own plugin, so the conventions it applies are the ones your reviewers already expect."
+      ],
+      "homepage": "https://github.com/korzainc/codezen",
+      "id": "codezen",
+      "name": "codezen",
+      "origin": "Korza",
+      "pinned": false,
+      "problem": "Agent-assisted work tends to jump straight to code. Requirements stay half-specified, and tests become an afterthought.",
+      "ref": "main",
+      "sha": null,
+      "sourceRepo": "korzainc/codezen",
+      "summary": "Skills for building software, from Korza."
+    },
+    {
+      "agents": ["Claude Code"],
+      "benefits": [
+        "Edits against Wikipedia's documented \"Signs of AI writing\" list rather than a vague sense of tone.",
+        "Worth running on anything customer-facing: docs, release notes, incident writeups.",
+        "Small enough to read end to end before you trust it: the whole prompt is in the repository."
+      ],
+      "homepage": "https://github.com/blader/humanizer",
+      "id": "humanizer",
+      "name": "humanizer",
+      "origin": "Third party",
+      "pinned": true,
+      "problem": "AI prose has tells: inflated symbolism, promotional language, em dash overuse, the rule of three, filler phrases. Readers notice them even when they cannot name them.",
+      "ref": "v2.9.1",
+      "sha": null,
+      "sourceRepo": "blader/humanizer",
+      "summary": "Removes the signs of AI-generated writing from text."
+    },
+    {
+      "agents": ["Claude Code"],
+      "benefits": [
+        "Covers diagnosis, domain modeling, triage and architecture.",
+        "Includes the communication side of the work: tickets, questionnaires, writing for agents."
+      ],
+      "homepage": "https://github.com/mattpocock/skills",
+      "id": "mattpocock-skills",
+      "name": "mattpocock-skills",
+      "origin": "Third party",
+      "pinned": false,
+      "problem": "The jobs around writing code get re-improvised every time: reviewing a PR, diagnosing a bug, turning a spec into tickets, handing work over. How well they go depends on who asked and how.",
+      "ref": "main",
+      "sha": null,
+      "sourceRepo": "mattpocock/skills",
+      "summary": "Matt Pocock's engineering and productivity skills."
+    },
+    {
+      "agents": ["Claude Code", "Codex CLI"],
+      "benefits": [
+        "A vetted library of planning, verification and branch-completion patterns, so the approach is not improvised on every task.",
+        "Works on the process rather than the code: how to plan, when to verify, when a branch is done.",
+        "codezen builds on it, so the two are designed to run together."
+      ],
+      "homepage": "https://github.com/obra/superpowers",
+      "id": "superpowers",
+      "name": "superpowers",
+      "origin": "Third party",
+      "pinned": true,
+      "problem": "Left to itself, an agent writes code first and reasons about it afterwards. The result reads well and fails under test.",
+      "ref": "v6.2.0",
+      "sha": null,
+      "sourceRepo": "obra/superpowers",
+      "summary": "Core skills library: planning, verification, finishing work."
+    }
+  ],
+  "schemaVersion": 6,
   "skills": [
     {
       "agents": ["Claude Code", "Codex CLI"],
@@ -703,7 +775,7 @@
       "argumentHint": null,
       "audience": ["Engineering"],
       "category": "Understand",
-      "description": "Build and sharpen a project's domain model. Use when discussing codebase terminology, writing or editing a CONTEXT.md, or recording or editing an ADR.",
+      "description": "Build and sharpen a project's domain model. Use when discussing codebase terminology, writing or editing a GLOSSARY.md, or recording or editing an ADR.",
       "id": "mattpocock-skills:skills/engineering/domain-modeling",
       "install": {
         "claudeCode": "/plugin install mattpocock-skills@korza-marketplace",
@@ -1168,8 +1240,8 @@
       "state": "no-releases"
     },
     "humanizer": {
-      "behind": 3,
-      "latest": "v3.0.0",
+      "behind": 4,
+      "latest": "v3.1.0",
       "pinned": "v2.9.1",
       "state": "behind"
     },
@@ -1180,8 +1252,8 @@
       "state": "unpinned"
     },
     "superpowers": {
-      "behind": 2,
-      "latest": "v6.4.1",
+      "behind": 3,
+      "latest": "v6.4.2",
       "pinned": "v6.2.0",
       "state": "behind"
     }
