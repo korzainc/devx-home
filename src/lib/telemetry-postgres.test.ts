@@ -81,14 +81,23 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
     redirect_uri: params.redirect_uri,
     ...changes,
   });
-  const eventRequest = (token: string) =>
+  async function freshDevice() {
+    return (await exchangeCode(
+      db.pool,
+      payload(await issueCode(db.pool, "telemetry-test-user", params)),
+    ))!;
+  }
+  const eventRequest = (
+    token: string,
+    body: unknown = { events: [], metrics: [] },
+  ) =>
     new Request("http://localhost/api/telemetry/events", {
       method: "POST",
       headers: {
         "content-type": "application/json",
         authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ events: [], metrics: [] }),
+      body: typeof body === "string" ? body : JSON.stringify(body),
     });
   function pauseQuery(match: (sql: string) => boolean) {
     const source = db.pool;
@@ -190,10 +199,7 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
     );
   });
   it("renews the owned device, invalidates its old token and preserves cumulative deduplication", async () => {
-    const first = (await exchangeCode(
-      db.pool,
-      payload(await issueCode(db.pool, "telemetry-test-user", params)),
-    ))!;
+    const first = await freshDevice();
     const packet = {
       events: [],
       metrics: [
@@ -207,15 +213,7 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
         },
       ],
     };
-    const request = (token: string) =>
-      new Request("http://localhost/api/telemetry/events", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(packet),
-      });
+    const request = (token: string) => eventRequest(token, packet);
     expect((await receiveEvents(request(first.token))).status).toBe(200);
     const code = await issueCode(db.pool, "telemetry-test-user", {
       ...params,
@@ -261,10 +259,7 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
   it.each(["bearer", "browser"])(
     "%s revocation invalidates outstanding renewal codes but permits fresh consent",
     async (route) => {
-      const first = (await exchangeCode(
-        db.pool,
-        payload(await issueCode(db.pool, "telemetry-test-user", params)),
-      ))!;
+      const first = await freshDevice();
       const renewal = { ...params, device_id: first.device_id };
       const stale = await Promise.all([
         issueCode(db.pool, "telemetry-test-user", renewal),
@@ -319,10 +314,7 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
     },
   );
   it("revocation also cancels a renewal issued while it waits for the device lock", async () => {
-    const first = (await exchangeCode(
-      db.pool,
-      payload(await issueCode(db.pool, "telemetry-test-user", params)),
-    ))!;
+    const first = await freshDevice();
     const paused = pauseQuery(
       (sql) => sql.startsWith("SELECT device_id") && sql.endsWith("FOR UPDATE"),
     );
@@ -364,10 +356,7 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
     }
   });
   it("an exchange that already read a grant cannot revive a subsequently revoked device", async () => {
-    const first = (await exchangeCode(
-      db.pool,
-      payload(await issueCode(db.pool, "telemetry-test-user", params)),
-    ))!;
+    const first = await freshDevice();
     const code = await issueCode(db.pool, "telemetry-test-user", {
       ...params,
       device_id: first.device_id,
@@ -393,10 +382,7 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
     }
   });
   it("a failed revocation preserves both the device and outstanding consent atomically", async () => {
-    const first = (await exchangeCode(
-      db.pool,
-      payload(await issueCode(db.pool, "telemetry-test-user", params)),
-    ))!;
+    const first = await freshDevice();
     const code = await issueCode(db.pool, "telemetry-test-user", {
       ...params,
       device_id: first.device_id,
@@ -421,10 +407,7 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
     expect(await exchangeCode(db.pool, payload(code))).not.toBeNull();
   });
   it("another owner cannot revoke a device or invalidate its pending consent", async () => {
-    const first = (await exchangeCode(
-      db.pool,
-      payload(await issueCode(db.pool, "telemetry-test-user", params)),
-    ))!;
+    const first = await freshDevice();
     const code = await issueCode(db.pool, "telemetry-test-user", {
       ...params,
       device_id: first.device_id,
@@ -438,13 +421,13 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
     expect((await receiveEvents(eventRequest(first.token))).status).toBe(200);
     expect(await exchangeCode(db.pool, payload(code))).not.toBeNull();
   });
-  it("migration runner safely skips an already applied 0006", async () => {
+  it("migration runner safely skips the applied monitoring migration", async () => {
     const result = await run(process.execPath, ["scripts/migrate.mjs"], {
       env: { ...process.env, DATABASE_URL_UNPOOLED: connection },
     });
     expect(result.stdout.trim()).toBe("nothing to apply");
     const { rows } = await db.pool.query(
-      "SELECT name FROM _migration WHERE name='0006_telemetry_credentials.sql'",
+      "SELECT name FROM _migration WHERE name='0004_usage_monitoring.sql'",
     );
     expect(rows).toHaveLength(1);
   });
@@ -485,14 +468,8 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
     ).toBeLessThanOrEqual(12 * 60 * 60 * 1000);
   });
   it("deduplicates retries and separates devices; revocation and expiry immediately reject ingest", async () => {
-    const first = (await exchangeCode(
-      db.pool,
-      payload(await issueCode(db.pool, "telemetry-test-user", params)),
-    ))!;
-    const second = (await exchangeCode(
-      db.pool,
-      payload(await issueCode(db.pool, "telemetry-test-user", params)),
-    ))!;
+    const first = await freshDevice();
+    const second = await freshDevice();
     const body = {
       events: [
         {
@@ -516,15 +493,7 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
         },
       ],
     };
-    const request = (token: string) =>
-      new Request("http://localhost/api/telemetry/events", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(body),
-      });
+    const request = (token: string) => eventRequest(token, body);
     for (const token of [first.token, first.token, second.token])
       expect((await receiveEvents(request(token))).status).toBe(200);
     const events = await db.pool.query(
@@ -726,10 +695,7 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
     });
   });
   it("retains replay-safe source rows and totals recorded installs per client", async () => {
-    const credential = (await exchangeCode(
-      db.pool,
-      payload(await issueCode(db.pool, "telemetry-test-user", params)),
-    ))!;
+    const credential = await freshDevice();
     const before = await readPluginInstalls("mattpocock-skills");
     const events = ["native_otel", "korza_cli"].map((source, index) => ({
       id: (index ? "c" : "e").repeat(64),
@@ -741,16 +707,7 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
       skill: null,
     }));
     const send = () =>
-      receiveEvents(
-        new Request("http://localhost/api/telemetry/events", {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            authorization: `Bearer ${credential.token}`,
-          },
-          body: JSON.stringify({ events, metrics: [] }),
-        }),
-      );
+      receiveEvents(eventRequest(credential.token, { events, metrics: [] }));
     expect((await send()).status).toBe(200);
     expect((await send()).status).toBe(200);
     expect(await readPluginInstalls("mattpocock-skills")).toEqual({
@@ -767,10 +724,7 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
     ]);
   });
   it("retains exact totals above the safe integer range after valid metric ingestion", async () => {
-    const credential = (await exchangeCode(
-      db.pool,
-      payload(await issueCode(db.pool, "telemetry-test-user", params)),
-    ))!;
+    const credential = await freshDevice();
     const metrics = [Number.MAX_SAFE_INTEGER, 1, 1].map((value, index) => ({
       id: String(index + 1).repeat(64),
       value,
@@ -780,14 +734,7 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
       invokeType: null,
     }));
     const response = await receiveEvents(
-      new Request("http://localhost/api/telemetry/events", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${credential.token}`,
-        },
-        body: JSON.stringify({ events: [], metrics }),
-      }),
+      eventRequest(credential.token, { events: [], metrics }),
     );
     expect(response.status).toBe(200);
     expect(await readSkillUsage("superpowers", ["exact-total"])).toEqual({
@@ -795,10 +742,7 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
     });
   });
   it("records successful skill loads without failed injections or replay duplicates", async () => {
-    const credential = (await exchangeCode(
-      db.pool,
-      payload(await issueCode(db.pool, "telemetry-test-user", params)),
-    ))!;
+    const credential = await freshDevice();
     const body = {
       resourceMetrics: [
         {
@@ -835,14 +779,7 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
     const metrics = filterMetrics(body, credential.device_id);
     for (let attempt = 0; attempt < 2; attempt++) {
       const response = await receiveEvents(
-        new Request("http://localhost/api/telemetry/events", {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            authorization: `Bearer ${credential.token}`,
-          },
-          body: JSON.stringify({ events: [], metrics }),
-        }),
+        eventRequest(credential.token, { events: [], metrics }),
       );
       expect(response.status).toBe(200);
     }
@@ -856,10 +793,7 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
     expect(rows).toEqual([{ count: 1, total: 1 }]);
   });
   it("accepts a maximum-size metric batch and deduplicates its retry", async () => {
-    const credential = (await exchangeCode(
-      db.pool,
-      payload(await issueCode(db.pool, "telemetry-test-user", params)),
-    ))!;
+    const credential = await freshDevice();
     const body = JSON.stringify({
       events: [],
       metrics: Array.from({ length: 1000 }, (_, index) => ({
@@ -874,18 +808,7 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
     expect(Buffer.byteLength(body)).toBeLessThanOrEqual(256 * 1024);
     for (let attempt = 0; attempt < 2; attempt++)
       expect(
-        (
-          await receiveEvents(
-            new Request("http://localhost/api/telemetry/events", {
-              method: "POST",
-              headers: {
-                "content-type": "application/json",
-                authorization: `Bearer ${credential.token}`,
-              },
-              body,
-            }),
-          )
-        ).status,
+        (await receiveEvents(eventRequest(credential.token, body))).status,
       ).toBe(200);
     const { rows } = await db.pool.query(
       "SELECT count(*)::int count,sum(value)::int total FROM telemetry_skill_metrics WHERE device_id=$1",
@@ -894,10 +817,7 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
     expect(rows).toEqual([{ count: 1000, total: 1000 }]);
   });
   it("bulk ingestion preserves first metadata and greatest duplicate counter values", async () => {
-    const credential = (await exchangeCode(
-      db.pool,
-      payload(await issueCode(db.pool, "telemetry-test-user", params)),
-    ))!;
+    const credential = await freshDevice();
     const event = {
       id: "a".repeat(64),
       kind: "plugin_installed",
@@ -916,16 +836,7 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
       invokeType: "explicit",
     };
     const send = (body: unknown) =>
-      receiveEvents(
-        new Request("http://localhost/api/telemetry/events", {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            authorization: `Bearer ${credential.token}`,
-          },
-          body: JSON.stringify(body),
-        }),
-      );
+      receiveEvents(eventRequest(credential.token, body));
     expect(
       (
         await send({
@@ -970,44 +881,34 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
     expect((await readMetric()).rows).toEqual([{ ...retained, value: 10 }]);
   });
   it("rolls back the event bulk insert when the metric bulk insert fails", async () => {
-    const credential = (await exchangeCode(
-      db.pool,
-      payload(await issueCode(db.pool, "telemetry-test-user", params)),
-    ))!;
+    const credential = await freshDevice();
     await db.pool.query(
       "ALTER TABLE telemetry_skill_metrics ADD CONSTRAINT telemetry_batch_failure CHECK(value <> 8888)",
     );
     try {
       const response = await receiveEvents(
-        new Request("http://localhost/api/telemetry/events", {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            authorization: `Bearer ${credential.token}`,
-          },
-          body: JSON.stringify({
-            events: [
-              {
-                id: "c".repeat(64),
-                kind: "plugin_installed",
-                client: "codex",
-                source: "korza_cli",
-                occurredAt: "2026-09-23T00:00:00Z",
-                plugin: "codezen",
-                skill: null,
-              },
-            ],
-            metrics: [
-              {
-                id: "d".repeat(64),
-                value: 8888,
-                temporality: 2,
-                plugin: "codezen",
-                skill: null,
-                invokeType: null,
-              },
-            ],
-          }),
+        eventRequest(credential.token, {
+          events: [
+            {
+              id: "c".repeat(64),
+              kind: "plugin_installed",
+              client: "codex",
+              source: "korza_cli",
+              occurredAt: "2026-09-23T00:00:00Z",
+              plugin: "codezen",
+              skill: null,
+            },
+          ],
+          metrics: [
+            {
+              id: "d".repeat(64),
+              value: 8888,
+              temporality: 2,
+              plugin: "codezen",
+              skill: null,
+              invokeType: null,
+            },
+          ],
         }),
       );
       expect(response.status).toBe(503);
@@ -1027,10 +928,7 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
     }
   });
   it("paginates tied device history to an older renewed device and revokes it without crossing owners", async () => {
-    const first = (await exchangeCode(
-      db.pool,
-      payload(await issueCode(db.pool, "telemetry-test-user", params)),
-    ))!;
+    const first = await freshDevice();
     const createdBefore = await db.pool.query(
       "SELECT created_at::text FROM telemetry_devices WHERE device_id=$1",
       [first.device_id],
@@ -1180,7 +1078,7 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
     expect(
       (
         await db.pool.query(
-          "SELECT name FROM _migration WHERE name='0007_telemetry_read_indexes.sql'",
+          "SELECT name FROM _migration WHERE name='0004_usage_monitoring.sql'",
         )
       ).rows,
     ).toHaveLength(1);
@@ -1203,26 +1101,19 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
     return { user, credential };
   }
   const membershipPacket = (token: string) =>
-    new Request("http://localhost/api/telemetry/events", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        events: [
-          {
-            id: "f".repeat(64),
-            kind: "plugin_installed",
-            occurredAt: "2026-09-28T00:00:00Z",
-            plugin: "humanizer",
-            skill: null,
-            client: "claude",
-            source: "korza_cli",
-          },
-        ],
-        metrics: [],
-      }),
+    eventRequest(token, {
+      events: [
+        {
+          id: "f".repeat(64),
+          kind: "plugin_installed",
+          occurredAt: "2026-09-28T00:00:00Z",
+          plugin: "humanizer",
+          skill: null,
+          client: "claude",
+          source: "korza_cli",
+        },
+      ],
+      metrics: [],
     });
 
   it.each([
@@ -1783,10 +1674,7 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
   });
 
   it("recovers from an expired revoke form only after a fresh form submission", async () => {
-    const credential = (await exchangeCode(
-      db.pool,
-      payload(await issueCode(db.pool, "telemetry-test-user", params)),
-    ))!;
+    const credential = await freshDevice();
     const form = (csrf: string) =>
       new Request("http://localhost/telemetry/devices", {
         method: "POST",

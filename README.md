@@ -173,7 +173,7 @@ silently relabelled or deleted.
 
 ## Opt-in device monitoring backend
 
-Apply migrations through `0008_telemetry_consent_devices.sql` before enabling
+Apply `0004_usage_monitoring.sql` before enabling
 `TELEMETRY_ENABLED=1`. Use the existing `DATABASE_URL`, migration-only
 `DATABASE_URL_UNPOOLED`. Never edit `.env.local` for this rollout. The flag defaults off;
 the earlier `/api/telemetry/logs` and `/metrics` pilot remains development-only.
@@ -259,7 +259,8 @@ tool arguments, email or paths are accepted. Browser revocation lives at
 `/telemetry/devices`; the CLI uses idempotent bearer `POST /api/telemetry/revoke`.
 Revocation does not delete recorded counts or their device history.
 Korza-assisted install counts also cover the CLI's opt-in terminal command
-wrappers. They remain separate from native events and are not added together.
+wrappers. Home combines install reports per client while retaining each report’s
+source in the database.
 Wrappers do not repair official Codex's in-session install reporting.
 The connected-devices page paginates retained history, so an older renewed device
 remains reachable for browser revocation.
@@ -267,11 +268,10 @@ An expired or invalid revocation form shows a reload link; it never revokes a
 device without valid CSRF protection. HTML forms use a same-origin referrer
 policy so browsers supply an origin on submission; redirects retain no-referrer.
 
-Migration `0007_telemetry_read_indexes.sql` adds indexes for plugin and skill
-count reads and device/user foreign keys. It leaves previously applied migrations
-unchanged. The transactional migration runner builds these indexes with ordinary
-`CREATE INDEX`, so apply it during a maintenance window for a large existing
-telemetry table.
+The monitoring migration creates the tables and their read indexes together.
+Run it before collecting usage; the earlier authentication migrations are unchanged.
+If an older PR version was applied locally, preserve that database and use a fresh
+one for migration checks. The consolidated migration does not rewrite its ledger.
 
 Database connection acquisition is bounded to five seconds, including a wait for
 an available pooled connection. Usage queries retain their one-second query
@@ -285,12 +285,12 @@ Plugin installation totals sum recorded reports per client. The database retains
 each report's native or Korza-assisted source, including wrapped terminal commands.
 Historical reports from different sources can describe the same installation;
 the displayed total is not a deduplicated count of physical installs or adoption.
-Native Codex reports currently require the tested custom source build
-and explicit `korza telemetry configure --client codex --native-install-logs`
-opt-in; official released-client coverage is not established. Codex otherwise
-defaults to skill-load metrics only. The logging opt-in sends diagnostics to the
-local collector, which forwards only recognized install fields; prompts and
-traces remain off. Repeated delivery of the same device/event ID is deduplicated.
+Official Codex terminal installs can be recorded through the optional Korza
+launcher; its `/plugins` menu lacks a supported completion event. Native Codex
+install logs are a separate experimental route, checked only with a custom
+source build and explicit `--native-install-logs` opt-in. That choice sends
+diagnostics to the local filter; prompts and traces remain off. Codex otherwise
+exports skill-load metrics. Repeated delivery of the same device/event ID is deduplicated.
 These counts are not unique users or download totals.
 
 Codex skill-load counts accept only `codex.skill.injected` points with
@@ -305,9 +305,10 @@ upgrading does not silently delete earlier data or queued reports.
 
 Metric points must be non-negative safe integers (at most 9,007,199,254,740,991).
 Aggregates retain exact decimal digits above that range. This numeric limit
-prevents invalid values, not inflated client reports: smaller per-device quotas
-and rate limits need an agreed policy before production monitoring is enabled.
-The receiver must not silently clamp cumulative counters or invent a usage cap.
+prevents invalid values, not inflated client reports. Consent devices are limited
+to 5,000 records per minute; this limits traffic, not claimed cumulative values.
+Company-device quotas and limits on self-reported values still need an agreed
+policy. The receiver does not silently clamp cumulative counters.
 Retention and deletion policy also remain prerequisites for activation; revocation
 stops new uploads but retains existing counts. Telemetry route diagnostics contain
 only the operation, processing stage and HTTP status, excluding errors and request data.

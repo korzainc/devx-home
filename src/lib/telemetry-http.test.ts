@@ -63,6 +63,13 @@ function ingest(body: unknown, token = "korza_" + "a".repeat(43)) {
     body: JSON.stringify(body),
   });
 }
+function allowDevice() {
+  mocks.query.mockResolvedValue({
+    rows: [
+      { device_id: "device", user_id: "user", orgMember: true, fresh: true },
+    ],
+  });
+}
 function expectCallbackError(response: Response, error: string) {
   expect(response.status).toBe(303);
   const location = new URL(response.headers.get("location")!);
@@ -201,11 +208,7 @@ it("still checks company devices against membership in consent mode", async () =
   );
 });
 it("bounds the decoded request stream", async () => {
-  mocks.query.mockResolvedValue({
-    rows: [
-      { device_id: "device", user_id: "user", orgMember: true, fresh: true },
-    ],
-  });
+  allowDevice();
   expect(
     (
       await receiveEvents(
@@ -215,11 +218,7 @@ it("bounds the decoded request stream", async () => {
   ).toBe(413);
 });
 it("scopes identities by device and inserts atomically with retry dedupe", async () => {
-  mocks.query.mockResolvedValue({
-    rows: [
-      { device_id: "device", user_id: "user", orgMember: true, fresh: true },
-    ],
-  });
+  allowDevice();
   const event = {
     id: "b".repeat(64),
     kind: "plugin_installed",
@@ -240,11 +239,7 @@ it("scopes identities by device and inserts atomically with retry dedupe", async
   expect(mocks.query.mock.calls.at(-1)?.[0]).toBe("COMMIT");
 });
 it("writes a full batch in one database call per record type", async () => {
-  mocks.query.mockResolvedValue({
-    rows: [
-      { device_id: "device", user_id: "user", orgMember: true, fresh: true },
-    ],
-  });
+  allowDevice();
   const events = Array.from({ length: 500 }, (_, index) => ({
     id: index.toString(16).padStart(64, "0"),
     kind: "plugin_installed",
@@ -272,11 +267,7 @@ it("writes a full batch in one database call per record type", async () => {
   expect(mocks.query).toHaveBeenCalledTimes(8);
 });
 it("coalesces duplicate counters without replacing the first metadata", async () => {
-  mocks.query.mockResolvedValue({
-    rows: [
-      { device_id: "device", user_id: "user", orgMember: true, fresh: true },
-    ],
-  });
+  allowDevice();
   const first = {
     id: "c".repeat(64),
     value: 2,
@@ -438,11 +429,7 @@ it("rechecks revocation inside the ingestion transaction", async () => {
   expect(mocks.release).toHaveBeenCalledOnce();
 });
 it("rejects invalid content type, encoded bodies and unknown fields without inserts", async () => {
-  mocks.query.mockResolvedValue({
-    rows: [
-      { device_id: "device", user_id: "user", orgMember: true, fresh: true },
-    ],
-  });
+  allowDevice();
   const req = ingest({ events: [], metrics: [] });
   req.headers.set("content-encoding", "gzip");
   expect((await receiveEvents(req)).status).toBe(415);
@@ -552,11 +539,7 @@ it("accepts CSRF-bound renewal only for the current user's device", async () => 
 });
 
 it("retries provider failures but refuses confirmed membership removal before writing", async () => {
-  mocks.query.mockResolvedValue({
-    rows: [
-      { device_id: "device", user_id: "user", orgMember: true, fresh: true },
-    ],
-  });
+  allowDevice();
   mocks.telemetryMember.mockRejectedValueOnce(new Error("provider timed out"));
   expect(
     (await receiveEvents(ingest({ events: [], metrics: [] }))).status,
