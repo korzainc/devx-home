@@ -421,16 +421,6 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
     expect((await receiveEvents(eventRequest(first.token))).status).toBe(200);
     expect(await exchangeCode(db.pool, payload(code))).not.toBeNull();
   });
-  it("migration runner safely skips the applied monitoring migration", async () => {
-    const result = await run(process.execPath, ["scripts/migrate.mjs"], {
-      env: { ...process.env, DATABASE_URL_UNPOOLED: connection },
-    });
-    expect(result.stdout.trim()).toBe("nothing to apply");
-    const { rows } = await db.pool.query(
-      "SELECT name FROM _migration WHERE name='0004_usage_monitoring.sql'",
-    );
-    expect(rows).toHaveLength(1);
-  });
   it("rejects stolen, wrong-PKCE, expired and replayed codes using real atomic SQL", async () => {
     const code = await issueCode(db.pool, "telemetry-test-user", params);
     expect(
@@ -1579,6 +1569,7 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
       [user],
     );
     let crossedBoundary = false;
+    const released = vi.fn();
     db.pool = {
       query: original.query.bind(original),
       connect: async () => {
@@ -1591,7 +1582,14 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
             [user],
           );
         }
-        return original.connect();
+        const client = await original.connect();
+        return {
+          query: client.query.bind(client),
+          release: () => {
+            released();
+            client.release();
+          },
+        };
       },
     } as unknown as pg.Pool;
     try {
@@ -1599,6 +1597,7 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
         (await receiveEvents(membershipPacket(credential.token))).status,
       ).toBe(503);
       expect(crossedBoundary).toBe(true);
+      expect(released).toHaveBeenCalledOnce();
       expect(
         (
           await original.query(

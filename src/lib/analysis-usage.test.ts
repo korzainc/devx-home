@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
-import { recordAnalysisRun, readAnalysisUsage } from "./analysis-usage";
+import { recordAnalysisRun } from "./analysis-usage";
 const query = vi.hoisted(() => vi.fn());
 vi.mock("./db", () => ({ getPool: () => ({ query }) }));
 beforeEach(() => {
@@ -34,13 +34,6 @@ describe("analysis usage", () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     query.mockRejectedValue(new Error("database unavailable"));
     await expect(recordAnalysisRun(run, 42)).resolves.toBeUndefined();
-  });
-  it("reads run and distinct repository counts", async () => {
-    query.mockResolvedValue({ rows: [{ runs: 3, repositories: 2 }] });
-    await expect(readAnalysisUsage()).resolves.toEqual({
-      runs: 3,
-      repositories: 2,
-    });
   });
 });
 

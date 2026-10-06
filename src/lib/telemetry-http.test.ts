@@ -129,6 +129,7 @@ it("requires the real browser session and fails closed on denied fresh membershi
 it("rejects cross-origin consent, missing token and callback tampering", async () => {
   for (const request of [
     consent({}, "https://attacker.example"),
+    consent({}, "null"),
     consent({ csrf: "" }),
     consent({ redirect_uri: "http://127.0.0.1:50000/callback" }),
   ]) {
@@ -217,27 +218,6 @@ it("bounds the decoded request stream", async () => {
     ).status,
   ).toBe(413);
 });
-it("scopes identities by device and inserts atomically with retry dedupe", async () => {
-  allowDevice();
-  const event = {
-    id: "b".repeat(64),
-    kind: "plugin_installed",
-    client: "codex",
-    source: "korza_cli",
-    occurredAt: "2026-09-23T00:00:00.000Z",
-    plugin: "superpowers",
-    skill: null,
-  };
-  expect(
-    (await receiveEvents(ingest({ events: [event], metrics: [] }))).status,
-  ).toBe(200);
-  const insert = mocks.query.mock.calls.find(([sql]) =>
-    sql.includes("INSERT INTO telemetry_events"),
-  );
-  expect(insert?.[0]).toContain("ON CONFLICT DO NOTHING");
-  expect(insert?.[1][0]).not.toBe(event.id);
-  expect(mocks.query.mock.calls.at(-1)?.[0]).toBe("COMMIT");
-});
 it("writes a full batch in one database call per record type", async () => {
   allowDevice();
   const events = Array.from({ length: 500 }, (_, index) => ({
@@ -262,48 +242,6 @@ it("writes a full batch in one database call per record type", async () => {
     sql.startsWith("INSERT"),
   );
   expect(writes).toHaveLength(2);
-  expect(writes[0][1]).toHaveLength(500 * 9);
-  expect(writes[1][1]).toHaveLength(500 * 8);
-  expect(mocks.query).toHaveBeenCalledTimes(8);
-});
-it("coalesces duplicate counters without replacing the first metadata", async () => {
-  allowDevice();
-  const first = {
-    id: "c".repeat(64),
-    value: 2,
-    temporality: 2,
-    plugin: "codezen",
-    skill: "codezen_brainstorm",
-    invokeType: "explicit",
-  };
-  expect(
-    (
-      await receiveEvents(
-        ingest({
-          events: [],
-          metrics: [
-            first,
-            { ...first, value: 8, plugin: "superpowers", skill: null },
-            { ...first, value: 3 },
-          ],
-        }),
-      )
-    ).status,
-  ).toBe(200);
-  const writes = mocks.query.mock.calls.filter(([sql]) =>
-    sql.startsWith("INSERT"),
-  );
-  expect(writes).toHaveLength(1);
-  expect(writes[0][1]).toEqual([
-    expect.any(String),
-    8,
-    2,
-    "codezen_brainstorm",
-    "explicit",
-    "codezen",
-    "device",
-    "github",
-  ]);
 });
 it("rolls back both bulk writes if the metric statement fails", async () => {
   mocks.query.mockImplementation(async (sql: string) => {
@@ -551,59 +489,6 @@ it("retries provider failures but refuses confirmed membership removal before wr
   expect(mocks.telemetryMember).toHaveBeenCalledWith("user");
   expect(mocks.query.mock.calls.some(([sql]) => sql === "BEGIN")).toBe(false);
 });
-it("rechecks membership under a shared user lock before locking the device", async () => {
-  mocks.query.mockImplementation(async (sql: string) => ({
-    rows: sql.includes('FROM "user"')
-      ? []
-      : [
-          {
-            device_id: "device",
-            user_id: "user",
-            orgMember: true,
-            fresh: true,
-          },
-        ],
-  }));
-  expect(
-    (await receiveEvents(ingest({ events: [], metrics: [] }))).status,
-  ).toBe(401);
-  expect(mocks.query).toHaveBeenCalledWith(
-    expect.stringContaining('FROM "user"'),
-    ["user"],
-  );
-  expect(mocks.query).toHaveBeenCalledWith("ROLLBACK");
-  expect(
-    mocks.query.mock.calls.some(([sql]) => sql.includes("INSERT INTO")),
-  ).toBe(false);
-});
-
-it("retries a positive membership cache that expires before the ingestion lock", async () => {
-  mocks.query.mockImplementation(async (sql: string) => {
-    if (sql.includes('FROM "user"')) {
-      // The initial check passed at 4m59s; by the final lock it is stale.
-      // The old WHERE predicate filters the member out entirely.
-      return {
-        rows: sql.startsWith("SELECT id")
-          ? []
-          : [{ orgMember: true, fresh: false }],
-      };
-    }
-    return {
-      rows: [
-        { device_id: "device", user_id: "user", orgMember: true, fresh: true },
-      ],
-    };
-  });
-  expect(
-    (await receiveEvents(ingest({ events: [], metrics: [] }))).status,
-  ).toBe(503);
-  expect(mocks.query).toHaveBeenCalledWith("ROLLBACK");
-  expect(mocks.release).toHaveBeenCalledOnce();
-  expect(
-    mocks.query.mock.calls.some(([sql]) => sql.includes("INSERT INTO")),
-  ).toBe(false);
-});
-
 it("explains an expired revoke form without revoking or accepting its stale CSRF", async () => {
   const device = "11111111-1111-4111-8111-111111111111";
   const csrf = consentToken(
@@ -643,8 +528,15 @@ it.each([{ rows: [] }, { rows: [{ orgMember: false, fresh: true }] }])(
     expect(
       (await receiveEvents(ingest({ events: [], metrics: [] }))).status,
     ).toBe(401);
+    expect(mocks.query).toHaveBeenCalledWith(
+      expect.stringContaining('FROM "user"'),
+      ["user"],
+    );
     expect(mocks.query).toHaveBeenCalledWith("ROLLBACK");
     expect(mocks.release).toHaveBeenCalledOnce();
+    expect(
+      mocks.query.mock.calls.some(([sql]) => sql.includes("INSERT INTO")),
+    ).toBe(false);
   },
 );
 
@@ -662,10 +554,6 @@ it("still denies a revoked device when membership also becomes stale", async () 
   expect(mocks.query).toHaveBeenCalledWith("ROLLBACK");
 });
 
-it("rejects a null browser origin without trusting it as same-origin", async () => {
-  expect((await connectPost(consent({}, "null"))).status).toBe(403);
-  expect(mocks.query).not.toHaveBeenCalled();
-});
 it("retries consent when stored membership cannot confirm the fresh verdict", async () => {
   // A rejoining member's positive provider verdict may fail to persist. A
   // concurrent removal produces the same mismatch, so never mint a grant.

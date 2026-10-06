@@ -43,33 +43,14 @@ it("binds CSRF to session, callback, challenge, state and expiration", () => {
   const token = consentToken(params, "session-a", "secret", 1000);
   expect(verifyConsent(token, params, "session-a", "secret", 1001)).toBe(true);
   expect(verifyConsent(token, params, "session-b", "secret", 1001)).toBe(false);
-  expect(
-    verifyConsent(
-      token,
-      { ...params, state: "b".repeat(43) },
-      "session-a",
-      "secret",
-      1001,
-    ),
-  ).toBe(false);
-  expect(
-    verifyConsent(
-      token,
-      { ...params, redirect_uri: "http://127.0.0.1:49200/callback" },
-      "session-a",
-      "secret",
-      1001,
-    ),
-  ).toBe(false);
-  expect(
-    verifyConsent(
-      token,
-      { ...params, code_challenge: "a".repeat(43) },
-      "session-a",
-      "secret",
-      1001,
-    ),
-  ).toBe(false);
+  for (const changed of [
+    { ...params, state: "b".repeat(43) },
+    { ...params, redirect_uri: "http://127.0.0.1:49200/callback" },
+    { ...params, code_challenge: "a".repeat(43) },
+  ])
+    expect(verifyConsent(token, changed, "session-a", "secret", 1001)).toBe(
+      false,
+    );
   expect(verifyConsent(token, params, "session-a", "secret", 601001)).toBe(
     false,
   );

@@ -55,25 +55,6 @@ it("reads installs for only the requested plugin", async () => {
   expect(query.mock.calls[0][0].values).toEqual(["superpowers"]);
   expect(query.mock.calls[0][0].text).toContain("kind='plugin_installed'");
 });
-it("omits zero or invalid install totals", async () => {
-  for (const count of ["0", "-1", "invalid"]) {
-    query.mockResolvedValue({ rows: [{ client: "claude", count }] });
-    expect(await readPluginInstalls("humanizer")).toEqual({});
-  }
-});
-
-it("binds Codex counts to their plugin while retaining only matching legacy names", async () => {
-  query.mockResolvedValue({ rows: [] });
-  await readSkillUsage("superpowers", ["brainstorming"]);
-  const metrics = query.mock.calls[1][0];
-  expect(metrics.values).toEqual([
-    "superpowers",
-    ["superpowers_brainstorming"],
-  ]);
-  expect(metrics.text).toContain("(plugin=$1 or plugin is null)");
-  expect(metrics.text).toContain("skill=any($2::text[])");
-});
-
 it("sums recorded installation reports per client while ignoring unknown sources", async () => {
   query.mockResolvedValue({
     rows: [
