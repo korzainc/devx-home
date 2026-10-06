@@ -8,7 +8,7 @@ import type { Analysis, AnalysisTool, Baseline, RepoReader } from "./types";
 const readers: RepoReader[] = [githubReader];
 
 export type RunResult =
-  | { ok: true; analysis: Analysis }
+  | { ok: true; analysis: Analysis; repoId: number | undefined }
   | { ok: false; status: number; error: string };
 
 function resolve(input: string) {
@@ -35,7 +35,8 @@ function statusFor(error: RepoReadError) {
 
 /**
  * One parse, read and diff, shared by the page that renders a report and the route that returns
- * one as JSON. The token stays an argument: nothing in this directory reads the environment.
+ * one as JSON. The token stays an argument. The caller can record the returned repository
+ * identity after its response; optional monitoring is not part of computing a report.
  *
  * A null token reads anonymously, so public repositories work with nobody signed in. Deciding
  * what to offer someone whose anonymous read failed is the caller's job, not this function's: it
@@ -61,7 +62,8 @@ export async function runAnalysis(
       token,
       catalogue.baseline,
     );
-    return { ok: true, analysis: analyze(snapshot, catalogue) };
+    const analysis = analyze(snapshot, catalogue);
+    return { ok: true, analysis, repoId: snapshot.repoId };
   } catch (error) {
     if (error instanceof RepoReadError) {
       return { ok: false, status: statusFor(error), error: error.message };

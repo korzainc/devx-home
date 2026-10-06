@@ -1,3 +1,8 @@
+import { after, connection } from "next/server";
+import { randomUUID } from "node:crypto";
+import { redirect } from "next/navigation";
+import { recordAnalysisRun, validRunId } from "@/lib/analysis-usage";
+import { AnalysisUsage } from "@/components/analysis-usage";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { GapReport } from "@/components/gap-report";
@@ -25,7 +30,7 @@ export const metadata: Metadata = {
 // Signed out, the token is null and the read goes out anonymously, which GitHub serves for public
 // repositories. So an open source repo needs no account, and the sign-in prompt is kept for the
 // two failures where logging in is the actual remedy rather than a wall in front of everyone.
-async function Result({ repo }: { repo: string }) {
+async function Result({ repo, runId }: { repo: string; runId?: string }) {
   const token = await getGitHubToken();
 
   const baseline = getBaseline();
@@ -45,12 +50,19 @@ async function Result({ repo }: { repo: string }) {
     );
   }
 
+  after(() => recordAnalysisRun(runId ?? "", result.repoId));
+
   return (
-    <GapReport
-      analysis={result.analysis}
-      stacks={baseline.stacks}
-      catalogue={{ bundleById, toolNameById, capabilityLabels }}
-    />
+    <>
+      <Suspense fallback={null}>
+        <AnalysisUsage />
+      </Suspense>
+      <GapReport
+        analysis={result.analysis}
+        stacks={baseline.stacks}
+        catalogue={{ bundleById, toolNameById, capabilityLabels }}
+      />
+    </>
   );
 }
 
@@ -128,9 +140,16 @@ function Pending({ repo }: { repo: string }) {
   );
 }
 
-function RepoForm({ target }: { target: string }) {
+function RepoForm({
+  target,
+  nextRunId,
+}: {
+  target: string;
+  nextRunId?: string;
+}) {
   return (
     <form className="flex flex-col gap-2">
+      {nextRunId ? <input type="hidden" name="run" value={nextRunId} /> : null}
       <label htmlFor="repo" className="text-xs font-medium text-ink-faint">
         Repository
       </label>
@@ -179,8 +198,16 @@ type Params = Pick<PageProps<"/ci-coverage">, "searchParams">;
 export const instant = false;
 
 export default async function CiCoveragePage({ searchParams }: Params) {
-  const { repo } = await searchParams;
+  const { repo, run } = await searchParams;
+  await connection();
+  const nextRunId = randomUUID();
+  const runId = validRunId(run) ? run : undefined;
   const target = (Array.isArray(repo) ? repo[0] : repo)?.trim() ?? "";
+  if (target && !runId) {
+    redirect(
+      `/ci-coverage?${new URLSearchParams({ repo: target, run: nextRunId })}`,
+    );
+  }
 
   return (
     <div className="flex flex-col gap-10">
@@ -195,13 +222,18 @@ export default async function CiCoveragePage({ searchParams }: Params) {
         </p>
       </header>
 
-      <RepoForm target={target} />
+      {!target ? (
+        <Suspense fallback={null}>
+          <AnalysisUsage />
+        </Suspense>
+      ) : null}
+      <RepoForm target={target} nextRunId={nextRunId} />
 
       {/* Only the analysis stays behind a boundary: it is a GitHub round trip, and which failure
           it hits decides whether the prompt or a notice follows. */}
       {target ? (
         <Suspense key={target} fallback={<Pending repo={target} />}>
-          <Result repo={target} />
+          <Result repo={target} runId={runId} />
         </Suspense>
       ) : null}
     </div>

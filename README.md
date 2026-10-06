@@ -134,3 +134,44 @@ Use `pnpm-lock.yaml` for the resolved versions; this README does not claim every
 dependency is the latest release. When upgrading the lint toolchain, check
 compatibility with `eslint-config-next` and run formatting, tests, lint, type
 checking and a production build together.
+
+## Analysis usage counts
+
+The analysis badge is visible only to signed-in organisation members because its
+totals include private repositories. Public repository analysis remains available
+without signing in. Counts represent successful Analyze submissions: refreshing
+or sharing the same run URL adds nothing, while submitting Analyze again creates
+a new run. Every successful API request creates its own run; retrying the same
+request counts again. These are raw successful submissions, including anonymous
+public-repository analyses, not unique users or member adoption. The page's run
+ID deduplicates reloads and shared links; it is not an abuse control. Successful
+API requests always get a new run ID. These totals are not an audited measure of
+adoption. Recording runs
+after the response, and the badge streams separately; a new count can appear on
+the next request. Storage failure must not prevent a report from rendering.
+
+Hosted collection requires `NODE_ENV=production`, `VERCEL=1` and
+`VERCEL_ENV=production`. Previews cannot collect, including when they share the
+production database. Development processes cannot enable hosted collection by
+inheriting production markers. For local acceptance, explicitly
+set `KORZA_LOCAL_USAGE=1` and a `DATABASE_URL` pointing to an isolated loopback
+PostgreSQL database (`127.0.0.1` or `localhost`). The app requires TLS with a
+trusted certificate; set `sslrootcert` in the connection URL for a local CA.
+Start with
+`VERCEL= VERCEL_ENV= KORZA_LOCAL_USAGE=1 pnpm dev` so inherited dotenv markers
+do not disable local collection by selecting the hosted check.
+Bracketed IPv6 URLs are not enabled for local collection with the current driver. Remote local database URLs
+are refused. Do not use a tunnel to a production database for local acceptance.
+
+The monitoring migration creates the tables and their read indexes together.
+Run it before collecting usage; the earlier authentication migrations are unchanged.
+If an older PR version was applied locally, preserve that database and use a fresh
+one for migration checks. The consolidated migration does not rewrite its ledger.
+
+Database connection acquisition is bounded to five seconds, including a wait for
+an available pooled connection. Usage queries retain their one-second query
+timeout; an unavailable database must not indefinitely block a completed report.
+This is the existing shared pool, so the acquisition limit also bounds login and
+session lookups. The page gate treats a failed lookup as signed out and redirects
+to login without deleting the session cookie. This availability tradeoff is
+intentional; actual deployed database wake-up latency still needs acceptance.
