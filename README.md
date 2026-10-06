@@ -201,9 +201,9 @@ the CLI queue for retry. These limits bound traffic, not the truth of self-repor
 activity. Deployment-level abuse protection and retention remain rollout work.
 
 Consent devices have no user account. Event and metric rows preserve their
-`identity_kind` (`consent`, `github`, or historical `legacy`). The UI labels the
-totals as self-reported, including installations without company sign-in; they
-are not verified employee adoption. Portal viewing access remains unchanged.
+`identity_kind` (`consent`, `github`, or historical `legacy`). Recorded totals
+are self-reported, including installations without company sign-in; they are not
+verified employee adoption. Portal viewing access remains unchanged.
 
 ### Optional company sign-in
 
@@ -281,10 +281,11 @@ session lookups. The page gate treats a failed lookup as signed out and redirect
 to login without deleting the session cookie. This availability tradeoff is
 intentional; actual deployed database wake-up latency still needs acceptance.
 
-Plugin installation totals are grouped by both client and source. Native Claude
-and Codex reports are displayed separately from installs verified through Korza
-CLI because sources can describe the same installation; they must not be added
-together. Native Codex reports currently require the tested custom source build
+Plugin installation totals sum recorded reports per client. The database retains
+each report's native or Korza-assisted source, including wrapped terminal commands.
+Historical reports from different sources can describe the same installation;
+the displayed total is not a deduplicated count of physical installs or adoption.
+Native Codex reports currently require the tested custom source build
 and explicit `korza telemetry configure --client codex --native-install-logs`
 opt-in; official released-client coverage is not established. Codex otherwise
 defaults to skill-load metrics only. The logging opt-in sends diagnostics to the

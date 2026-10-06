@@ -55,13 +55,11 @@ export async function readSkillUsage(plugin: string, names: string[]) {
   return result;
 }
 
-// Sources may overlap for one installation. Keep them separate until the clients
-// provide a shared event identity; adding them would overstate adoption.
+// Count recorded reports, not unique installations. Source provenance remains in
+// the database; historical reports from different sources can describe one install.
 export type PluginInstalls = {
-  claudeNative?: UsageCount;
-  claudeKorza?: UsageCount;
-  codexNative?: UsageCount;
-  codexKorza?: UsageCount;
+  claude?: UsageCount;
+  codex?: UsageCount;
 };
 export async function readPluginInstalls(
   plugin: string,
@@ -77,17 +75,14 @@ export async function readPluginInstalls(
   });
   const counts: PluginInstalls = {};
   for (const row of result.rows) {
+    if (
+      (row.client !== "claude" && row.client !== "codex") ||
+      (row.source !== "native_otel" && row.source !== "korza_cli")
+    )
+      continue;
     const total = positiveCount(row.count);
     if (total === undefined) continue;
-    const count = displayCount(total);
-    if (row.client === "claude" && row.source === "native_otel")
-      counts.claudeNative = count;
-    if (row.client === "claude" && row.source === "korza_cli")
-      counts.claudeKorza = count;
-    if (row.client === "codex" && row.source === "native_otel")
-      counts.codexNative = count;
-    if (row.client === "codex" && row.source === "korza_cli")
-      counts.codexKorza = count;
+    counts[row.client] = displayCount(BigInt(counts[row.client] ?? 0) + total);
   }
   return counts;
 }

@@ -49,8 +49,8 @@ it("reads installs for only the requested plugin", async () => {
     ],
   });
   expect(await readPluginInstalls("superpowers")).toEqual({
-    claudeNative: 4,
-    codexKorza: 2,
+    claude: 4,
+    codex: 2,
   });
   expect(query.mock.calls[0][0].values).toEqual(["superpowers"]);
   expect(query.mock.calls[0][0].text).toContain("kind='plugin_installed'");
@@ -74,7 +74,7 @@ it("binds Codex counts to their plugin while retaining only matching legacy name
   expect(metrics.text).toContain("skill=any($2::text[])");
 });
 
-it("keeps potentially overlapping native and Korza install counts separate", async () => {
+it("sums recorded installation reports per client while ignoring unknown sources", async () => {
   query.mockResolvedValue({
     rows: [
       { client: "claude", source: "native_otel", count: "4" },
@@ -82,13 +82,12 @@ it("keeps potentially overlapping native and Korza install counts separate", asy
       { client: "codex", source: "korza_cli", count: "2" },
       { client: "codex", source: "native_otel", count: "5" },
       { client: "other", source: "korza_cli", count: "99" },
+      { client: "claude", source: "other", count: "99" },
     ],
   });
   expect(await readPluginInstalls("superpowers")).toEqual({
-    claudeNative: 4,
-    claudeKorza: 3,
-    codexNative: 5,
-    codexKorza: 2,
+    claude: 7,
+    codex: 7,
   });
   expect(query.mock.calls[0][0].text).toContain("group by client, source");
 });
@@ -120,7 +119,7 @@ it("adds Claude aliases exactly when individually safe counts exceed the safe to
   });
 });
 
-it("preserves large Claude and source-separated installation aggregates", async () => {
+it("preserves exact large totals when summing installation reporting sources", async () => {
   query
     .mockResolvedValueOnce({
       rows: [{ skill: "brainstorming", count: "9007199254740993" }],
@@ -137,9 +136,20 @@ it("preserves large Claude and source-separated installation aggregates", async 
     ],
   });
   expect(await readPluginInstalls("superpowers")).toEqual({
-    claudeNative: "9007199254740993",
-    claudeKorza: "9007199254740992",
-    codexKorza: Number.MAX_SAFE_INTEGER,
+    claude: "18014398509481985",
+    codex: Number.MAX_SAFE_INTEGER,
+  });
+});
+
+it("keeps install sums exact when safe source counts exceed the safe total", async () => {
+  query.mockResolvedValueOnce({
+    rows: [
+      { client: "claude", source: "native_otel", count: "9007199254740990" },
+      { client: "claude", source: "korza_cli", count: "3" },
+    ],
+  });
+  expect(await readPluginInstalls("superpowers")).toEqual({
+    claude: "9007199254740993",
   });
 });
 

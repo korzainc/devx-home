@@ -3,6 +3,47 @@ import { headers } from "next/headers";
 import { getSession } from "@/lib/session";
 import { isOrgMember } from "@/lib/membership";
 import { readPluginInstalls } from "@/lib/skill-usage";
+import type { ReactNode } from "react";
+
+function InstallUsageFrame({
+  children,
+  loading = false,
+}: {
+  children: ReactNode;
+  loading?: boolean;
+}) {
+  return (
+    <aside
+      className="rounded-xl border border-line-strong bg-surface-raised px-5 py-4"
+      aria-label={
+        loading
+          ? "Loading recorded installations"
+          : "Recorded plugin installations"
+      }
+      aria-busy={loading || undefined}
+    >
+      <p className="text-xs text-ink-muted">Finding its way into workflows</p>
+      <div className="mt-3 grid grid-cols-2 gap-x-5 text-sm text-ink">
+        {children}
+      </div>
+    </aside>
+  );
+}
+
+export function PluginInstallUsageLoading() {
+  return (
+    <InstallUsageFrame loading>
+      {["Claude Code", "Codex"].map((client) => (
+        <div key={client} aria-hidden="true">
+          <div className="flex h-10 items-center">
+            <span className="h-7 w-16 rounded bg-line motion-safe:animate-pulse" />
+          </div>
+          <p className="invisible mt-1">recorded installs via {client}</p>
+        </div>
+      ))}
+    </InstallUsageFrame>
+  );
+}
 
 export async function PluginInstallUsage({ plugin }: { plugin: string }) {
   let count;
@@ -18,55 +59,28 @@ export async function PluginInstallUsage({ plugin }: { plugin: string }) {
   } catch {
     return null;
   }
-  if (
-    !count.claudeNative &&
-    !count.claudeKorza &&
-    !count.codexNative &&
-    !count.codexKorza
-  )
-    return null;
+  if (!count.claude && !count.codex) return null;
   return (
-    <aside
-      className="rounded-xl border border-line-strong bg-surface-raised px-5 py-4"
-      aria-label="Recorded plugin installations"
-    >
-      <p className="text-xs text-ink-muted">Finding its way into workflows</p>
-      <div className="mt-1 flex flex-wrap gap-x-5 gap-y-2 text-sm text-ink">
-        {count.claudeNative !== undefined && (
-          <p>
-            <strong className="font-mono text-xl">{count.claudeNative}</strong>{" "}
-            {count.claudeNative === 1 ? "install" : "installs"} reported by
-            Claude Code
-          </p>
-        )}
-        {count.claudeKorza !== undefined && (
-          <p>
-            <strong className="font-mono text-xl">{count.claudeKorza}</strong>{" "}
-            Claude Code {count.claudeKorza === 1 ? "install" : "installs"}{" "}
-            through Korza CLI
-          </p>
-        )}
-        {count.codexNative !== undefined && (
-          <p>
-            <strong className="font-mono text-xl">{count.codexNative}</strong>{" "}
-            {count.codexNative === 1 ? "install" : "installs"} reported by Codex
-          </p>
-        )}
-        {count.codexKorza !== undefined && (
-          <p>
-            <strong className="font-mono text-xl">{count.codexKorza}</strong>{" "}
-            Codex {count.codexKorza === 1 ? "install" : "installs"} through
-            Korza CLI
-          </p>
-        )}
-      </div>
-      {((count.claudeNative !== undefined && count.claudeKorza !== undefined) ||
-        (count.codexNative !== undefined &&
-          count.codexKorza !== undefined)) && (
-        <p className="mt-2 text-xs text-ink-muted">
-          These counts can overlap. They are shown separately.
-        </p>
+    <InstallUsageFrame>
+      {(
+        [
+          ["claude", "Claude Code"],
+          ["codex", "Codex"],
+        ] as const
+      ).map(
+        ([client, label]) =>
+          count[client] !== undefined && (
+            <div key={client} className="min-w-0">
+              <strong className="block font-mono text-3xl leading-10 tracking-tight break-all">
+                {count[client]}
+              </strong>
+              <p className="mt-1">
+                recorded {count[client] === 1 ? "install" : "installs"} via{" "}
+                {label}
+              </p>
+            </div>
+          ),
       )}
-    </aside>
+    </InstallUsageFrame>
   );
 }

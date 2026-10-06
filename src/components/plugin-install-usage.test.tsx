@@ -20,17 +20,21 @@ it("does not read install totals without portal access", async () => {
   expect(await PluginInstallUsage({ plugin: "humanizer" })).toBeNull();
   expect(mocks.installs).not.toHaveBeenCalled();
 });
-it("labels the count as recorded installs for Claude Code", async () => {
+it("shows one recorded install figure per client without reporting-source prose", async () => {
   mocks.session.mockResolvedValue({ user: { id: "test" } });
   mocks.member.mockResolvedValue(true);
-  mocks.installs.mockResolvedValue({ claudeNative: 2, codexKorza: 3 });
+  mocks.installs.mockResolvedValue({ claude: 2, codex: 3 });
   const html = renderToStaticMarkup(
     await PluginInstallUsage({ plugin: "superpowers" }),
   );
-  expect(html).toContain("installs reported by Claude Code");
+  expect(html).toContain("Finding its way into workflows");
+  expect(html).toContain(">2</strong>");
+  expect(html).toContain("recorded installs via Claude Code");
+  expect(html).toContain(">3</strong>");
+  expect(html).toContain("recorded installs via Codex");
   expect(html).toContain("Claude Code");
   expect(html).toContain("Codex");
-  expect(html).toContain("through Korza CLI");
+  expect(html).not.toContain("through Korza CLI");
   expect(html).not.toContain("Self-reported by installations that opted in");
   expect(html).not.toContain("About this count");
   expect(html).not.toContain("These counts can overlap");
@@ -43,75 +47,75 @@ it("omits unavailable totals without blocking the page", async () => {
   expect(await PluginInstallUsage({ plugin: "humanizer" })).toBeNull();
 });
 
-it("shows native Codex installs without needing another reporting source", async () => {
+it("shows a Codex-only total without inventing a Claude count", async () => {
   mocks.session.mockResolvedValue({ user: { id: "test" } });
   mocks.member.mockResolvedValue(true);
-  mocks.installs.mockResolvedValue({ codexNative: 1 });
+  mocks.installs.mockResolvedValue({ codex: 1 });
   const html = renderToStaticMarkup(
     await PluginInstallUsage({ plugin: "codezen" }),
   );
   expect(html).toContain(">1</strong>");
-  expect(html).toContain("install reported by Codex");
+  expect(html).toContain("recorded install via Codex");
   expect(html).not.toContain("through Korza CLI");
-  expect(html).not.toContain("reported by Claude Code");
+  expect(html).not.toContain("Claude Code");
   expect(html).not.toContain("These counts can overlap");
 });
 
-it("keeps native and Korza Codex reports distinct", async () => {
+it("renders the combined Codex recorded total once", async () => {
   mocks.session.mockResolvedValue({ user: { id: "test" } });
   mocks.member.mockResolvedValue(true);
-  mocks.installs.mockResolvedValue({ codexNative: 2, codexKorza: 3 });
+  mocks.installs.mockResolvedValue({ codex: 5 });
   const html = renderToStaticMarkup(
     await PluginInstallUsage({ plugin: "codezen" }),
   );
-  expect(html).toContain(">2</strong>");
-  expect(html).toContain("installs reported by Codex");
-  expect(html).toContain(">3</strong>");
-  expect(html).toContain("Codex installs through Korza CLI");
-  expect(html).not.toContain(">5</strong>");
-  expect(html).toContain("These counts can overlap");
+  expect(html.match(/>5<\/strong>/g)).toHaveLength(1);
+  expect(html).toContain("recorded installs via Codex");
+  expect(html).not.toContain("These counts can overlap");
 });
 
-it("shows Claude native and Korza counts independently without a combined total", async () => {
+it("renders the combined Claude recorded total once", async () => {
   mocks.session.mockResolvedValue({ user: { id: "test" } });
   mocks.member.mockResolvedValue(true);
-  mocks.installs.mockResolvedValue({ claudeNative: 4, claudeKorza: 3 });
+  mocks.installs.mockResolvedValue({ claude: 7 });
   const html = renderToStaticMarkup(
     await PluginInstallUsage({ plugin: "humanizer" }),
   );
-  expect(html).toContain(">4</strong>");
-  expect(html).toContain(">3</strong>");
-  expect(html).not.toContain(">7</strong>");
-  expect(html).toContain("reported by Claude Code");
-  expect(html).toContain("Claude Code installs through Korza CLI");
-  expect(html).toContain("These counts can overlap");
+  expect(html.match(/>7<\/strong>/g)).toHaveLength(1);
+  expect(html).toContain("recorded installs via Claude Code");
+  expect(html).not.toContain("These counts can overlap");
 });
-it("shows the Korza-only Claude count when native reporting is unavailable", async () => {
+it("uses the singular label for one recorded Claude install", async () => {
   mocks.session.mockResolvedValue({ user: { id: "test" } });
   mocks.member.mockResolvedValue(true);
-  mocks.installs.mockResolvedValue({ claudeKorza: 1 });
+  mocks.installs.mockResolvedValue({ claude: 1 });
   const html = renderToStaticMarkup(
     await PluginInstallUsage({ plugin: "humanizer" }),
   );
   expect(html).toContain(">1</strong>");
-  expect(html).toContain("Claude Code install through Korza CLI");
-  expect(html).not.toContain("reported by Claude Code");
+  expect(html).toContain("recorded install via Claude Code");
+  expect(html).not.toContain("Codex");
 });
 
-it("renders exact large installation counts without rounding or combining sources", async () => {
+it("renders exact large installation counts without rounding or capping", async () => {
   mocks.session.mockResolvedValue({ user: { id: "test" } });
   mocks.member.mockResolvedValue(true);
   mocks.installs.mockResolvedValue({
-    claudeNative: "9007199254740993",
-    claudeKorza: "9007199254740992",
-    codexKorza: 1,
+    claude: "18014398509481985",
+    codex: "9007199254740993",
   });
   const html = renderToStaticMarkup(
     await PluginInstallUsage({ plugin: "superpowers" }),
   );
   expect(html).toContain(">9007199254740993</strong>");
-  expect(html).toContain(">9007199254740992</strong>");
-  expect(html).toContain("Claude Code installs through Korza CLI");
-  expect(html).toContain("Codex install through Korza CLI");
-  expect(html).toContain("These counts can overlap");
+  expect(html).toContain(">18014398509481985</strong>");
+  expect(html).toContain("recorded installs via Claude Code");
+  expect(html).toContain("recorded installs via Codex");
+  expect(html).not.toContain("These counts can overlap");
+});
+
+it("omits the widget when neither client has recorded installs", async () => {
+  mocks.session.mockResolvedValue({ user: { id: "test" } });
+  mocks.member.mockResolvedValue(true);
+  mocks.installs.mockResolvedValue({});
+  expect(await PluginInstallUsage({ plugin: "humanizer" })).toBeNull();
 });

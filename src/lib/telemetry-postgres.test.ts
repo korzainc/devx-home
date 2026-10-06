@@ -725,7 +725,7 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
       brainstorming: { codex: 97 },
     });
   });
-  it("stores replay-safe Claude installs without combining reporting sources", async () => {
+  it("retains replay-safe source rows and totals recorded installs per client", async () => {
     const credential = (await exchangeCode(
       db.pool,
       payload(await issueCode(db.pool, "telemetry-test-user", params)),
@@ -755,8 +755,7 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
     expect((await send()).status).toBe(200);
     expect(await readPluginInstalls("mattpocock-skills")).toEqual({
       ...before,
-      claudeNative: Number(before.claudeNative ?? 0) + 1,
-      claudeKorza: Number(before.claudeKorza ?? 0) + 1,
+      claude: Number(before.claude ?? 0) + 2,
     });
     const stored = await db.pool.query(
       "SELECT source, count(*)::int count FROM telemetry_events WHERE device_id=$1 GROUP BY source ORDER BY source",

@@ -1,5 +1,8 @@
 import { LocalSkillsPreviewNotice } from "@/components/local-skills-preview-notice";
-import { PluginInstallUsage } from "@/components/plugin-install-usage";
+import {
+  PluginInstallUsage,
+  PluginInstallUsageLoading,
+} from "@/components/plugin-install-usage";
 import { Suspense } from "react";
 import { PluginSkillsWithUsage } from "@/components/plugin-skills-with-usage";
 import type { Metadata } from "next";
@@ -121,7 +124,7 @@ export default async function PluginPage({
         </div>
       </div>
 
-      <Suspense fallback={null}>
+      <Suspense fallback={<PluginInstallUsageLoading />}>
         <PluginInstallUsage plugin={plugin.id} />
       </Suspense>
 
