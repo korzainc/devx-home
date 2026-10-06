@@ -4,7 +4,6 @@ export function isTelemetryPath(path: string) {
     "/api/telemetry/logs",
     "/api/telemetry/metrics",
     "/api/telemetry/enroll",
-    "/api/telemetry/exchange",
     "/api/telemetry/events",
     "/api/telemetry/revoke",
   ].includes(path);

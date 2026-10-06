@@ -22,10 +22,6 @@ const companyAuth = vi.hoisted(() =>
 vi.mock("./db", () => ({ getPool: () => db.pool }));
 vi.mock("./auth", () => ({ getAuth: companyAuth }));
 vi.mock("./membership", () => ({ isOrgMember: companyAuth }));
-vi.mock("./telemetry-membership", async (original) => ({
-  ...(await original<typeof import("./telemetry-membership")>()),
-  telemetryMembership: companyAuth,
-}));
 import { POST as enroll } from "../app/api/telemetry/enroll/route";
 import { POST as ingest } from "../app/api/telemetry/events/route";
 import { POST as revoke } from "../app/api/telemetry/revoke/route";
@@ -124,11 +120,10 @@ describe.skipIf(!configured)(
       ).toBe(0);
       const stored = (
         await db.pool.query(
-          "SELECT user_id,identity_kind,token_hash,expires_at>now() AND expires_at<=now()+interval '12 hours' AS bounded FROM telemetry_devices",
+          "SELECT identity_kind,token_hash,expires_at>now() AND expires_at<=now()+interval '12 hours' AS bounded FROM telemetry_devices",
         )
       ).rows[0];
       expect(stored).toMatchObject({
-        user_id: null,
         identity_kind: "consent",
         token_hash: tokenHash(bearer),
         bounded: true,
@@ -232,7 +227,7 @@ describe.skipIf(!configured)(
       const bearer = token();
       const device = await (await register(bearer)).json();
       await db.pool.query(
-        "INSERT INTO telemetry_devices(device_id,user_id,token_hash,expires_at,identity_kind) SELECT gen_random_uuid(),NULL,'cap-'||n,now()+interval '1 hour','consent' FROM generate_series(1,59) n",
+        "INSERT INTO telemetry_devices(device_id,token_hash,expires_at,identity_kind) SELECT gen_random_uuid(),'cap-'||n,now()+interval '1 hour','consent' FROM generate_series(1,59) n",
       );
       expect((await register(token())).status).toBe(429);
       expect((await register(bearer)).status).toBe(200);
@@ -269,6 +264,207 @@ describe.skipIf(!configured)(
           )
         ).rows[0].window_records,
       ).toBe(2);
+    });
+    it("rejects historical company tokens without relabelling history and still permits bearer cleanup", async () => {
+      const bearer = token();
+      const id = randomUUID();
+      await db.pool.query(
+        "INSERT INTO telemetry_devices(device_id,token_hash,expires_at,identity_kind) VALUES($1,$2,now()+interval '12 hours','github')",
+        [id, tokenHash(bearer)],
+      );
+      await db.pool.query(
+        "INSERT INTO telemetry_events(event_id,kind,occurred_at,plugin,device_id,identity_kind) VALUES('historical-company','plugin_installed',now(),'codezen',$1,'github')",
+        [id],
+      );
+      const before = (
+        await db.pool.query(
+          "SELECT * FROM telemetry_devices WHERE device_id=$1",
+          [id],
+        )
+      ).rows;
+      expect((await ingest(request("events", bearer, packet))).status).toBe(
+        401,
+      );
+      expect((await register(bearer)).status).toBe(401);
+      expect(
+        (
+          await enroll(
+            request("enroll", bearer, { consent: true, renew: true }),
+          )
+        ).status,
+      ).toBe(401);
+      expect(
+        (
+          await db.pool.query(
+            "SELECT * FROM telemetry_devices WHERE device_id=$1",
+            [id],
+          )
+        ).rows,
+      ).toEqual(before);
+      expect(
+        (
+          await db.pool.query(
+            "SELECT event_id,identity_kind FROM telemetry_events",
+          )
+        ).rows,
+      ).toEqual([{ event_id: "historical-company", identity_kind: "github" }]);
+      expect((await revoke(request("revoke", bearer))).status).toBe(204);
+      const removed = (
+        await db.pool.query(
+          "SELECT identity_kind,revoked_at FROM telemetry_devices WHERE device_id=$1",
+          [id],
+        )
+      ).rows;
+      expect(removed).toHaveLength(1);
+      expect(removed[0].identity_kind).toBe("github");
+      expect(removed[0].revoked_at).not.toBeNull();
+      expect(
+        (
+          await db.pool.query(
+            "SELECT event_id,identity_kind FROM telemetry_events",
+          )
+        ).rows,
+      ).toEqual([{ event_id: "historical-company", identity_kind: "github" }]);
+    });
+    it("rechecks consent provenance under the device lock before accepting any record", async () => {
+      const bearer = token();
+      const device = await (await register(bearer)).json();
+      const original = db.pool;
+      db.pool = {
+        query: original.query.bind(original),
+        connect: async () => {
+          await original.query(
+            "UPDATE telemetry_devices SET identity_kind='github' WHERE device_id=$1",
+            [device.device_id],
+          );
+          return original.connect();
+        },
+      } as unknown as pg.Pool;
+      try {
+        expect((await ingest(request("events", bearer, packet))).status).toBe(
+          401,
+        );
+        expect(
+          (
+            await original.query(
+              "SELECT window_records,identity_kind FROM telemetry_devices WHERE device_id=$1",
+              [device.device_id],
+            )
+          ).rows,
+        ).toEqual([{ window_records: 0, identity_kind: "github" }]);
+        for (const table of ["telemetry_events", "telemetry_skill_metrics"])
+          expect(
+            (await original.query(`SELECT count(*)::int total FROM ${table}`))
+              .rows,
+          ).toEqual([{ total: 0 }]);
+      } finally {
+        db.pool = original;
+      }
+    });
+    const ingestLock =
+      "SELECT device_id FROM telemetry_devices WHERE token_hash=$1 AND identity_kind='consent' AND revoked_at IS NULL AND expires_at > now() FOR UPDATE";
+    async function waitForBlockedQuery(sql: string) {
+      await expect
+        .poll(
+          async () =>
+            (
+              await admin.query(
+                "SELECT count(*)::int count FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query=$1",
+                [sql],
+              )
+            ).rows[0].count,
+          { timeout: 1000, interval: 10 },
+        )
+        .toBe(1);
+    }
+    it("commits an already locked consent batch before revocation and rejects every later batch", async () => {
+      const bearer = token();
+      const device = await (await register(bearer)).json();
+      const original = db.pool;
+      const locked = Promise.withResolvers<void>();
+      const proceed = Promise.withResolvers<void>();
+      db.pool = {
+        query: original.query.bind(original),
+        connect: async () => {
+          const client = await original.connect();
+          return {
+            query: async (sql: string, values?: unknown[]) => {
+              const result = await client.query(sql, values);
+              if (sql === ingestLock) {
+                locked.resolve();
+                await proceed.promise;
+              }
+              return result;
+            },
+            release: () => client.release(),
+          };
+        },
+      } as unknown as pg.Pool;
+      const batch = ingest(request("events", bearer, packet));
+      let removal: Promise<Response> | undefined;
+      try {
+        await locked.promise;
+        removal = revoke(request("revoke", bearer));
+        await waitForBlockedQuery(
+          "SELECT device_id FROM telemetry_devices WHERE token_hash=$1 FOR UPDATE",
+        );
+        proceed.resolve();
+        expect((await batch).status).toBe(200);
+        expect((await removal).status).toBe(204);
+        expect((await ingest(request("events", bearer, packet))).status).toBe(
+          401,
+        );
+        for (const table of ["telemetry_events", "telemetry_skill_metrics"])
+          expect(
+            (
+              await original.query(
+                `SELECT count(*)::int total FROM ${table} WHERE device_id=$1`,
+                [device.device_id],
+              )
+            ).rows,
+          ).toEqual([{ total: 1 }]);
+      } finally {
+        proceed.resolve();
+        await Promise.allSettled([batch, ...(removal ? [removal] : [])]);
+        db.pool = original;
+      }
+    });
+    it("rejects an entire consent batch when revocation acquires the device lock first", async () => {
+      const bearer = token();
+      const device = await (await register(bearer)).json();
+      const remover = await db.pool.connect();
+      await remover.query("BEGIN");
+      await remover.query(
+        "UPDATE telemetry_devices SET revoked_at=now() WHERE device_id=$1",
+        [device.device_id],
+      );
+      const batch = ingest(request("events", bearer, packet));
+      try {
+        await waitForBlockedQuery(ingestLock);
+        await remover.query("COMMIT");
+        expect((await batch).status).toBe(401);
+        for (const table of ["telemetry_events", "telemetry_skill_metrics"])
+          expect(
+            (
+              await db.pool.query(
+                `SELECT count(*)::int total FROM ${table} WHERE device_id=$1`,
+                [device.device_id],
+              )
+            ).rows,
+          ).toEqual([{ total: 0 }]);
+        expect(
+          (
+            await db.pool.query(
+              "SELECT window_records FROM telemetry_devices WHERE device_id=$1",
+              [device.device_id],
+            )
+          ).rows,
+        ).toEqual([{ window_records: 0 }]);
+      } finally {
+        await remover.query("ROLLBACK");
+        remover.release();
+        await Promise.allSettled([batch]);
+      }
     });
   },
 );

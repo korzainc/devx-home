@@ -29,8 +29,7 @@ connection. Follow [AGENTS.md](AGENTS.md) for access and database constraints;
 do not overwrite `.env.local` or provision a replacement database.
 
 Use the same host in `BETTER_AUTH_URL` and the GitHub App callback URL.
-Local login and telemetry consent redirect loopback aliases to that host before
-sign-in starts. A stale form on another alias is rejected instead of creating an
+Local login redirects loopback aliases to that host before sign-in starts. A stale form on another alias is rejected instead of creating an
 OAuth state cookie that the callback cannot read. Existing sessions are retained.
 
 `pnpm vercel-build` runs migrations only when `VERCEL_ENV=production`, then
@@ -180,17 +179,16 @@ Apply `0004_usage_monitoring.sql` before enabling
 `DATABASE_URL_UNPOOLED`. Never edit `.env.local` for this rollout. The flag defaults off;
 the earlier `/api/telemetry/logs` and `/metrics` pilot remains development-only.
 
-Choose the server's enrollment policy explicitly:
+Monitoring uses the CLI's explicit sharing choice and a private device key. It
+needs no company sign-in or GitHub App credentials; a device key proves an
+installation, not membership. Portal sign-in and viewing access are unchanged.
+`GET /api/telemetry/enroll` advertises `{mode:"consent"}`. The enrollment mode may
+be unset or `TELEMETRY_ENROLLMENT_MODE=consent`. Explicit obsolete `github` or
+unknown values fail closed: discovery returns 503, enrollment is refused, and
+uploads stop. An explicitly company-only deployment is never silently made public.
+Bearer revocation remains available for cleanup while collection is enabled.
 
-- `TELEMETRY_ENROLLMENT_MODE=consent`: the CLI saves the user's sharing choice.
-  No company sign-in or GitHub App credentials are needed. A private device token
-  still protects uploads and revocation; it proves an installation, not membership.
-- `TELEMETRY_ENROLLMENT_MODE=github` (default): retain company sign-in below.
-  This mode needs `BETTER_AUTH_SECRET` and the approved GitHub App configuration.
-- Unknown modes fail closed. Changing to GitHub mode stops consent-only uploads;
-  existing company devices always retain their membership checks.
-
-The CLI reads `GET /api/telemetry/enroll`, then in consent mode sends
+The CLI reads `GET /api/telemetry/enroll`, then sends
 `POST /api/telemetry/enroll` with `{consent:true}` and its private random bearer.
 The server stores only its hash and returns `{device_id,expires_at,mode}`.
 Repeated requests renew the same device for 12 hours, preserving deduplication.
@@ -202,78 +200,33 @@ Each consent device may submit at most 5,000 records per minute; HTTP 429 retain
 the CLI queue for retry. These limits bound traffic, not the truth of self-reported
 activity. Deployment-level abuse protection and retention remain rollout work.
 
-Consent devices have no user account. Event and metric rows preserve their
-`identity_kind` (`consent`, `github`, or historical `legacy`). Recorded totals
-are self-reported, including installations without company sign-in; they are not
-verified employee adoption. Portal viewing access remains unchanged.
-
-### Optional company sign-in
-
-The GitHub credentials must belong to the approved `korza-devx` App installed
-on `korzainc`, with repository access for the signing-in user. Replacing a local
-test App's credentials does not convert its stored GitHub user token. Acceptance
-requires a grant from the approved App, a process restart and a matching callback
-URL. Keep `BETTER_AUTH_SECRET` stable so existing encrypted tokens remain readable.
-Changing the GitHub App credentials does not revoke issued telemetry credentials;
-revoke those separately when needed.
-
-The CLI opens `/telemetry/connect` with `redirect_uri`, `state`,
-`code_challenge` and `code_challenge_method=S256`. Browser consent requires a
-session, same-origin CSRF protection and fresh Korza App access verification.
-Only `http://127.0.0.1:<port>/callback` is accepted. The returned code expires
-after 60 seconds and can be exchanged once at `/api/telemetry/exchange` using
-`{code, code_verifier, redirect_uri}`. The response contains
-`{token, device_id, expires_at}`. Device credentials expire within 12 hours;
-renewal requires another browser authorization. The CLI sends its existing
-`device_id` in the connection request when renewing. Home verifies ownership
-and rotates the token on that same device, preserving cumulative counter
-deduplication and pending event identity. Only credential hashes are stored.
-Ingestion rechecks the same approved GitHub App access policy using the device
-owner's stored provider account. Positive access is cached for at most five
-minutes; removal can therefore take up to five minutes to be observed. A
-confirmed denial atomically revokes that owner's devices and pending authorization
-codes. Code issuance and exchange serialize with removal under the user row lock,
-so an old grant cannot revive a removed member's device. The
-receiver rechecks membership and device status under shared row locks before
-writing a batch. Missing or ambiguous GitHub accounts, empty tokens and provider
-outages return 503 without changing membership or revoking devices, so the collector retains queued
-counts; they never fall back to a stale positive verdict. Cache freshness uses the
-database clock. If the cache expires before ingestion acquires its lock, the
-receiver also returns 503 so the collector retries without asking for new consent.
-Once a consent form is verified, denied access returns `error=access_denied`
-to the CLI callback. Provider or storage failures return
-`error=temporarily_unavailable`, including when locked stored membership cannot
-confirm the positive verdict. No grant is issued, and the CLI can end the wait
-with a retry message. Invalid origin, session or CSRF requests never redirect
-to a supplied callback.
-Provider verification
-has a ten-second wait budget and shares an in-flight refresh per owner. Better
-Auth may finish its own token refresh after that deadline; the timed-out request
-writes no membership verdict or usage. The 12-hour device
-expiry and explicit browser renewal remain unchanged.
-Expired codes are removed in batches of at most 1,000 during issuance.
+Devices have no user account. Existing company device keys are rejected at
+enrollment and both ingestion checks; they are never relabelled as consent.
+Event and metric rows retain their `identity_kind` provenance, including
+historical `github` and `legacy` rows. Recorded totals remain self-reported,
+including installations without company sign-in; they are not verified employee
+adoption. Company browser authorization, code exchange and browser device
+management are no longer part of monitoring.
 
 `POST /api/telemetry/events` accepts bearer-authenticated normalized
 `{events, metrics}` batches, at most 1,000 records and 256 KiB. Unknown fields,
 plugins outside the shared catalogue approval list and invalid client/source combinations are rejected. IDs are
 scoped to the device for retry deduplication. No raw OTLP attributes, prompts,
-tool arguments, email or paths are accepted. Browser revocation lives at
-`/telemetry/devices`; the CLI uses idempotent bearer `POST /api/telemetry/revoke`.
+tool arguments, email or paths are accepted. The CLI uses idempotent bearer
+`POST /api/telemetry/revoke`, including cleanup of historical company keys.
 Revocation does not delete recorded counts or their device history.
 Korza-assisted install counts also cover the CLI's opt-in terminal command
 wrappers. Home combines install reports per client while retaining each report’s
 source in the database.
 Wrappers do not repair official Codex's in-session install reporting.
-The connected-devices page paginates retained history, so an older renewed device
-remains reachable for browser revocation.
-An expired or invalid revocation form shows a reload link; it never revokes a
-device without valid CSRF protection. HTML forms use a same-origin referrer
-policy so browsers supply an origin on submission; redirects retain no-referrer.
-
 The monitoring migration creates the tables and their read indexes together.
 Run it before collecting usage; the earlier authentication migrations are unchanged.
-If an older PR version was applied locally, preserve that database and use a fresh
-one for migration checks. The consolidated migration does not rewrite its ledger.
+Monitoring migrations were applied only to local/test databases. This unreleased
+consolidated migration has been revised to remove company-only storage. Preserve
+older databases and use a fresh database for this migration; the runner refuses
+changed checksums and must never have its existing ledger rewritten. The retained
+consent handlers also reject company keys in an older schema without relabelling
+or deleting its history.
 
 Database connection acquisition is bounded to five seconds, including a wait for
 an available pooled connection. Usage queries retain their one-second query
@@ -309,25 +262,25 @@ Metric points must be non-negative safe integers (at most 9,007,199,254,740,991)
 Aggregates retain exact decimal digits above that range. This numeric limit
 prevents invalid values, not inflated client reports. Consent devices are limited
 to 5,000 records per minute; this limits traffic, not claimed cumulative values.
-Company-device quotas and limits on self-reported values still need an agreed
-policy. The receiver does not silently clamp cumulative counters.
+Limits on self-reported values still need an agreed policy. The receiver does not silently clamp cumulative counters.
 Retention and deletion policy also remain prerequisites for activation; revocation
 stops new uploads but retains existing counts. Telemetry route diagnostics contain
 only the operation, processing stage and HTTP status, excluding errors and request data.
 
-Validation separates production identity acceptance from protocol evidence:
+Validation separates protocol evidence from real client and deployment acceptance:
 
-- Unit tests cover callback/PKCE/CSRF validation, fresh membership failure,
+- Unit tests cover device bearer checks, explicit consent, rollout/Preview gates,
   strict normalized records and packet bounds.
-- `TEST_TELEMETRY_DATABASE_URL=<local PostgreSQL URL> pnpm exec vitest run src/lib/telemetry-postgres.test.ts`
-  creates and removes a unique schema, checks migration reruns and bounded
-  cleanup, and tests atomic exchange, replay/expiry, deduplication and revocation
-  with actual PostgreSQL and loopback HTTP. It refuses remote database hosts.
-  Browser identity is substituted only in this test harness.
-- CI runs that PostgreSQL/HTTP suite against the migration job's disposable
-  database, in addition to the default unit suite. Connection-string overrides
-  are rejected by the harness before opening a database connection.
-- Real GitHub sign-in, fresh company access, browser consent through the Next
-  proxy and the eventual deployment still need an authorized-user acceptance
-  test. Passing the harness does not establish that a future credential or
-  environment change will work.
+- `TEST_TELEMETRY_DATABASE_URL=<local PostgreSQL URL> pnpm exec vitest run src/lib/telemetry-postgres.test.ts src/lib/telemetry-consent-postgres.test.ts`
+  creates and removes unique schemas, checks migration reruns and read indexes,
+  and tests enrollment, renewal, quotas, deduplication, exact counts, revocation
+  races and historical company-key rejection using actual PostgreSQL. The first
+  suite also exercises the retained routes over loopback HTTP. Both refuse remote
+  database hosts and connection-string overrides before opening a connection.
+  No company identity is substituted; the HTTP adapter substitutes only Next's
+  request-context marker.
+- CI runs both PostgreSQL suites against the migration job's disposable database,
+  in addition to the default unit suite.
+- Real native client delivery and the eventual deployment still need acceptance.
+  Ordinary portal GitHub sign-in and member-only viewing remain separate checks;
+  passing a device-protocol harness does not validate that browser login.

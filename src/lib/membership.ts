@@ -74,42 +74,18 @@ async function tokenFor(headers: Headers): Promise<string | null> {
   return accessToken ?? null;
 }
 
-export async function storeMembership(userId: string, orgMember: boolean) {
-  const pool = getPool();
-  const verdict =
-    'UPDATE "user" SET "orgMember"=$1,"orgCheckedAt"=now() WHERE id=$2';
-  if (orgMember) {
-    await pool.query(verdict, [true, userId]);
-    return;
-  }
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    await client.query("SET LOCAL statement_timeout = '3s'");
-    // Match issuance, exchange and ingestion: user, then devices, then grants.
-    // Removal cancels initial grants too, which do not yet have a device.
-    await client.query(verdict, [false, userId]);
-    await client.query(
-      "UPDATE telemetry_devices SET revoked_at=coalesce(revoked_at,now()) WHERE user_id=$1",
-      [userId],
-    );
-    await client.query("DELETE FROM telemetry_codes WHERE user_id=$1", [
-      userId,
-    ]);
-    await client.query("COMMIT");
-  } catch (error) {
-    await client.query("ROLLBACK").catch(() => {});
-    throw error;
-  } finally {
-    client.release();
-  }
+async function store(userId: string, orgMember: boolean) {
+  await getPool().query(
+    `update "user" set "orgMember" = $1, "orgCheckedAt" = now() where "id" = $2`,
+    [orgMember, userId],
+  );
 }
 
 /**
  * Whether this user may pass the gate, asking GitHub if the stored answer has gone stale.
  *
- * The page gate never throws. Fresh consent checks can request provider errors separately so
- * an unavailable provider is not reported as a membership denial.
+ * Never throws. The gate calls this on every request, and an exception here would be a 500 on
+ * every page rather than a decision.
  *
  * The failure rule is the part worth reading. When GitHub cannot answer, a previously confirmed
  * member is let through and nothing is written, so a rate limit or an outage costs nobody their
@@ -119,11 +95,9 @@ export async function storeMembership(userId: string, orgMember: boolean) {
 export async function isOrgMember(
   headers: Headers,
   user: { id: string } & StoredMembership,
-  options: { fresh?: boolean; throwOnError?: boolean } = {},
 ): Promise<boolean> {
   const maxAge = user.orgMember ? RECHECK_AFTER_MS : RETRY_DENIED_AFTER_MS;
-  if (!options.fresh && isFresh(user.orgCheckedAt, maxAge))
-    return user.orgMember;
+  if (isFresh(user.orgCheckedAt, maxAge)) return user.orgMember;
 
   try {
     const token = await tokenFor(headers);
@@ -135,13 +109,12 @@ export async function isOrgMember(
     // Storing is a cache write, not the verdict. Letting a failed write reach the catch below
     // would discard an answer GitHub had just given and fall back to the stale one, which for
     // somebody removed from the organisation means returning the yes they used to have.
-    await storeMembership(user.id, member).catch((error) =>
+    await store(user.id, member).catch((error) =>
       console.error("The gate reached a verdict it could not store.", error),
     );
     return member;
   } catch (error) {
-    if (options.throwOnError) throw error;
     console.error("The gate could not check organisation membership.", error);
-    return options.fresh ? false : user.orgMember;
+    return user.orgMember;
   }
 }

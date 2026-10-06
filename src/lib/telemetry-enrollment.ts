@@ -7,9 +7,10 @@ import { usageCollectionEnabled } from "./collection-scope";
 
 const headers = { "cache-control": "no-store" };
 const response = (status: number) => new Response(null, { status, headers });
-export function telemetryEnrollmentMode(): "consent" | "github" | undefined {
-  const mode = process.env.TELEMETRY_ENROLLMENT_MODE ?? "github";
-  return mode === "consent" || mode === "github" ? mode : undefined;
+export function telemetryEnrollmentMode(): "consent" | undefined {
+  const mode = process.env.TELEMETRY_ENROLLMENT_MODE ?? "consent";
+  // Do not silently activate an explicitly company-only or unknown deployment.
+  return mode === "consent" ? mode : undefined;
 }
 const enabled = () =>
   process.env.TELEMETRY_ENABLED === "1" && usageCollectionEnabled();
@@ -96,7 +97,7 @@ export async function enrollmentPost(request: Request) {
         });
       }
       saved = await client.query(
-        "INSERT INTO telemetry_devices(device_id,user_id,token_hash,expires_at,identity_kind) VALUES($1,NULL,$2,now()+interval '12 hours','consent') RETURNING device_id,expires_at",
+        "INSERT INTO telemetry_devices(device_id,token_hash,expires_at,identity_kind) VALUES($1,$2,now()+interval '12 hours','consent') RETURNING device_id,expires_at",
         [randomUUID(), hash],
       );
     }

@@ -31,10 +31,12 @@ it("advertises consent only when explicitly enabled and never caches policy", as
   expect(await enrollmentGet().json()).toEqual({ mode: "consent" });
   expect(enrollmentGet().headers.get("cache-control")).toBe("no-store");
   vi.stubEnv("TELEMETRY_ENROLLMENT_MODE", undefined);
-  expect(await enrollmentGet().json()).toEqual({ mode: "github" });
-  expect((await enrollmentPost(request())).status).toBe(404);
-  vi.stubEnv("TELEMETRY_ENROLLMENT_MODE", "typo");
-  expect(enrollmentGet().status).toBe(503);
+  expect(await enrollmentGet().json()).toEqual({ mode: "consent" });
+  for (const mode of ["github", "typo"]) {
+    vi.stubEnv("TELEMETRY_ENROLLMENT_MODE", mode);
+    expect(enrollmentGet().status).toBe(503);
+    expect((await enrollmentPost(request())).status).toBe(404);
+  }
   vi.stubEnv("TELEMETRY_ENROLLMENT_MODE", "consent");
   vi.stubEnv("TELEMETRY_ENABLED", "0");
   expect(enrollmentGet().status).toBe(404);

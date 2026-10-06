@@ -1,64 +1,30 @@
 // Opt-in real PostgreSQL evidence. Runs in a unique schema and refuses remote databases.
-// getPool points production handlers at that real schema. The HTTP consent test substitutes
-// only session/membership identity at the test boundary; real GitHub/browser acceptance is separate.
+// Framework request context is substituted only for the loopback HTTP adapter; no company identity is used.
 import { beforeAll, afterAll, describe, expect, it, vi } from "vitest";
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import pg from "pg";
 import { createServer } from "node:http";
 import { Readable } from "node:stream";
 import { localTelemetryTestDatabase } from "../test/telemetry-database";
-import {
-  issueCode,
-  exchangeCode,
-  pkceChallenge,
-  tokenHash,
-  consentToken,
-  revokeCredentials,
-  MembershipRequiredError,
-  type TransactionPool,
-} from "./telemetry-auth";
 const db = vi.hoisted(() => ({ pool: null as unknown as pg.Pool }));
 vi.mock("./db", () => ({ getPool: () => db.pool }));
-const identity = vi.hoisted(() => ({
-  member: true,
-  token: "fixture-github-token" as string | null,
-}));
-vi.mock("./auth", () => ({
-  getAuth: () => ({
-    api: {
-      getAccessToken: async () => ({ accessToken: identity.token }),
-      getSession: async ({ headers }: { headers: Headers }) =>
-        headers.get("cookie") === "fixture_session=authorized"
-          ? {
-              user: { id: "telemetry-test-user", orgMember: true },
-              session: { id: "fixture-browser-session" },
-            }
-          : null,
-    },
+vi.mock("next/server", () => ({ connection: async () => {} }));
+const companyAuth = vi.hoisted(() =>
+  vi.fn(() => {
+    throw Error("Company auth must not run");
   }),
-}));
-vi.mock("./membership", async (original) => ({
-  ...(await original<typeof import("./membership")>()),
-  isOrgMember: async () => identity.member,
-}));
+);
+vi.mock("./auth", () => ({ getAuth: companyAuth }));
+vi.mock("./membership", () => ({ isOrgMember: companyAuth }));
 import {
-  GET as connectGET,
-  POST as connectPOST,
-} from "../app/telemetry/connect/route";
-import { POST as exchangePOST } from "../app/api/telemetry/exchange/route";
+  GET as enrollGET,
+  POST as enrollPOST,
+} from "../app/api/telemetry/enroll/route";
 import { POST as eventsPOST } from "../app/api/telemetry/events/route";
 import { POST as revokePOST } from "../app/api/telemetry/revoke/route";
-import {
-  receiveEvents,
-  revokeDevice,
-  devicesGet,
-  devicesPost,
-} from "./telemetry-http";
-import { storeMembership } from "./membership";
-vi.mock("./org", () => ({ fetchOrgMembership: async () => identity.member }));
-import { telemetryMembership } from "./telemetry-membership";
+import { receiveEvents, revokeDevice } from "./telemetry-http";
 import { readPluginInstalls, readSkillUsage } from "./skill-usage";
 import { filterMetrics } from "./telemetry-metrics";
 import { recordAnalysisRun, readAnalysisUsage } from "./analysis-usage";
@@ -69,23 +35,20 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
   let admin: pg.Pool;
   let connection: string;
   let created = false;
-  const verifier = "v".repeat(43);
-  const params = {
-    redirect_uri: "http://127.0.0.1:49152/callback",
-    state: "s".repeat(43),
-    code_challenge: pkceChallenge(verifier),
-  };
-  const payload = (code: string, changes = {}) => ({
-    code,
-    code_verifier: verifier,
-    redirect_uri: params.redirect_uri,
-    ...changes,
-  });
   async function freshDevice() {
-    return (await exchangeCode(
-      db.pool,
-      payload(await issueCode(db.pool, "telemetry-test-user", params)),
-    ))!;
+    const token = "korza_" + randomBytes(32).toString("base64url");
+    const response = await enrollPOST(
+      new Request("http://localhost/api/telemetry/enroll", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ consent: true }),
+      }),
+    );
+    expect(response.status).toBe(200);
+    return { token, ...(await response.json()) };
   }
   const eventRequest = (
     token: string,
@@ -99,28 +62,6 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
       },
       body: typeof body === "string" ? body : JSON.stringify(body),
     });
-  function pauseQuery(match: (sql: string) => boolean) {
-    const source = db.pool;
-    const reached = Promise.withResolvers<void>();
-    const proceed = Promise.withResolvers<void>();
-    const pool: TransactionPool = {
-      connect: async () => {
-        const client = await source.connect();
-        return {
-          query: async (sql, values) => {
-            const result = await client.query(sql, values);
-            if (match(sql)) {
-              reached.resolve();
-              await proceed.promise;
-            }
-            return result;
-          },
-          release: () => client.release(),
-        };
-      },
-    };
-    return { pool, reached: reached.promise, resume: proceed.resolve };
-  }
   beforeAll(async () => {
     const url = localTelemetryTestDatabase(configured!);
     admin = new pg.Pool({ connectionString: url.toString() });
@@ -132,18 +73,12 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
     await run(process.execPath, ["scripts/migrate.mjs"], {
       env: { ...process.env, DATABASE_URL_UNPOOLED: connection },
     });
-    await db.pool.query(
-      `INSERT INTO "user"(id,name,email,"emailVerified","orgMember","orgCheckedAt") VALUES('telemetry-test-user','test','test@example.invalid',false,true,now())`,
-    );
     vi.stubEnv("TELEMETRY_ENABLED", "1");
+    vi.stubEnv("TELEMETRY_ENROLLMENT_MODE", undefined);
     vi.stubEnv("KORZA_LOCAL_USAGE", "1");
     vi.stubEnv("DATABASE_URL", connection);
     vi.stubEnv("VERCEL", "");
     vi.stubEnv("VERCEL_ENV", "");
-    vi.stubEnv(
-      "BETTER_AUTH_SECRET",
-      "isolated-test-only-secret-not-a-real-session-key",
-    );
   }, 20000);
   afterAll(async () => {
     vi.unstubAllEnvs();
@@ -156,6 +91,7 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
         await admin.end();
       }
     }
+    expect(companyAuth).not.toHaveBeenCalled();
   });
   it("records analysis submissions once per run and counts distinct repositories", async () => {
     expect(await readAnalysisUsage()).toEqual({ runs: 0, repositories: 0 });
@@ -177,285 +113,6 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
     await recordAnalysisRun(randomUUID(), undefined);
     await recordAnalysisRun(randomUUID(), -1);
     expect(await readAnalysisUsage()).toEqual({ runs: 3, repositories: 2 });
-  });
-  it("cleans at most 1000 expired grants per issuance and preserves live grants", async () => {
-    const live = await issueCode(db.pool, "telemetry-test-user", params);
-    await db.pool.query(
-      "INSERT INTO telemetry_codes(code_hash,user_id,code_challenge,redirect_uri,expires_at) SELECT 'cleanup-'||n,'telemetry-test-user',$1,$2,now()-interval '1 day' FROM generate_series(1,1002) n",
-      [params.code_challenge, params.redirect_uri],
-    );
-    await issueCode(db.pool, "telemetry-test-user", params);
-    const expired = await db.pool.query(
-      "SELECT count(*)::int total FROM telemetry_codes WHERE code_hash LIKE 'cleanup-%'",
-    );
-    expect(expired.rows[0].total).toBe(2);
-    const retained = await db.pool.query(
-      "SELECT code_hash FROM telemetry_codes WHERE code_hash=$1",
-      [tokenHash(live)],
-    );
-    expect(retained.rows).toHaveLength(1);
-    await db.pool.query(
-      "DELETE FROM telemetry_codes WHERE code_hash LIKE 'cleanup-%'",
-    );
-  });
-  it("renews the owned device, invalidates its old token and preserves cumulative deduplication", async () => {
-    const first = await freshDevice();
-    const packet = {
-      events: [],
-      metrics: [
-        {
-          id: "d".repeat(64),
-          value: 7,
-          temporality: 2,
-          plugin: "codezen",
-          skill: "brainstorm",
-          invokeType: null,
-        },
-      ],
-    };
-    const request = (token: string) => eventRequest(token, packet);
-    expect((await receiveEvents(request(first.token))).status).toBe(200);
-    const code = await issueCode(db.pool, "telemetry-test-user", {
-      ...params,
-      device_id: first.device_id,
-    });
-    const renewed = (await exchangeCode(db.pool, payload(code)))!;
-    expect(renewed.device_id).toBe(first.device_id);
-    expect(renewed.token).not.toBe(first.token);
-    expect((await receiveEvents(request(first.token))).status).toBe(401);
-    expect((await receiveEvents(request(renewed.token))).status).toBe(200);
-    const { rows } = await db.pool.query(
-      "SELECT sum(value)::int total FROM telemetry_skill_metrics WHERE device_id=$1",
-      [first.device_id],
-    );
-    expect(rows[0].total).toBe(7);
-    await db.pool.query(
-      `INSERT INTO "user"(id,name,email,"emailVerified","orgMember") VALUES('different-user','test','other@example.invalid',false,true)`,
-    );
-    await expect(
-      issueCode(db.pool, "different-user", {
-        ...params,
-        device_id: first.device_id,
-      }),
-    ).rejects.toThrow("Device does not belong to this user");
-    // A revoked device may be explicitly authorized again by the same owner.
-    expect((await revokeDevice(request(renewed.token))).status).toBe(204);
-    const restored = (await exchangeCode(
-      db.pool,
-      payload(
-        await issueCode(db.pool, "telemetry-test-user", {
-          ...params,
-          device_id: first.device_id,
-        }),
-      ),
-    ))!;
-    expect(restored.device_id).toBe(first.device_id);
-    expect((await receiveEvents(request(restored.token))).status).toBe(200);
-    await db.pool.query(
-      "DELETE FROM telemetry_skill_metrics WHERE device_id=$1",
-      [first.device_id],
-    );
-  });
-  it.each(["bearer", "browser"])(
-    "%s revocation invalidates outstanding renewal codes but permits fresh consent",
-    async (route) => {
-      const first = await freshDevice();
-      const renewal = { ...params, device_id: first.device_id };
-      const stale = await Promise.all([
-        issueCode(db.pool, "telemetry-test-user", renewal),
-        issueCode(db.pool, "telemetry-test-user", renewal),
-      ]);
-      if (route === "bearer") {
-        expect((await revokeDevice(eventRequest(first.token))).status).toBe(
-          204,
-        );
-      } else {
-        const csrf = consentToken(
-          {
-            redirect_uri: "revoke",
-            state: first.device_id,
-            code_challenge: "",
-          },
-          "fixture-browser-session",
-          process.env.BETTER_AUTH_SECRET!,
-        );
-        expect(
-          (
-            await devicesPost(
-              new Request("http://localhost/telemetry/devices", {
-                method: "POST",
-                headers: {
-                  origin: "http://localhost",
-                  cookie: "fixture_session=authorized",
-                },
-                body: new URLSearchParams({ device_id: first.device_id, csrf }),
-              }),
-            )
-          ).status,
-        ).toBe(303);
-      }
-      for (const code of stale)
-        expect(await exchangeCode(db.pool, payload(code))).toBeNull();
-      expect((await receiveEvents(eventRequest(first.token))).status).toBe(401);
-      const revoked = await db.pool.query(
-        "SELECT revoked_at FROM telemetry_devices WHERE device_id=$1",
-        [first.device_id],
-      );
-      expect(revoked.rows[0].revoked_at).not.toBeNull();
-      const restored = (await exchangeCode(
-        db.pool,
-        payload(await issueCode(db.pool, "telemetry-test-user", renewal)),
-      ))!;
-      expect(restored.device_id).toBe(first.device_id);
-      expect((await receiveEvents(eventRequest(restored.token))).status).toBe(
-        200,
-      );
-      expect((await receiveEvents(eventRequest(first.token))).status).toBe(401);
-    },
-  );
-  it("revocation also cancels a renewal issued while it waits for the device lock", async () => {
-    const first = await freshDevice();
-    const paused = pauseQuery(
-      (sql) => sql.startsWith("SELECT device_id") && sql.endsWith("FOR UPDATE"),
-    );
-    const issuance = issueCode(paused.pool, "telemetry-test-user", {
-      ...params,
-      device_id: first.device_id,
-    });
-    let revocation: Promise<boolean> | undefined;
-    try {
-      await paused.reached;
-      const revoker = await db.pool.connect();
-      const { rows } = await revoker.query("SELECT pg_backend_pid() AS pid");
-      revocation = revokeCredentials(
-        { connect: async () => revoker },
-        { tokenHash: tokenHash(first.token) },
-      );
-      await expect
-        .poll(
-          async () => {
-            const activity = await admin.query(
-              "SELECT wait_event_type FROM pg_stat_activity WHERE pid=$1",
-              [rows[0].pid],
-            );
-            return activity.rows[0]?.wait_event_type;
-          },
-          { timeout: 1000, interval: 10 },
-        )
-        .toBe("Lock");
-      // Issuance holds the device row until its code is stored. Revocation must observe that
-      // newly committed code when it acquires the row, even if its first snapshot predates it.
-      paused.resume();
-      const code = await issuance;
-      expect(await revocation).toBe(true);
-      expect(await exchangeCode(db.pool, payload(code))).toBeNull();
-      expect((await receiveEvents(eventRequest(first.token))).status).toBe(401);
-    } finally {
-      paused.resume();
-      await Promise.allSettled([issuance, ...(revocation ? [revocation] : [])]);
-    }
-  });
-  it("an exchange that already read a grant cannot revive a subsequently revoked device", async () => {
-    const first = await freshDevice();
-    const code = await issueCode(db.pool, "telemetry-test-user", {
-      ...params,
-      device_id: first.device_id,
-    });
-    const paused = pauseQuery((sql) =>
-      sql.startsWith("SELECT user_id,device_id"),
-    );
-    const exchange = exchangeCode(paused.pool, payload(code));
-    try {
-      await paused.reached;
-      expect(
-        await revokeCredentials(db.pool, {
-          deviceId: first.device_id,
-          userId: "telemetry-test-user",
-        }),
-      ).toBe(true);
-      paused.resume();
-      expect(await exchange).toBeNull();
-      expect((await receiveEvents(eventRequest(first.token))).status).toBe(401);
-    } finally {
-      paused.resume();
-      await Promise.allSettled([exchange]);
-    }
-  });
-  it("a failed revocation preserves both the device and outstanding consent atomically", async () => {
-    const first = await freshDevice();
-    const code = await issueCode(db.pool, "telemetry-test-user", {
-      ...params,
-      device_id: first.device_id,
-    });
-    const failingPool: TransactionPool = {
-      connect: async () => {
-        const client = await db.pool.connect();
-        return {
-          query: async (sql, values) => {
-            if (sql.startsWith("DELETE FROM telemetry_codes"))
-              throw Error("injected code invalidation failure");
-            return client.query(sql, values);
-          },
-          release: () => client.release(),
-        };
-      },
-    };
-    await expect(
-      revokeCredentials(failingPool, { tokenHash: tokenHash(first.token) }),
-    ).rejects.toThrow("injected code invalidation failure");
-    expect((await receiveEvents(eventRequest(first.token))).status).toBe(200);
-    expect(await exchangeCode(db.pool, payload(code))).not.toBeNull();
-  });
-  it("another owner cannot revoke a device or invalidate its pending consent", async () => {
-    const first = await freshDevice();
-    const code = await issueCode(db.pool, "telemetry-test-user", {
-      ...params,
-      device_id: first.device_id,
-    });
-    expect(
-      await revokeCredentials(db.pool, {
-        deviceId: first.device_id,
-        userId: "another-owner",
-      }),
-    ).toBe(false);
-    expect((await receiveEvents(eventRequest(first.token))).status).toBe(200);
-    expect(await exchangeCode(db.pool, payload(code))).not.toBeNull();
-  });
-  it("rejects stolen, wrong-PKCE, expired and replayed codes using real atomic SQL", async () => {
-    const code = await issueCode(db.pool, "telemetry-test-user", params);
-    expect(
-      await exchangeCode(
-        db.pool,
-        payload(code, { code_verifier: "w".repeat(43) }),
-      ),
-    ).toBeNull();
-    expect(
-      await exchangeCode(
-        db.pool,
-        payload(code, { redirect_uri: "http://127.0.0.1:49200/callback" }),
-      ),
-    ).toBeNull();
-    const attempts = await Promise.all([
-      exchangeCode(db.pool, payload(code)),
-      exchangeCode(db.pool, payload(code)),
-    ]);
-    expect(attempts.filter(Boolean)).toHaveLength(1);
-    expect(await exchangeCode(db.pool, payload(code))).toBeNull();
-    const expired = await issueCode(db.pool, "telemetry-test-user", params);
-    await db.pool.query(
-      "UPDATE telemetry_codes SET expires_at=now()-interval '1 second' WHERE code_hash=$1",
-      [tokenHash(expired)],
-    );
-    expect(await exchangeCode(db.pool, payload(expired))).toBeNull();
-    const credential = attempts.find(Boolean)!;
-    const { rows } = await db.pool.query(
-      "SELECT token_hash,expires_at FROM telemetry_devices WHERE device_id=$1",
-      [credential.device_id],
-    );
-    expect(rows[0].token_hash).toBe(tokenHash(credential.token));
-    expect(
-      new Date(rows[0].expires_at).getTime() - Date.now(),
-    ).toBeLessThanOrEqual(12 * 60 * 60 * 1000);
   });
   it("deduplicates retries and separates devices; revocation and expiry immediately reject ingest", async () => {
     const first = await freshDevice();
@@ -505,15 +162,10 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
     expect((await receiveEvents(request(second.token))).status).toBe(401);
     expect((await revokeDevice(request(second.token))).status).toBe(204);
   });
-  it("serves consent, code exchange, normalized ingestion and revocation over real HTTP", async () => {
-    vi.stubEnv(
-      "BETTER_AUTH_SECRET",
-      "isolated-test-only-secret-not-a-real-session-key",
-    );
+  it("serves enrollment, normalized ingestion, renewal and revocation over real HTTP", async () => {
     const routes: Record<string, (request: Request) => Promise<Response>> = {
-      "GET /telemetry/connect": connectGET,
-      "POST /telemetry/connect": connectPOST,
-      "POST /api/telemetry/exchange": exchangePOST,
+      "GET /api/telemetry/enroll": enrollGET,
+      "POST /api/telemetry/enroll": enrollPOST,
       "POST /api/telemetry/events": eventsPOST,
       "POST /api/telemetry/revoke": revokePOST,
     };
@@ -553,68 +205,42 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
     if (!address || typeof address === "string")
       throw Error("No local server address");
     const origin = `http://127.0.0.1:${address.port}`;
-    const browserHeaders = { cookie: "fixture_session=authorized" };
-    const connectUrl =
-      origin +
-      "/telemetry/connect?" +
-      new URLSearchParams({ ...params, code_challenge_method: "S256" });
+    const bearer = "korza_" + randomBytes(32).toString("base64url");
+    const enroll = (body: unknown, extra: Record<string, string> = {}) =>
+      fetch(origin + "/api/telemetry/enroll", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${bearer}`,
+          ...extra,
+        },
+        body: JSON.stringify(body),
+      });
     try {
-      expect((await fetch(connectUrl)).status).toBe(401);
-      const page = await fetch(connectUrl, { headers: browserHeaders });
-      expect(page.status).toBe(200);
-      const markup = await page.text();
-      const csrf = /name="csrf" value="([^"]+)"/.exec(markup)![1];
-      const consent = (
-        changes: Record<string, string> = {},
-        originHeader = origin,
-      ) =>
-        fetch(origin + "/telemetry/connect", {
-          method: "POST",
-          redirect: "manual",
-          headers: { ...browserHeaders, origin: originHeader },
-          body: new URLSearchParams({
-            ...params,
-            csrf,
-            decision: "allow",
-            ...changes,
-          }),
-        });
-      expect((await consent({}, "https://attacker.invalid")).status).toBe(403);
-      expect((await consent({ csrf: "bad" })).status).toBe(403);
-      identity.member = false;
-      const refused = await consent();
-      expect(refused.status).toBe(303);
-      const refusal = new URL(refused.headers.get("location")!);
-      expect(refusal.searchParams.get("error")).toBe("access_denied");
-      expect(refusal.searchParams.get("state")).toBe(params.state);
-      expect(refusal.searchParams.has("code")).toBe(false);
-      identity.member = true;
-      const denial = await consent({ decision: "deny" });
-      expect(denial.status).toBe(303);
+      const policy = await fetch(origin + "/api/telemetry/enroll");
+      expect(policy.status).toBe(200);
+      expect(await policy.json()).toEqual({ mode: "consent" });
+      expect(policy.headers.get("cache-control")).toBe("no-store");
+      expect((await enroll({ consent: true }, { origin })).status).toBe(403);
+      expect((await enroll({ consent: false })).status).toBe(400);
       expect(
-        new URL(denial.headers.get("location")!).searchParams.get("error"),
-      ).toBe("access_denied");
-      const allowed = await consent();
-      expect(allowed.status).toBe(303);
-      const callback = new URL(allowed.headers.get("location")!);
-      expect(callback.searchParams.get("state")).toBe(params.state);
-      expect(callback.searchParams.has("token")).toBe(false);
-      const code = callback.searchParams.get("code")!;
-      const exchange = (body: unknown) =>
-        fetch(origin + "/api/telemetry/exchange", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(body),
-        });
-      expect(
-        (await exchange(payload(code, { code_verifier: "w".repeat(43) })))
+        (await enroll({ consent: true }, { authorization: "Bearer invalid" }))
           .status,
-      ).toBe(400);
-      const exchanged = await exchange(payload(code));
-      expect(exchanged.status).toBe(200);
-      expect(exchanged.headers.get("cache-control")).toBe("no-store");
-      const credential = await exchanged.json();
-      expect((await exchange(payload(code))).status).toBe(400);
+      ).toBe(401);
+      expect((await enroll({ consent: true, renew: true })).status).toBe(401);
+      const enrolled = await enroll({ consent: true });
+      expect(enrolled.status).toBe(200);
+      expect(enrolled.headers.get("cache-control")).toBe("no-store");
+      const credential = await enrolled.json();
+      expect(Object.keys(credential).sort()).toEqual([
+        "device_id",
+        "expires_at",
+        "mode",
+      ]);
+      expect(credential.mode).toBe("consent");
+      const renewed = await enroll({ consent: true, renew: true });
+      expect(renewed.status).toBe(200);
+      expect((await renewed.json()).device_id).toBe(credential.device_id);
       const body = {
         events: [
           {
@@ -634,7 +260,7 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
           method: "POST",
           headers: {
             "content-type": "application/json",
-            authorization: `Bearer ${credential.token}`,
+            authorization: `Bearer ${bearer}`,
           },
           body: JSON.stringify(packet),
         });
@@ -660,13 +286,13 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
         (
           await fetch(origin + "/api/telemetry/revoke", {
             method: "POST",
-            headers: { authorization: `Bearer ${credential.token}` },
+            headers: { authorization: `Bearer ${bearer}` },
           })
         ).status,
       ).toBe(204);
       expect((await send(body)).status).toBe(401);
+      expect((await enroll({ consent: true, renew: true })).status).toBe(401);
     } finally {
-      identity.member = true;
       server.closeAllConnections();
       await new Promise<void>((resolve, reject) =>
         server.close((error) => (error ? reject(error) : resolve())),
@@ -917,108 +543,6 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
       );
     }
   });
-  it("paginates tied device history to an older renewed device and revokes it without crossing owners", async () => {
-    const first = await freshDevice();
-    const createdBefore = await db.pool.query(
-      "SELECT created_at::text FROM telemetry_devices WHERE device_id=$1",
-      [first.device_id],
-    );
-    const newer: string[] = Array.from({ length: 100 }, () => randomUUID());
-    // now() gives every newer row the same timestamp, exercising the UUID tie-breaker.
-    await db.pool.query(
-      "INSERT INTO telemetry_devices(device_id,user_id,token_hash,created_at,expires_at) SELECT device_id,$3,token_hash,now(),now()-interval '1 hour' FROM unnest($1::uuid[],$2::text[]) AS fixture(device_id,token_hash)",
-      [newer, newer.map((id) => tokenHash(id)), "telemetry-test-user"],
-    );
-    const renewed = (await exchangeCode(
-      db.pool,
-      payload(
-        await issueCode(db.pool, "telemetry-test-user", {
-          ...params,
-          device_id: first.device_id,
-        }),
-      ),
-    ))!;
-    expect(renewed.device_id).toBe(first.device_id);
-    expect(
-      (
-        await db.pool.query(
-          "SELECT created_at::text FROM telemetry_devices WHERE device_id=$1",
-          [first.device_id],
-        )
-      ).rows,
-    ).toEqual(createdBefore.rows);
-    expect((await receiveEvents(eventRequest(renewed.token))).status).toBe(200);
-
-    const otherOwner = `pagination-other-${randomUUID()}`;
-    await db.pool.query(
-      'INSERT INTO "user"(id,name,email,"emailVerified","orgMember","orgCheckedAt") VALUES($1,$1,$2,false,true,now())',
-      [otherOwner, `${otherOwner}@example.invalid`],
-    );
-    const other = (await exchangeCode(
-      db.pool,
-      payload(await issueCode(db.pool, otherOwner, params)),
-    ))!;
-    const origin = "http://localhost";
-    const cookie = "fixture_session=authorized";
-    const get = (path = "/telemetry/devices") =>
-      devicesGet(new Request(origin + path, { headers: { cookie } }));
-    const listed = (body: string) =>
-      [...body.matchAll(/<li><code>([^<]+)<\/code>/g)].map((match) => match[1]);
-    const newestPage = await get();
-    expect(newestPage.status).toBe(200);
-    const newestBody = await newestPage.text();
-    expect(listed(newestBody)).toEqual([...newer].sort().reverse());
-    expect(newestBody).not.toContain(first.device_id);
-    expect(newestBody).not.toContain(other.device_id);
-    const olderPath = /href="([^"]+)">Older devices<\/a>/.exec(newestBody)?.[1];
-    expect(olderPath).toBeDefined();
-    const olderPage = await get(olderPath!);
-    expect(olderPage.status).toBe(200);
-    const olderBody = await olderPage.text();
-    expect(listed(olderBody)).toContain(first.device_id);
-    expect(listed(olderBody).some((id) => newer.includes(id))).toBe(false);
-    expect(olderBody).not.toContain(other.device_id);
-    expect(olderBody).toContain("Newest devices");
-    const csrf = new RegExp(
-      `name="device_id" value="${first.device_id}"><input type="hidden" name="csrf" value="([^"]+)"`,
-    ).exec(olderBody)?.[1];
-    expect(csrf).toBeDefined();
-
-    // A valid UUID from another owner must not become a cursor into this owner's rows.
-    const foreignCursorPage = await get(
-      `/telemetry/devices?before=${other.device_id}`,
-    );
-    expect(foreignCursorPage.status).toBe(200);
-    expect(listed(await foreignCursorPage.text())).toEqual([]);
-
-    const revoke = (device: string, csrf: string) =>
-      devicesPost(
-        new Request(origin + "/telemetry/devices", {
-          method: "POST",
-          headers: { origin, cookie },
-          body: new URLSearchParams({ device_id: device, csrf }),
-        }),
-      );
-    // Even a correctly signed fixture token cannot replace the owner predicate.
-    const foreignCsrf = consentToken(
-      { redirect_uri: "revoke", state: other.device_id, code_challenge: "" },
-      "fixture-browser-session",
-      process.env.BETTER_AUTH_SECRET!,
-    );
-    expect((await revoke(other.device_id, foreignCsrf)).status).toBe(303);
-    expect((await receiveEvents(eventRequest(other.token))).status).toBe(200);
-
-    const revoked = await revoke(first.device_id, csrf!);
-    expect(revoked.status).toBe(303);
-    expect(revoked.headers.get("location")).toBe("/telemetry/devices");
-    expect((await receiveEvents(eventRequest(renewed.token))).status).toBe(401);
-    const device = await db.pool.query(
-      "SELECT revoked_at FROM telemetry_devices WHERE device_id=$1",
-      [first.device_id],
-    );
-    expect(device.rows[0].revoked_at).not.toBeNull();
-  });
-
   it("applies the new read indexes once and uses them for selective plugin and skill reads", async () => {
     const names = (
       await db.pool.query(
@@ -1030,8 +554,6 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
       "telemetry_skill_metrics_skill_plugin_idx",
       "telemetry_events_device_idx",
       "telemetry_skill_metrics_device_idx",
-      "telemetry_codes_device_idx",
-      "telemetry_codes_user_idx",
     ])
       expect(names).toContain(name);
     await db.pool.query(
@@ -1072,644 +594,5 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
         )
       ).rows,
     ).toHaveLength(1);
-  });
-
-  async function membershipOwner() {
-    const user = `membership-${randomUUID()}`;
-    await db.pool.query(
-      'INSERT INTO "user"(id,name,email,"emailVerified","orgMember","orgCheckedAt") VALUES($1,$1,$2,false,true,now())',
-      [user, `${user}@example.invalid`],
-    );
-    return user;
-  }
-  async function membershipDevice() {
-    const user = await membershipOwner();
-    const credential = (await exchangeCode(
-      db.pool,
-      payload(await issueCode(db.pool, user, params)),
-    ))!;
-    return { user, credential };
-  }
-  const membershipPacket = (token: string) =>
-    eventRequest(token, {
-      events: [
-        {
-          id: "f".repeat(64),
-          kind: "plugin_installed",
-          occurredAt: "2026-09-28T00:00:00Z",
-          plugin: "humanizer",
-          skill: null,
-          client: "claude",
-          source: "korza_cli",
-        },
-      ],
-      metrics: [],
-    });
-
-  it.each([
-    { reason: "missing account", accounts: 0, token: "fixture-github-token" },
-    {
-      reason: "ambiguous accounts",
-      accounts: 2,
-      token: "fixture-github-token",
-    },
-    { reason: "null token", accounts: 1, token: null },
-    { reason: "empty token", accounts: 1, token: "" },
-  ])(
-    "returns retryable 503 for $reason without revoking credentials or grants",
-    async ({ accounts, token }) => {
-      const { user, credential } = await membershipDevice();
-      const code = await issueCode(db.pool, user, params);
-      for (let index = 0; index < accounts; index++)
-        await db.pool.query(
-          `INSERT INTO account(id,issuer,"accountId","providerId","userId","updatedAt") VALUES($1,'https://github.com',$1,'github',$2,now())`,
-          [`${user}-${index}`, user],
-        );
-      await db.pool.query(
-        'UPDATE "user" SET "orgCheckedAt"=now()-interval \'6 minutes\' WHERE id=$1',
-        [user],
-      );
-      identity.token = token;
-      try {
-        expect(
-          (await receiveEvents(membershipPacket(credential.token))).status,
-        ).toBe(503);
-        expect(
-          (
-            await db.pool.query(
-              'SELECT u."orgMember",d.revoked_at,d.token_hash FROM "user" u JOIN telemetry_devices d ON d.user_id=u.id WHERE u.id=$1',
-              [user],
-            )
-          ).rows,
-        ).toEqual([
-          {
-            orgMember: true,
-            revoked_at: null,
-            token_hash: tokenHash(credential.token),
-          },
-        ]);
-        expect(
-          (
-            await db.pool.query(
-              "SELECT code_hash FROM telemetry_codes WHERE code_hash=$1",
-              [tokenHash(code)],
-            )
-          ).rows,
-        ).toHaveLength(1);
-        expect(
-          (
-            await db.pool.query(
-              "SELECT event_id FROM telemetry_events WHERE device_id=$1",
-              [credential.device_id],
-            )
-          ).rows,
-        ).toHaveLength(0);
-      } finally {
-        identity.token = "fixture-github-token";
-      }
-    },
-  );
-
-  it.each(["initial", "renewal"] as const)(
-    "membership removal cancels %s consent permanently; rejoining requires fresh consent",
-    async (kind) => {
-      const { user, credential } = await membershipDevice();
-      const consent =
-        kind === "renewal"
-          ? { ...params, device_id: credential.device_id }
-          : params;
-      const code = await issueCode(db.pool, user, consent);
-      await storeMembership(user, false);
-      expect(
-        (
-          await db.pool.query(
-            "SELECT code_hash FROM telemetry_codes WHERE user_id=$1",
-            [user],
-          )
-        ).rows,
-      ).toHaveLength(0);
-      expect(await exchangeCode(db.pool, payload(code))).toBeNull();
-      await expect(issueCode(db.pool, user, consent)).rejects.toBeInstanceOf(
-        MembershipRequiredError,
-      );
-      await storeMembership(user, true);
-      expect(await exchangeCode(db.pool, payload(code))).toBeNull();
-      expect((await receiveEvents(eventRequest(credential.token))).status).toBe(
-        401,
-      );
-      const fresh = (await exchangeCode(
-        db.pool,
-        payload(await issueCode(db.pool, user, consent)),
-      ))!;
-      if (kind === "renewal")
-        expect(fresh.device_id).toBe(credential.device_id);
-      expect((await receiveEvents(eventRequest(fresh.token))).status).toBe(200);
-    },
-  );
-
-  async function waitForBlockedQuery(sql: string) {
-    await expect
-      .poll(
-        async () =>
-          (
-            await admin.query(
-              "SELECT count(*)::int count FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query=$1",
-              [sql],
-            )
-          ).rows[0].count,
-        { timeout: 1000, interval: 10 },
-      )
-      .toBe(1);
-  }
-  const memberLock =
-    'SELECT id FROM "user" WHERE id=$1 AND "orgMember"=true FOR SHARE';
-  const removalUpdate =
-    'UPDATE "user" SET "orgMember"=$1,"orgCheckedAt"=now() WHERE id=$2';
-
-  it("membership removal waits for renewal issuance, then deletes its newly committed grant", async () => {
-    const { user, credential } = await membershipDevice();
-    const paused = pauseQuery((sql) => sql === memberLock);
-    const issuance = issueCode(paused.pool, user, {
-      ...params,
-      device_id: credential.device_id,
-    });
-    let removal: Promise<void> | undefined;
-    try {
-      await paused.reached;
-      removal = storeMembership(user, false);
-      await waitForBlockedQuery(removalUpdate);
-      paused.resume();
-      const code = await issuance;
-      await removal;
-      await storeMembership(user, true);
-      expect(await exchangeCode(db.pool, payload(code))).toBeNull();
-      expect((await receiveEvents(eventRequest(credential.token))).status).toBe(
-        401,
-      );
-    } finally {
-      paused.resume();
-      await Promise.allSettled([issuance, ...(removal ? [removal] : [])]);
-    }
-  });
-
-  it("membership removal waits for exchange, then revokes the newly minted credential", async () => {
-    const { user, credential } = await membershipDevice();
-    const code = await issueCode(db.pool, user, {
-      ...params,
-      device_id: credential.device_id,
-    });
-    const paused = pauseQuery((sql) => sql === memberLock);
-    const exchange = exchangeCode(paused.pool, payload(code));
-    let removal: Promise<void> | undefined;
-    try {
-      await paused.reached;
-      removal = storeMembership(user, false);
-      await waitForBlockedQuery(removalUpdate);
-      paused.resume();
-      const fresh = (await exchange)!;
-      expect(fresh.device_id).toBe(credential.device_id);
-      await removal;
-      await storeMembership(user, true);
-      expect((await receiveEvents(eventRequest(fresh.token))).status).toBe(401);
-      expect((await receiveEvents(eventRequest(credential.token))).status).toBe(
-        401,
-      );
-    } finally {
-      paused.resume();
-      await Promise.allSettled([exchange, ...(removal ? [removal] : [])]);
-    }
-  });
-
-  it.each(["issuance", "exchange"] as const)(
-    "a removal that locks first rejects concurrent renewal %s",
-    async (operation) => {
-      const { user, credential } = await membershipDevice();
-      const consent = { ...params, device_id: credential.device_id };
-      const code = await issueCode(db.pool, user, consent);
-      const original = db.pool;
-      const paused = pauseQuery((sql) => sql === removalUpdate);
-      db.pool = { connect: paused.pool.connect } as pg.Pool;
-      const removal = storeMembership(user, false);
-      let attempt: Promise<unknown> | undefined;
-      try {
-        await paused.reached;
-        db.pool = original;
-        attempt =
-          operation === "issuance"
-            ? expect(issueCode(original, user, consent)).rejects.toBeInstanceOf(
-                MembershipRequiredError,
-              )
-            : expect(exchangeCode(original, payload(code))).resolves.toBeNull();
-        await waitForBlockedQuery(memberLock);
-        paused.resume();
-        await Promise.all([removal, attempt]);
-        expect(
-          (
-            await original.query(
-              "SELECT code_hash FROM telemetry_codes WHERE user_id=$1",
-              [user],
-            )
-          ).rows,
-        ).toHaveLength(0);
-      } finally {
-        db.pool = original;
-        paused.resume();
-        await Promise.allSettled([removal, ...(attempt ? [attempt] : [])]);
-      }
-    },
-  );
-
-  it.each(["initial", "renewal"] as const)(
-    "an exchange that read %s consent before removal cannot reuse it after rejoin",
-    async (kind) => {
-      const { user, credential } = await membershipDevice();
-      const code = await issueCode(
-        db.pool,
-        user,
-        kind === "renewal"
-          ? { ...params, device_id: credential.device_id }
-          : params,
-      );
-      const paused = pauseQuery((sql) =>
-        sql.startsWith("SELECT user_id,device_id"),
-      );
-      const exchange = exchangeCode(paused.pool, payload(code));
-      try {
-        await paused.reached;
-        await storeMembership(user, false);
-        await storeMembership(user, true);
-        paused.resume();
-        expect(await exchange).toBeNull();
-        expect(
-          (
-            await db.pool.query(
-              "SELECT device_id FROM telemetry_devices WHERE user_id=$1 AND revoked_at IS NULL",
-              [user],
-            )
-          ).rows,
-        ).toHaveLength(0);
-      } finally {
-        paused.resume();
-        await Promise.allSettled([exchange]);
-      }
-    },
-  );
-
-  it("rolls back the membership verdict and device revocation if canceling grants fails", async () => {
-    const { user, credential } = await membershipDevice();
-    const code = await issueCode(db.pool, user, params);
-    const original = db.pool;
-    db.pool = {
-      connect: async () => {
-        const client = await original.connect();
-        return {
-          query: (sql: string, values?: unknown[]) =>
-            sql.startsWith("DELETE FROM telemetry_codes")
-              ? client.query("SELECT missing_membership_rollback_column")
-              : client.query(sql, values),
-          release: () => client.release(),
-        };
-      },
-    } as pg.Pool;
-    try {
-      await expect(storeMembership(user, false)).rejects.toThrow(
-        "missing_membership_rollback_column",
-      );
-    } finally {
-      db.pool = original;
-    }
-    expect((await receiveEvents(eventRequest(credential.token))).status).toBe(
-      200,
-    );
-    expect(await exchangeCode(original, payload(code))).not.toBeNull();
-  });
-
-  it("refreshes a stale positive membership with PostgreSQL microsecond precision", async () => {
-    const { user, credential } = await membershipDevice();
-    await db.pool.query(
-      `INSERT INTO account(id,issuer,"accountId","providerId","userId","updatedAt") VALUES($1,'https://github.com',$1,'github',$1,now())`,
-      [user],
-    );
-    await db.pool.query(
-      `UPDATE "user" SET "orgCheckedAt"=date_trunc('second',now()-interval '6 minutes')+interval '0.123456 seconds' WHERE id=$1`,
-      [user],
-    );
-    expect(
-      (
-        await db.pool.query(
-          'SELECT extract(microseconds from "orgCheckedAt")::int % 1000000 micros FROM "user" WHERE id=$1',
-          [user],
-        )
-      ).rows[0].micros,
-    ).toBe(123456);
-    expect(await telemetryMembership(user)).toBe(true);
-    expect(
-      (await receiveEvents(membershipPacket(credential.token))).status,
-    ).toBe(200);
-  });
-  it("a confirmed membership removal revokes every device and denies its queued batch", async () => {
-    const { user, credential } = await membershipDevice();
-    const second = (await exchangeCode(
-      db.pool,
-      payload(await issueCode(db.pool, user, params)),
-    ))!;
-    await issueCode(db.pool, user, params);
-    await issueCode(db.pool, user, {
-      ...params,
-      device_id: credential.device_id,
-    });
-    await db.pool.query(
-      `INSERT INTO account(id,issuer,"accountId","providerId","userId","updatedAt") VALUES($1,'https://github.com',$1,'github',$1,now())`,
-      [user],
-    );
-    await db.pool.query(
-      `UPDATE "user" SET "orgCheckedAt"=now()-interval '6 minutes' WHERE id=$1`,
-      [user],
-    );
-    identity.member = false;
-    try {
-      expect(
-        (await receiveEvents(membershipPacket(credential.token))).status,
-      ).toBe(401);
-    } finally {
-      identity.member = true;
-    }
-    expect((await receiveEvents(membershipPacket(second.token))).status).toBe(
-      401,
-    );
-    expect(
-      (
-        await db.pool.query(
-          "SELECT code_hash FROM telemetry_codes WHERE user_id=$1",
-          [user],
-        )
-      ).rows,
-    ).toHaveLength(0);
-    expect(
-      (
-        await db.pool.query(
-          "SELECT count(*)::int count FROM telemetry_devices WHERE user_id=$1 AND revoked_at IS NULL",
-          [user],
-        )
-      ).rows,
-    ).toEqual([{ count: 0 }]);
-    expect(
-      (
-        await db.pool.query(
-          "SELECT count(*)::int count FROM telemetry_events WHERE device_id=$1",
-          [credential.device_id],
-        )
-      ).rows,
-    ).toEqual([{ count: 0 }]);
-  });
-  it("membership removal waits for an already locked ingestion batch to finish atomically", async () => {
-    const { user, credential } = await membershipDevice();
-    const original = db.pool;
-    const paused = pauseQuery(
-      (sql) => sql.includes('FROM "user"') && sql.endsWith("FOR SHARE"),
-    );
-    db.pool = {
-      query: original.query.bind(original),
-      connect: paused.pool.connect,
-    } as unknown as pg.Pool;
-    const ingest = receiveEvents(membershipPacket(credential.token));
-    let removal: Promise<void> | undefined;
-    try {
-      await paused.reached;
-      removal = storeMembership(user, false);
-      await expect
-        .poll(
-          async () =>
-            (
-              await admin.query(
-                `SELECT count(*)::int count FROM pg_stat_activity WHERE wait_event_type='Lock' AND query LIKE 'UPDATE "user" SET "orgMember"%'`,
-              )
-            ).rows[0].count,
-          { timeout: 1000, interval: 10 },
-        )
-        .toBe(1);
-      paused.resume();
-      expect((await ingest).status).toBe(200);
-      await removal;
-      expect(
-        (await receiveEvents(membershipPacket(credential.token))).status,
-      ).toBe(401);
-      expect(
-        (
-          await original.query(
-            "SELECT count(*)::int count FROM telemetry_events WHERE device_id=$1",
-            [credential.device_id],
-          )
-        ).rows,
-      ).toEqual([{ count: 1 }]);
-    } finally {
-      paused.resume();
-      await Promise.allSettled([ingest, ...(removal ? [removal] : [])]);
-      db.pool = original;
-    }
-  });
-  it("a membership removal that locks first prevents ingestion from committing stale authorization", async () => {
-    const { user, credential } = await membershipDevice();
-    const remover = await db.pool.connect();
-    await remover.query("BEGIN");
-    await remover.query('UPDATE "user" SET "orgMember"=false WHERE id=$1', [
-      user,
-    ]);
-    const ingest = receiveEvents(membershipPacket(credential.token));
-    try {
-      await expect
-        .poll(
-          async () =>
-            (
-              await admin.query(
-                `SELECT count(*)::int count FROM pg_stat_activity WHERE wait_event_type='Lock' AND query LIKE 'SELECT %FROM "user"%FOR SHARE'`,
-              )
-            ).rows[0].count,
-          { timeout: 1000, interval: 10 },
-        )
-        .toBe(1);
-      await remover.query("COMMIT");
-      expect((await ingest).status).toBe(401);
-      expect(
-        (
-          await db.pool.query(
-            "SELECT count(*)::int count FROM telemetry_events WHERE device_id=$1",
-            [credential.device_id],
-          )
-        ).rows,
-      ).toEqual([{ count: 0 }]);
-    } finally {
-      await remover.query("ROLLBACK");
-      remover.release();
-      await Promise.allSettled([ingest]);
-    }
-  });
-
-  it("retries membership expiry between the initial check and final lock without losing the batch", async () => {
-    const { user, credential } = await membershipDevice();
-    const original = db.pool;
-    await original.query(
-      `INSERT INTO account(id,issuer,"accountId","providerId","userId","updatedAt") VALUES($1,'https://github.com',$1,'github',$1,now())`,
-      [user],
-    );
-    await original.query(
-      `UPDATE "user" SET "orgCheckedAt"=now()-interval '4 minutes 59 seconds' WHERE id=$1`,
-      [user],
-    );
-    let crossedBoundary = false;
-    const released = vi.fn();
-    db.pool = {
-      query: original.query.bind(original),
-      connect: async () => {
-        if (!crossedBoundary) {
-          crossedBoundary = true;
-          // Advance the stored age after the optimistic read, without sleeping
-          // or changing the host/DB clock. Only this fixture user's row changes.
-          await original.query(
-            `UPDATE "user" SET "orgCheckedAt"=now()-interval '5 minutes 1 millisecond' WHERE id=$1`,
-            [user],
-          );
-        }
-        const client = await original.connect();
-        return {
-          query: client.query.bind(client),
-          release: () => {
-            released();
-            client.release();
-          },
-        };
-      },
-    } as unknown as pg.Pool;
-    try {
-      expect(
-        (await receiveEvents(membershipPacket(credential.token))).status,
-      ).toBe(503);
-      expect(crossedBoundary).toBe(true);
-      expect(released).toHaveBeenCalledOnce();
-      expect(
-        (
-          await original.query(
-            "SELECT revoked_at FROM telemetry_devices WHERE device_id=$1",
-            [credential.device_id],
-          )
-        ).rows[0].revoked_at,
-      ).toBeNull();
-      expect(
-        (
-          await original.query(
-            "SELECT count(*)::int count FROM telemetry_events WHERE device_id=$1",
-            [credential.device_id],
-          )
-        ).rows,
-      ).toEqual([{ count: 0 }]);
-      // Retry performs the provider refresh outside the ingestion transaction.
-      // A repeated delivery remains idempotent after the successful retry.
-      for (let attempt = 0; attempt < 2; attempt++)
-        expect(
-          (await receiveEvents(membershipPacket(credential.token))).status,
-        ).toBe(200);
-      expect(
-        (
-          await original.query(
-            "SELECT count(*)::int count FROM telemetry_events WHERE device_id=$1",
-            [credential.device_id],
-          )
-        ).rows,
-      ).toEqual([{ count: 1 }]);
-    } finally {
-      db.pool = original;
-    }
-  });
-
-  it.each([-600000, 600000])(
-    "uses the database membership clock when the app clock differs by %i milliseconds",
-    async (skew) => {
-      const { credential } = await membershipDevice();
-      const actualNow = Date.now();
-      const clock = vi.spyOn(Date, "now").mockReturnValue(actualNow + skew);
-      try {
-        expect(
-          (await receiveEvents(membershipPacket(credential.token))).status,
-        ).toBe(200);
-      } finally {
-        clock.mockRestore();
-      }
-    },
-  );
-
-  it("refreshes a membership timestamp in the database's future", async () => {
-    const { user, credential } = await membershipDevice();
-    await db.pool.query(
-      `INSERT INTO account(id,issuer,"accountId","providerId","userId","updatedAt") VALUES($1,'https://github.com',$1,'github',$1,now())`,
-      [user],
-    );
-    await db.pool.query(
-      `UPDATE "user" SET "orgCheckedAt"=now()+interval '10 minutes' WHERE id=$1`,
-      [user],
-    );
-    expect(
-      (await receiveEvents(membershipPacket(credential.token))).status,
-    ).toBe(200);
-    expect(
-      (
-        await db.pool.query(
-          'SELECT "orgCheckedAt"<=now() AS checked FROM "user" WHERE id=$1',
-          [user],
-        )
-      ).rows,
-    ).toEqual([{ checked: true }]);
-  });
-
-  it("recovers from an expired revoke form only after a fresh form submission", async () => {
-    const credential = await freshDevice();
-    const form = (csrf: string) =>
-      new Request("http://localhost/telemetry/devices", {
-        method: "POST",
-        headers: {
-          origin: "http://localhost",
-          cookie: "fixture_session=authorized",
-          "content-type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({ device_id: credential.device_id, csrf }),
-      });
-    const expired = consentToken(
-      {
-        redirect_uri: "revoke",
-        state: credential.device_id,
-        code_challenge: "",
-      },
-      "fixture-browser-session",
-      process.env.BETTER_AUTH_SECRET!,
-      Date.now() - 600001,
-    );
-    const rejected = await devicesPost(form(expired));
-    expect(rejected.status).toBe(403);
-    expect(await rejected.text()).toContain('href="/telemetry/devices"');
-    expect(
-      (
-        await db.pool.query(
-          "SELECT revoked_at FROM telemetry_devices WHERE device_id=$1",
-          [credential.device_id],
-        )
-      ).rows[0].revoked_at,
-    ).toBeNull();
-    const page = await devicesGet(
-      new Request("http://localhost/telemetry/devices", {
-        headers: { cookie: "fixture_session=authorized" },
-      }),
-    );
-    const csrf = new RegExp(
-      `name="device_id" value="${credential.device_id}"><input type="hidden" name="csrf" value="([^"]+)"`,
-    ).exec(await page.text())?.[1];
-    expect(csrf).toBeDefined();
-    expect((await devicesPost(form(csrf!))).status).toBe(303);
-    expect(
-      (
-        await db.pool.query(
-          "SELECT revoked_at FROM telemetry_devices WHERE device_id=$1",
-          [credential.device_id],
-        )
-      ).rows[0].revoked_at,
-    ).not.toBeNull();
   });
 });

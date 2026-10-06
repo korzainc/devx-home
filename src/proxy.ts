@@ -71,11 +71,7 @@ export default async function proxy(request: NextRequest) {
   const { pathname, search, origin } = request.nextUrl;
   // localhost and 127.0.0.1 have separate cookie jars. Select the configured
   // callback host before login creates state; never move a callback or copy cookies.
-  if (
-    ["/login", "/telemetry/connect", "/api/auth/sign-in/social"].includes(
-      pathname,
-    )
-  ) {
+  if (["/login", "/api/auth/sign-in/social"].includes(pathname)) {
     const authOrigin = localAuthOrigin(request.headers.get("host"));
     if (authOrigin) {
       if (["GET", "HEAD"].includes(request.method)) {

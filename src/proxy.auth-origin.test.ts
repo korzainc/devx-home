@@ -30,17 +30,7 @@ it("moves local login to the callback host before creating an OAuth state cookie
   expect(result.headers.has("set-cookie")).toBe(false);
 });
 
-it("keeps CLI consent parameters unchanged when selecting the local sign-in host", async () => {
-  const query =
-    "?state=abc&code_challenge=xyz&redirect_uri=http%3A%2F%2F127.0.0.1%3A49152%2Fcallback";
-  const result = await proxy(request(`/telemetry/connect${query}`));
-  expect(result.status).toBe(307);
-  expect(result.headers.get("location")).toBe(
-    `http://localhost:3000/telemetry/connect${query}`,
-  );
-});
-
-it.each(["/login", "/api/auth/sign-in/social", "/telemetry/connect"])(
+it.each(["/login", "/api/auth/sign-in/social"])(
   "refuses a stale form on the wrong local host without creating state: %s",
   async (path) => {
     const result = await proxy(request(path, "127.0.0.1:3000", "POST"));
