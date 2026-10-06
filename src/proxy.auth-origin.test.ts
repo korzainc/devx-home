@@ -4,6 +4,8 @@ import { NextRequest } from "next/server";
 vi.mock("@/lib/auth", () => ({ getAuth: vi.fn() }));
 vi.mock("@/lib/membership", () => ({ isOrgMember: vi.fn() }));
 import proxy from "./proxy";
+import { getAuth } from "@/lib/auth";
+import { isOrgMember } from "@/lib/membership";
 
 beforeEach(() => {
   vi.stubEnv("NODE_ENV", "development");
@@ -60,6 +62,21 @@ it.each([
   expect(result.headers.get("x-middleware-next")).toBe("1");
   expect(result.headers.has("location")).toBe(false);
 });
+
+it.each(["GET", "POST"])(
+  "lets consent enrollment reach its own device checks without company login: %s",
+  async (method) => {
+    vi.mocked(getAuth).mockClear();
+    vi.mocked(isOrgMember).mockClear();
+    const result = await proxy(
+      request("/api/telemetry/enroll", "127.0.0.1:3000", method),
+    );
+    expect(result.headers.get("x-middleware-next")).toBe("1");
+    expect(result.headers.has("location")).toBe(false);
+    expect(getAuth).not.toHaveBeenCalled();
+    expect(isOrgMember).not.toHaveBeenCalled();
+  },
+);
 
 it.each(["localhost:3000", "127.0.0.1:4000", "localhost.evil.test:3000"])(
   "does not redirect the canonical host, another app, or a non-loopback host: %s",

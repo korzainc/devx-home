@@ -94,7 +94,7 @@ it("rejects malformed packets", async () => {
 it("exempts only the exact device and pilot API endpoints from browser login", () => {
   expect(isTelemetryPath("/api/telemetry/logs")).toBe(true);
   expect(isTelemetryPath("/api/telemetry/metrics")).toBe(true);
-  for (const route of ["exchange", "events", "revoke"])
+  for (const route of ["enroll", "exchange", "events", "revoke"])
     expect(isTelemetryPath(`/api/telemetry/${route}`)).toBe(true);
   expect(isTelemetryPath("/telemetry/connect")).toBe(false);
   expect(isTelemetryPath("/telemetry/devices")).toBe(false);

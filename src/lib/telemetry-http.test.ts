@@ -186,6 +186,20 @@ it("rejects missing, expired or revoked credentials before accepting telemetry",
     )?.[0],
   ).toContain("revoked_at IS NULL");
 });
+it("still checks company devices against membership in consent mode", async () => {
+  vi.stubEnv("TELEMETRY_ENROLLMENT_MODE", "consent");
+  mocks.query.mockResolvedValue({
+    rows: [{ device_id: "device", user_id: "user", identity_kind: "github" }],
+  });
+  mocks.telemetryMember.mockResolvedValue(false);
+  expect(
+    (await receiveEvents(ingest({ events: [], metrics: [] }))).status,
+  ).toBe(401);
+  expect(mocks.telemetryMember).toHaveBeenCalledWith("user");
+  expect(mocks.query.mock.calls.some(([sql]) => sql.startsWith("INSERT"))).toBe(
+    false,
+  );
+});
 it("bounds the decoded request stream", async () => {
   mocks.query.mockResolvedValue({
     rows: [
@@ -253,8 +267,8 @@ it("writes a full batch in one database call per record type", async () => {
     sql.startsWith("INSERT"),
   );
   expect(writes).toHaveLength(2);
-  expect(writes[0][1]).toHaveLength(500 * 8);
-  expect(writes[1][1]).toHaveLength(500 * 7);
+  expect(writes[0][1]).toHaveLength(500 * 9);
+  expect(writes[1][1]).toHaveLength(500 * 8);
   expect(mocks.query).toHaveBeenCalledTimes(8);
 });
 it("coalesces duplicate counters without replacing the first metadata", async () => {
@@ -297,6 +311,7 @@ it("coalesces duplicate counters without replacing the first metadata", async ()
     "explicit",
     "codezen",
     "device",
+    "github",
   ]);
 });
 it("rolls back both bulk writes if the metric statement fails", async () => {

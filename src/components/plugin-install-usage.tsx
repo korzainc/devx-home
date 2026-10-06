@@ -61,8 +61,8 @@ export async function PluginInstallUsage({ plugin }: { plugin: string }) {
         )}
       </div>
       <p className="mt-2 text-xs text-ink-muted">
-        Recorded from installations that opted in to monitoring. These are not
-        download totals or unique users.
+        Self-reported by installations that opted in, including those without
+        company sign-in. These are not download totals or verified users.
       </p>
       {((count.claudeNative !== undefined && count.claudeKorza !== undefined) ||
         (count.codexNative !== undefined &&

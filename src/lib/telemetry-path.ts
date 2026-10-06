@@ -3,6 +3,7 @@ export function isTelemetryPath(path: string) {
   return [
     "/api/telemetry/logs",
     "/api/telemetry/metrics",
+    "/api/telemetry/enroll",
     "/api/telemetry/exchange",
     "/api/telemetry/events",
     "/api/telemetry/revoke",

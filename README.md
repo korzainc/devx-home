@@ -173,11 +173,39 @@ silently relabelled or deleted.
 
 ## Opt-in device monitoring backend
 
-Apply migrations through `0007_telemetry_read_indexes.sql` before enabling
+Apply migrations through `0008_telemetry_consent_devices.sql` before enabling
 `TELEMETRY_ENABLED=1`. Use the existing `DATABASE_URL`, migration-only
-`DATABASE_URL_UNPOOLED`, `BETTER_AUTH_SECRET` and GitHub App authentication
-configuration. Never edit `.env.local` for this rollout. The flag defaults off;
+`DATABASE_URL_UNPOOLED`. Never edit `.env.local` for this rollout. The flag defaults off;
 the earlier `/api/telemetry/logs` and `/metrics` pilot remains development-only.
+
+Choose the server's enrollment policy explicitly:
+
+- `TELEMETRY_ENROLLMENT_MODE=consent`: the CLI saves the user's sharing choice.
+  No company sign-in or GitHub App credentials are needed. A private device token
+  still protects uploads and revocation; it proves an installation, not membership.
+- `TELEMETRY_ENROLLMENT_MODE=github` (default): retain company sign-in below.
+  This mode needs `BETTER_AUTH_SECRET` and the approved GitHub App configuration.
+- Unknown modes fail closed. Changing to GitHub mode stops consent-only uploads;
+  existing company devices always retain their membership checks.
+
+The CLI reads `GET /api/telemetry/enroll`, then in consent mode sends
+`POST /api/telemetry/enroll` with `{consent:true}` and its private random bearer.
+The server stores only its hash and returns `{device_id,expires_at,mode}`.
+Repeated requests renew the same device for 12 hours, preserving deduplication.
+Background renewals also send `renew:true`; unknown devices are rejected rather
+than registered again. The original terminal consent remains required.
+Revoked tokens cannot renew. Enrollment accepts JSON from the CLI, rejects browser
+origin headers, and permits at most 60 new devices per minute across the deployment.
+Each consent device may submit at most 5,000 records per minute; HTTP 429 retains
+the CLI queue for retry. These limits bound traffic, not the truth of self-reported
+activity. Deployment-level abuse protection and retention remain rollout work.
+
+Consent devices have no user account. Event and metric rows preserve their
+`identity_kind` (`consent`, `github`, or historical `legacy`). The UI labels the
+totals as self-reported, including installations without company sign-in; they
+are not verified employee adoption. Portal viewing access remains unchanged.
+
+### Optional company sign-in
 
 The GitHub credentials must belong to the approved `korza-devx` App installed
 on `korzainc`, with repository access for the signing-in user. Replacing a local

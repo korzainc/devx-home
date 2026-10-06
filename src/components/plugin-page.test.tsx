@@ -178,7 +178,7 @@ describe("recorded skill usage", () => {
     expect(usage.textContent).toContain("2 activations via Claude Code");
     expect(usage.textContent).toContain("3 skill loads via Codex");
     expect(usage.textContent).toContain(
-      "Recorded from participating installations",
+      "Self-reported by participating installations",
     );
     expect(usage.querySelector("details")?.hasAttribute("open")).toBe(false);
   });
