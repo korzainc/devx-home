@@ -163,6 +163,22 @@ do not disable local collection by selecting the hosted check.
 Bracketed IPv6 URLs are not enabled for local collection with the current driver. Remote local database URLs
 are refused. Do not use a tunnel to a production database for local acceptance.
 
+## Opt-in device monitoring backend
+
+Apply `0004_usage_monitoring.sql` before enabling
+`TELEMETRY_ENABLED=1`. Use the existing `DATABASE_URL`, migration-only
+`DATABASE_URL_UNPOOLED`. Never edit `.env.local` for this rollout. The flag defaults off.
+
+### Company sign-in
+
+The GitHub credentials must belong to the approved `korza-devx` App installed
+on `korzainc`, with repository access for the signing-in user. Replacing a local
+test App's credentials does not convert its stored GitHub user token. Acceptance
+requires a grant from the approved App, a process restart and a matching callback
+URL. Keep `BETTER_AUTH_SECRET` stable so existing encrypted tokens remain readable.
+Changing the GitHub App credentials does not revoke issued telemetry credentials;
+revoke those separately when needed.
+
 The monitoring migration creates the tables and their read indexes together.
 Run it before collecting usage; the earlier authentication migrations are unchanged.
 If an older PR version was applied locally, preserve that database and use a fresh
