@@ -20,6 +20,8 @@ const REQUIRED = [
   "ref",
   "sourceRepo",
   "homepage",
+  "pinned",
+  "sha",
 ] as const;
 
 type SkillRow = {
@@ -27,6 +29,7 @@ type SkillRow = {
   ref: string;
   sourceRepo: string;
   origin: string;
+  pinned: boolean;
 };
 
 function isFilledList(value: unknown): boolean {
@@ -104,6 +107,21 @@ export function problemsWithPlugin(plugin: Record<string, unknown>): string[] {
     problems.push(`${id}: payload is present but empty; omit it instead`);
   }
 
+  // Booleans and nulls, not truthiness: the string "false" is truthy, and the pin badge and the
+  // home page's provenance line both branch on `pinned`. The `as` cast in catalogue.ts stopped
+  // catching a bad row the moment `PluginEntry` declared these, so this is the only check left.
+  if ("pinned" in plugin && typeof plugin.pinned !== "boolean") {
+    problems.push(
+      `${id}: pinned ${JSON.stringify(plugin.pinned)} must be a boolean, not ${typeof plugin.pinned}`,
+    );
+  }
+
+  if ("sha" in plugin && plugin.sha !== null && !isFilled(plugin.sha)) {
+    problems.push(
+      `${id}: sha ${JSON.stringify(plugin.sha)} must be a non-empty string or null`,
+    );
+  }
+
   if ("homepage" in plugin && !isHttpsUrl(plugin.homepage)) {
     problems.push(
       `${id}: homepage ${JSON.stringify(plugin.homepage)} becomes an href, so it must be an absolute https URL`,
@@ -140,7 +158,7 @@ export function problemsWithPluginSet(
     // `origin` too: the home page reads `skill.origin === "Korza"` for a card's provenance line,
     // and skills.test.ts only checks membership in the set of all plugin origins, which a
     // flipped-but-valid value passes.
-    for (const field of ["ref", "sourceRepo", "origin"] as const) {
+    for (const field of ["ref", "sourceRepo", "origin", "pinned"] as const) {
       const claimed = new Set(rows.map((row) => row[field]));
       if (
         claimed.size > 0 &&

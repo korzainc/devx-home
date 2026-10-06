@@ -390,6 +390,15 @@ describe("install commands", () => {
   it("offers nothing for a plugin no agent lists", () => {
     expect(installCommands({ ...plugins[0], agents: [] })).toEqual([]);
   });
+
+  // Array order is render order on the Plugins tab and nothing downstream sorts, so the order is
+  // a decision whether or not anyone makes it. It is the generator's, alphabetical by name, and
+  // deliberately not curated -- `skills` has been id-sorted since the index shipped. Pinned here
+  // so a future sort lands as a failing test rather than as cards quietly swapping places.
+  it("renders plugins in the generator's alphabetical order", () => {
+    const ids = plugins.map((plugin) => plugin.id);
+    expect(ids).toEqual([...ids].sort());
+  });
 });
 
 describe("provenance", () => {

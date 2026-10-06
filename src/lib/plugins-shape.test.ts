@@ -13,6 +13,8 @@ const valid = {
   ref: "main",
   sourceRepo: "korzainc/codezen",
   homepage: "https://github.com/korzainc/codezen",
+  pinned: false,
+  sha: null,
 };
 
 describe("a plugin row", () => {
@@ -31,6 +33,8 @@ describe("a plugin row", () => {
     "ref",
     "sourceRepo",
     "homepage",
+    "pinned",
+    "sha",
   ])("is rejected without %s", (field) => {
     const { [field]: _dropped, ...rest } = valid as Record<string, unknown>;
     expect(problemsWithPlugin(rest).join(" ")).toContain(field);
@@ -146,9 +150,6 @@ describe("the plugin set", () => {
     );
   });
 
-  // Both sides are generated now, from one manifest, so this checks the generator rather than
-  // two hand edits. It stays because a wrong `ref` reaches a public page either way, and it is
-  // the direction skills.test.ts does not cover.
   it("is rejected when a row disagrees with its skills about ref", () => {
     const rows = [
       {
@@ -156,14 +157,12 @@ describe("the plugin set", () => {
         ref: "v1.0.0",
         sourceRepo: "korzainc/codezen",
         origin: "Korza",
+        pinned: false,
       },
     ];
     expect(problemsWithPluginSet([valid], rows).join(" ")).toContain("ref");
   });
 
-  // The home page reads `skill.origin === "Korza"` for a card's provenance line, and
-  // skills.test.ts only checks membership in the set of all plugin origins -- which a
-  // flipped-but-valid value passes.
   it("is rejected when a row disagrees with its skills about origin", () => {
     const rows = [
       {
@@ -171,6 +170,7 @@ describe("the plugin set", () => {
         ref: "main",
         sourceRepo: "korzainc/codezen",
         origin: "Third party",
+        pinned: false,
       },
     ];
     expect(problemsWithPluginSet([valid], rows).join(" ")).toContain("origin");
@@ -183,6 +183,7 @@ describe("the plugin set", () => {
         ref: "main",
         sourceRepo: "someone/else",
         origin: "Korza",
+        pinned: false,
       },
     ];
     expect(problemsWithPluginSet([valid], rows).join(" ")).toContain(
@@ -205,6 +206,7 @@ describe("the committed catalogue data", () => {
     ref: string;
     sourceRepo: string;
     origin: string;
+    pinned: boolean;
   }[];
 
   it("has a well shaped row for every plugin", () => {
@@ -222,5 +224,48 @@ describe("the committed catalogue data", () => {
   it("carries a version row for each plugin and no others", () => {
     const listed = plugins.map((plugin) => plugin.id).sort();
     expect(Object.keys(indexData.versions).sort()).toEqual(listed);
+  });
+});
+
+describe("the pin fields", () => {
+  // `as PluginEntry[]` in catalogue.ts used to reject a malformed row by accident, because the
+  // rows carried fields the type did not. Declaring them made it a legal downcast, so these are
+  // the only checks standing between a bad row and the page.
+  it.each([["true"], [1], [null], [undefined]])(
+    "rejects pinned %j, which is not a boolean",
+    (pinned) => {
+      expect(problemsWithPlugin({ ...valid, pinned }).join(" ")).toContain(
+        "pinned",
+      );
+    },
+  );
+
+  it("accepts a null sha, which is how an unpinned entry reports it", () => {
+    expect(problemsWithPlugin({ ...valid, sha: null })).toEqual([]);
+  });
+
+  it("accepts a sha-pinned entry", () => {
+    expect(
+      problemsWithPlugin({ ...valid, sha: "a".repeat(40), pinned: true }),
+    ).toEqual([]);
+  });
+
+  it.each([[""], ["   "], [7]])("rejects sha %j", (sha) => {
+    expect(problemsWithPlugin({ ...valid, sha }).join(" ")).toContain("sha");
+  });
+
+  // The home page reads `skill.pinned` for its provenance line, so the two sides disagreeing
+  // renders "From obra/superpowers" where it should say "Pinned to v6.2.0".
+  it("is rejected when a row disagrees with its skills about pinned", () => {
+    const rows = [
+      {
+        plugin: "codezen",
+        ref: "main",
+        sourceRepo: "korzainc/codezen",
+        origin: "Korza",
+        pinned: true,
+      },
+    ];
+    expect(problemsWithPluginSet([valid], rows).join(" ")).toContain("pinned");
   });
 });

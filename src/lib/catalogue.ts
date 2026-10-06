@@ -18,6 +18,7 @@ import {
   type PluginEntry,
   type SkillEntry,
   type ToolEntry,
+  type VersionStatus,
 } from "@/lib/catalogue-entries";
 import {
   installMethods,
@@ -342,14 +343,20 @@ export function toolInstallMethods(id: string): InstallMethod[] {
 // throwing -- a sync that adds a plugin should still show it, and the seam test is what fails.
 //
 // Nothing validates these rows at runtime: `plugins-shape` runs in the suite only, and the cast
-// is weaker than it looks -- a field missing from every row fails `tsc`, one missing from only
-// some widens to optional and passes. Not a module-load throw, for the reason
-// `stackCapabilities` gives above. Render order is the generator's.
+// catches nothing on its own -- every field `PluginEntry` declares is now declared on the rows
+// too, which makes this a legal downcast, so a row missing `homepage` would compile and render
+// `href={undefined}`. It used to error, but only by accident: the rows carried `sha` and
+// `pinned` while the type did not, leaving the two incomparable. Declaring them removed that,
+// which is why the shape checks are the guard and not a formality. Not a module-load throw, for
+// the reason `stackCapabilities` gives above. Render order is the generator's.
 export const plugins: PluginEntry[] = (
-  indexData.plugins as Omit<PluginEntry, "audiences">[]
+  indexData.plugins as Omit<PluginEntry, "audiences" | "version">[]
 ).map((plugin) => ({
   ...plugin,
   audiences: pluginAudiences[plugin.id] ?? AUDIENCE_FALLBACK,
+  // Key parity with `plugins` is held by a test in plugins-shape.test.ts, the same way
+  // `stackCapabilities` above is: a throw here would break every route that imports this module.
+  version: (indexData.versions as Record<string, VersionStatus>)[plugin.id],
 }));
 
 /** A row as the generator emits it. `audience` is singular upstream and plural here, which is
