@@ -135,16 +135,6 @@ function SkillUsageBadge({
       ]
         .filter(Boolean)
         .join(" · ")}
-      <details className="mt-1 text-ink-faint">
-        <summary className="w-fit cursor-pointer hover:text-ink-muted">
-          About this count
-        </summary>
-        <p className="mt-1">
-          Self-reported by participating installations, including those without
-          company sign-in. Activations and skill loads do not measure completed
-          tasks or verified users.
-        </p>
-      </details>
     </div>
   );
 }

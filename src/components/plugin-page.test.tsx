@@ -180,10 +180,6 @@ describe("recorded skill usage", () => {
     const usage = screen.getByLabelText("Recorded usage for humanizer");
     expect(usage.textContent).toContain("2 activations via Claude Code");
     expect(usage.textContent).toContain("3 skill loads via Codex");
-    expect(usage.textContent).toContain(
-      "Self-reported by participating installations",
-    );
-    expect(usage.querySelector("details")?.hasAttribute("open")).toBe(false);
   });
   it("does not label missing collection as zero usage", async () => {
     await act(async () => {
