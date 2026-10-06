@@ -28,6 +28,11 @@ and database-backed features need the existing project credentials and database
 connection. Follow [AGENTS.md](AGENTS.md) for access and database constraints;
 do not overwrite `.env.local` or provision a replacement database.
 
+Use the same host in `BETTER_AUTH_URL` and the GitHub App callback URL.
+Local login and telemetry consent redirect loopback aliases to that host before
+sign-in starts. A stale form on another alias is rejected instead of creating an
+OAuth state cookie that the callback cannot read. Existing sessions are retained.
+
 `pnpm vercel-build` runs migrations only when `VERCEL_ENV=production`, then
 builds Next.js. Previews skip that migration step. `pnpm migrate` runs migrations
 explicitly against `DATABASE_URL_UNPOOLED`; the app uses pooled `DATABASE_URL`.
@@ -271,6 +276,28 @@ This is the existing shared pool, so the acquisition limit also bounds login and
 session lookups. The page gate treats a failed lookup as signed out and redirects
 to login without deleting the session cookie. This availability tradeoff is
 intentional; actual deployed database wake-up latency still needs acceptance.
+
+Plugin installation totals sum recorded reports per client. The database retains
+each report's native or Korza-assisted source, including wrapped terminal commands.
+Historical reports from different sources can describe the same installation;
+the displayed total is not a deduplicated count of physical installs or adoption.
+Official Codex terminal installs can be recorded through the optional Korza
+launcher; its `/plugins` menu lacks a supported completion event. Native Codex
+install logs are a separate experimental route, checked only with a custom
+source build and explicit `--native-install-logs` opt-in. That choice sends
+diagnostics to the local filter; prompts and traces remain off. Codex otherwise
+exports skill-load metrics. Repeated delivery of the same device/event ID is deduplicated.
+These counts are not unique users or download totals.
+
+Metric points must be non-negative safe integers (at most 9,007,199,254,740,991).
+Aggregates retain exact decimal digits above that range. This numeric limit
+prevents invalid values, not inflated client reports. Consent devices are limited
+to 5,000 records per minute; this limits traffic, not claimed cumulative values.
+Company-device quotas and limits on self-reported values still need an agreed
+policy. The receiver does not silently clamp cumulative counters.
+Retention and deletion policy also remain prerequisites for activation; revocation
+stops new uploads but retains existing counts. Telemetry route diagnostics contain
+only the operation, processing stage and HTTP status, excluding errors and request data.
 
 Validation separates production identity acceptance from protocol evidence:
 

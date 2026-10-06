@@ -59,6 +59,7 @@ import {
 import { storeMembership } from "./membership";
 vi.mock("./org", () => ({ fetchOrgMembership: async () => identity.member }));
 import { telemetryMembership } from "./telemetry-membership";
+import { readPluginInstalls, readSkillUsage } from "./skill-usage";
 import { recordAnalysisRun, readAnalysisUsage } from "./analysis-usage";
 const configured = process.env.TEST_TELEMETRY_DATABASE_URL;
 const run = promisify(execFile);
@@ -670,6 +671,64 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
         server.close((error) => (error ? reject(error) : resolve())),
       );
     }
+  });
+  it("does not attribute another plugin's metrics to a matching skill prefix", async () => {
+    await db.pool.query(
+      "INSERT INTO telemetry_skill_metrics(stream_id,value,temporality,skill,plugin) VALUES ('plugin-match',2,2,'superpowers_brainstorming','superpowers'),('plugin-mismatch',99,2,'superpowers_brainstorming','codezen'),('legacy-match',3,2,'superpowers_brainstorming',NULL),('legacy-other',97,2,'codezen_brainstorming',NULL),('legacy-unscoped',89,2,'brainstorming',NULL)",
+    );
+    expect(await readSkillUsage("superpowers", ["brainstorming"])).toEqual({
+      brainstorming: { codex: 5 },
+    });
+    expect(await readSkillUsage("codezen", ["brainstorming"])).toEqual({
+      brainstorming: { codex: 97 },
+    });
+  });
+  it("retains replay-safe source rows and totals recorded installs per client", async () => {
+    const credential = await freshDevice();
+    const before = await readPluginInstalls("mattpocock-skills");
+    const events = ["native_otel", "korza_cli"].map((source, index) => ({
+      id: (index ? "c" : "e").repeat(64),
+      kind: "plugin_installed",
+      client: "claude",
+      source,
+      occurredAt: "2026-09-25T00:00:00Z",
+      plugin: "mattpocock-skills",
+      skill: null,
+    }));
+    const send = () =>
+      receiveEvents(eventRequest(credential.token, { events, metrics: [] }));
+    expect((await send()).status).toBe(200);
+    expect((await send()).status).toBe(200);
+    expect(await readPluginInstalls("mattpocock-skills")).toEqual({
+      ...before,
+      claude: Number(before.claude ?? 0) + 2,
+    });
+    const stored = await db.pool.query(
+      "SELECT source, count(*)::int count FROM telemetry_events WHERE device_id=$1 GROUP BY source ORDER BY source",
+      [credential.device_id],
+    );
+    expect(stored.rows).toEqual([
+      { source: "korza_cli", count: 1 },
+      { source: "native_otel", count: 1 },
+    ]);
+  });
+  it("retains exact totals above the safe integer range after valid metric ingestion", async () => {
+    const credential = await freshDevice();
+    const metrics = [Number.MAX_SAFE_INTEGER, 1, 1].map((value, index) => ({
+      id: String(index + 1).repeat(64),
+      value,
+      temporality: 2,
+      plugin: "superpowers",
+      skill: "superpowers_exact-total",
+      invokeType: null,
+    }));
+    const response = await receiveEvents(
+      eventRequest(credential.token, { events: [], metrics }),
+    );
+    expect(response.status).toBe(200);
+    expect(await readSkillUsage("superpowers", ["exact-total"])).toEqual({
+      "exact-total": { codex: "9007199254740993" },
+    });
   });
   it("accepts a maximum-size metric batch and deduplicates its retry", async () => {
     const credential = await freshDevice();
