@@ -141,8 +141,9 @@ checking and a production build together.
 
 ## Analysis usage counts
 
-- Public repositories can be analysed without signing in. Site-wide totals include
-  private repositories and are visible only to signed-in organisation members.
+- Public repositories can be analysed without signing in. Site-wide analysis and
+  distinct-repository totals include private repositories and are visible only
+  to signed-in organisation members.
 - A successful page analysis counts once per run URL: reloads and shared links
   reuse it; another Analyze submission creates a new run. Each successful API
   request, including a retry, creates a new run. These are submission counts,
@@ -227,12 +228,8 @@ VERCEL= VERCEL_ENV= KORZA_LOCAL_USAGE=1 TELEMETRY_ENABLED=1 pnpm dev
 
 ### Verify
 
-- Sign in as an organisation member and note the CI coverage totals.
-- Analyse a repository: runs **+1**, repositories **+1 only if not counted before**.
-- Reload or share that report: both totals stay unchanged.
-- Analyse the same repository again: only runs **+1**.
-- Analyse another previously uncounted repository: both totals **+1**.
-- Check plugin/skill counts using [CLI #5's steps](https://github.com/korzainc/korza-cli/pull/5).
+- Manual walkthroughs: [analysis totals (Home #72)](https://github.com/korzainc/devx-home/pull/72)
+  and [plugin/skill counts (CLI #5)](https://github.com/korzainc/korza-cli/pull/5).
 - Run the [standard checks](#develop), then the database checks below:
 
 ```sh
