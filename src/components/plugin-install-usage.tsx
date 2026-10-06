@@ -60,10 +60,6 @@ export async function PluginInstallUsage({ plugin }: { plugin: string }) {
           </p>
         )}
       </div>
-      <p className="mt-2 text-xs text-ink-muted">
-        Self-reported by installations that opted in, including those without
-        company sign-in. These are not download totals or verified users.
-      </p>
       {((count.claudeNative !== undefined && count.claudeKorza !== undefined) ||
         (count.codexNative !== undefined &&
           count.codexKorza !== undefined)) && (
