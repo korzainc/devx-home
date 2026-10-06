@@ -1465,29 +1465,17 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
   it("membership removal waits for an already locked ingestion batch to finish atomically", async () => {
     const { user, credential } = await membershipDevice();
     const original = db.pool;
-    const locked = Promise.withResolvers<void>();
-    const proceed = Promise.withResolvers<void>();
+    const paused = pauseQuery(
+      (sql) => sql.includes('FROM "user"') && sql.endsWith("FOR SHARE"),
+    );
     db.pool = {
       query: original.query.bind(original),
-      connect: async () => {
-        const client = await original.connect();
-        return {
-          query: async (sql: string, values?: unknown[]) => {
-            const result = await client.query(sql, values);
-            if (sql.includes('FROM "user"') && sql.endsWith("FOR SHARE")) {
-              locked.resolve();
-              await proceed.promise;
-            }
-            return result;
-          },
-          release: () => client.release(),
-        };
-      },
+      connect: paused.pool.connect,
     } as unknown as pg.Pool;
     const ingest = receiveEvents(membershipPacket(credential.token));
     let removal: Promise<void> | undefined;
     try {
-      await locked.promise;
+      await paused.reached;
       removal = storeMembership(user, false);
       await expect
         .poll(
@@ -1500,7 +1488,7 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
           { timeout: 1000, interval: 10 },
         )
         .toBe(1);
-      proceed.resolve();
+      paused.resume();
       expect((await ingest).status).toBe(200);
       await removal;
       expect(
@@ -1515,7 +1503,7 @@ describe.skipIf(!configured)("telemetry with isolated PostgreSQL", () => {
         ).rows,
       ).toEqual([{ count: 1 }]);
     } finally {
-      proceed.resolve();
+      paused.resume();
       await Promise.allSettled([ingest, ...(removal ? [removal] : [])]);
       db.pool = original;
     }

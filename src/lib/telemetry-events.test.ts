@@ -58,24 +58,28 @@ it("enforces total batch limit and both arrays", () => {
   ).toThrow();
   expect(() => parseBatch({ events: [] })).toThrow();
 });
-it.each(["codezen", "superpowers"])(
-  "accepts a supported Codex installation of %s",
-  (plugin) => {
-    for (const source of ["korza_cli", "native_otel"]) {
-      const install = {
-        ...event,
-        plugin,
-        client: "codex",
-        source,
-        kind: "plugin_installed",
-        skill: null,
-      };
-      expect(parseBatch({ events: [install], metrics: [] }).events).toEqual([
-        install,
-      ]);
-    }
-  },
-);
+it.each([
+  ["codex", "codezen"],
+  ["codex", "superpowers"],
+  ["claude", "codezen"],
+  ["claude", "superpowers"],
+  ["claude", "humanizer"],
+  ["claude", "mattpocock-skills"],
+])("accepts a supported %s installation of %s", (client, plugin) => {
+  for (const source of ["native_otel", "korza_cli"]) {
+    const install = {
+      ...event,
+      plugin,
+      client,
+      source,
+      kind: "plugin_installed",
+      skill: null,
+    };
+    expect(parseBatch({ events: [install], metrics: [] }).events).toEqual([
+      install,
+    ]);
+  }
+});
 
 it.each(["humanizer", "mattpocock-skills"])(
   "rejects unsupported Codex installation of %s",
@@ -107,24 +111,6 @@ it("keeps Codex skill activity on the metric path", () => {
     }),
   ).toThrow("Invalid event");
 });
-
-it.each(["codezen", "superpowers", "humanizer", "mattpocock-skills"])(
-  "retains Claude installation support for %s",
-  (plugin) => {
-    for (const source of ["native_otel", "korza_cli"]) {
-      const install = {
-        ...event,
-        plugin,
-        source,
-        kind: "plugin_installed",
-        skill: null,
-      };
-      expect(parseBatch({ events: [install], metrics: [] }).events).toEqual([
-        install,
-      ]);
-    }
-  },
-);
 
 it("accepts the largest safe individual metric without relaxing input limits", () => {
   const boundary = { ...metric, value: Number.MAX_SAFE_INTEGER };
