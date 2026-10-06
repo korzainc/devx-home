@@ -167,12 +167,18 @@ Start with
 do not disable local collection by selecting the hosted check.
 Bracketed IPv6 URLs are not enabled for local collection with the current driver. Remote local database URLs
 are refused. Do not use a tunnel to a production database for local acceptance.
+The same boundary applies to device monitoring. The legacy pilot requires
+development mode, so any non-empty `VERCEL` or `VERCEL_ENV` disables it. It also
+requires explicit local opt-in and a loopback database.
+Existing pilot rows remain historical data; unknown-provenance rows are not
+silently relabelled or deleted.
 
 ## Opt-in device monitoring backend
 
 Apply `0004_usage_monitoring.sql` before enabling
 `TELEMETRY_ENABLED=1`. Use the existing `DATABASE_URL`, migration-only
-`DATABASE_URL_UNPOOLED`. Never edit `.env.local` for this rollout. The flag defaults off.
+`DATABASE_URL_UNPOOLED`. Never edit `.env.local` for this rollout. The flag defaults off;
+the earlier `/api/telemetry/logs` and `/metrics` pilot remains development-only.
 
 Choose the server's enrollment policy explicitly:
 
@@ -288,6 +294,16 @@ source build and explicit `--native-install-logs` opt-in. That choice sends
 diagnostics to the local filter; prompts and traces remain off. Codex otherwise
 exports skill-load metrics. Repeated delivery of the same device/event ID is deduplicated.
 These counts are not unique users or download totals.
+
+Codex skill-load counts accept only `codex.skill.injected` points with
+`status: ok`; failed, missing or unknown outcomes are excluded during filtering.
+Use `$codezen:code-review` for explicit Codex selection; `codezen_code-review` is
+the normalized reporting label. Native implicit detection can miss a skill read
+together with other files in one shell command. Counts therefore describe reported
+loads, not every instruction-file access or completed task. Earlier normalized rows omit
+the original status, so this correction cannot reclassify historical counts or
+pending batches from an older collector. Use a fresh baseline for acceptance;
+upgrading does not silently delete earlier data or queued reports.
 
 Metric points must be non-negative safe integers (at most 9,007,199,254,740,991).
 Aggregates retain exact decimal digits above that range. This numeric limit
