@@ -51,7 +51,9 @@ describe("analysis usage counts", () => {
     finishRecording();
 
     const html = renderToStaticMarkup(await component);
-    expect(html).toContain("Analysed 2 repositories across 3 runs");
+    expect(html.replace(/<[^>]*>/g, "")).toContain(
+      "2 repositories analysed · 3 total runs",
+    );
     expect(html).toContain("Members only");
     expect(html).toContain('aria-label="Site-wide analysis usage"');
     expect(mocks.member).toHaveBeenCalledWith(expect.any(Headers), user);
@@ -63,9 +65,9 @@ describe("analysis usage counts", () => {
     mocks.member.mockResolvedValue(true);
     mocks.usage.mockResolvedValue({ runs: 1, repositories: 1 });
 
-    expect(renderToStaticMarkup(await AnalysisUsage())).toContain(
-      "Analysed 1 repository across 1 run",
-    );
+    expect(
+      renderToStaticMarkup(await AnalysisUsage()).replace(/<[^>]*>/g, ""),
+    ).toContain("1 repository analysed · 1 total run");
   });
 
   it("hides counts if the recording promise unexpectedly rejects", async () => {

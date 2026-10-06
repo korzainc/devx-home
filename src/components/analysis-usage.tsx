@@ -22,12 +22,17 @@ export async function AnalysisUsage({
   }
   return (
     <p
-      className="text-sm leading-5 text-ink-muted"
+      className="w-fit max-w-full rounded-lg border border-line-strong bg-surface-raised px-4 py-2 text-sm leading-5 text-ink-muted"
       aria-label="Site-wide analysis usage"
     >
-      Analysed {usage.repositories}{" "}
-      {usage.repositories === 1 ? "repository" : "repositories"} across{" "}
-      {usage.runs} {usage.runs === 1 ? "run" : "runs"}
+      <strong className="font-semibold tabular-nums text-ink">
+        {usage.repositories}
+      </strong>{" "}
+      {usage.repositories === 1 ? "repository" : "repositories"} analysed ·{" "}
+      <strong className="font-semibold tabular-nums text-ink">
+        {usage.runs}
+      </strong>{" "}
+      total {usage.runs === 1 ? "run" : "runs"}{" "}
       <span className="ml-2 text-xs text-ink-faint">Members only</span>
     </p>
   );

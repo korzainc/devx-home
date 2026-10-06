@@ -232,7 +232,7 @@ export default async function CiCoveragePage({ searchParams }: Params) {
           out which stacks you are on, then reports how many of the recommended
           checks actually run.
         </p>
-        <div className="min-h-10 sm:min-h-5">
+        <div className="min-h-16 sm:min-h-10">
           <Suspense fallback={null}>
             <AnalysisUsage recorded={recorded} />
           </Suspense>

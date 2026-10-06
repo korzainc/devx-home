@@ -368,7 +368,7 @@ describe("the CI coverage page, once the analysis resolves", () => {
       )
         throw new Error("Missing usage slot");
       expect(slot.props.className.split(" ")).toEqual(
-        expect.arrayContaining(["min-h-10", "sm:min-h-5"]),
+        expect.arrayContaining(["min-h-16", "sm:min-h-10"]),
       );
       expect(slot.props.children.type).toBe(Suspense);
       expect(slot.props.children.props.fallback).toBeNull();
@@ -430,8 +430,8 @@ describe("the CI coverage page, once the analysis resolves", () => {
       finishUsage({ runs: 413, repositories: 97 });
       await finished;
     }
-    expect(markup.replace(/<!--.*?-->/g, "")).toContain(
-      "Analysed 97 repositories across 413 runs",
+    expect(markup.replace(/<[^>]*>/g, "")).toContain(
+      "97 repositories analysed · 413 total runs",
     );
     expect(markup.match(/aria-label="Site-wide analysis usage"/g)).toHaveLength(
       1,
