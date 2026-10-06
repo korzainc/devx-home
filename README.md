@@ -160,7 +160,9 @@ Hosted collection requires `NODE_ENV=production`, `VERCEL=1` and
 production database. Development processes cannot enable hosted collection by
 inheriting production markers. For local acceptance, explicitly
 set `KORZA_LOCAL_USAGE=1` and a `DATABASE_URL` pointing to an isolated loopback
-PostgreSQL database (`127.0.0.1` or `localhost`). Start with
+PostgreSQL database (`127.0.0.1` or `localhost`). The app requires TLS with a
+trusted certificate; set `sslrootcert` in the connection URL for a local CA.
+Start with
 `VERCEL= VERCEL_ENV= KORZA_LOCAL_USAGE=1 pnpm dev` so inherited dotenv markers
 do not disable local collection by selecting the hosted check.
 Bracketed IPv6 URLs are not enabled for local collection with the current driver. Remote local database URLs
