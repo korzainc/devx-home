@@ -233,7 +233,22 @@ export default async function CiCoveragePage({ searchParams }: Params) {
           checks actually run.
         </p>
         <div className="min-h-16 sm:min-h-10">
-          <Suspense fallback={null}>
+          <Suspense
+            fallback={
+              <>
+                <div
+                  aria-hidden="true"
+                  className="analysis-usage-loading h-10 w-80 max-w-full rounded-lg border border-line-strong bg-surface-raised motion-safe:animate-pulse"
+                />
+                <noscript
+                  dangerouslySetInnerHTML={{
+                    __html:
+                      "<style>.analysis-usage-loading{display:none}</style>",
+                  }}
+                />
+              </>
+            }
+          >
             <AnalysisUsage recorded={recorded} />
           </Suspense>
         </div>

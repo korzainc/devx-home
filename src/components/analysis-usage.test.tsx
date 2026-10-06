@@ -54,7 +54,6 @@ describe("analysis usage counts", () => {
     expect(html.replace(/<[^>]*>/g, "")).toContain(
       "2 repositories analysed · 3 total runs",
     );
-    expect(html).toContain("Members only");
     expect(html).toContain('aria-label="Site-wide analysis usage"');
     expect(mocks.member).toHaveBeenCalledWith(expect.any(Headers), user);
     expect(mocks.usage).toHaveBeenCalledOnce();

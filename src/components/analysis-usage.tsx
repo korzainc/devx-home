@@ -32,8 +32,7 @@ export async function AnalysisUsage({
       <strong className="font-semibold tabular-nums text-ink">
         {usage.runs}
       </strong>{" "}
-      total {usage.runs === 1 ? "run" : "runs"}{" "}
-      <span className="ml-2 text-xs text-ink-faint">Members only</span>
+      total {usage.runs === 1 ? "run" : "runs"}
     </p>
   );
 }

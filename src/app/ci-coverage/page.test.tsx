@@ -200,6 +200,13 @@ describe("the CI coverage page, for a client running no script", () => {
     expect(markup).toContain('id="repo"');
     expect(session.reads).toBe(0);
     expect(afterResponse).toHaveLength(0);
+    const skeletonClass = markup.match(
+      /<div aria-hidden="true" class="([^" ]+)[^"]*motion-safe:animate-pulse/,
+    )?.[1];
+    expect(skeletonClass).toBeDefined();
+    expect(noscriptBlocks(markup)).toContain(
+      `<style>.${skeletonClass}{display:none}</style>`,
+    );
   });
 
   it("analyses anonymously for a signed-out reader", async () => {
@@ -371,7 +378,7 @@ describe("the CI coverage page, once the analysis resolves", () => {
         expect.arrayContaining(["min-h-16", "sm:min-h-10"]),
       );
       expect(slot.props.children.type).toBe(Suspense);
-      expect(slot.props.children.props.fallback).toBeNull();
+      expect(isValidElement(slot.props.children.props.fallback)).toBe(true);
       expect(slot.props.children.props.children.type).toBe(AnalysisUsage);
     }
     await Promise.all(afterResponse.map((callback) => callback()));
