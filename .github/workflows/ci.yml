@@ -104,7 +104,7 @@ jobs:
         env:
           # The suite uses a unique schema in this disposable service and removes it afterward.
           TEST_TELEMETRY_DATABASE_URL: postgres://postgres:postgres@localhost:5432/migrations_check?sslmode=disable
-        run: pnpm exec vitest run src/lib/telemetry-postgres.test.ts
+        run: pnpm exec vitest run src/lib/telemetry-postgres.test.ts src/lib/telemetry-consent-postgres.test.ts
 
   build:
     name: build

@@ -10,10 +10,19 @@ import {
   exchangeCode,
   issueCode,
   revokeCredentials,
+  tokenHash,
   verifyConsent,
   type ConnectParams,
 } from "./telemetry-auth";
+import { parseBatch } from "./telemetry-events";
 import { readBoundedChunks } from "./telemetry-body";
+import { telemetryEnrollmentMode } from "./telemetry-enrollment";
+import {
+  telemetryMembership,
+  TELEMETRY_MEMBERSHIP_SELECT,
+  type TelemetryMembership,
+} from "./telemetry-membership";
+
 const privateHeaders = {
   "cache-control": "no-store",
   "referrer-policy": "no-referrer",
@@ -258,6 +267,125 @@ export async function revokeDevice(request: Request) {
     );
   } catch (error) {
     return failure(error, "revoke", "storage");
+  }
+}
+export async function receiveEvents(request: Request) {
+  if (!enabled()) return empty(404);
+  const hash = bearerHash(request);
+  if (!hash) return empty(401);
+  let client;
+  let stage: FailureStage = "storage";
+  try {
+    const pool = getPool();
+    const auth = await pool.query(
+      "SELECT device_id,user_id,identity_kind FROM telemetry_devices WHERE token_hash=$1 AND revoked_at IS NULL AND expires_at > now()",
+      [hash],
+    );
+    if (!auth.rows.length) return empty(401);
+    stage = "request";
+    const packet = await json(request, 256 * 1024);
+    let batch;
+    try {
+      batch = parseBatch(packet);
+    } catch {
+      throw new HttpError(400);
+    }
+    const userId = auth.rows[0].user_id;
+    const consentOnly = auth.rows[0].identity_kind === "consent";
+    if (consentOnly && telemetryEnrollmentMode() !== "consent")
+      return empty(401);
+    stage = "membership";
+    if (!consentOnly && !(await telemetryMembership(userId))) return empty(401);
+    stage = "storage";
+    client = await pool.connect();
+    await client.query("BEGIN");
+    await client.query("SET LOCAL statement_timeout = '3s'");
+    // Always lock user before device. A removal committed before this lock
+    // denies the batch; one racing ingestion waits until the whole batch ends.
+    let membershipFresh = true;
+    if (!consentOnly) {
+      const membership = await client.query<TelemetryMembership>(
+        `${TELEMETRY_MEMBERSHIP_SELECT} FOR SHARE`,
+        [userId],
+      );
+      if (!membership.rows[0]?.orgMember) throw new HttpError(401);
+      membershipFresh = membership.rows[0].fresh;
+    }
+    // Hold a shared row lock through ingestion. Revocation cannot race a partly committed batch.
+    const { rows } = await client.query(
+      consentOnly
+        ? "SELECT device_id FROM telemetry_devices WHERE token_hash=$1 AND user_id IS NULL AND identity_kind='consent' AND revoked_at IS NULL AND expires_at > now() FOR UPDATE"
+        : "SELECT device_id FROM telemetry_devices WHERE token_hash=$1 AND user_id=$2 AND identity_kind='github' AND revoked_at IS NULL AND expires_at > now() FOR SHARE",
+      consentOnly ? [hash] : [hash, userId],
+    );
+    if (!rows.length) throw new HttpError(401);
+    // Keep revocation authoritative if the cache also aged during lock waits.
+    if (!membershipFresh) throw new HttpError(503);
+    const device = rows[0].device_id;
+    if (consentOnly) {
+      // Bound anonymous-device traffic without retaining IP addresses. The
+      // existing device lock makes the allowance consistent across instances.
+      const allowance = await client.query(
+        "UPDATE telemetry_devices SET window_started_at=CASE WHEN window_started_at<=now()-interval '1 minute' THEN now() ELSE window_started_at END,window_records=CASE WHEN window_started_at<=now()-interval '1 minute' THEN $2 ELSE window_records+$2 END WHERE device_id=$1 AND (CASE WHEN window_started_at<=now()-interval '1 minute' THEN 0 ELSE window_records END)+$2<=5000 RETURNING device_id",
+        [device, Math.max(1, batch.events.length + batch.metrics.length)],
+      );
+      if (!allowance.rows.length) throw new HttpError(429);
+    }
+    // A bulk upsert cannot update the same conflict row twice. Preserve the
+    // first record's metadata and the largest counter, as sequential writes did.
+    const events = new Map<string, (typeof batch.events)[number]>();
+    for (const event of batch.events)
+      if (!events.has(event.id)) events.set(event.id, event);
+    const metrics = new Map<string, (typeof batch.metrics)[number]>();
+    for (const metric of batch.metrics) {
+      const first = metrics.get(metric.id);
+      if (first) first.value = Math.max(first.value, metric.value);
+      else metrics.set(metric.id, { ...metric });
+    }
+    const placeholders = (count: number, columns: number) =>
+      Array.from(
+        { length: count },
+        (_, row) =>
+          `(${Array.from({ length: columns }, (_, column) => `$${row * columns + column + 1}`).join(",")})`,
+      ).join(",");
+    // At most two write round trips while the device lock is held, even for a
+    // full 1,000-record batch. Every value remains a bound SQL parameter.
+    if (events.size)
+      await client.query(
+        `INSERT INTO telemetry_events(event_id,kind,occurred_at,plugin,skill,client,source,device_id,identity_kind) VALUES${placeholders(events.size, 9)} ON CONFLICT DO NOTHING`,
+        [...events.values()].flatMap((e) => [
+          tokenHash(JSON.stringify([device, e.id])),
+          e.kind,
+          e.occurredAt,
+          e.plugin,
+          e.skill,
+          e.client,
+          e.source,
+          device,
+          consentOnly ? "consent" : "github",
+        ]),
+      );
+    if (metrics.size)
+      await client.query(
+        `INSERT INTO telemetry_skill_metrics(stream_id,value,temporality,skill,invoke_type,plugin,device_id,identity_kind) VALUES${placeholders(metrics.size, 8)} ON CONFLICT(stream_id) DO UPDATE SET value=GREATEST(telemetry_skill_metrics.value,EXCLUDED.value)`,
+        [...metrics.values()].flatMap((m) => [
+          tokenHash(JSON.stringify([device, m.id])),
+          m.value,
+          m.temporality,
+          m.skill,
+          m.invokeType,
+          m.plugin,
+          device,
+          consentOnly ? "consent" : "github",
+        ]),
+      );
+    await client.query("COMMIT");
+    return Response.json({}, { headers: privateHeaders });
+  } catch (error) {
+    if (client) await client.query("ROLLBACK").catch(() => {});
+    return failure(error, "ingest", stage);
+  } finally {
+    client?.release();
   }
 }
 const revokeParams = (device: string): ConnectParams => ({
