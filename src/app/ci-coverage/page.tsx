@@ -30,11 +30,21 @@ export const metadata: Metadata = {
 // Signed out, the token is null and the read goes out anonymously, which GitHub serves for public
 // repositories. So an open source repo needs no account, and the sign-in prompt is kept for the
 // two failures where logging in is the actual remedy rather than a wall in front of everyone.
-async function Result({ repo, runId }: { repo: string; runId?: string }) {
+async function analyze(repo: string) {
   const token = await getGitHubToken();
-
   const baseline = getBaseline();
   const result = await runAnalysis(repo, token, { tools, baseline });
+  return { token, baseline, result };
+}
+
+async function Result({
+  repo,
+  analysis,
+}: {
+  repo: string;
+  analysis: ReturnType<typeof analyze>;
+}) {
+  const { token, baseline, result } = await analysis;
 
   if (!result.ok) {
     // Anonymously, 404 means no such public repo, which a private one is indistinguishable from,
@@ -50,19 +60,12 @@ async function Result({ repo, runId }: { repo: string; runId?: string }) {
     );
   }
 
-  after(() => recordAnalysisRun(runId ?? "", result.repoId));
-
   return (
-    <>
-      <Suspense fallback={null}>
-        <AnalysisUsage />
-      </Suspense>
-      <GapReport
-        analysis={result.analysis}
-        stacks={baseline.stacks}
-        catalogue={{ bundleById, toolNameById, capabilityLabels }}
-      />
-    </>
+    <GapReport
+      analysis={result.analysis}
+      stacks={baseline.stacks}
+      catalogue={{ bundleById, toolNameById, capabilityLabels }}
+    />
   );
 }
 
@@ -209,6 +212,15 @@ export default async function CiCoveragePage({ searchParams }: Params) {
     );
   }
 
+  const analysis = target ? analyze(target) : undefined;
+  const recorded = analysis?.then(
+    ({ result }) =>
+      result.ok ? recordAnalysisRun(runId ?? "", result.repoId) : undefined,
+    () => {}, // The report boundary handles analysis errors; there is no run to record.
+  );
+  // Start recording now; after keeps it alive even when the reader cannot see totals.
+  if (recorded) after(recorded);
+
   return (
     <div className="flex flex-col gap-10">
       <header className="flex max-w-2xl flex-col gap-3">
@@ -220,20 +232,19 @@ export default async function CiCoveragePage({ searchParams }: Params) {
           out which stacks you are on, then reports how many of the recommended
           checks actually run.
         </p>
+        <div className="min-h-10 sm:min-h-5">
+          <Suspense fallback={null}>
+            <AnalysisUsage recorded={recorded} />
+          </Suspense>
+        </div>
       </header>
 
-      {!target ? (
-        <Suspense fallback={null}>
-          <AnalysisUsage />
-        </Suspense>
-      ) : null}
       <RepoForm target={target} nextRunId={nextRunId} />
 
-      {/* Only the analysis stays behind a boundary: it is a GitHub round trip, and which failure
-          it hits decides whether the prompt or a notice follows. */}
-      {target ? (
+      {/* Recording and reading totals do not delay the report. */}
+      {analysis ? (
         <Suspense key={target} fallback={<Pending repo={target} />}>
-          <Result repo={target} runId={runId} />
+          <Result repo={target} analysis={analysis} />
         </Suspense>
       ) : null}
     </div>

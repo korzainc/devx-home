@@ -17,7 +17,9 @@ describe("analysis usage counts", () => {
     mocks.session.mockResolvedValue(null);
     mocks.usage.mockResolvedValue({ runs: 3, repositories: 2 });
 
-    expect(await AnalysisUsage()).toBeNull();
+    expect(
+      await AnalysisUsage({ recorded: new Promise<void>(() => {}) }),
+    ).toBeNull();
     expect(mocks.member).not.toHaveBeenCalled();
     expect(mocks.usage).not.toHaveBeenCalled();
   });
@@ -27,21 +29,58 @@ describe("analysis usage counts", () => {
     mocks.member.mockResolvedValue(false);
     mocks.usage.mockResolvedValue({ runs: 3, repositories: 2 });
 
-    expect(await AnalysisUsage()).toBeNull();
+    expect(
+      await AnalysisUsage({ recorded: new Promise<void>(() => {}) }),
+    ).toBeNull();
     expect(mocks.usage).not.toHaveBeenCalled();
   });
 
-  it("shows aggregate totals after the existing membership gate succeeds", async () => {
+  it("reads the current totals only after recording finishes and the membership gate succeeds", async () => {
     const user = { id: "member" };
     mocks.session.mockResolvedValue({ user });
     mocks.member.mockResolvedValue(true);
     mocks.usage.mockResolvedValue({ runs: 3, repositories: 2 });
 
-    const html = renderToStaticMarkup(await AnalysisUsage());
-    expect(html).toContain("2 unique repositories analysed");
-    expect(html).toContain("3 total runs");
+    let finishRecording!: () => void;
+    const recorded = new Promise<void>(
+      (resolve) => (finishRecording = resolve),
+    );
+    const component = AnalysisUsage({ recorded });
+    await vi.waitFor(() => expect(mocks.member).toHaveBeenCalledOnce());
+    expect(mocks.usage).not.toHaveBeenCalled();
+    finishRecording();
+
+    const html = renderToStaticMarkup(await component);
+    expect(html).toContain("Analysed 2 repositories across 3 runs");
+    expect(html).toContain("Members only");
+    expect(html).toContain('aria-label="Site-wide analysis usage"');
     expect(mocks.member).toHaveBeenCalledWith(expect.any(Headers), user);
     expect(mocks.usage).toHaveBeenCalledOnce();
+  });
+
+  it("uses singular labels for a single repository and run", async () => {
+    mocks.session.mockResolvedValue({ user: { id: "member" } });
+    mocks.member.mockResolvedValue(true);
+    mocks.usage.mockResolvedValue({ runs: 1, repositories: 1 });
+
+    expect(renderToStaticMarkup(await AnalysisUsage())).toContain(
+      "Analysed 1 repository across 1 run",
+    );
+  });
+
+  it("hides counts if the recording promise unexpectedly rejects", async () => {
+    mocks.session.mockResolvedValue({ user: { id: "member" } });
+    mocks.member.mockResolvedValue(true);
+    let failRecording!: (error: Error) => void;
+    const recorded = new Promise<void>(
+      (_resolve, reject) => (failRecording = reject),
+    );
+    const component = AnalysisUsage({ recorded });
+    await vi.waitFor(() => expect(mocks.member).toHaveBeenCalledOnce());
+    failRecording(new Error("unexpected recorder failure"));
+
+    expect(await component).toBeNull();
+    expect(mocks.usage).not.toHaveBeenCalled();
   });
 
   it("does not read totals when the session check fails", async () => {
