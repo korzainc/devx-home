@@ -15,6 +15,7 @@ import {
   type ConnectParams,
 } from "./telemetry-auth";
 import { parseBatch } from "./telemetry-events";
+import { readBoundedChunks } from "./telemetry-body";
 import { telemetryEnrollmentMode } from "./telemetry-enrollment";
 import {
   telemetryMembership,
@@ -68,19 +69,10 @@ async function bodyText(request: Request, type: string, limit: number) {
     throw new HttpError(415);
   const reader = request.body?.getReader();
   if (!reader) throw new HttpError(400);
-  const chunks: Uint8Array[] = [];
-  let length = 0;
+  let chunks: Uint8Array[] | null;
   try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      length += value.byteLength;
-      if (length > limit) {
-        await reader.cancel();
-        throw new HttpError(413);
-      }
-      chunks.push(value);
-    }
+    chunks = await readBoundedChunks(reader, limit);
+    if (chunks === null) throw new HttpError(413);
   } finally {
     reader.releaseLock();
   }

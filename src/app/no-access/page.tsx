@@ -32,7 +32,7 @@ export default async function NoAccessPage() {
   const session = await getSession();
   if (!session) redirect("/login");
   if (await isOrgMember(await headers(), session.user)) redirect("/");
-  const email = session?.user.email;
+  const email = session.user.email;
   const showEmail = email && !/@users\.noreply\.github\.com$/i.test(email);
 
   return (
@@ -46,15 +46,13 @@ export default async function NoAccessPage() {
         through the approved GitHub App.
       </p>
 
-      {session ? (
-        <div className="w-full rounded-lg border border-line bg-surface px-4 py-3 text-left">
-          <p className="text-xs text-ink-faint">Logged in as</p>
-          <p className="truncate text-sm text-ink">{session.user.name}</p>
-          {showEmail ? (
-            <p className="truncate text-xs text-ink-faint">{email}</p>
-          ) : null}
-        </div>
-      ) : null}
+      <div className="w-full rounded-lg border border-line bg-surface px-4 py-3 text-left">
+        <p className="text-xs text-ink-faint">Logged in as</p>
+        <p className="truncate text-sm text-ink">{session.user.name}</p>
+        {showEmail ? (
+          <p className="truncate text-xs text-ink-faint">{email}</p>
+        ) : null}
+      </div>
 
       <div className="flex flex-col gap-3 text-sm leading-relaxed text-ink-muted">
         <p>

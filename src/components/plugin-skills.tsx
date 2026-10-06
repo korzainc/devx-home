@@ -24,12 +24,10 @@ type Usage = Record<string, SkillUsage>;
 export function PluginSkills({
   plugin,
   skills,
-  usage,
   usagePromise,
 }: {
   plugin: string;
   skills: SkillEntry[];
-  usage?: Usage;
   usagePromise?: Promise<Usage | undefined>;
 }) {
   // Nothing happens on arrival: the strip above already names the skill. Unfolding here would
@@ -97,11 +95,10 @@ export function PluginSkills({
               <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-ink-muted">
                 {skill.summary ?? skill.description}
               </p>
-              {(usage || usagePromise) && (
+              {usagePromise && (
                 <Suspense fallback={null}>
                   <SkillUsageBadge
                     name={skill.name}
-                    usage={usage}
                     usagePromise={usagePromise}
                   />
                 </Suspense>
@@ -116,14 +113,12 @@ export function PluginSkills({
 
 function SkillUsageBadge({
   name,
-  usage,
   usagePromise,
 }: {
   name: string;
-  usage?: Usage;
-  usagePromise?: Promise<Usage | undefined>;
+  usagePromise: Promise<Usage | undefined>;
 }) {
-  const counts = (usagePromise ? use(usagePromise) : usage)?.[name];
+  const counts = use(usagePromise)?.[name];
   if (!counts) return null;
   return (
     <div

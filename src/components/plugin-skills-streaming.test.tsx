@@ -40,15 +40,19 @@ afterEach(() => {
   history.replaceState(null, "", "/");
 });
 
-it("renders exact large skill totals alongside ordinary singular counts", () => {
+it("renders exact large skill totals alongside ordinary singular counts", async () => {
   const skills = skillsForPlugin("superpowers").slice(0, 1);
-  render(
-    <PluginSkills
-      plugin="superpowers"
-      skills={skills}
-      usage={{ [skills[0].name]: { claude: 1, codex: "9007199254740993" } }}
-    />,
-  );
+  await act(async () => {
+    render(
+      <PluginSkills
+        plugin="superpowers"
+        skills={skills}
+        usagePromise={Promise.resolve({
+          [skills[0].name]: { claude: 1, codex: "9007199254740993" },
+        })}
+      />,
+    );
+  });
   const badge = screen.getByLabelText(`Recorded usage for ${skills[0].name}`);
   expect(badge.textContent).toContain("1 activation via Claude Code");
   expect(badge.textContent).toContain("9007199254740993 skill loads via Codex");

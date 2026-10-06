@@ -57,12 +57,8 @@ export function parseBatch(value: unknown): {
       !["plugin_installed", "skill_activated"].includes(e.kind as string) ||
       !(
         (e.client === "claude" && e.source === "native_otel") ||
-        (e.client === "codex" &&
-          e.source === "native_otel" &&
-          e.kind === "plugin_installed") ||
-        (["claude", "codex"].includes(e.client as string) &&
-          e.source === "korza_cli" &&
-          e.kind === "plugin_installed")
+        (e.kind === "plugin_installed" &&
+          ["native_otel", "korza_cli"].includes(e.source as string))
       ) ||
       !(e.kind === "plugin_installed" ? e.skill === null : name(e.skill)) ||
       !timestamp(e.occurredAt)

@@ -2,6 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { getPool } from "./db";
 import { bearerHash } from "./telemetry-auth";
+import { readBoundedChunks } from "./telemetry-body";
 import { usageCollectionEnabled } from "./collection-scope";
 
 const headers = { "cache-control": "no-store" };
@@ -37,18 +38,8 @@ export async function enrollmentPost(request: Request) {
   if (!reader) return response(400);
   let renew = false;
   try {
-    const chunks: Uint8Array[] = [];
-    let size = 0;
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      size += value.byteLength;
-      if (size > 1024) {
-        await reader.cancel();
-        return response(413);
-      }
-      chunks.push(value);
-    }
+    const chunks = await readBoundedChunks(reader, 1024);
+    if (chunks === null) return response(413);
     const consent = JSON.parse(Buffer.concat(chunks).toString("utf8"));
     if (
       !consent ||
@@ -80,11 +71,10 @@ export async function enrollmentPost(request: Request) {
       [hash],
     );
     const device = existing.rows[0];
-    if (renew && !device) {
-      await client.query("ROLLBACK");
-      return response(401);
-    }
-    if (device && (device.identity_kind !== "consent" || device.revoked_at)) {
+    if (
+      (renew && !device) ||
+      (device && (device.identity_kind !== "consent" || device.revoked_at))
+    ) {
       await client.query("ROLLBACK");
       return response(401);
     }

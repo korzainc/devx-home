@@ -6,17 +6,16 @@ export const telemetryMarketplace = "korza-marketplace";
 // plugins that the catalogue makes available to Codex.
 export function telemetryPlugin(
   value: unknown,
-  client?: "claude" | "codex",
+  client: "claude" | "codex",
 ): value is string {
   return (
     typeof value === "string" &&
     plugins.some(
       (plugin) =>
         plugin.id === value &&
-        (!client ||
-          plugin.agents.includes(
-            client === "codex" ? "Codex CLI" : "Claude Code",
-          )),
+        plugin.agents.includes(
+          client === "codex" ? "Codex CLI" : "Claude Code",
+        ),
     )
   );
 }

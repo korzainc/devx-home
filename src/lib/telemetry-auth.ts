@@ -188,11 +188,10 @@ export async function exchangeCode(
       "SELECT user_id,device_id FROM telemetry_codes WHERE code_hash=$1 AND code_challenge=$2 AND redirect_uri=$3 AND expires_at > now()",
       binding,
     );
-    if (!grant.rows.length) {
-      await client.query("ROLLBACK");
-      return null;
-    }
-    if (!(await lockMember(client, grant.rows[0].user_id as string))) {
+    if (
+      !grant.rows.length ||
+      !(await lockMember(client, grant.rows[0].user_id as string))
+    ) {
       await client.query("ROLLBACK");
       return null;
     }

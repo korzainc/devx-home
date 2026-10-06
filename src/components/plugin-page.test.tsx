@@ -2,6 +2,7 @@
  * @vitest-environment jsdom
  */
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -166,14 +167,16 @@ describe("the skills in a plugin", () => {
 });
 
 describe("recorded skill usage", () => {
-  it("shows client-specific totals on the matching skill card", () => {
-    render(
-      <PluginSkills
-        plugin="humanizer"
-        skills={skillsForPlugin("humanizer")}
-        usage={{ humanizer: { claude: 2, codex: 3 } }}
-      />,
-    );
+  it("shows client-specific totals on the matching skill card", async () => {
+    await act(async () => {
+      render(
+        <PluginSkills
+          plugin="humanizer"
+          skills={skillsForPlugin("humanizer")}
+          usagePromise={Promise.resolve({ humanizer: { claude: 2, codex: 3 } })}
+        />,
+      );
+    });
     const usage = screen.getByLabelText("Recorded usage for humanizer");
     expect(usage.textContent).toContain("2 activations via Claude Code");
     expect(usage.textContent).toContain("3 skill loads via Codex");
@@ -182,14 +185,16 @@ describe("recorded skill usage", () => {
     );
     expect(usage.querySelector("details")?.hasAttribute("open")).toBe(false);
   });
-  it("does not label missing collection as zero usage", () => {
-    render(
-      <PluginSkills
-        plugin="humanizer"
-        skills={skillsForPlugin("humanizer")}
-        usage={{}}
-      />,
-    );
+  it("does not label missing collection as zero usage", async () => {
+    await act(async () => {
+      render(
+        <PluginSkills
+          plugin="humanizer"
+          skills={skillsForPlugin("humanizer")}
+          usagePromise={Promise.resolve({})}
+        />,
+      );
+    });
     expect(screen.queryByLabelText("Recorded usage for humanizer")).toBeNull();
   });
 });
