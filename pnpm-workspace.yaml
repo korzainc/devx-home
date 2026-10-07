@@ -22,3 +22,7 @@ overrides:
   # Transitive under Tailwind's PostCSS and jsdom, so `pnpm update` cannot reach it.
   # Remove when a parent resolves a fixed version.
   "source-map-js": "^1.2.2"
+
+  # Transitive under Next's own optional image-optimization dependency, so `pnpm update`
+  # cannot reach it. Remove when a parent resolves a fixed version.
+  "sharp": "^0.35.5"
