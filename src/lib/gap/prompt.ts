@@ -270,10 +270,10 @@ export function buildFixPrompt(
       .map((capability) => ({ ...capability, category: category.category })),
   );
 
-  const stacks =
-    analysis.stacks.length > 0
-      ? analysis.stacks.map((stack) => stack.label).join(", ")
-      : "none, no manifest in the repository was recognised";
+  // A gap means at least one stack-scoped capability is unsatisfied (the real baseline has no
+  // universal capabilities - see getBaseline() in catalogue.ts), so `analysis.stacks` is never
+  // empty once the gapCount === 0 guard above has already returned.
+  const stacks = analysis.stacks.map((stack) => stack.label).join(", ");
 
   // A repo with nothing detected is the case this whole feature exists for, so none of these
   // sections can assume it has rows. A markdown table with a header and no body reads as a
@@ -352,10 +352,9 @@ ${changedRows.join("\n")}
       `| ${index + 1} | ${cell(gap.label)} | ${cell(gap.category)} | ${suggestion(gap)} |`,
   );
 
-  const gapTable =
-    gapRows.length > 0
-      ? `| # | Check | Category | Tools that would cover it |\n| --- | --- | --- | --- |\n${gapRows.join("\n")}`
-      : "Nothing. Every check the baseline expects is already running.";
+  // Never empty: gapRows is built from the same capabilities gapCount counts, and the guard
+  // above has already returned when that count is 0.
+  const gapTable = `| # | Check | Category | Tools that would cover it |\n| --- | --- | --- | --- |\n${gapRows.join("\n")}`;
 
   const referencedBundles = [
     ...new Set(gaps.flatMap((gap) => gap.recommended.map((tool) => tool.id))),

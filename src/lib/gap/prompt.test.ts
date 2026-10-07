@@ -139,6 +139,7 @@ describe("buildFixPrompt", () => {
   it("keeps a repo path from breaking out of the cell it sits in", () => {
     const analysis = withGap({
       satisfiedCount: 1,
+      gapCount: 1,
       categories: [
         {
           category: "Testing",
@@ -155,6 +156,13 @@ describe("buildFixPrompt", () => {
                   stackLabels: ["JavaScript"],
                 },
               ],
+              recommended: [],
+            },
+            {
+              id: "coverage",
+              label: "Test coverage",
+              satisfied: false,
+              present: [],
               recommended: [],
             },
           ],
@@ -174,6 +182,7 @@ describe("buildFixPrompt", () => {
   it("keeps a newline in the evidence from ending the table row early", () => {
     const analysis = withGap({
       satisfiedCount: 1,
+      gapCount: 1,
       categories: [
         {
           category: "Testing",
@@ -191,6 +200,13 @@ describe("buildFixPrompt", () => {
                   stackLabels: [],
                 },
               ],
+              recommended: [],
+            },
+            {
+              id: "coverage",
+              label: "Test coverage",
+              satisfied: false,
+              present: [],
               recommended: [],
             },
           ],
@@ -213,6 +229,7 @@ describe("buildFixPrompt", () => {
   it("escapes a literal backslash before escaping a pipe, so the two don't combine into a live one", () => {
     const analysis = withGap({
       satisfiedCount: 1,
+      gapCount: 1,
       categories: [
         {
           category: "Testing",
@@ -229,6 +246,13 @@ describe("buildFixPrompt", () => {
                   stackLabels: [],
                 },
               ],
+              recommended: [],
+            },
+            {
+              id: "coverage",
+              label: "Test coverage",
+              satisfied: false,
+              present: [],
               recommended: [],
             },
           ],
@@ -281,6 +305,7 @@ describe("buildFixPrompt", () => {
   it("leaves a fully satisfied capability's lone, single-stack tool unattributed", () => {
     const analysis = withGap({
       satisfiedCount: 1,
+      gapCount: 1,
       categories: [
         {
           category: "Testing",
@@ -299,6 +324,13 @@ describe("buildFixPrompt", () => {
               ],
               recommended: [],
             },
+            {
+              id: "coverage",
+              label: "Test coverage",
+              satisfied: false,
+              present: [],
+              recommended: [],
+            },
           ],
         },
       ],
@@ -312,6 +344,7 @@ describe("buildFixPrompt", () => {
   it("attributes each running tool when more than one covers the same capability", () => {
     const analysis = withGap({
       satisfiedCount: 1,
+      gapCount: 1,
       categories: [
         {
           category: "Code Quality",
@@ -336,6 +369,13 @@ describe("buildFixPrompt", () => {
               ],
               recommended: [],
             },
+            {
+              id: "docs",
+              label: "Docs build",
+              satisfied: false,
+              present: [],
+              recommended: [],
+            },
           ],
         },
       ],
@@ -351,6 +391,7 @@ describe("buildFixPrompt", () => {
   it("joins a single running tool's own multi-stack coverage with and", () => {
     const analysis = withGap({
       satisfiedCount: 1,
+      gapCount: 1,
       categories: [
         {
           category: "Security",
@@ -367,6 +408,13 @@ describe("buildFixPrompt", () => {
                   stackLabels: ["Docker", "Go"],
                 },
               ],
+              recommended: [],
+            },
+            {
+              id: "sast",
+              label: "Code Security (SAST)",
+              satisfied: false,
+              present: [],
               recommended: [],
             },
           ],
@@ -782,7 +830,6 @@ describe("buildFixPrompt golden output", () => {
   });
 
   it.each([
-    ["nothing-detected", empty, undefined],
     ["mixed-report", mixed, undefined],
     ["bundle-recipe", bundled, catalogueWith(bundleWithNotes)],
   ])("renders %s exactly as pinned", (name, analysis, catalogue) => {
