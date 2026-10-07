@@ -1,0 +1,95 @@
+import type { Metadata } from "next";
+import { getSession } from "@/lib/session";
+import {
+  approveDeviceLogin,
+  claimDeviceCode,
+  denyDeviceLogin,
+} from "./actions";
+
+export const metadata: Metadata = {
+  title: "Approve CLI sign-in",
+};
+
+/**
+ * Two steps, not one: typing the code (`claimDeviceCode`) binds it to this session, and only
+ * then does Approve/Deny appear. Never read `user_code` from a query parameter or pre-fill the
+ * input - a link with the code baked in would turn this into a one-click phishing approval
+ * (RFC 8628 §5.4). `claimed`/`error` here are state this page's own actions set after a
+ * redirect, never anything the code itself travels through.
+ */
+export default async function DevicePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ claimed?: string; error?: string }>;
+}) {
+  const session = await getSession();
+  const { claimed, error } = await searchParams;
+
+  return (
+    <div className="mx-auto flex max-w-lg flex-col items-center gap-7 py-10 text-center">
+      <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">
+        Approve the Korza CLI
+      </h1>
+
+      {session ? (
+        <div className="w-full rounded-lg border border-line bg-surface px-4 py-3 text-left">
+          <p className="text-xs text-ink-faint">Logged in as</p>
+          <p className="truncate text-sm text-ink">{session.user.name}</p>
+          <p className="truncate text-xs text-ink-faint">
+            {session.user.email}
+          </p>
+        </div>
+      ) : null}
+
+      {error ? (
+        <p className="text-sm text-ink-muted">
+          That code didn&apos;t work. Check it and try again.
+        </p>
+      ) : null}
+
+      {claimed ? (
+        <>
+          <p className="text-sm leading-relaxed text-ink-muted">
+            Only approve this if you just ran a Korza CLI command yourself. This
+            grants terminal access to your account.
+          </p>
+          <form action={approveDeviceLogin} className="flex gap-3">
+            <input type="hidden" name="userCode" value={claimed} />
+            <button
+              type="submit"
+              className="rounded-lg border border-line-strong bg-surface-raised px-4 py-3 text-sm font-medium text-ink transition-colors hover:border-ink-faint"
+            >
+              Approve
+            </button>
+          </form>
+          <form action={denyDeviceLogin}>
+            <input type="hidden" name="userCode" value={claimed} />
+            <button type="submit" className="text-sm text-ink-muted underline">
+              Deny
+            </button>
+          </form>
+        </>
+      ) : (
+        <form
+          action={claimDeviceCode}
+          className="flex w-full flex-col items-center gap-4"
+        >
+          <p className="text-sm leading-relaxed text-ink-muted">
+            Enter the code your terminal showed.
+          </p>
+          <input
+            name="userCode"
+            placeholder="WDJB-MJHT"
+            className="w-full rounded-lg border border-line bg-surface px-4 py-3 text-center font-mono text-lg tracking-widest text-ink outline-none"
+          />
+          <button
+            type="submit"
+            className="rounded-lg border border-line-strong bg-surface-raised px-4 py-3 text-sm font-medium text-ink transition-colors hover:border-ink-faint"
+          >
+            Continue
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
