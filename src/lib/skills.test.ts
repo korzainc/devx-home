@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import skillsData from "@/data/skills.json";
+import indexData from "@/data/index.json";
 import { CATEGORIES } from "@/data/skill-categories";
 import { KINDS } from "@/lib/catalogue-entries";
 import { plugins, skills, skillsForPlugin } from "./catalogue";
@@ -90,7 +90,7 @@ describe("skill catalogue", () => {
   });
 
   it("finds the skills a plugin ships", () => {
-    // plugins.json listed zero for codezen.
+    // The hand-typed plugin list reported zero skills for codezen.
     expect(skillsForPlugin("codezen").length).toBeGreaterThan(0);
     expect(skillsForPlugin("not-a-plugin")).toHaveLength(0);
   });
@@ -138,7 +138,7 @@ describe("skill catalogue", () => {
   });
 
   it("keeps Planned rows in the index and out of the catalogue", () => {
-    const indexed = skillsData.skills;
+    const indexed = indexData.skills;
     for (const skill of indexed) {
       expect(["Live", "Planned"]).toContain(skill.status);
     }

@@ -12,6 +12,7 @@ const empty: Analysis = {
   satisfiedCount: 0,
   partialCount: 0,
   gapCount: 0,
+  buildSteps: [],
 };
 
 function withGap(overrides: Partial<Analysis> = {}): Analysis {

@@ -8,6 +8,7 @@ import { PluginSkillsWithUsage } from "@/components/plugin-skills-with-usage";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BackLink } from "@/components/back-link";
+import { PinWarning } from "@/components/pin-warning";
 import { PluginInstall } from "@/components/plugin-install";
 import { MetaRow } from "@/components/meta-row";
 import { SkillContextStrip } from "@/components/skill-context-strip";
@@ -64,6 +65,7 @@ export default async function PluginPage({
         <p className="max-w-2xl leading-relaxed text-ink-muted">
           {plugin.summary}
         </p>
+        <PinWarning version={plugin.version} />
       </header>
 
       {/* Reads before what the plugin as a whole solves. Renders nothing without a skill, and

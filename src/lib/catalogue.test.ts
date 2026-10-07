@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import skillsData from "@/data/skills.json";
+import indexData from "@/data/index.json";
 import {
   bundles,
   ecosystemLabel,
@@ -390,13 +390,26 @@ describe("install commands", () => {
   it("offers nothing for a plugin no agent lists", () => {
     expect(installCommands({ ...plugins[0], agents: [] })).toEqual([]);
   });
+
+  // Array order is render order on the Plugins tab and nothing downstream sorts, so the order is
+  // a decision whether or not anyone makes it. It is the generator's, alphabetical by name, and
+  // deliberately not curated -- `skills` has been id-sorted since the index shipped. Pinned here
+  // so a future sort lands as a failing test rather than as cards quietly swapping places.
+  it("renders plugins in the generator's alphabetical order", () => {
+    const ids = plugins.map((plugin) => plugin.id);
+    expect(ids).toEqual([...ids].sort());
+  });
 });
 
 describe("provenance", () => {
-  it("declares the skill index as generated", () => {
+  it("declares the catalogue index as generated", () => {
     // Fails if a hand-extracted file is dropped back in.
-    expect(skillsData.placeholder).toBe(false);
-    expect(skillsData.schemaVersion).toBeGreaterThan(0);
+    expect(indexData.placeholder).toBe(false);
+    // Pinned, not `> 0`: the file is a contract from another repository and `> 0` accepts any
+    // reshape of it. DX-170 bumped this 5 -> 6 because plugin rows were added, and nothing here
+    // would have noticed. Bump it deliberately when taking a new shape, having checked what
+    // moved.
+    expect(indexData.schemaVersion).toBe(6);
   });
 });
 
