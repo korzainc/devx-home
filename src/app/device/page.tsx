@@ -11,6 +11,9 @@ export const metadata: Metadata = {
   title: "Approve CLI sign-in",
 };
 
+// Reads cookies() and searchParams, so it can't be prerendered.
+export const instant = false;
+
 /**
  * Two steps, not one: typing the code (`claimDeviceCode`) binds it to this session, and only
  * then does Approve/Deny appear. Never read the code from a query parameter or pre-fill the

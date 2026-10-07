@@ -4,6 +4,9 @@ export const metadata: Metadata = {
   title: "Approve CLI sign-in",
 };
 
+// Reads searchParams, so it can't be prerendered.
+export const instant = false;
+
 export default async function DeviceDonePage({
   searchParams,
 }: {
