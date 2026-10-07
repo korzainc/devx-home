@@ -246,6 +246,7 @@ describe("analyze", () => {
         id: "eslint",
         name: "ESLint",
         evidence: expect.any(String),
+        nonCiCredit: true,
         stackLabels: ["JavaScript"],
       },
     ]);
@@ -352,6 +353,7 @@ describe("analyze", () => {
         id: "gitleaks",
         name: "Gitleaks",
         evidence: expect.any(String),
+        nonCiCredit: true,
         stackLabels: [],
       },
     ]);

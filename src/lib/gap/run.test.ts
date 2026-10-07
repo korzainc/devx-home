@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { runAnalysis } from "./run";
 import { RepoReadError } from "./types";
 import type { AnalysisTool, Baseline } from "./types";
+import type { LlmConfig } from "./llm/types";
 
 const snapshot = {
   ref: { provider: "github" as const, owner: "korzainc", repo: "example" },
@@ -25,6 +26,32 @@ vi.mock("./github", () => ({
     loadSnapshot,
   },
 }));
+
+// Mocked to observe whether `runAnalysis` calls `applyLlmPass` at all.
+const applyLlmPass = vi.hoisted(() => vi.fn());
+
+vi.mock("./llm/apply", () => ({ applyLlmPass }));
+
+function noopLlmConfig(overrides: Partial<LlmConfig> = {}): LlmConfig {
+  return {
+    enabled: true,
+    client: { complete: vi.fn() },
+    model: "claude-sonnet-5-5",
+    effort: "low",
+    readCache: vi.fn().mockResolvedValue(null),
+    writeCache: vi.fn().mockResolvedValue(undefined),
+    underDailySpendCap: vi.fn().mockResolvedValue(true),
+    recordSpend: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  };
+}
+
+const emptyBaseline: Baseline = {
+  categories: [],
+  capabilities: {},
+  universal: [],
+  stacks: [],
+};
 
 describe("runAnalysis", () => {
   it("maps a CatalogueDataError to a clean ok:false result instead of throwing", async () => {
@@ -57,6 +84,62 @@ describe("runAnalysis", () => {
       expect(result.status).toBe(500);
       expect(result.error).toContain("no-such-tool");
     }
+  });
+
+  it.each([
+    { name: "there is no token", token: null, llm: noopLlmConfig() },
+    {
+      name: "llm.enabled is false",
+      token: "a-token",
+      llm: noopLlmConfig({ enabled: false }),
+    },
+    { name: "there is no llm config", token: "a-token", llm: undefined },
+  ])("does not invoke the LLM pass when $name", async ({ token, llm }) => {
+    loadSnapshot.mockResolvedValue(snapshot);
+
+    const result = await runAnalysis(
+      "korzainc/example",
+      token,
+      { tools: [], baseline: emptyBaseline },
+      llm,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(applyLlmPass).not.toHaveBeenCalled();
+  });
+
+  it("invokes the LLM pass exactly once when llm.enabled is true and a token is present", async () => {
+    loadSnapshot.mockResolvedValue(snapshot);
+    const rescuedAnalysis = { rescued: true };
+    applyLlmPass.mockResolvedValue(rescuedAnalysis);
+    const llm = noopLlmConfig();
+
+    const result = await runAnalysis(
+      "korzainc/example",
+      "a-token",
+      { tools: [], baseline: emptyBaseline },
+      llm,
+    );
+
+    expect(applyLlmPass).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ ok: true, analysis: rescuedAnalysis });
+  });
+
+  it("falls back to the deterministic analysis instead of throwing when applyLlmPass throws unexpectedly", async () => {
+    loadSnapshot.mockResolvedValue(snapshot);
+    applyLlmPass.mockRejectedValue(new Error("unexpected"));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const llm = noopLlmConfig();
+
+    const result = await runAnalysis(
+      "korzainc/example",
+      "a-token",
+      { tools: [], baseline: emptyBaseline },
+      llm,
+    );
+
+    expect(result.ok).toBe(true);
+    errorSpy.mockRestore();
   });
 });
 

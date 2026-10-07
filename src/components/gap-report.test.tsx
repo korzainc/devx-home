@@ -23,6 +23,7 @@ function analysisWith(overrides: Partial<Analysis>): Analysis {
     satisfiedCount: 0,
     partialCount: 0,
     gapCount: 0,
+    buildSteps: [],
     ...overrides,
   };
 }

@@ -1,4 +1,5 @@
 import { detectStacks, detectTools } from "./detect";
+import type { CiSignals } from "./detect";
 import { CatalogueDataError, refLabel } from "./types";
 import type {
   Analysis,
@@ -52,18 +53,157 @@ function toRecommendedTools(
   });
 }
 
+/** Every stack in `stacks` that expects capability `id`. */
+export function owningStacksFor(
+  stacks: BaselineStack[],
+  id: string,
+): BaselineStack[] {
+  return stacks.filter((stack) => stack.expects[id] !== undefined);
+}
+
+/** The owning stacks `present` has no tool for, judged by `tool.stacks` rather than by what a
+ * tool's evidence showed. */
+export function uncoveredStacks(
+  owningStacks: BaselineStack[],
+  present: PresentTool[],
+  toolById: Map<string, AnalysisTool>,
+): BaselineStack[] {
+  return owningStacks.filter(
+    (stack) =>
+      !present.some((entry) => {
+        const tool = toolById.get(entry.id);
+        return (
+          tool !== undefined &&
+          (tool.stacks.includes("any") || tool.stacks.includes(stack.id))
+        );
+      }),
+  );
+}
+
+/** The labels of the stacks in `owningStacks` that `tool` declares. */
+export function stackLabelsFor(
+  tool: AnalysisTool,
+  owningStacks: BaselineStack[],
+): string[] {
+  return owningStacks
+    .filter((stack) => tool.stacks.includes(stack.id))
+    .map((stack) => stack.label);
+}
+
+/** Whether `tool` counts toward capability `id` for `owningStacks` (empty means universal). */
+export function toolCreditsCapability(
+  tool: AnalysisTool,
+  id: string,
+  owningStacks: BaselineStack[],
+): boolean {
+  if (!tool.capabilities.includes(id)) return false;
+  return (
+    owningStacks.length === 0 ||
+    tool.stacks.includes("any") ||
+    owningStacks.some((stack) => tool.stacks.includes(stack.id))
+  );
+}
+
+/** Whether `present` covers every stack in `owningStacks` for capability `id`, and what to
+ * recommend if not. Empty `owningStacks` means universal: presence alone counts. */
+export function evaluateCapability(
+  id: string,
+  present: PresentTool[],
+  owningStacks: BaselineStack[],
+  tools: AnalysisTool[],
+  toolById: Map<string, AnalysisTool>,
+  stackIds: Set<string>,
+): { satisfied: boolean; recommended: RecommendedTool[] } {
+  if (owningStacks.length === 0) {
+    const satisfied = present.length > 0;
+    if (satisfied) return { satisfied, recommended: [] };
+
+    // No matched stack's baseline mentions this capability, so fall back to searching every
+    // tool generically. A wrapped tool is never itself recommended, and a bundle covering
+    // the capability sorts first.
+    const wrappedIds = new Set(
+      tools.flatMap(
+        (tool) =>
+          tool.wraps
+            ?.filter((entry) => entry.capabilities.includes(id))
+            .map((entry) => entry.tool) ?? [],
+      ),
+    );
+    const recommended = tools
+      .filter(
+        (tool) =>
+          tool.capabilities.includes(id) &&
+          (tool.stacks.includes("any") ||
+            tool.stacks.some((stack) => stackIds.has(stack))) &&
+          !wrappedIds.has(tool.id),
+      )
+      .sort(
+        (a, b) => Number(b.wraps !== undefined) - Number(a.wraps !== undefined),
+      )
+      .map((tool) => ({ id: tool.id, name: tool.name, stackLabels: [] }));
+    return { satisfied, recommended };
+  }
+
+  const uncovered = uncoveredStacks(owningStacks, present, toolById);
+  const satisfied = uncovered.length === 0;
+  if (satisfied) return { satisfied, recommended: [] };
+
+  // Each uncovered stack's own baseline entry already names which tool applies here, so there's
+  // no need to re-derive stack fit generically like the fallback above.
+  const recommended = toRecommendedTools(
+    recommendationsByToolId(uncovered, id),
+    toolById,
+    id,
+  );
+  // toRecommendedTools always resolves at least one entry per uncovered stack, or throws - this
+  // only fires if that guarantee itself breaks.
+  if (recommended.length === 0) {
+    throw new CatalogueDataError(
+      `Capability "${id}" is unsatisfied with tools present but produced no recommendation.`,
+    );
+  }
+  return { satisfied, recommended };
+}
+
+/** The capability report with this id, in any category. */
+export function findCapability(
+  analysis: Pick<Analysis, "categories">,
+  id: string,
+): CapabilityReport | undefined {
+  for (const category of analysis.categories) {
+    const found = category.capabilities.find(
+      (capability) => capability.id === id,
+    );
+    if (found) return found;
+  }
+  return undefined;
+}
+
+export function countCapabilities(
+  reports: CapabilityReport[],
+): Pick<Analysis, "satisfiedCount" | "partialCount" | "gapCount"> {
+  return {
+    satisfiedCount: reports.filter((report) => report.satisfied).length,
+    partialCount: reports.filter(
+      (report) => !report.satisfied && report.present.length > 0,
+    ).length,
+    gapCount: reports.filter((report) => !report.satisfied).length,
+  };
+}
+
 /**
  * The whole diff. Deterministic: same snapshot and same catalogue give the same report, with no
  * model in the path. The catalogue and baseline arrive as arguments so this stays independent of
- * where that data is loaded from.
+ * where that data is loaded from. `signals` lets `run.ts` reuse its own parse.
  */
 export function analyze(
   snapshot: RepoSnapshot,
   catalogue: { tools: AnalysisTool[]; baseline: Baseline },
+  signals?: CiSignals,
 ): Analysis {
   const { tools, baseline } = catalogue;
   const stacks = detectStacks(snapshot.paths, baseline);
-  const detected = detectTools(snapshot, tools);
+  const detected = detectTools(snapshot, tools, signals);
 
   const stackIds = new Set(stacks.map((stack) => stack.id));
   const toolById = new Map(tools.map((tool) => [tool.id, tool]));
@@ -74,94 +214,33 @@ export function analyze(
 
   const reports: CapabilityReport[] = [...expected].map((id) => {
     const meta = baseline.capabilities[id];
-    const owningStacks = stacks.filter(
-      (stack) => stack.expects[id] !== undefined,
-    );
+    const owningStacks = owningStacksFor(stacks, id);
 
     // Matching by capability id alone isn't enough: a detected tool can cover this capability
     // for a stack this repo doesn't own (e.g. a nested frontend's ESLint in a Java-only repo).
     // Keeping it in `present` would misreport a fully-missing capability as partially covered.
     const rawPresent = detected.filter((entry) => {
       const tool = toolById.get(entry.id);
-      if (!tool?.capabilities.includes(id)) return false;
       return (
-        owningStacks.length === 0 ||
-        tool.stacks.includes("any") ||
-        owningStacks.some((stack) => tool.stacks.includes(stack.id))
+        tool !== undefined && toolCreditsCapability(tool, id, owningStacks)
       );
     });
     const present: PresentTool[] = rawPresent.map((entry) => {
       const tool = toolById.get(entry.id);
-      const stackLabels = owningStacks
-        .filter((stack) => tool?.stacks.includes(stack.id))
-        .map((stack) => stack.label);
+      const stackLabels = tool ? stackLabelsFor(tool, owningStacks) : [];
       return { ...entry, stackLabels };
     });
 
-    let satisfied: boolean;
     // A gap names the tools the catalogue would put there, and nothing else. No generated
     // workflow snippet: a snippet that has not been run against the repo is a guess.
-    let recommended: RecommendedTool[] = [];
-
-    if (owningStacks.length === 0) {
-      // Only reachable via `baseline.universal`, which the real catalogue always leaves empty:
-      // there's no stack dimension to check partial coverage against.
-      satisfied = present.length > 0;
-      if (!satisfied) {
-        // No matched stack's baseline mentions this capability, so fall back to searching every
-        // tool generically. A wrapped tool is never itself recommended, and a bundle covering
-        // the capability sorts first.
-        const wrappedIds = new Set(
-          tools.flatMap(
-            (tool) =>
-              tool.wraps
-                ?.filter((entry) => entry.capabilities.includes(id))
-                .map((entry) => entry.tool) ?? [],
-          ),
-        );
-        recommended = tools
-          .filter(
-            (tool) =>
-              tool.capabilities.includes(id) &&
-              (tool.stacks.includes("any") ||
-                tool.stacks.some((stack) => stackIds.has(stack))) &&
-              !wrappedIds.has(tool.id),
-          )
-          .sort(
-            (a, b) =>
-              Number(b.wraps !== undefined) - Number(a.wraps !== undefined),
-          )
-          .map((tool) => ({ id: tool.id, name: tool.name, stackLabels: [] }));
-      }
-    } else {
-      const uncoveredStacks = owningStacks.filter(
-        (stack) =>
-          !present.some((entry) => {
-            const tool = toolById.get(entry.id);
-            return (
-              tool !== undefined &&
-              (tool.stacks.includes("any") || tool.stacks.includes(stack.id))
-            );
-          }),
-      );
-      satisfied = uncoveredStacks.length === 0;
-      if (!satisfied) {
-        // Each uncovered stack's own baseline entry already names which tool applies here, so
-        // there's no need to re-derive stack fit generically like the fallback above.
-        recommended = toRecommendedTools(
-          recommendationsByToolId(uncoveredStacks, id),
-          toolById,
-          id,
-        );
-        // toRecommendedTools always resolves at least one entry per uncovered stack, or throws -
-        // this only fires if that guarantee itself breaks.
-        if (recommended.length === 0) {
-          throw new CatalogueDataError(
-            `Capability "${id}" is unsatisfied with tools present but produced no recommendation.`,
-          );
-        }
-      }
-    }
+    const { satisfied, recommended } = evaluateCapability(
+      id,
+      present,
+      owningStacks,
+      tools,
+      toolById,
+      stackIds,
+    );
 
     return {
       id,
@@ -208,10 +287,7 @@ export function analyze(
     stacks,
     filesRead: Object.keys(snapshot.files).sort(),
     categories,
-    satisfiedCount: reports.filter((report) => report.satisfied).length,
-    partialCount: reports.filter(
-      (report) => !report.satisfied && report.present.length > 0,
-    ).length,
-    gapCount: reports.filter((report) => !report.satisfied).length,
+    ...countCapabilities(reports),
+    buildSteps: [],
   };
 }

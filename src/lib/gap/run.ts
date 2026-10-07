@@ -1,5 +1,8 @@
 import { analyze } from "./analyze";
+import { ciSignals } from "./detect";
 import { githubReader } from "./github";
+import { applyLlmPass } from "./llm/apply";
+import type { LlmConfig } from "./llm/types";
 import { CatalogueDataError, RepoReadError } from "./types";
 import type { Analysis, AnalysisTool, Baseline, RepoReader } from "./types";
 
@@ -45,6 +48,7 @@ export async function runAnalysis(
   repo: string,
   token: string | null,
   catalogue: { tools: AnalysisTool[]; baseline: Baseline },
+  llm?: LlmConfig,
 ): Promise<RunResult> {
   const resolved = resolve(repo);
   if (!resolved) {
@@ -61,7 +65,25 @@ export async function runAnalysis(
       token,
       catalogue.baseline,
     );
-    return { ok: true, analysis: analyze(snapshot, catalogue) };
+    // Shared with the LLM pass so the CI YAML is parsed once.
+    const signals = ciSignals(snapshot);
+    let analysis = analyze(snapshot, catalogue, signals);
+
+    // A token only proves sign-in, not org membership; `src/proxy.ts` checks membership for
+    // `/api/analyze`. `/ci-coverage` skips that check, so it must never pass an enabled `llm`.
+    if (llm?.enabled && token) {
+      // The pass throws on unexpected failures; the deterministic report is the fallback.
+      try {
+        analysis = await applyLlmPass(analysis, signals, catalogue, llm);
+      } catch (error) {
+        console.error(
+          "gap LLM pass: threw unexpectedly, falling back to the deterministic analysis",
+          { repo: analysis.repo, error },
+        );
+      }
+    }
+
+    return { ok: true, analysis };
   } catch (error) {
     if (error instanceof RepoReadError) {
       return { ok: false, status: statusFor(error), error: error.message };

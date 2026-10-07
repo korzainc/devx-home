@@ -128,9 +128,9 @@ export function filesToRead(paths: string[], baseline: Baseline): string[] {
   ].slice(0, maxFiles);
 }
 
-type CiSignals = {
+export type CiSignals = {
   /** Action refs from `uses:`, with the `@ref` suffix stripped. */
-  uses: { value: string; source: string }[];
+  uses: { value: string; source: string; inputs?: Record<string, string> }[];
   /** Shell from `run:`, GitLab `script:` and package.json scripts. */
   shell: { text: string; source: string }[];
 };
@@ -143,6 +143,22 @@ const shellKeys = new Set([
   "commands",
 ]);
 
+/** Scalar `with:` values for the LLM prompt. Keys in `shellKeys` are skipped: `walkCi` already
+ * emits them as shell entries, and repeating them would spend the prompt budget twice. */
+function stepInputs(withBlock: unknown): Record<string, string> | undefined {
+  if (!withBlock || typeof withBlock !== "object" || Array.isArray(withBlock))
+    return undefined;
+  const entries = Object.entries(withBlock as Record<string, unknown>).filter(
+    (entry): entry is [string, string | number | boolean] =>
+      !shellKeys.has(entry[0]) &&
+      ["string", "number", "boolean"].includes(typeof entry[1]),
+  );
+  if (entries.length === 0) return undefined;
+  return Object.fromEntries(
+    entries.map(([key, value]) => [key, String(value)]),
+  );
+}
+
 function walkCi(node: unknown, source: string, into: CiSignals) {
   if (Array.isArray(node)) {
     for (const item of node) walkCi(item, source, into);
@@ -150,9 +166,14 @@ function walkCi(node: unknown, source: string, into: CiSignals) {
   }
   if (!node || typeof node !== "object") return;
 
-  for (const [key, value] of Object.entries(node)) {
+  const step = node as Record<string, unknown>;
+  for (const [key, value] of Object.entries(step)) {
     if (key === "uses" && typeof value === "string") {
-      into.uses.push({ value: value.split("@")[0], source });
+      into.uses.push({
+        value: value.split("@")[0],
+        source,
+        inputs: stepInputs(step.with),
+      });
     } else if (shellKeys.has(key)) {
       const lines = Array.isArray(value) ? value : [value];
       for (const line of lines) {
@@ -302,11 +323,7 @@ function usesEvidence(action: string, value: string): string {
 }
 
 /** Signals are OR'd. CI evidence is preferred because this reports on pipelines, not checkouts. */
-function evidenceFor(
-  tool: AnalysisTool,
-  snapshot: RepoSnapshot,
-  signals: CiSignals,
-): string | null {
+function ciEvidence(tool: AnalysisTool, signals: CiSignals): string | null {
   for (const action of tool.detect.ciUses ?? []) {
     // A catalogue entry can name an action family (e.g. github/codeql-action), invoked in the
     // wild only through a specific sub-action (.../analyze, /init, /upload-sarif); the trailing
@@ -323,6 +340,13 @@ function evidenceFor(
     if (hit) return `runs ${command} in ${hit.source}`;
   }
 
+  return null;
+}
+
+function nonCiEvidence(
+  tool: AnalysisTool,
+  snapshot: RepoSnapshot,
+): string | null {
   for (const candidate of tool.detect.configFiles ?? []) {
     const hit = configFileMatch(snapshot.paths, candidate);
     if (!hit) continue;
@@ -341,13 +365,21 @@ function evidenceFor(
 export function detectTools(
   snapshot: RepoSnapshot,
   tools: AnalysisTool[],
+  signals: CiSignals = ciSignals(snapshot),
 ): DetectedTool[] {
-  const signals = ciSignals(snapshot);
   const found: DetectedTool[] = [];
 
   for (const tool of tools) {
-    const evidence = evidenceFor(tool, snapshot, signals);
-    if (evidence) found.push({ id: tool.id, name: tool.name, evidence });
+    const ci = ciEvidence(tool, signals);
+    const nonCi = nonCiEvidence(tool, snapshot);
+    const evidence = ci ?? nonCi;
+    if (!evidence) continue;
+    found.push({
+      id: tool.id,
+      name: tool.name,
+      evidence,
+      ...(nonCi ? { nonCiCredit: true as const } : {}),
+    });
   }
 
   return found;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectStacks, detectTools, filesToRead } from "./detect";
+import { ciSignals, detectStacks, detectTools, filesToRead } from "./detect";
 import type { AnalysisTool, Baseline, RepoSnapshot } from "./types";
 
 // A fixture rather than the real catalogue: these cover the engine, and should not have to change
@@ -257,6 +257,43 @@ describe("detectTools", () => {
         evidence: "uses: aquasecurity/trivy-action",
       },
     ]);
+  });
+
+  it("flags a tool as non-CI credited when a config file or manifest dependency also credits it, and never otherwise", () => {
+    const ciOnly = snapshot({
+      paths: ["ci.yml"],
+      files: { "ci.yml": "steps:\n  - run: trivy fs .\n" },
+    });
+    const trivy = tool("trivy", {
+      commands: ["trivy fs"],
+      configFiles: ["trivy.yaml"],
+      manifestDeps: ["trivy-dep"],
+    });
+    expect(detectTools(ciOnly, [trivy])[0]).not.toHaveProperty("nonCiCredit");
+
+    const withConfig = snapshot({
+      paths: ["ci.yml", "trivy.yaml"],
+      files: ciOnly.files,
+    });
+    expect(detectTools(withConfig, [trivy])).toEqual([
+      {
+        id: "trivy",
+        name: "trivy",
+        evidence: "runs trivy fs in ci.yml",
+        nonCiCredit: true,
+      },
+    ]);
+
+    const withDependency = snapshot({
+      paths: ["ci.yml", "package.json"],
+      files: {
+        ...ciOnly.files,
+        "package.json": JSON.stringify({
+          devDependencies: { "trivy-dep": "1" },
+        }),
+      },
+    });
+    expect(detectTools(withDependency, [trivy])[0].nonCiCredit).toBe(true);
   });
 
   it("matches a ciUses family name against a specific sub-action", () => {
@@ -524,5 +561,82 @@ describe("detectTools", () => {
         tool("eslint", { configFiles: ["eslint.config.mjs"] }),
       ]),
     ).toEqual([]);
+  });
+
+  it("credits a tool invoked under with: run: on a docker-run-action step", () => {
+    const found = detectTools(
+      snapshot({
+        paths: [".github/workflows/ci.yml"],
+        files: {
+          ".github/workflows/ci.yml":
+            "jobs:\n  scan:\n    steps:\n      - uses: addnab/docker-run-action@v3\n        with:\n          run: trivy fs --scanners vuln,misconfig .\n",
+        },
+      }),
+      [tool("trivy", { commands: ["trivy"] })],
+    );
+
+    expect(found[0].evidence).toBe("runs trivy in .github/workflows/ci.yml");
+  });
+
+  it("credits a tool invoked under with: script: on a github-script step", () => {
+    const found = detectTools(
+      snapshot({
+        paths: [".github/workflows/ci.yml"],
+        files: {
+          ".github/workflows/ci.yml":
+            "jobs:\n  scan:\n    steps:\n      - uses: actions/github-script@v7\n        with:\n          script: exec('semgrep scan --config auto')\n",
+        },
+      }),
+      [tool("semgrep", { commands: ["semgrep"] })],
+    );
+
+    expect(found[0].evidence).toBe("runs semgrep in .github/workflows/ci.yml");
+  });
+});
+
+describe("ciSignals", () => {
+  it("collects a uses entry's scalar with: values as inputs", () => {
+    const signals = ciSignals(
+      snapshot({
+        paths: [".github/workflows/ci.yml"],
+        files: {
+          ".github/workflows/ci.yml":
+            "jobs:\n  scan:\n    steps:\n      - uses: aquasecurity/trivy-action@v0\n        with:\n          scan-type: fs\n          scanners: vuln\n          ignore-unfixed: true\n",
+        },
+      }),
+    );
+
+    expect(signals.uses).toEqual([
+      {
+        value: "aquasecurity/trivy-action",
+        source: ".github/workflows/ci.yml",
+        inputs: {
+          "scan-type": "fs",
+          scanners: "vuln",
+          "ignore-unfixed": "true",
+        },
+      },
+    ]);
+  });
+
+  it("leaves inputs undefined when with: holds no scalar, or only a script already emitted as shell", () => {
+    const signals = ciSignals(
+      snapshot({
+        paths: [".github/workflows/ci.yml"],
+        files: {
+          ".github/workflows/ci.yml":
+            "jobs:\n  scan:\n    steps:\n      - uses: actions/checkout@v4\n      - uses: actions/cache@v4\n        with:\n          path: [a, b]\n          opts: { x: 1 }\n      - uses: actions/github-script@v7\n        with:\n          script: console.log(1)\n",
+        },
+      }),
+    );
+
+    expect(signals.uses).toEqual([
+      { value: "actions/checkout", source: ".github/workflows/ci.yml" },
+      { value: "actions/cache", source: ".github/workflows/ci.yml" },
+      { value: "actions/github-script", source: ".github/workflows/ci.yml" },
+    ]);
+    expect(signals.shell.map((entry) => entry.text)).toEqual([
+      "console.log(1)",
+    ]);
   });
 });

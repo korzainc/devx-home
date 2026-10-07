@@ -1,6 +1,12 @@
+import { headers } from "next/headers";
 import { getBaseline, tools } from "@/lib/catalogue";
+import { getLlmConfig } from "@/lib/gap-llm-config";
 import { runAnalysis } from "@/lib/gap/run";
-import { getGitHubToken } from "@/lib/session";
+import { isOrgMember } from "@/lib/membership";
+import { getGitHubToken, getSession } from "@/lib/session";
+
+// Must clear the LLM pass's 30s client timeout with margin for the repo fetch and analysis.
+export const maxDuration = 45;
 
 // The token belongs to whoever is signed in and is handed to `runAnalysis` as an argument.
 // Nothing under src/lib/gap touches the environment or the session.
@@ -30,11 +36,23 @@ export async function POST(request: Request) {
     );
   }
 
+  // `src/proxy.ts` already requires org membership; this repeats it in case a proxy matcher
+  // change or bypass lets a request through.
+  const session = await getSession();
+  if (!session || !(await isOrgMember(await headers(), session.user))) {
+    return Response.json(
+      { error: "Log in with GitHub to analyze a repository." },
+      { status: 401 },
+    );
+  }
+
   const repo = repoFromBody(await request.json().catch(() => null));
-  const result = await runAnalysis(repo, token, {
-    tools,
-    baseline: getBaseline(),
-  });
+  const result = await runAnalysis(
+    repo,
+    token,
+    { tools, baseline: getBaseline() },
+    getLlmConfig(),
+  );
 
   return result.ok
     ? Response.json(result.analysis)
