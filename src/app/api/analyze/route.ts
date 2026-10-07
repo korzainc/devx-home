@@ -1,5 +1,10 @@
 import { headers } from "next/headers";
 import {
+  GITHUB_REAUTH_REQUIRED_MESSAGE,
+  NOT_ORG_MEMBER_MESSAGE,
+  UNAUTHENTICATED_MESSAGE,
+} from "@/lib/api-errors";
+import {
   bundleById,
   capabilityLabels,
   getBaseline,
@@ -38,10 +43,7 @@ export async function POST(request: Request) {
   const session = await getSession();
   if (!session) {
     return Response.json(
-      {
-        error: "Log in with GitHub to analyze a repository.",
-        reason: "unauthenticated",
-      },
+      { error: UNAUTHENTICATED_MESSAGE, reason: "unauthenticated" },
       { status: 401 },
     );
   }
@@ -52,10 +54,7 @@ export async function POST(request: Request) {
   // account can't make it a member.
   if (!(await isOrgMember(await headers(), session.user))) {
     return Response.json(
-      {
-        error: "You're not a member of the Korza GitHub organization.",
-        reason: "not_org_member",
-      },
+      { error: NOT_ORG_MEMBER_MESSAGE, reason: "not_org_member" },
       { status: 403 },
     );
   }
@@ -67,7 +66,7 @@ export async function POST(request: Request) {
   if (!token) {
     return Response.json(
       {
-        error: "Your GitHub access needs refreshing. Sign in again on the website.",
+        error: GITHUB_REAUTH_REQUIRED_MESSAGE,
         reason: "github_reauth_required",
       },
       { status: 401 },

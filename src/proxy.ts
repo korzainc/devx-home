@@ -1,4 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
+import {
+  NOT_ORG_MEMBER_MESSAGE,
+  UNAUTHENTICATED_MESSAGE,
+} from "@/lib/api-errors";
 import { getAuth } from "@/lib/auth";
 import { isOpenPath } from "@/lib/gate";
 import { isOrgMember } from "@/lib/membership";
@@ -65,13 +69,16 @@ export default async function proxy(request: NextRequest) {
   const { pathname, search, origin } = request.nextUrl;
   if (isOpenPath(pathname)) return NextResponse.next();
 
+  // Shared across both branches below: a non-browser caller (the CLI, sending a bearer token
+  // instead of a cookie) can't follow a redirect to an HTML login page, so every /api/* path
+  // gets a JSON body it can parse instead of a 307.
+  const isApiPath = pathname.startsWith("/api/");
+
   const session = await sessionFor(request);
   if (!session) {
-    // A non-browser caller (the CLI, sending a bearer token instead of a cookie) can't follow a
-    // redirect to an HTML login page, so /api/* gets a body it can parse instead.
-    if (pathname.startsWith("/api/")) {
+    if (isApiPath) {
       return Response.json(
-        { error: "Log in with GitHub to analyze a repository.", reason: "unauthenticated" },
+        { error: UNAUTHENTICATED_MESSAGE, reason: "unauthenticated" },
         { status: 401 },
       );
     }
@@ -90,9 +97,9 @@ export default async function proxy(request: NextRequest) {
   // Signed in and not one of us, which is a different answer from signed out and so a different
   // page. Sending these visitors to `/login` would loop: they have a valid session already, and
   // signing in again would produce the same one.
-  if (pathname.startsWith("/api/")) {
+  if (isApiPath) {
     return Response.json(
-      { error: "You're not a member of the Korza GitHub organization.", reason: "not_org_member" },
+      { error: NOT_ORG_MEMBER_MESSAGE, reason: "not_org_member" },
       { status: 403 },
     );
   }

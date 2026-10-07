@@ -40,7 +40,7 @@ describe("proxy", () => {
 
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({
-      error: "Log in with GitHub to analyze a repository.",
+      error: "Log in with GitHub to continue.",
       reason: "unauthenticated",
     });
   });
@@ -58,6 +58,18 @@ describe("proxy", () => {
       error: "You're not a member of the Korza GitHub organization.",
       reason: "not_org_member",
     });
+  });
+
+  it("passes through an org member's /api/* request instead of answering itself", async () => {
+    api.getSession.mockResolvedValue({
+      user: { id: "u1", orgMember: true, orgCheckedAt: new Date() },
+    });
+    isOrgMember.mockResolvedValue(true);
+
+    const res = await proxy(requestFor("/api/analyze"));
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("x-middleware-next")).toBe("1");
   });
 
   it("still redirects an unauthenticated page request to /login", async () => {
