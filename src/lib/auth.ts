@@ -83,6 +83,13 @@ export function createAuth(database: BetterAuthOptions["database"]) {
         orgCheckedAt: { type: "date", required: false, input: false },
       },
     },
+    session: {
+      additionalFields: {
+        // Which flow created this session. `input: false`: a client-set value here would let a
+        // request mislabel its own session as device-issued.
+        source: { type: "string", required: false, input: false },
+      },
+    },
     plugins: [
       // Lets a bearer token stand in for the session cookie, so `korza ci-coverage` can carry a
       // session the same way a browser's cookie jar does, with no separate token table or route.
@@ -117,6 +124,17 @@ export function createAuth(database: BetterAuthOptions["database"]) {
       // it carries a real session; returning instead of throwing would let it fall through to
       // device-authorization's own cookie-only check and sail past this one unexamined.
       before: createAuthMiddleware(async (ctx) => {
+        if (ctx.path === "/device/code") {
+          // The plugin accepts an optional `user_id` in this body and stores it as the device
+          // code's owner with no authentication, which skips the "type the code to claim it" step
+          // the two-step confirm flow depends on. The CLI never sends this field.
+          if (ctx.body?.user_id) {
+            throw new APIError("BAD_REQUEST", {
+              message: "user_id is not accepted on this endpoint",
+            });
+          }
+          return;
+        }
         if (ctx.path !== "/device/approve") return;
         const session = await getSessionFromCtx(ctx);
         if (!session) {
@@ -132,6 +150,49 @@ export function createAuth(database: BetterAuthOptions["database"]) {
           });
         }
       }),
+      after: createAuthMiddleware(async (ctx) => {
+        // The plugin bakes the user code into `verification_uri_complete`'s query string, but
+        // /device deliberately ignores that query param (see src/app/device/page.tsx) to avoid a
+        // phishing link and keep the code out of browser history/referrers. Strip the field so a
+        // naive client can't defeat that by opening it directly.
+        if (ctx.path === "/device/code") {
+          const body = ctx.context.returned;
+          if (body && typeof body === "object" && "verification_uri_complete" in body) {
+            delete (body as Record<string, unknown>).verification_uri_complete;
+          }
+          return;
+        }
+        if (ctx.path !== "/get-session") return;
+        // getSession's own refresh-on-expiry logic extends expiresAt back out to the global
+        // 7-day default (`sessionConfig.expiresIn`) whenever a session is within ~6 days of
+        // expiring, regardless of how long it was actually issued for - so an actively-polled
+        // device session would never truly expire. A `hooks.before` can't pre-empt that write:
+        // every before-hook runs against the same pre-dispatch headers (see better-auth's
+        // dist/api/dispatch.mjs `runBeforeHooks`), so one can't see bearer's own before-hook
+        // turning the CLI's Authorization header into the cookie this lookup needs. Clamping
+        // here instead, after the real handler has run, works for both transports.
+        //
+        // `ctx.context.session` is set before that refresh runs and is never updated to reflect
+        // it (see getSession in better-auth's dist/api/routes/session.mjs), so its `token`,
+        // `createdAt` and `source` are reliable but its `expiresAt` isn't - the refreshed value,
+        // if any, only lands in the JSON body.
+        const session = ctx.context.session;
+        if (!session || session.session.source !== "device") return;
+        const body = ctx.context.returned;
+        const bodySession =
+          body && typeof body === "object" && "session" in body
+            ? (body as { session?: { expiresAt?: Date } }).session
+            : undefined;
+        const returnedExpiresAt = bodySession?.expiresAt ?? session.session.expiresAt;
+        const cap = new Date(
+          new Date(session.session.createdAt).getTime() + DEVICE_SESSION_EXPIRES_IN_MS,
+        );
+        if (returnedExpiresAt.getTime() <= cap.getTime()) return;
+        await ctx.context.internalAdapter.updateSession(session.session.token, {
+          expiresAt: cap,
+        });
+        if (bodySession) bodySession.expiresAt = cap;
+      }),
     },
     databaseHooks: {
       session: {
@@ -146,6 +207,7 @@ export function createAuth(database: BetterAuthOptions["database"]) {
               data: {
                 ...session,
                 expiresAt: new Date(Date.now() + DEVICE_SESSION_EXPIRES_IN_MS),
+                source: "device",
               },
             };
           },

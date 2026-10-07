@@ -303,4 +303,99 @@ describe("device approval", () => {
     const expiresInMs = new Date(body.session.expiresAt).getTime() - Date.now();
     expect(expiresInMs).toBeLessThan(8 * 24 * 60 * 60 * 1000);
   });
+
+  // The plugin accepts an optional, unauthenticated `user_id` on this request and stores it
+  // directly as the device code's owner, which skips the "type the code to claim it" step the
+  // two-step confirm flow depends on. The CLI never sends this field.
+  it("rejects a user_id pre-binding on POST /device/code", async () => {
+    const auth = await testAuthInstance();
+
+    const res = await auth.handler(
+      new Request(`${BASE}/device/code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ client_id: "korza-cli", user_id: "someone-else" }),
+      }),
+    );
+
+    expect(res.status).toBe(400);
+  });
+
+  // /device ignores this query param by design (phishing links, browser history/referrers), so a
+  // client that naively opens it defeats that. The plugin still returns it; it must not reach
+  // callers.
+  it("strips verification_uri_complete from the /device/code response", async () => {
+    const auth = await testAuthInstance();
+
+    const res = await auth.handler(
+      new Request(`${BASE}/device/code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ client_id: "korza-cli" }),
+      }),
+    );
+    const body = (await res.json()) as Record<string, unknown>;
+
+    expect(body.verification_uri).toBeTruthy();
+    expect(body).not.toHaveProperty("verification_uri_complete");
+  });
+
+  describe("session refresh near expiry", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    // better-auth's own getSession refreshes expiresAt back out to the global 7-day default
+    // whenever a session is within ~6 days of expiring, regardless of how long it was actually
+    // issued for - which would make an actively-polled 30-day device session never truly expire.
+    it("does not push a device session's expiry back out once it enters the refresh window", async () => {
+      const auth = await testAuthInstance({ orgMember: true });
+      const session = await signInTestUser(auth);
+      const { deviceCode, userCode } = await startDeviceFlow(auth);
+      await claimDeviceCode(auth, userCode, session);
+      await auth.handler(approveRequest({ userCode }, session));
+
+      const tokenRes = await auth.handler(tokenRequest({ deviceCode }));
+      const { access_token } = (await tokenRes.json()) as {
+        access_token: string;
+      };
+
+      vi.useFakeTimers();
+      vi.setSystemTime(Date.now() + 25 * 24 * 60 * 60 * 1000); // 5 days left of 30
+
+      const res = await auth.handler(
+        new Request(`${BASE}/get-session`, {
+          headers: { Authorization: `Bearer ${access_token}` },
+        }),
+      );
+      const body = (await res.json()) as { session: { expiresAt: string } };
+      const daysLeft =
+        (new Date(body.session.expiresAt).getTime() - Date.now()) /
+        (24 * 60 * 60 * 1000);
+
+      expect(daysLeft).toBeGreaterThan(4.9);
+      expect(daysLeft).toBeLessThan(5.1);
+    });
+
+    it("still refreshes an ordinary sign-in session once it enters the refresh window", async () => {
+      const auth = await testAuthInstance();
+      const session = await signInTestUser(auth);
+
+      vi.useFakeTimers();
+      vi.setSystemTime(Date.now() + 2 * 24 * 60 * 60 * 1000); // 2 of 7 days in
+
+      const res = await auth.handler(
+        new Request(`${BASE}/get-session`, {
+          headers: authHeaders(session),
+        }),
+      );
+      const body = (await res.json()) as { session: { expiresAt: string } };
+      const daysLeft =
+        (new Date(body.session.expiresAt).getTime() - Date.now()) /
+        (24 * 60 * 60 * 1000);
+
+      expect(daysLeft).toBeGreaterThan(6.9);
+      expect(daysLeft).toBeLessThan(7.1);
+    });
+  });
 });
