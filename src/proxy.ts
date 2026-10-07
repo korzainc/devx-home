@@ -67,6 +67,14 @@ export default async function proxy(request: NextRequest) {
 
   const session = await sessionFor(request);
   if (!session) {
+    // A non-browser caller (the CLI, sending a bearer token instead of a cookie) can't follow a
+    // redirect to an HTML login page, so /api/* gets a body it can parse instead.
+    if (pathname.startsWith("/api/")) {
+      return Response.json(
+        { error: "Log in with GitHub to analyze a repository.", reason: "unauthenticated" },
+        { status: 401 },
+      );
+    }
     const login = new URL("/login", origin);
     // Read back by the login form's hidden field, and washed by `callbackFrom` before it is used.
     login.searchParams.set("next", `${pathname}${search}`);
@@ -82,5 +90,11 @@ export default async function proxy(request: NextRequest) {
   // Signed in and not one of us, which is a different answer from signed out and so a different
   // page. Sending these visitors to `/login` would loop: they have a valid session already, and
   // signing in again would produce the same one.
+  if (pathname.startsWith("/api/")) {
+    return Response.json(
+      { error: "You're not a member of the Korza GitHub organization.", reason: "not_org_member" },
+      { status: 403 },
+    );
+  }
   return NextResponse.redirect(new URL("/no-access", origin));
 }
