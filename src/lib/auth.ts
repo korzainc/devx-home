@@ -1,5 +1,7 @@
 import { betterAuth } from "better-auth";
 import { nextCookies } from "better-auth/next-js";
+import { bearer } from "better-auth/plugins/bearer";
+import { deviceAuthorization } from "better-auth/plugins/device-authorization";
 import { getPool } from "./db";
 
 // Sign-in runs through the Korza DevX GitHub App, not a classic OAuth App, which is what makes
@@ -12,6 +14,13 @@ import { getPool } from "./db";
 function create() {
   return betterAuth({
     database: getPool(),
+    // `/get-access-token`, `/refresh-token` and `/account-info` hand back the encrypted GitHub
+    // token itself, not just a session verdict. Fine for a browser that only ever holds the
+    // session cookie; not fine once bearer (below) lets that same session travel as a header
+    // value a CLI can be made to log or leak. Nobody calls these today, so closing them costs
+    // nothing. `disabledPaths` is a top-level option, not something a plugin itself accepts -
+    // see better-auth's dist/api/index.mjs onRequest handler.
+    disabledPaths: ["/get-access-token", "/refresh-token", "/account-info"],
     socialProviders: {
       github: {
         clientId: process.env.GITHUB_APP_CLIENT_ID ?? "",
@@ -45,9 +54,26 @@ function create() {
         orgCheckedAt: { type: "date", required: false, input: false },
       },
     },
-    // Lets the sign-in and sign-out server actions set and clear the session cookie, which keeps
-    // both a plain form post rather than a client component.
-    plugins: [nextCookies()],
+    plugins: [
+      // Lets a bearer token stand in for the session cookie, so `korza ci-coverage` can carry a
+      // session the same way a browser's cookie jar does, with no separate token table or route.
+      bearer(),
+      // RFC 8628 device-code login for the CLI: open a browser, type a code, approve.
+      deviceAuthorization({
+        // Relative: the plugin resolves it against baseURL. getSetupOrigin() can return null
+        // mid-request, which would make an absolute URL here wrong some of the time.
+        verificationUri: "/device",
+        validateClient: (id) => id === "korza-cli",
+        // expiresIn deliberately omitted: the library's own default is already the string
+        // "30m". Passing a number instead fails the plugin's zod schema and throws inside
+        // getAuth() at request time - every sign-in on the site, not just the CLI's.
+      }),
+      // Sets and clears the session cookie for the sign-in/sign-out server actions, which keeps
+      // both a plain form post rather than a client component. Must stay last: bearer's `after`
+      // hook runs after this one only while this one is last, and that's what forwards its
+      // Set-Cookie into Next's cookie store.
+      nextCookies(),
+    ],
   });
 }
 
