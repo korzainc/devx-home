@@ -1,6 +1,13 @@
 import { headers } from "next/headers";
-import { getBaseline, tools } from "@/lib/catalogue";
+import {
+  bundleById,
+  capabilityLabels,
+  getBaseline,
+  toolNameById,
+  tools,
+} from "@/lib/catalogue";
 import { getLlmConfig } from "@/lib/gap-llm-config";
+import { buildFixPrompt } from "@/lib/gap/prompt";
 import { runAnalysis } from "@/lib/gap/run";
 import { isOrgMember } from "@/lib/membership";
 import { getGitHubToken, getSession } from "@/lib/session";
@@ -28,20 +35,41 @@ function repoFromBody(body: unknown): string {
 }
 
 export async function POST(request: Request) {
-  const token = await getGitHubToken();
-  if (!token) {
+  const session = await getSession();
+  if (!session) {
     return Response.json(
-      { error: "Log in with GitHub to analyze a repository." },
+      {
+        error: "Log in with GitHub to analyze a repository.",
+        reason: "unauthenticated",
+      },
       { status: 401 },
     );
   }
 
   // `src/proxy.ts` already requires org membership; this repeats it in case a proxy matcher
-  // change or bypass lets a request through.
-  const session = await getSession();
-  if (!session || !(await isOrgMember(await headers(), session.user))) {
+  // change or bypass lets a request through. Its own reason, distinct from `unauthenticated`:
+  // a caller retrying login on 401 would loop forever here, since signing in again as the same
+  // account can't make it a member.
+  if (!(await isOrgMember(await headers(), session.user))) {
     return Response.json(
-      { error: "Log in with GitHub to analyze a repository." },
+      {
+        error: "You're not a member of the Korza GitHub organization.",
+        reason: "not_org_member",
+      },
+      { status: 403 },
+    );
+  }
+
+  // `getGitHubToken()` returns null for both nobody signed in and a lapsed refresh token, so this
+  // check only runs once a session and org membership are already confirmed - otherwise a signed
+  // out caller would get this reason instead of `unauthenticated`.
+  const token = await getGitHubToken();
+  if (!token) {
+    return Response.json(
+      {
+        error: "Your GitHub access needs refreshing. Sign in again on the website.",
+        reason: "github_reauth_required",
+      },
       { status: 401 },
     );
   }
@@ -54,7 +82,24 @@ export async function POST(request: Request) {
     getLlmConfig(),
   );
 
-  return result.ok
-    ? Response.json(result.analysis)
-    : Response.json({ error: result.error }, { status: result.status });
+  if (!result.ok) {
+    // A 429 here is the reader's own rate limit, not the auth checks above; a 401 is GitHub
+    // rejecting the token at read time rather than at the check above, but means the same thing
+    // to a caller. Other statuses (400 bad ref, 404 no such repo, 502 upstream failure) aren't
+    // part of the CLI's retry contract, so they carry no reason.
+    const reason =
+      result.status === 429
+        ? "rate_limited"
+        : result.status === 401
+          ? "github_reauth_required"
+          : undefined;
+    return Response.json(
+      { error: result.error, ...(reason ? { reason } : {}) },
+      { status: result.status },
+    );
+  }
+
+  const catalogue = { bundleById, toolNameById, capabilityLabels };
+  const fixPrompt = buildFixPrompt(result.analysis, catalogue);
+  return Response.json({ analysis: result.analysis, fixPrompt });
 }
