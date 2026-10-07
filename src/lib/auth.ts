@@ -1,8 +1,11 @@
+import type { BetterAuthOptions } from "better-auth";
 import { betterAuth } from "better-auth";
+import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
 import { bearer } from "better-auth/plugins/bearer";
 import { deviceAuthorization } from "better-auth/plugins/device-authorization";
 import { getPool } from "./db";
+import { isOrgMember, type StoredMembership } from "./membership";
 
 // Sign-in runs through the Korza DevX GitHub App, not a classic OAuth App, which is what makes
 // read-only private access possible: an OAuth App's `repo` scope is all-or-nothing read/write.
@@ -11,9 +14,16 @@ import { getPool } from "./db";
 // token valid 6 months. Storing those needs a database rather than a cookie, which is why the
 // account table exists at all.
 
-function create() {
+// A CLI session, unlike the website's own, isn't something people run every day - 30 days keeps
+// `korza ci-coverage` working for a typical gap between invocations without landing the person
+// back in the device-code flow each time.
+const DEVICE_SESSION_EXPIRES_IN_MS = 30 * 24 * 60 * 60 * 1000;
+
+// Exported so tests can build a real instance against better-auth/adapters/memory instead of the
+// Postgres pool - the hook pipeline below only proves anything when it actually runs.
+export function createAuth(database: BetterAuthOptions["database"]) {
   return betterAuth({
-    database: getPool(),
+    database,
     // `/get-access-token`, `/refresh-token` and `/account-info` hand back the encrypted GitHub
     // token itself, not just a session verdict. Fine for a browser that only ever holds the
     // session cookie; not fine once bearer (below) lets that same session travel as a header
@@ -74,13 +84,58 @@ function create() {
       // Set-Cookie into Next's cookie store.
       nextCookies(),
     ],
+    hooks: {
+      // Defense in depth, not the enforcement boundary: /api/analyze checks membership on every
+      // request regardless of this hook. This is here so an approval itself can't hand a CLI a
+      // long-lived session for someone who isn't a Korza org member.
+      //
+      // Must fail closed on no session, not return. User-level `hooks.before` runs before
+      // plugin-level ones (see better-auth's dist/api/dispatch.mjs `getHooks`), and bearer's own
+      // `before` hook - the thing that turns an Authorization header into a cookie `getSession`
+      // can see - is plugin-level. So a bearer-only request looks session-less here even though
+      // it carries a real session; returning instead of throwing would let it fall through to
+      // device-authorization's own cookie-only check and sail past this one unexamined.
+      before: createAuthMiddleware(async (ctx) => {
+        if (ctx.path !== "/device/approve") return;
+        const session = await getSessionFromCtx(ctx);
+        if (!session) {
+          throw new APIError("UNAUTHORIZED", { message: "sign in first" });
+        }
+        // getSessionFromCtx is generic over `better-auth/api`, not this instance's own options,
+        // so its User type doesn't know about the orgMember/orgCheckedAt additional fields below -
+        // they're on the object at runtime, just not in this standalone helper's return type.
+        const user = session.user as typeof session.user & StoredMembership;
+        if (!(await isOrgMember(ctx.headers ?? new Headers(), user))) {
+          throw new APIError("FORBIDDEN", { message: "not a Korza org member" });
+        }
+      }),
+    },
+    databaseHooks: {
+      session: {
+        create: {
+          // Scoped to /device/token so the website's own, shorter-lived browser sessions are
+          // untouched. Overriding expiresAt here (rather than updating the row after `createSession`
+          // returns) means the expires_in the plugin reports back to the CLI is already correct,
+          // since it's computed from this same, already-overridden value.
+          before: async (session, ctx) => {
+            if (ctx?.path !== "/device/token") return;
+            return {
+              data: {
+                ...session,
+                expiresAt: new Date(Date.now() + DEVICE_SESSION_EXPIRES_IN_MS),
+              },
+            };
+          },
+        },
+      },
+    },
   });
 }
 
-let instance: ReturnType<typeof create> | undefined;
+let instance: ReturnType<typeof createAuth> | undefined;
 
 // Built on first use, not on import. `next build` imports every route to collect its config, and
 // a module that reads DATABASE_URL while being imported makes the build require a runtime secret.
 export function getAuth() {
-  return (instance ??= create());
+  return (instance ??= createAuth(getPool()));
 }
