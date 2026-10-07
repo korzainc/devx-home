@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { getSession } from "@/lib/session";
 import {
   approveDeviceLogin,
@@ -12,18 +13,21 @@ export const metadata: Metadata = {
 
 /**
  * Two steps, not one: typing the code (`claimDeviceCode`) binds it to this session, and only
- * then does Approve/Deny appear. Never read `user_code` from a query parameter or pre-fill the
+ * then does Approve/Deny appear. Never read the code from a query parameter or pre-fill the
  * input - a link with the code baked in would turn this into a one-click phishing approval
- * (RFC 8628 §5.4). `claimed`/`error` here are state this page's own actions set after a
- * redirect, never anything the code itself travels through.
+ * (RFC 8628 §5.4). The claimed code instead travels in a short-lived, httpOnly cookie that only
+ * `claimDeviceCode` sets, so showing the confirm screen below can never be triggered by a URL
+ * alone. Its mere presence is the gate - this never calls `deviceVerify` again here, since that
+ * would claim a fresh code on every render instead of just checking one.
  */
 export default async function DevicePage({
   searchParams,
 }: {
-  searchParams: Promise<{ claimed?: string; error?: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
   const session = await getSession();
-  const { claimed, error } = await searchParams;
+  const { error } = await searchParams;
+  const claimed = (await cookies()).get("device_claim")?.value;
 
   return (
     <div className="mx-auto flex max-w-lg flex-col items-center gap-7 py-10 text-center">
@@ -80,6 +84,7 @@ export default async function DevicePage({
           <input
             name="userCode"
             placeholder="WDJB-MJHT"
+            required
             className="w-full rounded-lg border border-line bg-surface px-4 py-3 text-center font-mono text-lg tracking-widest text-ink outline-none"
           />
           <button

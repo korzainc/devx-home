@@ -42,6 +42,21 @@ describe("device authorization plugin", () => {
     );
     expect(res.status).toBe(400);
   });
+
+  // The anti-phishing bypass this closes: `/device` (unlike `/device/code|token|approve|deny`)
+  // claims a user_code using whatever session cookie is on the request, needs no cookie to be
+  // reached at all since `/api/auth` is on the open-path allowlist, and - being a GET - skips the
+  // origin-check middleware. A `SameSite=lax` session cookie still rides along on a top-level
+  // cross-site navigation, so without this, an attacker's page could make a victim's browser
+  // claim the attacker's device code under the victim's own session with no typing involved.
+  it("disables the bare GET claim endpoint the anti-phishing flow depends on being closed", async () => {
+    const res = await getAuth().handler(
+      new Request("http://localhost/api/auth/device?user_code=WDJB-MJHT", {
+        method: "GET",
+      }),
+    );
+    expect(res.status).toBe(404);
+  });
 });
 
 describe("bearer plugin", () => {
@@ -98,7 +113,11 @@ describe("device approval", () => {
           headers: { "Content-Type": "application/json" },
         });
       if (url.startsWith("https://github.com/login/oauth/access_token")) {
-        return json({ access_token: "gho_test_token", token_type: "bearer", scope: "" });
+        return json({
+          access_token: "gho_test_token",
+          token_type: "bearer",
+          scope: "",
+        });
       }
       if (url.startsWith("https://api.github.com/user/emails")) {
         return json([]);
@@ -119,7 +138,9 @@ describe("device approval", () => {
   // A real /sign-in/social + /callback/github round trip, with only the GitHub network edge
   // mocked (see mockGithub): state issuance, its cookie, and session-cookie signing all run for
   // real, so the approval requests below carry a session indistinguishable from a browser's.
-  async function signInTestUser(auth: Awaited<ReturnType<typeof testAuthInstance>>) {
+  async function signInTestUser(
+    auth: Awaited<ReturnType<typeof testAuthInstance>>,
+  ) {
     vi.stubGlobal("fetch", mockGithub());
     try {
       const headers = new Headers();
@@ -136,7 +157,9 @@ describe("device approval", () => {
       );
       const signInSetCookie = signInRes.headers.get("set-cookie");
       if (!signInSetCookie) {
-        throw new Error("test setup: sign-in/social did not set a state cookie");
+        throw new Error(
+          "test setup: sign-in/social did not set a state cookie",
+        );
       }
       applySetCookies(headers, [signInSetCookie]);
       const { url } = (await signInRes.json()) as { url: string };
@@ -167,7 +190,9 @@ describe("device approval", () => {
     }
   }
 
-  async function startDeviceFlow(auth: Awaited<ReturnType<typeof testAuthInstance>>) {
+  async function startDeviceFlow(
+    auth: Awaited<ReturnType<typeof testAuthInstance>>,
+  ) {
     const res = await auth.handler(
       new Request(`${BASE}/device/code`, {
         method: "POST",
@@ -186,17 +211,17 @@ describe("device approval", () => {
     return session ? { Cookie: session.cookie } : {};
   }
 
+  // Calls `deviceVerify` directly through `auth.api`, the same way the real
+  // `claimDeviceCode` server action does, rather than through the HTTP `GET /device` route -
+  // that route is disabled (see `disabledPaths` in ./auth.ts) precisely to close the bypass
+  // this suite used to exercise by driving it through `auth.handler(...)`.
   async function claimDeviceCode(
     auth: Awaited<ReturnType<typeof testAuthInstance>>,
     userCode: string,
     session: { cookie: string },
   ) {
-    await auth.handler(
-      new Request(
-        `${BASE}/device?user_code=${encodeURIComponent(userCode)}`,
-        { method: "GET", headers: authHeaders(session) },
-      ),
-    );
+    const headers = new Headers(authHeaders(session));
+    await auth.api.deviceVerify({ query: { user_code: userCode }, headers });
   }
 
   function approveRequest(
@@ -248,7 +273,9 @@ describe("device approval", () => {
     const { deviceCode, userCode } = await startDeviceFlow(auth);
     await claimDeviceCode(auth, userCode, session);
 
-    const approveRes = await auth.handler(approveRequest({ userCode }, session));
+    const approveRes = await auth.handler(
+      approveRequest({ userCode }, session),
+    );
     expect(approveRes.status).toBe(200);
 
     const tokenRes = await auth.handler(tokenRequest({ deviceCode }));
@@ -260,21 +287,20 @@ describe("device approval", () => {
 
   it("leaves an ordinary sign-in session at the website's own, shorter default expiry", async () => {
     const auth = await testAuthInstance();
-    const ctx = await auth.$context;
-    const user = await ctx.internalAdapter.createUser(
-      {
-        email: "browser@example.com",
-        name: "Browser User",
-        emailVerified: true,
-      },
-      { method: "oauth", oauth: { providerId: "github" } },
+    // The real browser sign-in path (GitHub OAuth callback), not a bare internalAdapter call
+    // with no request context - this proves the hook's /device/token path scoping actually
+    // holds for a real request, not just that an empty ctx skips the override.
+    const session = await signInTestUser(auth);
+
+    const res = await auth.handler(
+      new Request(`${BASE}/get-session`, {
+        method: "GET",
+        headers: authHeaders(session),
+      }),
     );
+    const body = (await res.json()) as { session: { expiresAt: string } };
 
-    // Created the same way a social sign-in does: outside /device/token, so the 30-day
-    // override must not apply.
-    const session = await ctx.internalAdapter.createSession(user.id);
-
-    const expiresInMs = session!.expiresAt.getTime() - Date.now();
-    expect(expiresInMs).toBeLessThan(29 * 24 * 60 * 60 * 1000);
+    const expiresInMs = new Date(body.session.expiresAt).getTime() - Date.now();
+    expect(expiresInMs).toBeLessThan(8 * 24 * 60 * 60 * 1000);
   });
 });

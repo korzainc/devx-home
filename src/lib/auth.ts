@@ -1,6 +1,10 @@
 import type { BetterAuthOptions } from "better-auth";
 import { betterAuth } from "better-auth";
-import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
+import {
+  APIError,
+  createAuthMiddleware,
+  getSessionFromCtx,
+} from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
 import { bearer } from "better-auth/plugins/bearer";
 import { deviceAuthorization } from "better-auth/plugins/device-authorization";
@@ -30,7 +34,22 @@ export function createAuth(database: BetterAuthOptions["database"]) {
     // value a CLI can be made to log or leak. Nobody calls these today, so closing them costs
     // nothing. `disabledPaths` is a top-level option, not something a plugin itself accepts -
     // see better-auth's dist/api/index.mjs onRequest handler.
-    disabledPaths: ["/get-access-token", "/refresh-token", "/account-info"],
+    //
+    // `/device` (the plugin's bare GET claim endpoint, exact-path match only - `/device/code`,
+    // `/device/token`, `/device/approve` and `/device/deny` are untouched) is disabled for the
+    // same reason: it claims a user_code using whatever session cookie is on the request, it
+    // needs no cookie to be reached since `/api/auth` is on the open-path allowlist, and GET
+    // requests skip the origin-check middleware - so an attacker's page can make a victim's
+    // browser claim the attacker's code under the victim's session with a plain top-level
+    // navigation. `claimDeviceCode` (src/app/device/actions.ts) calls `deviceVerify` through
+    // `auth.api` directly rather than this HTTP route, so disabling it here doesn't touch the
+    // real claim flow.
+    disabledPaths: [
+      "/get-access-token",
+      "/refresh-token",
+      "/account-info",
+      "/device",
+    ],
     socialProviders: {
       github: {
         clientId: process.env.GITHUB_APP_CLIENT_ID ?? "",
@@ -79,9 +98,11 @@ export function createAuth(database: BetterAuthOptions["database"]) {
         // getAuth() at request time - every sign-in on the site, not just the CLI's.
       }),
       // Sets and clears the session cookie for the sign-in/sign-out server actions, which keeps
-      // both a plain form post rather than a client component. Must stay last: bearer's `after`
-      // hook runs after this one only while this one is last, and that's what forwards its
-      // Set-Cookie into Next's cookie store.
+      // both a plain form post rather than a client component. Must stay last in this array:
+      // plugin `after` hooks run in array order, and `nextCookies()`'s own `after` hook is what
+      // forwards a Set-Cookie header into Next's cookie store - it can only forward a Set-Cookie
+      // that an earlier plugin's `after` hook (bearer's included) has already added by the time
+      // it runs.
       nextCookies(),
     ],
     hooks: {
@@ -106,7 +127,9 @@ export function createAuth(database: BetterAuthOptions["database"]) {
         // they're on the object at runtime, just not in this standalone helper's return type.
         const user = session.user as typeof session.user & StoredMembership;
         if (!(await isOrgMember(ctx.headers ?? new Headers(), user))) {
-          throw new APIError("FORBIDDEN", { message: "not a Korza org member" });
+          throw new APIError("FORBIDDEN", {
+            message: "not a Korza org member",
+          });
         }
       }),
     },
