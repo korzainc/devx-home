@@ -66,12 +66,9 @@ type RealTool = {
   };
 };
 
-// Untyped here, not `BundleInvocation`: the real catalogue still predates this shape (its
-// bundles call a reusable workflow, not a docker image), so asserting it here would fail to
-// compile. bundleFromReal casts it; formatBundleDetails checks the real shape before use.
 type RealBundle = RealTool & {
   wraps: { tool: string; capabilities: string[] }[];
-  invocation?: unknown;
+  invocation?: BundleInvocation;
 };
 
 type RealBaselineEntry = {
@@ -202,7 +199,7 @@ function bundleFromReal(bundle: RealBundle): BundleEntry {
   return {
     ...toolFromReal(bundle),
     wraps: bundle.wraps,
-    invocation: bundle.invocation as BundleInvocation | undefined,
+    invocation: bundle.invocation,
   };
 }
 

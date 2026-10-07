@@ -30,7 +30,7 @@ describe("catalogue and baseline agree", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("gives every standalone tool at least one way to be detected", () => {
+  it("gives every non-bundle tool at least one way to be detected", () => {
     // Bundles are recommendation-only: their wrapped tools carry the detection.
     for (const tool of tools.filter((entry) => !isBundle(entry))) {
       const signals = [

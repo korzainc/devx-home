@@ -67,7 +67,7 @@ const tools: AnalysisTool[] = [
     name: "Korza CI Base Checks",
     capabilities: ["secret-scanning"],
     stacks: ["any"],
-    detect: { ciUses: ["korzainc/shared-workflows/.github/workflows/ci.yml"] },
+    detect: {},
     wraps: [{ tool: "gitleaks", capabilities: ["secret-scanning"] }],
   },
   {
