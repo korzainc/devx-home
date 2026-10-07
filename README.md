@@ -29,8 +29,7 @@ connection. Follow [AGENTS.md](AGENTS.md) for access and database constraints;
 do not overwrite `.env.local` or provision a replacement database.
 
 Use the same host in `BETTER_AUTH_URL` and the GitHub App callback URL.
-Local login redirects loopback aliases to that host before sign-in starts. A stale form on another alias is rejected instead of creating an
-OAuth state cookie that the callback cannot read. Existing sessions are retained.
+Local sign-in redirects loopback aliases to that host to keep OAuth cookies consistent.
 
 `pnpm vercel-build` runs migrations only when `VERCEL_ENV=production`, then
 builds Next.js. Previews skip that migration step. `pnpm migrate` runs migrations
@@ -141,102 +140,66 @@ checking and a production build together.
 
 ## Analysis usage counts
 
-- Public repositories can be analysed without signing in. Site-wide analysis and
-  distinct-repository totals include private repositories and are visible only
-  to signed-in organisation members.
-- A successful page analysis counts once per run URL: reloads and shared links
-  reuse it; another Analyze submission creates a new run. Each successful API
-  request, including a retry, creates a new run. These are submission counts,
-  not unique users or verified adoption; run IDs are not abuse protection.
-- The page starts recording when analysis succeeds and reads totals afterwards
-  in the same response. The report streams independently of monitoring storage.
-  API recording runs after its response. Failed writes do not add a count.
-  Zero totals display as zero; failed reads and failed viewing gates hide them.
+- Public repositories can be analysed without signing in. Site-wide run and
+  distinct-repository totals include private repositories, so only signed-in
+  organisation members can view them.
+- A successful page run counts once; reloads and shared links reuse it. Another
+  Analyze submission or successful API request, including a retry, adds a run.
+  These are submission counts, not unique users or adoption.
+- Monitoring failures leave the report available. Zero totals display as zero;
+  unavailable totals are hidden.
 
 ## Opt-in device monitoring backend
 
-```text
-CLI consent + private key → enroll/renew
-Client signals → local filter + queue → Home /events → PostgreSQL → counts
-```
-
-- Device monitoring requires `TELEMETRY_ENABLED=1` (off by default). It needs no
-  company sign-in; a device key identifies an installation, not a member.
-  Viewing counts still requires normal portal access.
-- `GET /api/telemetry/enroll` returns `{mode:"consent"}`. Mode may be unset or
-  `TELEMETRY_ENROLLMENT_MODE=consent`; explicit `github` or unknown values reject
-  enrollment and uploads. Discovery returns 503 for those obsolete modes.
-- After terminal consent, the CLI posts `{consent:true}` with its random bearer
-  to `/api/telemetry/enroll`. Home stores only the hash and returns
-  `{device_id,expires_at,mode}`. Repeating it renews the same device for 12 hours.
-  Background renewal adds `renew:true` and cannot register an unknown device.
-  Revoked and historical company keys cannot enroll, renew or upload. Enrollment
-  rejects browser origins and allows at most 60 new devices per minute.
-- Bearer `POST /api/telemetry/revoke` stops uploads and renewal without deleting
-  counts or history. It also allows historical company-key cleanup while
-  collection is enabled. Old rows keep their original provenance.
-- `/api/telemetry/events` accepts normalized `{events,metrics}` only: at most
-  1,000 records / 256 KiB per batch and 5,000 records per device per minute.
-  A 429 leaves the CLI queue for retry.
-  Device-scoped IDs deduplicate delivery; cumulative metrics retain the maximum.
-- Unknown fields, unapproved plugins and invalid client/source combinations are
-  rejected. No raw OTLP attributes, prompts, tool arguments, email or paths reach
-  this endpoint. Diagnostics contain only operation, stage and HTTP status.
-- Install totals combine native and Korza-assisted reports per client, including
-  optional terminal wrappers. Sources remain stored; different sources may
-  describe the same physical install. Totals are not users or download counts.
-- Official Codex's `/plugins` menu has no supported completion event. Optional
-  Korza terminal wrappers cover their own route; `--native-install-logs` is an
-  experimental route verified only with a custom Codex build. Prompts/traces
-  remain off. Codex otherwise reports `codex.skill.injected` with `status: ok`;
-  loads are not completed tasks or every skill-file read. Use a fresh acceptance
-  baseline: older normalized rows and queued batches cannot be reclassified.
-- Metric inputs are non-negative safe integers (maximum 9,007,199,254,740,991);
-  totals preserve exact decimal digits above that range. Traffic limits do not
-  prevent inflated reports. Abuse controls, value limits, retention and deletion
-  policy remain rollout requirements; counters are not silently clamped.
+- Off by default. Set `TELEMETRY_ENABLED=1`; leave `TELEMETRY_ENROLLMENT_MODE`
+  unset or set it to `consent`. Other modes reject enrollment and uploads.
+  CLI consent needs no company sign-in; viewing counts requires portal access.
+- The CLI filters and queues client signals before sending counts to
+  `/api/telemetry/events`. Home accepts approved plugins and normalized fields
+  only, with no prompts, tool arguments, email or file paths.
+- Device keys are stored as hashes and expire after 12 hours unless renewed.
+  Revocation stops uploads and renewal without deleting recorded counts.
+- Install totals combine native and Korza-assisted reports per client; different
+  sources can describe the same install. Skill loads do not prove task completion.
+  Counts are self-reported, not unique users or downloads.
+- Codex `/plugins` installs are not counted. Terminal wrappers cover their own
+  route; native install logs need a custom build. Codex skill counts require
+  successful loads (`status: ok`). Use a fresh baseline when checking counts.
+- Batches allow 1,000 records / 256 KiB, with 5,000 records per device per minute.
+  IDs deduplicate retries, but traffic limits do not prevent inflated reports.
+  Abuse controls, retention and deletion policy remain rollout requirements.
 
 ### Database and collection setup
 
-- Apply migrations before enabling collection. Runtime uses `DATABASE_URL`;
-  migrations use `DATABASE_URL_UNPOOLED`. Never edit `.env.local` for this setup.
-- **Use a fresh database for the revised, unreleased `0004_usage_monitoring.sql`.**
-  Earlier versions ran only in local/test databases. Preserve those databases;
-  never rewrite their migration ledger or checksums. Authentication migrations
-  are unchanged; historical company keys remain rejected in older schemas.
+- Apply migrations before enabling collection. **Use a fresh database for the
+  revised, unreleased `0004_usage_monitoring.sql`.** Preserve older test databases
+  and their migration ledgers. Runtime uses `DATABASE_URL`; migrations use
+  `DATABASE_URL_UNPOOLED`. Follow [AGENTS.md](AGENTS.md); never edit `.env.local`.
 - Hosted collection requires `NODE_ENV=production`, `VERCEL=1` and
-  `VERCEL_ENV=production`. Preview cannot collect, even with a shared production
-  database; development cannot inherit hosted production markers to enable it.
-- Local collection requires `KORZA_LOCAL_USAGE=1`, empty Vercel markers and an
-  isolated PostgreSQL URL on `127.0.0.1` or `localhost`. Remote hosts, IPv6 and
-  URLs with host overrides are refused. Never tunnel to production. The app
-  verifies TLS; provide a trusted certificate through `sslrootcert`. Export the
-  fresh local URL before running:
+  `VERCEL_ENV=production`. Preview deployments cannot collect.
+- Local collection needs `KORZA_LOCAL_USAGE=1`, empty Vercel markers and an
+  isolated PostgreSQL URL on `localhost` or `127.0.0.1`. Host overrides are refused;
+  never tunnel to production. Supply a trusted TLS certificate with `sslrootcert`.
+  Export the fresh local `DATABASE_URL`, then run:
 
 ```sh
 DATABASE_URL_UNPOOLED="$DATABASE_URL" node scripts/migrate.mjs
 VERCEL= VERCEL_ENV= KORZA_LOCAL_USAGE=1 TELEMETRY_ENABLED=1 pnpm dev
 ```
 
-- For local skill-page checks, also set `KORZA_LOCAL_SKILLS_PREVIEW=1`; it only
-  opens `/skills` and plugin pages on loopback in development, not deployments.
-- Legacy `/api/telemetry/logs` and `/metrics` also require development mode and
-  a `TELEMETRY_INGEST_TOKEN` of at least 32 characters; they are not hosted routes.
-- Pool acquisition is limited to five seconds, including login/session lookups;
-  usage queries have a one-second timeout. A failed page-gate lookup redirects
-  to login without deleting the cookie. Deployed wake-up latency needs acceptance.
+- `KORZA_LOCAL_SKILLS_PREVIEW=1` opens skill and plugin pages only on loopback in
+  development. Legacy `/api/telemetry/logs` and `/metrics` are also development-only
+  and require a `TELEMETRY_INGEST_TOKEN` of at least 32 characters.
 
 ### Verify
 
-- Manual walkthroughs: [analysis totals (Home #72)](https://github.com/korzainc/devx-home/pull/72)
-  and [plugin/skill counts (CLI #5)](https://github.com/korzainc/korza-cli/pull/5).
-- Run the [standard checks](#develop), then the database checks below:
+- Follow the [analysis walkthrough](https://github.com/korzainc/devx-home/pull/72)
+  and [client setup and count checks](https://github.com/korzainc/korza-cli/pull/5).
+- Run the [standard checks](#develop), then these database suites against isolated
+  loopback PostgreSQL. They create separate test schemas and also run in CI:
 
 ```sh
 TEST_TELEMETRY_DATABASE_URL="$DATABASE_URL" pnpm exec vitest run src/lib/telemetry-postgres.test.ts src/lib/telemetry-consent-postgres.test.ts
 ```
 
-- Database checks use isolated loopback schemas for migrations, enrollment,
-  quotas, deduplication, counts and revocation. CI runs both suites.
-- Real client delivery, portal login and deployment checks remain separate from
-  these protocol tests.
+- Real client delivery, portal login and deployment still need separate checks.
