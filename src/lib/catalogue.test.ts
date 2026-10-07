@@ -7,6 +7,7 @@ import {
   getBaseline,
   getPlugin,
   installCommands,
+  isBundle,
   marketplaceName,
   marketplaceRepo,
   plugins,
@@ -29,8 +30,9 @@ describe("catalogue and baseline agree", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("gives every tool at least one way to be detected", () => {
-    for (const tool of tools) {
+  it("gives every standalone tool at least one way to be detected", () => {
+    // Bundles are recommendation-only: their wrapped tools carry the detection.
+    for (const tool of tools.filter((entry) => !isBundle(entry))) {
       const signals = [
         tool.detect.ciUses,
         tool.detect.commands,
