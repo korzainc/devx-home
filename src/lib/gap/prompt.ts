@@ -256,6 +256,8 @@ export function buildFixPrompt(
   analysis: Analysis,
   catalogue: BundleCatalogue = emptyCatalogue,
 ): string {
+  if (analysis.gapCount === 0) return "";
+
   const expected = analysis.satisfiedCount + analysis.gapCount;
 
   const running = analysis.categories.flatMap((category) =>

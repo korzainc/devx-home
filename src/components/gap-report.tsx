@@ -195,6 +195,7 @@ export function GapReport({
   // always agree, but this is the version that stays correct if a future baseline ever adds a
   // stack with no expected capabilities.
   const noStackDetected = expected === 0;
+  const fixPrompt = buildFixPrompt(analysis, catalogue);
 
   return (
     <div className="flex flex-col gap-8">
@@ -262,9 +263,7 @@ export function GapReport({
               </>
             )}
           </p>
-          {analysis.gapCount > 0 ? (
-            <FixPromptButton prompt={buildFixPrompt(analysis, catalogue)} />
-          ) : null}
+          {fixPrompt ? <FixPromptButton prompt={fixPrompt} /> : null}
         </div>
       </div>
 
