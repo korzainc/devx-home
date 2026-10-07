@@ -20,14 +20,13 @@ export const metadata: Metadata = {
     "Point it at a repository. It reads the manifests and CI config, then reports which recommended checks are missing.",
 };
 
-// The token belongs to whoever is signed in and is handed to `runAnalysis` as an argument.
-// Nothing under src/lib/gap touches the environment or the session.
+// The token belongs to whoever is signed in and is handed to `runAnalysis` as an argument. Nothing
+// under src/lib/gap touches the environment or the session. Korza org members also get the LLM gap
+// pass, decided by `getMemberLlmConfig`.
 //
 // Signed out, the token is null and the read goes out anonymously, which GitHub serves for public
-// repositories. So an open source repo needs no account, and the sign-in prompt is kept for the
-// two failures where logging in is the actual remedy rather than a wall in front of everyone.
-//
-// Korza org members also get the LLM gap pass; `getMemberLlmConfig` decides who qualifies.
+// repositories. So an open source repo needs no account, and the sign-in prompt stays for the two
+// failures where logging in is the real remedy, not a wall in front of everyone.
 async function Result({ repo }: { repo: string }) {
   const token = await getGitHubToken();
   // Sequential on purpose: the GitHub refresh token is single-use, and a concurrent membership

@@ -34,16 +34,14 @@ const OPEN = [
   // The script `/setup` hands out, and the tarball and checksum it goes on to fetch. Static files
   // under `public/`, which the matcher does not exclude, so they need saying.
   "/korza",
-  // Analyzes public repositories with no credential at all, which is the reason the anonymous
-  // path through `src/lib/gap` exists. It leaks nothing it did not already read anonymously, and
-  // the write side stays shut: `/api/analyze` is gated here and checks the session itself.
+  // Analyzes public repositories with no credential at all, which is the reason the anonymous path
+  // through `src/lib/gap` exists. It leaks nothing it did not already read anonymously, and the
+  // write side stays shut: `/api/analyze` is gated here and checks the session itself.
   //
-  // The cost is that the deployment's 60-per-hour unauthenticated GitHub quota is now spendable
-  // by anybody who finds the URL. That was true before the gate as well, and a signed-out visitor
-  // exhausting it degrades this page rather than any other.
-  //
-  // The page grants the LLM pass through `getMemberLlmConfig`, which checks org membership since
-  // this gate does not. The pass itself does no membership check.
+  // The cost is that the deployment's 60-per-hour unauthenticated GitHub quota is now spendable by
+  // anybody who finds the URL, same as before the gate; a signed-out visitor exhausting it degrades
+  // this page rather than any other. The LLM pass mirrors this split: `getMemberLlmConfig` checks
+  // org membership before granting it, since neither this gate nor the pass itself does.
   "/ci-coverage",
 ];
 
