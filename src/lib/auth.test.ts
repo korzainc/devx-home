@@ -21,6 +21,11 @@ afterEach(() => {
 });
 
 describe("device authorization plugin", () => {
+  // DATABASE_URL is present but unreachable (see the beforeEach above), deliberately: this is
+  // about the route being registered rather than disabled, not about a working response, so a
+  // real test database would prove nothing extra. That only distinguishes "registered" from
+  // "disabled" if the failure mode for an unreachable database is pinned down rather than
+  // asserted as merely "not 404", which a disabled path returns too.
   it("exposes the device code endpoint", async () => {
     const res = await getAuth().handler(
       new Request("http://localhost/api/auth/device/code", {
@@ -29,7 +34,7 @@ describe("device authorization plugin", () => {
         body: JSON.stringify({ client_id: "korza-cli" }),
       }),
     );
-    expect(res.status).not.toBe(404);
+    expect(res.status).toBe(500);
   });
 
   it("rejects a client_id the CLI didn't issue", async () => {
@@ -56,18 +61,6 @@ describe("device authorization plugin", () => {
       }),
     );
     expect(res.status).toBe(404);
-  });
-});
-
-describe("bearer plugin", () => {
-  it("exposes bearer-header support on get-session, not just the cookie path", async () => {
-    const res = await getAuth().handler(
-      new Request("http://localhost/api/auth/get-session", {
-        method: "GET",
-        headers: { Authorization: "Bearer not-a-real-token" },
-      }),
-    );
-    expect(res.status).not.toBe(404);
   });
 });
 
@@ -265,6 +258,70 @@ describe("device approval", () => {
     const res = await auth.handler(approveRequest({ userCode }, session));
 
     expect(res.status).toBe(403);
+  });
+
+  // The membership hook's `before` runs ahead of bearer's own `before` hook that turns an
+  // Authorization header into the cookie getSession can see, so a bearer-only request must fail
+  // closed here the same as no session at all, even carrying a token.
+  it("rejects a bearer-only request with no cookie", async () => {
+    const auth = await testAuthInstance();
+    const { userCode } = await startDeviceFlow(auth);
+
+    const res = await auth.handler(
+      new Request(`${BASE}/device/approve`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer not-a-real-token",
+        },
+        body: JSON.stringify({ userCode }),
+      }),
+    );
+
+    expect(res.status).not.toBe(200);
+  });
+
+  // approveDeviceLogin (src/app/device/actions.ts) calls auth.api.deviceApprove directly, not
+  // auth.handler - this proves the membership hook runs on that real call path too, not only
+  // over HTTP.
+  it("rejects deviceApprove called directly through auth.api, not just the HTTP route", async () => {
+    const auth = await testAuthInstance({ orgMember: false });
+    const session = await signInTestUser(auth);
+    const { userCode } = await startDeviceFlow(auth);
+    await claimDeviceCode(auth, userCode, session);
+
+    await expect(
+      auth.api.deviceApprove({
+        body: { userCode },
+        headers: new Headers(authHeaders(session)),
+      }),
+    ).rejects.toMatchObject({ status: "FORBIDDEN" });
+  });
+
+  // Each half of this is otherwise tested in isolation: /device/token issuing an access token,
+  // and bearer authenticating a request given one. Nothing else proves one's output works as
+  // the other's input.
+  it("authenticates a /device/token access token as a bearer header on /get-session", async () => {
+    const auth = await testAuthInstance({ orgMember: true });
+    const session = await signInTestUser(auth);
+    const { deviceCode, userCode } = await startDeviceFlow(auth);
+    await claimDeviceCode(auth, userCode, session);
+    await auth.handler(approveRequest({ userCode }, session));
+
+    const tokenRes = await auth.handler(tokenRequest({ deviceCode }));
+    const { access_token } = (await tokenRes.json()) as {
+      access_token: string;
+    };
+
+    const res = await auth.handler(
+      new Request(`${BASE}/get-session`, {
+        headers: { Authorization: `Bearer ${access_token}` },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { user: { email: string } };
+    expect(body.user.email).toBe("member@example.com");
   });
 
   it("gives a device-issued session a roughly 30-day expiry", async () => {

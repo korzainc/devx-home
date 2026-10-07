@@ -9,6 +9,7 @@ import {
   discardDeviceClaim,
 } from "./actions";
 import { CLAIM_COOKIE } from "./claim-cookie";
+import { SubmitButton } from "./submit-button";
 
 export const metadata: Metadata = {
   title: "Approve CLI sign-in",
@@ -86,22 +87,19 @@ export default async function DevicePage({
             signs the Korza CLI in as you for 30 days.
           </p>
           <form action={approveDeviceLogin} className="flex gap-3">
-            <button
-              type="submit"
-              className="rounded-lg border border-line-strong bg-surface-raised px-4 py-3 text-sm font-medium text-ink transition-colors hover:border-ink-faint"
-            >
+            <SubmitButton className="rounded-lg border border-line-strong bg-surface-raised px-4 py-3 text-sm font-medium text-ink transition-colors hover:border-ink-faint">
               Approve
-            </button>
+            </SubmitButton>
           </form>
           <form action={denyDeviceLogin}>
-            <button type="submit" className="text-sm text-ink-muted underline">
+            <SubmitButton className="text-sm text-ink-muted underline">
               Deny
-            </button>
+            </SubmitButton>
           </form>
           <form action={discardDeviceClaim}>
-            <button type="submit" className="text-sm text-ink-muted underline">
+            <SubmitButton className="text-sm text-ink-muted underline">
               Use a different code
-            </button>
+            </SubmitButton>
           </form>
         </>
       ) : (

@@ -1,7 +1,8 @@
 "use server";
 
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { CLAIM_COOKIE } from "@/app/device/claim-cookie";
 import { getAuth } from "./auth";
 
 /**
@@ -28,5 +29,8 @@ export async function signInWithGitHub(formData: FormData) {
 
 export async function signOut() {
   await getAuth().api.signOut({ headers: await headers() });
+  // Otherwise a claim from this session can outlive it: on a shared browser, user B signing in
+  // within the cookie's 5-minute window would land on A's confirm screen for A's claimed code.
+  (await cookies()).delete({ name: CLAIM_COOKIE, path: "/device" });
   redirect("/");
 }

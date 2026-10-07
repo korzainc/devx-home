@@ -28,6 +28,13 @@ describe("the gate", () => {
     }
   });
 
+  it("closes the device-approval pages", () => {
+    // Approving a CLI sign-in needs both a session and org membership, same as any other
+    // protected page - the device-code flow is not a reason to let either one in unauthenticated.
+    expect(isOpenPath("/device")).toBe(false);
+    expect(isOpenPath("/device/done")).toBe(false);
+  });
+
   it("closes the analysis endpoint", () => {
     // `/api/analyze` spends the shared GitHub quota, and `/api/auth` being open must not carry
     // the rest of `/api` with it.
