@@ -3,12 +3,16 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { APIError } from "better-auth/api";
+import { CLAIM_COOKIE, CLAIM_COOKIE_MAX_AGE_SECONDS } from "./claim-cookie";
 
 // A real cookie jar, not a mock object per call, so `set` in one action and `get` in the page
 // component agree on what's actually stored - the same thing a browser's cookie jar guarantees
-// in production.
-const { cookieStore } = vi.hoisted(() => ({
+// in production. `cookieOptions` records what `set()` was called with, so a test can assert on
+// the security properties (httpOnly, sameSite, path, maxAge) the fixes rely on, not just the
+// stored value.
+const { cookieStore, cookieOptions } = vi.hoisted(() => ({
   cookieStore: new Map<string, string>(),
+  cookieOptions: new Map<string, Record<string, unknown>>(),
 }));
 
 vi.mock("next/headers", () => ({
@@ -18,11 +22,14 @@ vi.mock("next/headers", () => ({
       cookieStore.has(name)
         ? { name, value: cookieStore.get(name)! }
         : undefined,
-    set: (name: string, value: string) => {
+    set: (name: string, value: string, options?: Record<string, unknown>) => {
       cookieStore.set(name, value);
+      cookieOptions.set(name, options ?? {});
     },
     delete: (arg: string | { name: string }) => {
-      cookieStore.delete(typeof arg === "string" ? arg : arg.name);
+      const name = typeof arg === "string" ? arg : arg.name;
+      cookieStore.delete(name);
+      cookieOptions.delete(name);
     },
   }),
 }));
@@ -42,14 +49,25 @@ vi.mock("next/navigation", () => ({
 }));
 
 const api = vi.hoisted(() => ({
+  getSession: vi.fn(),
   deviceVerify: vi.fn(),
   deviceApprove: vi.fn(),
   deviceDeny: vi.fn(),
 }));
 vi.mock("@/lib/auth", () => ({ getAuth: () => ({ api }) }));
 
-const { approveDeviceLogin, claimDeviceCode, denyDeviceLogin } =
-  await import("./actions");
+// Stands in for the `deviceClaimAttempt` rate-limit table (Fix 1). The default implementation
+// below answers the select-count query with 0 and anything else (the insert) with an empty
+// result, so most tests never need to touch this directly.
+const db = vi.hoisted(() => ({ query: vi.fn() }));
+vi.mock("@/lib/db", () => ({ getPool: () => db }));
+
+const {
+  approveDeviceLogin,
+  claimDeviceCode,
+  denyDeviceLogin,
+  discardDeviceClaim,
+} = await import("./actions");
 
 function formWith(userCode: string) {
   const data = new FormData();
@@ -57,8 +75,19 @@ function formWith(userCode: string) {
   return data;
 }
 
+function mockAttemptCount(count: number) {
+  db.query.mockImplementation(async (sql: string) =>
+    sql.includes("count(*)")
+      ? { rows: [{ count }] }
+      : { rows: [], rowCount: 1 },
+  );
+}
+
 beforeEach(() => {
   cookieStore.clear();
+  cookieOptions.clear();
+  api.getSession.mockResolvedValue({ user: { id: "user-1" } });
+  mockAttemptCount(0);
 });
 
 afterEach(() => {
@@ -76,10 +105,28 @@ describe("claimDeviceCode", () => {
       url: "/device",
     });
 
-    expect(cookieStore.get("device_claim")).toBe("WDJB-MJHT");
+    expect(cookieStore.get(CLAIM_COOKIE)).toBe("WDJB-MJHT");
     expect(api.deviceVerify).toHaveBeenCalledWith({
       query: { user_code: "WDJB-MJHT" },
       headers: expect.any(Headers),
+    });
+  });
+
+  it("sets the claim cookie httpOnly, sameSite=strict, and scoped to /device", async () => {
+    api.deviceVerify.mockResolvedValue({
+      status: "pending",
+      client_id: "korza-cli",
+    });
+
+    await expect(claimDeviceCode(formWith("WDJB-MJHT"))).rejects.toMatchObject({
+      url: "/device",
+    });
+
+    expect(cookieOptions.get(CLAIM_COOKIE)).toMatchObject({
+      httpOnly: true,
+      sameSite: "strict",
+      path: "/device",
+      maxAge: CLAIM_COOKIE_MAX_AGE_SECONDS,
     });
   });
 
@@ -94,7 +141,7 @@ describe("claimDeviceCode", () => {
       url: "/device?error=1",
     });
 
-    expect(cookieStore.has("device_claim")).toBe(false);
+    expect(cookieStore.has(CLAIM_COOKIE)).toBe(false);
   });
 
   it("does not set the claim cookie for a code that's already been approved or denied", async () => {
@@ -107,7 +154,7 @@ describe("claimDeviceCode", () => {
       url: "/device?error=1",
     });
 
-    expect(cookieStore.has("device_claim")).toBe(false);
+    expect(cookieStore.has(CLAIM_COOKIE)).toBe(false);
   });
 
   it("redirects to the error state on a wrong or expired code without setting a cookie", async () => {
@@ -119,74 +166,143 @@ describe("claimDeviceCode", () => {
       url: "/device?error=1",
     });
 
-    expect(cookieStore.has("device_claim")).toBe(false);
+    expect(cookieStore.has(CLAIM_COOKIE)).toBe(false);
   });
 
   it("does nothing for an empty submission", async () => {
     await claimDeviceCode(formWith(""));
 
     expect(api.deviceVerify).not.toHaveBeenCalled();
-    expect(cookieStore.has("device_claim")).toBe(false);
+    expect(cookieStore.has(CLAIM_COOKIE)).toBe(false);
+  });
+
+  it("redirects to the error state with no session, without calling deviceVerify", async () => {
+    api.getSession.mockResolvedValue(null);
+
+    await expect(claimDeviceCode(formWith("WDJB-MJHT"))).rejects.toMatchObject({
+      url: "/device?error=1",
+    });
+
+    expect(api.deviceVerify).not.toHaveBeenCalled();
+  });
+
+  // Fix 1: Better Auth's own device rate limiter is attached to the plugin's disabled HTTP
+  // route, so it never runs for this server action - this per-user counter is what's left.
+  describe("rate limiting", () => {
+    it("rejects a 6th attempt within the window without calling deviceVerify", async () => {
+      mockAttemptCount(5);
+
+      await expect(
+        claimDeviceCode(formWith("WDJB-MJHT")),
+      ).rejects.toMatchObject({ url: "/device?error=1" });
+
+      expect(api.deviceVerify).not.toHaveBeenCalled();
+    });
+
+    it("allows an attempt when fewer than the limit fall inside the window", async () => {
+      mockAttemptCount(4);
+      api.deviceVerify.mockResolvedValue({
+        status: "pending",
+        client_id: "korza-cli",
+      });
+
+      await expect(
+        claimDeviceCode(formWith("WDJB-MJHT")),
+      ).rejects.toMatchObject({ url: "/device" });
+
+      expect(api.deviceVerify).toHaveBeenCalled();
+    });
   });
 });
 
 describe("approveDeviceLogin", () => {
   it("clears the claim cookie and redirects to the approved done state", async () => {
-    cookieStore.set("device_claim", "WDJB-MJHT");
+    cookieStore.set(CLAIM_COOKIE, "WDJB-MJHT");
     api.deviceApprove.mockResolvedValue({ success: true });
 
-    await expect(
-      approveDeviceLogin(formWith("WDJB-MJHT")),
-    ).rejects.toMatchObject({ url: "/device/done?outcome=approved" });
+    await expect(approveDeviceLogin()).rejects.toMatchObject({
+      url: "/device/done?outcome=approved",
+    });
 
-    expect(cookieStore.has("device_claim")).toBe(false);
+    expect(cookieStore.has(CLAIM_COOKIE)).toBe(false);
+    expect(api.deviceApprove).toHaveBeenCalledWith({
+      body: { userCode: "WDJB-MJHT" },
+      headers: expect.any(Headers),
+    });
+  });
+
+  it("redirects to the error state with no claim cookie, without calling deviceApprove", async () => {
+    await expect(approveDeviceLogin()).rejects.toMatchObject({
+      url: "/device?error=1",
+    });
+
+    expect(api.deviceApprove).not.toHaveBeenCalled();
   });
 
   // A code that expired while the confirm screen sat open, or was already resolved elsewhere,
   // surfaces as an APIError from deviceApprove - this must land on a sensible error state
   // instead of crashing to Next's generic error page.
   it("catches an APIError from an already-resolved or expired code and redirects to the error state", async () => {
-    cookieStore.set("device_claim", "WDJB-MJHT");
+    cookieStore.set(CLAIM_COOKIE, "WDJB-MJHT");
     api.deviceApprove.mockRejectedValue(
       new APIError("BAD_REQUEST", { message: "device_code_already_processed" }),
     );
 
-    await expect(
-      approveDeviceLogin(formWith("WDJB-MJHT")),
-    ).rejects.toMatchObject({ url: "/device?error=1" });
+    await expect(approveDeviceLogin()).rejects.toMatchObject({
+      url: "/device?error=1",
+    });
 
-    expect(cookieStore.has("device_claim")).toBe(false);
+    expect(cookieStore.has(CLAIM_COOKIE)).toBe(false);
   });
 
   it("does not swallow a non-APIError thrown by deviceApprove", async () => {
+    cookieStore.set(CLAIM_COOKIE, "WDJB-MJHT");
     api.deviceApprove.mockRejectedValue(new Error("boom"));
 
-    await expect(approveDeviceLogin(formWith("WDJB-MJHT"))).rejects.toThrow(
-      "boom",
-    );
+    await expect(approveDeviceLogin()).rejects.toThrow("boom");
   });
 });
 
 describe("denyDeviceLogin", () => {
   it("clears the claim cookie and redirects to the denied done state", async () => {
-    cookieStore.set("device_claim", "WDJB-MJHT");
+    cookieStore.set(CLAIM_COOKIE, "WDJB-MJHT");
     api.deviceDeny.mockResolvedValue({ success: true });
 
-    await expect(denyDeviceLogin(formWith("WDJB-MJHT"))).rejects.toMatchObject({
+    await expect(denyDeviceLogin()).rejects.toMatchObject({
       url: "/device/done?outcome=denied",
     });
 
-    expect(cookieStore.has("device_claim")).toBe(false);
+    expect(cookieStore.has(CLAIM_COOKIE)).toBe(false);
+  });
+
+  it("redirects to the error state with no claim cookie, without calling deviceDeny", async () => {
+    await expect(denyDeviceLogin()).rejects.toMatchObject({
+      url: "/device?error=1",
+    });
+
+    expect(api.deviceDeny).not.toHaveBeenCalled();
   });
 
   it("catches an APIError from deviceDeny and redirects to the error state", async () => {
-    cookieStore.set("device_claim", "WDJB-MJHT");
+    cookieStore.set(CLAIM_COOKIE, "WDJB-MJHT");
     api.deviceDeny.mockRejectedValue(
       new APIError("BAD_REQUEST", { message: "device_code_already_processed" }),
     );
 
-    await expect(denyDeviceLogin(formWith("WDJB-MJHT"))).rejects.toMatchObject({
+    await expect(denyDeviceLogin()).rejects.toMatchObject({
       url: "/device?error=1",
     });
+  });
+});
+
+describe("discardDeviceClaim", () => {
+  it("clears the claim cookie and returns to the code-entry form", async () => {
+    cookieStore.set(CLAIM_COOKIE, "WDJB-MJHT");
+
+    await expect(discardDeviceClaim()).rejects.toMatchObject({
+      url: "/device",
+    });
+
+    expect(cookieStore.has(CLAIM_COOKIE)).toBe(false);
   });
 });

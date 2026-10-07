@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
+import { signInWithGitHub } from "@/lib/auth-actions";
 import { getSession } from "@/lib/session";
 import {
   approveDeviceLogin,
   claimDeviceCode,
   denyDeviceLogin,
+  discardDeviceClaim,
 } from "./actions";
+import { CLAIM_COOKIE } from "./claim-cookie";
 
 export const metadata: Metadata = {
   title: "Approve CLI sign-in",
@@ -30,7 +33,29 @@ export default async function DevicePage({
 }) {
   const session = await getSession();
   const { error } = await searchParams;
-  const claimed = (await cookies()).get("device_claim")?.value;
+  const claimed = (await cookies()).get(CLAIM_COOKIE)?.value;
+
+  if (!session) {
+    return (
+      <div className="mx-auto flex max-w-lg flex-col items-center gap-7 py-10 text-center">
+        <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">
+          Approve the Korza CLI
+        </h1>
+        <p className="text-sm leading-relaxed text-ink-muted">
+          Log in to approve a Korza CLI sign-in.
+        </p>
+        <form action={signInWithGitHub}>
+          <input type="hidden" name="next" value="/device" />
+          <button
+            type="submit"
+            className="rounded-lg border border-line-strong bg-surface-raised px-4 py-3 text-sm font-medium text-ink transition-colors hover:border-ink-faint"
+          >
+            Log in with GitHub
+          </button>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto flex max-w-lg flex-col items-center gap-7 py-10 text-center">
@@ -38,18 +63,14 @@ export default async function DevicePage({
         Approve the Korza CLI
       </h1>
 
-      {session ? (
-        <div className="w-full rounded-lg border border-line bg-surface px-4 py-3 text-left">
-          <p className="text-xs text-ink-faint">Logged in as</p>
-          <p className="truncate text-sm text-ink">{session.user.name}</p>
-          <p className="truncate text-xs text-ink-faint">
-            {session.user.email}
-          </p>
-        </div>
-      ) : null}
+      <div className="w-full rounded-lg border border-line bg-surface px-4 py-3 text-left">
+        <p className="text-xs text-ink-faint">Logged in as</p>
+        <p className="truncate text-sm text-ink">{session.user.name}</p>
+        <p className="truncate text-xs text-ink-faint">{session.user.email}</p>
+      </div>
 
       {error ? (
-        <p className="text-sm text-ink-muted">
+        <p role="alert" className="text-sm text-ink-muted">
           That code didn&apos;t work. Check it and try again.
         </p>
       ) : null}
@@ -57,11 +78,14 @@ export default async function DevicePage({
       {claimed ? (
         <>
           <p className="text-sm leading-relaxed text-ink-muted">
+            Approve sign-in for code{" "}
+            <span className="font-mono font-semibold text-ink">{claimed}</span>?
+          </p>
+          <p className="text-sm leading-relaxed text-ink-muted">
             Only approve this if you just ran a Korza CLI command yourself. This
-            grants terminal access to your account.
+            signs the Korza CLI in as you for 30 days.
           </p>
           <form action={approveDeviceLogin} className="flex gap-3">
-            <input type="hidden" name="userCode" value={claimed} />
             <button
               type="submit"
               className="rounded-lg border border-line-strong bg-surface-raised px-4 py-3 text-sm font-medium text-ink transition-colors hover:border-ink-faint"
@@ -70,9 +94,13 @@ export default async function DevicePage({
             </button>
           </form>
           <form action={denyDeviceLogin}>
-            <input type="hidden" name="userCode" value={claimed} />
             <button type="submit" className="text-sm text-ink-muted underline">
               Deny
+            </button>
+          </form>
+          <form action={discardDeviceClaim}>
+            <button type="submit" className="text-sm text-ink-muted underline">
+              Use a different code
             </button>
           </form>
         </>
@@ -84,10 +112,18 @@ export default async function DevicePage({
           <p className="text-sm leading-relaxed text-ink-muted">
             Enter the code your terminal showed.
           </p>
+          <label htmlFor="userCode" className="sr-only">
+            Device code
+          </label>
           <input
+            id="userCode"
             name="userCode"
             placeholder="WDJB-MJHT"
             required
+            maxLength={9}
+            autoComplete="off"
+            autoCapitalize="characters"
+            spellCheck={false}
             className="w-full rounded-lg border border-line bg-surface px-4 py-3 text-center font-mono text-lg tracking-widest text-ink outline-none"
           />
           <button
