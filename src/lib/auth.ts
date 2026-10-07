@@ -29,21 +29,17 @@ export function createAuth(database: BetterAuthOptions["database"]) {
   return betterAuth({
     database,
     // `/get-access-token`, `/refresh-token` and `/account-info` hand back the encrypted GitHub
-    // token itself, not just a session verdict. Fine for a browser that only ever holds the
-    // session cookie; not fine once bearer (below) lets that same session travel as a header
-    // value a CLI can be made to log or leak. Nobody calls these today, so closing them costs
-    // nothing. `disabledPaths` is a top-level option, not something a plugin itself accepts -
-    // see better-auth's dist/api/index.mjs onRequest handler.
+    // token itself - fine for a browser holding only the session cookie, not once bearer (below)
+    // lets that same session travel as a header value a CLI can log or leak. Nobody calls these
+    // today, so closing them costs nothing.
     //
-    // `/device` (the plugin's bare GET claim endpoint, exact-path match only - `/device/code`,
-    // `/device/token`, `/device/approve` and `/device/deny` are untouched) is disabled for the
-    // same reason: it claims a user_code using whatever session cookie is on the request, it
-    // needs no cookie to be reached since `/api/auth` is on the open-path allowlist, and GET
-    // requests skip the origin-check middleware - so an attacker's page can make a victim's
-    // browser claim the attacker's code under the victim's session with a plain top-level
-    // navigation. `claimDeviceCode` (src/app/device/actions.ts) calls `deviceVerify` through
-    // `auth.api` directly rather than this HTTP route, so disabling it here doesn't touch the
-    // real claim flow.
+    // `/device` (the plugin's bare GET claim endpoint - `/device/code`, `/device/token`,
+    // `/device/approve` and `/device/deny` are untouched) claims a user_code from whatever
+    // session cookie is on the request, needs no cookie to reach it, and GET skips the
+    // origin-check middleware - so an attacker's page can make a victim's browser claim the
+    // attacker's code with a plain navigation. `claimDeviceCode` (src/app/device/actions.ts)
+    // calls `deviceVerify` directly through `auth.api`, bypassing this route entirely, so
+    // disabling it here doesn't touch the real claim flow.
     disabledPaths: [
       "/get-access-token",
       "/refresh-token",
@@ -105,11 +101,11 @@ export function createAuth(database: BetterAuthOptions["database"]) {
         // getAuth() at request time - every sign-in on the site, not just the CLI's.
       }),
       // Sets and clears the session cookie for the sign-in/sign-out server actions, which keeps
-      // both a plain form post rather than a client component. Must stay last in this array:
-      // plugin `after` hooks run in array order, and `nextCookies()`'s own `after` hook is what
-      // forwards a Set-Cookie header into Next's cookie store - it can only forward a Set-Cookie
-      // that an earlier plugin's `after` hook (bearer's included) has already added by the time
-      // it runs.
+      // both a plain form post rather than a client component. Must stay last in `plugins`: its
+      // own `after` hook forwards whatever Set-Cookie header is on the response when it runs,
+      // and a later plugin's `after` hook could change that header after it already read it.
+      // (Bearer's own `after` hook only adds a `set-auth-token` header, not a Set-Cookie - this
+      // ordering isn't about bearer specifically.)
       nextCookies(),
     ],
     hooks: {
@@ -117,12 +113,11 @@ export function createAuth(database: BetterAuthOptions["database"]) {
       // request regardless of this hook. This is here so an approval itself can't hand a CLI a
       // long-lived session for someone who isn't a Korza org member.
       //
-      // Must fail closed on no session, not return. User-level `hooks.before` runs before
-      // plugin-level ones (see better-auth's dist/api/dispatch.mjs `getHooks`), and bearer's own
-      // `before` hook - the thing that turns an Authorization header into a cookie `getSession`
-      // can see - is plugin-level. So a bearer-only request looks session-less here even though
-      // it carries a real session; returning instead of throwing would let it fall through to
-      // device-authorization's own cookie-only check and sail past this one unexamined.
+      // Must fail closed on no session, not return. User-level `hooks.before` runs before any
+      // plugin's, including bearer's own `before` hook that turns an Authorization header into
+      // the cookie `getSession` can see - so a bearer-only request still looks session-less here
+      // even though it carries a real session. Returning instead of throwing would let it fall
+      // through to device-authorization's own cookie-only check unexamined.
       before: createAuthMiddleware(async (ctx) => {
         if (ctx.path === "/device/code") {
           // The plugin accepts an optional `user_id` in this body and stores it as the device
@@ -133,6 +128,16 @@ export function createAuth(database: BetterAuthOptions["database"]) {
               message: "user_id is not accepted on this endpoint",
             });
           }
+          // This endpoint needs no auth, so an abandoned or scripted request leaves a row the
+          // plugin itself only ever deletes on a later poll. Opportunistic rather than a cron job:
+          // piggybacks on the one request every device login already makes here.
+          await getPool()
+            .query(
+              `delete from "deviceCode" where "expiresAt" < now() - interval '1 day'`,
+            )
+            .catch((error) =>
+              console.error("Could not clean up stale device codes.", error),
+            );
           return;
         }
         if (ctx.path !== "/device/approve") return;
@@ -157,25 +162,24 @@ export function createAuth(database: BetterAuthOptions["database"]) {
         // naive client can't defeat that by opening it directly.
         if (ctx.path === "/device/code") {
           const body = ctx.context.returned;
-          if (body && typeof body === "object" && "verification_uri_complete" in body) {
+          if (
+            body &&
+            typeof body === "object" &&
+            "verification_uri_complete" in body
+          ) {
             delete (body as Record<string, unknown>).verification_uri_complete;
           }
           return;
         }
         if (ctx.path !== "/get-session") return;
-        // getSession's own refresh-on-expiry logic extends expiresAt back out to the global
-        // 7-day default (`sessionConfig.expiresIn`) whenever a session is within ~6 days of
-        // expiring, regardless of how long it was actually issued for - so an actively-polled
-        // device session would never truly expire. A `hooks.before` can't pre-empt that write:
-        // every before-hook runs against the same pre-dispatch headers (see better-auth's
-        // dist/api/dispatch.mjs `runBeforeHooks`), so one can't see bearer's own before-hook
-        // turning the CLI's Authorization header into the cookie this lookup needs. Clamping
-        // here instead, after the real handler has run, works for both transports.
+        // getSession's own refresh-on-expiry logic extends expiresAt back out toward the global
+        // 7-day default whenever a session nears expiry, so an actively-polled device session
+        // would never truly expire. A `hooks.before` can't pre-empt this: it runs before
+        // bearer's own before-hook turns the CLI's Authorization header into the cookie this
+        // lookup needs, so clamping has to happen here, after the real handler ran.
         //
-        // `ctx.context.session` is set before that refresh runs and is never updated to reflect
-        // it (see getSession in better-auth's dist/api/routes/session.mjs), so its `token`,
-        // `createdAt` and `source` are reliable but its `expiresAt` isn't - the refreshed value,
-        // if any, only lands in the JSON body.
+        // `ctx.context.session`'s `expiresAt` isn't updated by that refresh - only the JSON body
+        // is - so `token`, `createdAt` and `source` are reliable but `expiresAt` isn't.
         const session = ctx.context.session;
         if (!session || session.session.source !== "device") return;
         const body = ctx.context.returned;
@@ -183,9 +187,11 @@ export function createAuth(database: BetterAuthOptions["database"]) {
           body && typeof body === "object" && "session" in body
             ? (body as { session?: { expiresAt?: Date } }).session
             : undefined;
-        const returnedExpiresAt = bodySession?.expiresAt ?? session.session.expiresAt;
+        const returnedExpiresAt =
+          bodySession?.expiresAt ?? session.session.expiresAt;
         const cap = new Date(
-          new Date(session.session.createdAt).getTime() + DEVICE_SESSION_EXPIRES_IN_MS,
+          new Date(session.session.createdAt).getTime() +
+            DEVICE_SESSION_EXPIRES_IN_MS,
         );
         if (returnedExpiresAt.getTime() <= cap.getTime()) return;
         await ctx.context.internalAdapter.updateSession(session.session.token, {

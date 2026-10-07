@@ -45,6 +45,15 @@ describe("proxy", () => {
     });
   });
 
+  it("returns JSON 503 unavailable, not 401 unauthenticated, when the session lookup throws", async () => {
+    api.getSession.mockRejectedValue(new Error("connection refused"));
+
+    const res = await proxy(requestFor("/api/analyze"));
+
+    expect(res.status).toBe(503);
+    expect((await res.json()).reason).toBe("unavailable");
+  });
+
   it("returns JSON 403 for a non-member /api/* request instead of redirecting", async () => {
     api.getSession.mockResolvedValue({
       user: { id: "u1", orgMember: false, orgCheckedAt: null },

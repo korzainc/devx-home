@@ -1,8 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import {
-  NOT_ORG_MEMBER_MESSAGE,
-  UNAUTHENTICATED_MESSAGE,
-} from "@/lib/api-errors";
+import { apiError } from "@/lib/api-errors";
 import { getAuth } from "@/lib/auth";
 import { isOpenPath } from "@/lib/gate";
 import { isOrgMember } from "@/lib/membership";
@@ -54,14 +51,27 @@ export const config = {
   ],
 };
 
-async function sessionFor(request: NextRequest) {
+type Session = Awaited<
+  ReturnType<ReturnType<typeof getAuth>["api"]["getSession"]>
+>;
+
+// Distinguishes "nobody is signed in" (a null session, no error) from "couldn't find out" (the
+// lookup threw - a Neon outage, a misconfigured auth secret). Both leave a page visitor looking
+// signed out, which is why the redirect below treats them alike; `/api/*` callers can't, since a
+// 401 there tells the CLI its token was revoked. See `proxy` below.
+async function sessionFor(
+  request: NextRequest,
+): Promise<{ session: Session; failed: boolean }> {
   try {
-    return await getAuth().api.getSession({ headers: request.headers });
+    const session = await getAuth().api.getSession({
+      headers: request.headers,
+    });
+    return { session, failed: false };
   } catch (error) {
     // Reported rather than swallowed: the redirect below is indistinguishable from a signed-out
     // visitor, so without this an outage looks like everybody deciding to sign out at once.
     console.error("The gate could not read a session.", error);
-    return null;
+    return { session: null, failed: true };
   }
 }
 
@@ -74,13 +84,14 @@ export default async function proxy(request: NextRequest) {
   // gets a JSON body it can parse instead of a 307.
   const isApiPath = pathname.startsWith("/api/");
 
-  const session = await sessionFor(request);
+  const { session, failed } = await sessionFor(request);
   if (!session) {
     if (isApiPath) {
-      return Response.json(
-        { error: UNAUTHENTICATED_MESSAGE, reason: "unauthenticated" },
-        { status: 401 },
-      );
+      // A thrown lookup is not a revoked token: the CLI treats `unauthenticated` as "sign in
+      // again" and would delete a still-good one on a transient outage.
+      return failed
+        ? apiError("unavailable", 503)
+        : apiError("unauthenticated", 401);
     }
     const login = new URL("/login", origin);
     // Read back by the login form's hidden field, and washed by `callbackFrom` before it is used.
@@ -98,10 +109,7 @@ export default async function proxy(request: NextRequest) {
   // page. Sending these visitors to `/login` would loop: they have a valid session already, and
   // signing in again would produce the same one.
   if (isApiPath) {
-    return Response.json(
-      { error: NOT_ORG_MEMBER_MESSAGE, reason: "not_org_member" },
-      { status: 403 },
-    );
+    return apiError("not_org_member", 403);
   }
   return NextResponse.redirect(new URL("/no-access", origin));
 }

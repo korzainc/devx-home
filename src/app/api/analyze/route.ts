@@ -1,9 +1,5 @@
 import { headers } from "next/headers";
-import {
-  GITHUB_REAUTH_REQUIRED_MESSAGE,
-  NOT_ORG_MEMBER_MESSAGE,
-  UNAUTHENTICATED_MESSAGE,
-} from "@/lib/api-errors";
+import { apiError } from "@/lib/api-errors";
 import {
   bundleById,
   capabilityLabels,
@@ -40,12 +36,18 @@ function repoFromBody(body: unknown): string {
 }
 
 export async function POST(request: Request) {
-  const session = await getSession();
+  // A thrown lookup (a Neon outage, a misconfigured auth secret) is not the same answer as a null
+  // session: the CLI treats `unauthenticated` as "sign in again" and would delete a still-good
+  // token over a transient outage.
+  let session;
+  try {
+    session = await getSession();
+  } catch (error) {
+    console.error("/api/analyze could not read a session.", error);
+    return apiError("unavailable", 503);
+  }
   if (!session) {
-    return Response.json(
-      { error: UNAUTHENTICATED_MESSAGE, reason: "unauthenticated" },
-      { status: 401 },
-    );
+    return apiError("unauthenticated", 401);
   }
 
   // `src/proxy.ts` already requires org membership; this repeats it in case a proxy matcher
@@ -53,24 +55,21 @@ export async function POST(request: Request) {
   // a caller retrying login on 401 would loop forever here, since signing in again as the same
   // account can't make it a member.
   if (!(await isOrgMember(await headers(), session.user))) {
-    return Response.json(
-      { error: NOT_ORG_MEMBER_MESSAGE, reason: "not_org_member" },
-      { status: 403 },
-    );
+    return apiError("not_org_member", 403);
   }
 
   // `getGitHubToken()` returns null for both nobody signed in and a lapsed refresh token, so this
   // check only runs once a session and org membership are already confirmed - otherwise a signed
   // out caller would get this reason instead of `unauthenticated`.
-  const token = await getGitHubToken();
+  let token;
+  try {
+    token = await getGitHubToken();
+  } catch (error) {
+    console.error("/api/analyze could not read a GitHub token.", error);
+    return apiError("unavailable", 503);
+  }
   if (!token) {
-    return Response.json(
-      {
-        error: GITHUB_REAUTH_REQUIRED_MESSAGE,
-        reason: "github_reauth_required",
-      },
-      { status: 401 },
-    );
+    return apiError("github_reauth_required", 401);
   }
 
   const repo = repoFromBody(await request.json().catch(() => null));
@@ -82,23 +81,28 @@ export async function POST(request: Request) {
   );
 
   if (!result.ok) {
-    // A 429 here is the reader's own rate limit, not the auth checks above; a 401 is GitHub
-    // rejecting the token at read time rather than at the check above, but means the same thing
-    // to a caller. Other statuses (400 bad ref, 404 no such repo, 502 upstream failure) aren't
-    // part of the CLI's retry contract, so they carry no reason.
-    const reason =
-      result.status === 429
-        ? "rate_limited"
-        : result.status === 401
-          ? "github_reauth_required"
-          : undefined;
-    return Response.json(
-      { error: result.error, ...(reason ? { reason } : {}) },
-      { status: result.status },
-    );
+    // A 429 here is the reader's own rate limit: `error` is GitHub's own message, not one fixed
+    // string, so it stays on a plain response rather than going through `apiError`. A 401 is
+    // GitHub rejecting the token at read time rather than at the check above, but means the same
+    // thing to a caller, so it gets the one shared `github_reauth_required` message instead of
+    // whatever `runAnalysis` happened to say. Other statuses (400 bad ref, 404 no such repo, 502
+    // upstream failure) aren't part of the CLI's retry contract, so they carry no reason.
+    if (result.status === 429) {
+      return Response.json(
+        { error: result.error, reason: "rate_limited" },
+        { status: 429 },
+      );
+    }
+    if (result.status === 401) {
+      return apiError("github_reauth_required", 401);
+    }
+    return Response.json({ error: result.error }, { status: result.status });
   }
 
   const catalogue = { bundleById, toolNameById, capabilityLabels };
   const fixPrompt = buildFixPrompt(result.analysis, catalogue);
-  return Response.json({ analysis: result.analysis, fixPrompt });
+  return Response.json({
+    analysis: result.analysis,
+    ...(fixPrompt ? { fixPrompt } : {}),
+  });
 }

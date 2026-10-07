@@ -44,6 +44,17 @@ describe("POST /api/analyze", () => {
     vi.clearAllMocks();
   });
 
+  it("tags a thrown session lookup with reason unavailable and status 503, not unauthenticated", async () => {
+    getSession.mockRejectedValue(new Error("connection refused"));
+
+    const res = await POST(postRequest({ repo: "korzainc/example" }));
+
+    expect(res.status).toBe(503);
+    expect((await res.json()).reason).toBe("unavailable");
+    expect(isOrgMember).not.toHaveBeenCalled();
+    expect(runAnalysis).not.toHaveBeenCalled();
+  });
+
   it("tags an unauthenticated request with reason unauthenticated and status 401", async () => {
     getGitHubToken.mockResolvedValue(null);
     getSession.mockResolvedValue(null);
@@ -102,6 +113,44 @@ describe("POST /api/analyze", () => {
       { repo: "korzainc/example" },
       { bundleById: {}, toolNameById: {}, capabilityLabels: {} },
     );
+  });
+
+  it("omits fixPrompt entirely for a clean report instead of sending an empty string", async () => {
+    getGitHubToken.mockResolvedValue("a-token");
+    getSession.mockResolvedValue(fakeSession);
+    isOrgMember.mockResolvedValue(true);
+    runAnalysis.mockResolvedValue({
+      ok: true,
+      analysis: { repo: "korzainc/example" },
+    });
+    buildFixPrompt.mockReturnValue("");
+
+    const res = await POST(postRequest({ repo: "korzainc/example" }));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body).not.toHaveProperty("fixPrompt");
+  });
+
+  it("tags a GitHub 401 at read time with the shared github_reauth_required message", async () => {
+    getGitHubToken.mockResolvedValue("a-token");
+    getSession.mockResolvedValue(fakeSession);
+    isOrgMember.mockResolvedValue(true);
+    runAnalysis.mockResolvedValue({
+      ok: false,
+      status: 401,
+      error: "GitHub rejected the token.",
+    });
+
+    const res = await POST(postRequest({ repo: "korzainc/example" }));
+    const body = await res.json();
+
+    expect(res.status).toBe(401);
+    expect(body.reason).toBe("github_reauth_required");
+    expect(body.error).toBe(
+      "Your GitHub access needs refreshing. Sign in again on the website.",
+    );
+    expect(buildFixPrompt).not.toHaveBeenCalled();
   });
 
   it("tags a rate-limited analysis failure with reason rate_limited", async () => {
