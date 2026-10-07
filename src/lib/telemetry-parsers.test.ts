@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { createHash } from "node:crypto";
-import plugins from "@/data/plugins.json";
+import { plugins } from "@/lib/catalogue";
 import { filterLogs } from "./telemetry-logs";
 import { filterMetrics } from "./telemetry-metrics";
 import { parseBatch } from "./telemetry-events";

@@ -1,4 +1,4 @@
-import plugins from "@/data/plugins.json";
+import { plugins } from "@/lib/catalogue";
 
 export const telemetryMarketplace = "korza-marketplace";
 
