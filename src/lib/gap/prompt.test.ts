@@ -61,23 +61,9 @@ function hasEmptyTable(prompt: string): boolean {
 }
 
 describe("buildFixPrompt", () => {
-  it("emits no table when the report found nothing at all", () => {
-    const prompt = buildFixPrompt(empty);
-
-    expect(hasEmptyTable(prompt)).toBe(false);
-    expect(prompt).toContain(
-      "Every check the baseline expects is already running",
-    );
-    expect(prompt).toContain("nothing here to avoid duplicating");
-  });
-
-  it("says so rather than listing nothing when no file was worth reading", () => {
-    expect(buildFixPrompt(empty)).toContain(
-      "It found no manifest and no CI config",
-    );
-    expect(buildFixPrompt(empty)).toContain(
-      "no manifest in the repository was recognised",
-    );
+  it("returns empty when there are no gaps", () => {
+    const cleanAnalysis = { ...empty, gapCount: 0 };
+    expect(buildFixPrompt(cleanAnalysis)).toBe("");
   });
 
   it("numbers the gaps and names the tools the catalogue suggests", () => {
@@ -153,6 +139,7 @@ describe("buildFixPrompt", () => {
   it("keeps a repo path from breaking out of the cell it sits in", () => {
     const analysis = withGap({
       satisfiedCount: 1,
+      gapCount: 1,
       categories: [
         {
           category: "Testing",
@@ -171,10 +158,16 @@ describe("buildFixPrompt", () => {
               ],
               recommended: [],
             },
+            {
+              id: "coverage",
+              label: "Test coverage",
+              satisfied: false,
+              present: [],
+              recommended: [],
+            },
           ],
         },
       ],
-      gapCount: 0,
     });
 
     const row = buildFixPrompt(analysis)
@@ -189,6 +182,7 @@ describe("buildFixPrompt", () => {
   it("keeps a newline in the evidence from ending the table row early", () => {
     const analysis = withGap({
       satisfiedCount: 1,
+      gapCount: 1,
       categories: [
         {
           category: "Testing",
@@ -208,10 +202,16 @@ describe("buildFixPrompt", () => {
               ],
               recommended: [],
             },
+            {
+              id: "coverage",
+              label: "Test coverage",
+              satisfied: false,
+              present: [],
+              recommended: [],
+            },
           ],
         },
       ],
-      gapCount: 0,
     });
 
     const lines = buildFixPrompt(analysis).split("\n");
@@ -229,6 +229,7 @@ describe("buildFixPrompt", () => {
   it("escapes a literal backslash before escaping a pipe, so the two don't combine into a live one", () => {
     const analysis = withGap({
       satisfiedCount: 1,
+      gapCount: 1,
       categories: [
         {
           category: "Testing",
@@ -247,10 +248,16 @@ describe("buildFixPrompt", () => {
               ],
               recommended: [],
             },
+            {
+              id: "coverage",
+              label: "Test coverage",
+              satisfied: false,
+              present: [],
+              recommended: [],
+            },
           ],
         },
       ],
-      gapCount: 0,
     });
 
     const row = buildFixPrompt(analysis)
@@ -298,6 +305,7 @@ describe("buildFixPrompt", () => {
   it("leaves a fully satisfied capability's lone, single-stack tool unattributed", () => {
     const analysis = withGap({
       satisfiedCount: 1,
+      gapCount: 1,
       categories: [
         {
           category: "Testing",
@@ -316,10 +324,16 @@ describe("buildFixPrompt", () => {
               ],
               recommended: [],
             },
+            {
+              id: "coverage",
+              label: "Test coverage",
+              satisfied: false,
+              present: [],
+              recommended: [],
+            },
           ],
         },
       ],
-      gapCount: 0,
     });
 
     expect(buildFixPrompt(analysis)).toContain(
@@ -330,6 +344,7 @@ describe("buildFixPrompt", () => {
   it("attributes each running tool when more than one covers the same capability", () => {
     const analysis = withGap({
       satisfiedCount: 1,
+      gapCount: 1,
       categories: [
         {
           category: "Code Quality",
@@ -354,10 +369,16 @@ describe("buildFixPrompt", () => {
               ],
               recommended: [],
             },
+            {
+              id: "docs",
+              label: "Docs build",
+              satisfied: false,
+              present: [],
+              recommended: [],
+            },
           ],
         },
       ],
-      gapCount: 0,
     });
 
     const prompt = buildFixPrompt(analysis);
@@ -370,6 +391,7 @@ describe("buildFixPrompt", () => {
   it("joins a single running tool's own multi-stack coverage with and", () => {
     const analysis = withGap({
       satisfiedCount: 1,
+      gapCount: 1,
       categories: [
         {
           category: "Security",
@@ -388,10 +410,16 @@ describe("buildFixPrompt", () => {
               ],
               recommended: [],
             },
+            {
+              id: "sast",
+              label: "Code Security (SAST)",
+              satisfied: false,
+              present: [],
+              recommended: [],
+            },
           ],
         },
       ],
-      gapCount: 0,
     });
 
     expect(buildFixPrompt(analysis)).toContain(
@@ -802,7 +830,6 @@ describe("buildFixPrompt golden output", () => {
   });
 
   it.each([
-    ["nothing-detected", empty, undefined],
     ["mixed-report", mixed, undefined],
     ["bundle-recipe", bundled, catalogueWith(bundleWithNotes)],
   ])("renders %s exactly as pinned", (name, analysis, catalogue) => {

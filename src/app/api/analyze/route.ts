@@ -1,6 +1,14 @@
 import { headers } from "next/headers";
-import { getBaseline, tools } from "@/lib/catalogue";
+import { apiError } from "@/lib/api-errors";
+import {
+  bundleById,
+  capabilityLabels,
+  getBaseline,
+  toolNameById,
+  tools,
+} from "@/lib/catalogue";
 import { getLlmConfig } from "@/lib/gap-llm-config";
+import { buildFixPrompt } from "@/lib/gap/prompt";
 import { runAnalysis } from "@/lib/gap/run";
 import { isOrgMember } from "@/lib/membership";
 import { getGitHubToken, getSession } from "@/lib/session";
@@ -28,22 +36,39 @@ function repoFromBody(body: unknown): string {
 }
 
 export async function POST(request: Request) {
-  const token = await getGitHubToken();
-  if (!token) {
-    return Response.json(
-      { error: "Log in with GitHub to analyze a repository." },
-      { status: 401 },
-    );
+  // A thrown lookup (a Neon outage, a misconfigured auth secret) is not the same answer as a null
+  // session: the CLI treats `unauthenticated` as "sign in again" and would delete a still-good
+  // token over a transient outage.
+  let session;
+  try {
+    session = await getSession();
+  } catch (error) {
+    console.error("/api/analyze could not read a session.", error);
+    return apiError("unavailable", 503);
+  }
+  if (!session) {
+    return apiError("unauthenticated", 401);
   }
 
-  // `src/proxy.ts` already requires org membership; this repeats it in case a proxy matcher
-  // change or bypass lets a request through.
-  const session = await getSession();
-  if (!session || !(await isOrgMember(await headers(), session.user))) {
-    return Response.json(
-      { error: "Log in with GitHub to analyze a repository." },
-      { status: 401 },
-    );
+  // `src/proxy.ts` already requires org membership; this repeats it in case a proxy
+  // change lets a request through. Its own reason: retrying login on 401 would loop
+  // forever here, since signing in again can't add an account to the org.
+  if (!(await isOrgMember(await headers(), session.user))) {
+    return apiError("not_org_member", 403);
+  }
+
+  // `getGitHubToken()` returns null for both nobody signed in and a lapsed refresh token, so this
+  // check only runs once a session and org membership are already confirmed - otherwise a signed
+  // out caller would get this reason instead of `unauthenticated`.
+  let token;
+  try {
+    token = await getGitHubToken();
+  } catch (error) {
+    console.error("/api/analyze could not read a GitHub token.", error);
+    return apiError("unavailable", 503);
+  }
+  if (!token) {
+    return apiError("github_reauth_required", 401);
   }
 
   const repo = repoFromBody(await request.json().catch(() => null));
@@ -54,7 +79,29 @@ export async function POST(request: Request) {
     getLlmConfig(),
   );
 
-  return result.ok
-    ? Response.json(result.analysis)
-    : Response.json({ error: result.error }, { status: result.status });
+  if (!result.ok) {
+    // A 429 is the reader's own GitHub rate limit, so `error` stays GitHub's raw message
+    // rather than going through `apiError`.
+    //
+    // A 401 here (GitHub rejecting the token at read time) gets the shared
+    // `github_reauth_required` message instead of whatever `runAnalysis` said; other
+    // statuses aren't part of the CLI's retry contract, so they carry no reason.
+    if (result.status === 429) {
+      return Response.json(
+        { error: result.error, reason: "rate_limited" },
+        { status: 429 },
+      );
+    }
+    if (result.status === 401) {
+      return apiError("github_reauth_required", 401);
+    }
+    return Response.json({ error: result.error }, { status: result.status });
+  }
+
+  const catalogue = { bundleById, toolNameById, capabilityLabels };
+  const fixPrompt = buildFixPrompt(result.analysis, catalogue);
+  return Response.json({
+    analysis: result.analysis,
+    ...(fixPrompt ? { fixPrompt } : {}),
+  });
 }

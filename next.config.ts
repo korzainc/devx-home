@@ -6,6 +6,24 @@ const setupOrigin = getSetupOrigin();
 const nextConfig: NextConfig = {
   cacheComponents: true,
   allowedDevOrigins: setupOrigin ? [new URL(setupOrigin).hostname] : [],
+  async headers() {
+    return [
+      // /device types a code tied to whoever is signed in; framing it would let an attacker
+      // overlay their own UI and trick a click into approving their device instead.
+      {
+        source: "/device",
+        headers: [
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+        ],
+      },
+      {
+        source: "/device/:path*",
+        headers: [
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+        ],
+      },
+    ];
+  },
   async redirects() {
     return [
       // Configured here rather than as a page, so the route walk in `site-footer.test.tsx` does
