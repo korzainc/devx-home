@@ -10,12 +10,11 @@ import { CLAIM_COOKIE, CLAIM_COOKIE_MAX_AGE_SECONDS } from "./claim-cookie";
 
 // The claimed code travels from `claimDeviceCode` to the confirm screen in this cookie, never
 // in the URL - a query parameter can end up in browser history, a Referer header, or a proxy
-// log, any of which would hand an observer a code to approve under someone else's session.
-// httpOnly keeps it off `document.cookie`; the short lifetime bounds how long a code sits
-// readable in a cookie jar to roughly the time it takes to read the confirm screen. It is also
-// the only thing `approveDeviceLogin`/`denyDeviceLogin` below trust for which code to act on -
-// never a value posted from the form - so a stale or forged form field can't act on a code this
-// session never claimed.
+// log. httpOnly keeps it off `document.cookie`, and the short lifetime bounds how long it sits
+// readable to roughly the time it takes to read the confirm screen.
+//
+// It's also the only thing `approveDeviceLogin`/`denyDeviceLogin` trust for which code to act
+// on, never a value posted from the form, so a forged field can't act on an unclaimed code.
 async function setClaimCookie(userCode: string) {
   (await cookies()).set(CLAIM_COOKIE, userCode, {
     httpOnly: true,
@@ -33,8 +32,8 @@ async function clearClaimCookie() {
 /**
  * The code this session claimed, or a redirect to the error state if there isn't one.
  *
- * Approve and deny both gate on this rather than on whatever `userCode` a form posts - the
- * cookie is the one thing a stale tab or a forged request can't produce on its own.
+ * Approve and deny gate on this, not on whatever `userCode` a form posts - the cookie is
+ * the one thing a stale tab or a forged request can't produce on its own.
  */
 async function requireClaimedCode(): Promise<string> {
   const userCode = (await cookies()).get(CLAIM_COOKIE)?.value;
@@ -67,17 +66,14 @@ async function recordClaimAttempt(userId: string): Promise<void> {
 
 /**
  * Claims the code for the signed-in caller (`deviceVerify` binds `userCode` to whoever's
- * session is attached to this request), then sends them to the confirmation step. Any
- * `APIError` here means the code is wrong or expired - the response doesn't need to distinguish
- * those for the person typing it in.
+ * session made the request), then sends them to the confirm step. An `APIError` here just
+ * means the code is wrong or expired; rate-limited before `deviceVerify` runs, since that
+ * call is otherwise the only guard against someone guessing codes until one lands.
  *
- * `deviceVerify` doesn't throw for a code that's already claimed by someone else, or already
- * approved/denied - it returns normally with a `status`/`client_id` that say so. `client_id`
- * is only present when this session is the one the code is now bound to and the request is
- * still `"pending"`; anything else means there is nothing for this session to approve or deny.
- *
- * Rate-limited per caller before `deviceVerify` ever runs, since that call is otherwise the only
- * guard against someone signed in just guessing codes until one lands on a pending request.
+ * `deviceVerify` doesn't throw for a code already claimed by someone else, or already
+ * approved/denied - it returns a `status`/`client_id` that say so instead. `client_id` is
+ * only present when this session now owns the code and it's still pending; anything else
+ * means there's nothing for this session to approve or deny.
  */
 export async function claimDeviceCode(formData: FormData) {
   const userCode = formData.get("userCode");

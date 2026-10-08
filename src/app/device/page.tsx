@@ -22,10 +22,11 @@ export const instant = false;
  * Two steps, not one: typing the code (`claimDeviceCode`) binds it to this session, and only
  * then does Approve/Deny appear. Never read the code from a query parameter or pre-fill the
  * input - a link with the code baked in would turn this into a one-click phishing approval
- * (RFC 8628 §5.4). The claimed code instead travels in a short-lived, httpOnly cookie that only
- * `claimDeviceCode` sets, so showing the confirm screen below can never be triggered by a URL
- * alone. Its mere presence is the gate - this never calls `deviceVerify` again here, since that
- * would claim a fresh code on every render instead of just checking one.
+ * (RFC 8628 §5.4).
+ *
+ * The claimed code instead travels in a short-lived, httpOnly cookie only `claimDeviceCode`
+ * sets, so the confirm screen below can never be triggered by a URL alone - its mere presence
+ * is the gate. This never calls `deviceVerify` again here, which would claim a fresh code.
  */
 export default async function DevicePage({
   searchParams,

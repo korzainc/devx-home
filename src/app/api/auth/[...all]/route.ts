@@ -1,11 +1,9 @@
 import { toNextJsHandler } from "better-auth/next-js";
 import { getAuth } from "@/lib/auth";
 
-// The bearer plugin's after-hook stamps a raw, unsigned session token onto every response that
-// sets the session cookie, including the ordinary GitHub OAuth browser callback - so any
-// same-origin script could read a portable credential via fetch for a login that never touches
-// the CLI. Only /device/token needs it; it's also returned there in the JSON body, so even that
-// path doesn't depend on the header.
+// The bearer plugin stamps a raw session token onto every response that sets the session
+// cookie, including the ordinary GitHub callback - any same-origin script could read it via
+// fetch. Only /device/token needs the header, and it already gets the token in its JSON body.
 const DEVICE_TOKEN_PATH = "/api/auth/device/token";
 
 function stripBearerTokenHeader(response: Response, pathname: string): Response {

@@ -55,10 +55,9 @@ type Session = Awaited<
   ReturnType<ReturnType<typeof getAuth>["api"]["getSession"]>
 >;
 
-// Distinguishes "nobody is signed in" (a null session, no error) from "couldn't find out" (the
-// lookup threw - a Neon outage, a misconfigured auth secret). Both leave a page visitor looking
-// signed out, which is why the redirect below treats them alike; `/api/*` callers can't, since a
-// 401 there tells the CLI its token was revoked. See `proxy` below.
+// Distinguishes "nobody is signed in" (a null session) from "couldn't find out" (the lookup
+// threw: a Neon outage, a misconfigured secret). A page visitor looks signed out either way,
+// but `/api/*` callers can't be treated alike - a 401 tells the CLI its token was revoked.
 async function sessionFor(
   request: NextRequest,
 ): Promise<{ session: Session; failed: boolean }> {

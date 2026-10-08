@@ -29,10 +29,10 @@ export const metadata: Metadata = {
 export const instant = false;
 
 /**
- * A non-member who claimed a CLI device code before landing here would otherwise leave the CLI
- * polling for the full 30-minute code lifetime with no way to find out it can never be approved -
- * this page is the only place that knows both facts at once. Denies rather than approves: nobody
- * reading this page can satisfy the gate, so there is nothing to approve.
+ * A non-member who claimed a CLI code before landing here would otherwise leave the CLI
+ * polling for the full 30-minute lifetime with no way to learn it can't be approved.
+ *
+ * Denies rather than approves: nobody reaching this page can satisfy the gate.
  */
 async function denyAnyPendingDeviceCode(userId: string): Promise<boolean> {
   const { rows } = await getPool().query<{ userCode: string }>(

@@ -50,10 +50,9 @@ export async function POST(request: Request) {
     return apiError("unauthenticated", 401);
   }
 
-  // `src/proxy.ts` already requires org membership; this repeats it in case a proxy matcher
-  // change or bypass lets a request through. Its own reason, distinct from `unauthenticated`:
-  // a caller retrying login on 401 would loop forever here, since signing in again as the same
-  // account can't make it a member.
+  // `src/proxy.ts` already requires org membership; this repeats it in case a proxy
+  // change lets a request through. Its own reason: retrying login on 401 would loop
+  // forever here, since signing in again can't add an account to the org.
   if (!(await isOrgMember(await headers(), session.user))) {
     return apiError("not_org_member", 403);
   }
@@ -81,12 +80,12 @@ export async function POST(request: Request) {
   );
 
   if (!result.ok) {
-    // A 429 here is the reader's own rate limit: `error` is GitHub's own message, not one fixed
-    // string, so it stays on a plain response rather than going through `apiError`. A 401 is
-    // GitHub rejecting the token at read time rather than at the check above, but means the same
-    // thing to a caller, so it gets the one shared `github_reauth_required` message instead of
-    // whatever `runAnalysis` happened to say. Other statuses (400 bad ref, 404 no such repo, 502
-    // upstream failure) aren't part of the CLI's retry contract, so they carry no reason.
+    // A 429 is the reader's own GitHub rate limit, so `error` stays GitHub's raw message
+    // rather than going through `apiError`.
+    //
+    // A 401 here (GitHub rejecting the token at read time) gets the shared
+    // `github_reauth_required` message instead of whatever `runAnalysis` said; other
+    // statuses aren't part of the CLI's retry contract, so they carry no reason.
     if (result.status === 429) {
       return Response.json(
         { error: result.error, reason: "rate_limited" },

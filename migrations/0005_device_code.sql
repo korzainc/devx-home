@@ -1,10 +1,9 @@
--- Better Auth's device-authorization plugin (RFC 8628 CLI login). Column list and types come
--- straight off the plugin's own schema in
--- node_modules/better-auth/dist/plugins/device-authorization/schema.mjs - this is a hand-written
--- migration, since this repo has no Better Auth CLI generator step.
+-- Better Auth's device-authorization plugin (RFC 8628 CLI login). Column list and types
+-- come from the plugin's own schema; hand-written since this repo has no Better Auth CLI
+-- generator step.
 --
--- "userId" is nullable because a device code starts unowned: it is created before anyone has
--- signed in to approve it, and only gets a userId once that happens.
+-- "userId" is nullable because a device code starts unowned: it gets one only once
+-- someone signs in to approve it.
 
 create table "deviceCode" (
   "id" text not null primary key,

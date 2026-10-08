@@ -17,9 +17,8 @@ export async function generateMetadata({
 export const instant = false;
 
 /**
- * `outcome` must be checked for "approved" explicitly rather than inferred as "not denied" -
- * a missing or forged query param has to land on a neutral state, never on the same copy a real
- * approval gets.
+ * `outcome` is checked for "approved" explicitly, not inferred as "not denied" - a missing
+ * or forged query param must land on a neutral state, never the copy a real approval gets.
  */
 export default async function DeviceDonePage({ searchParams }: Params) {
   const { outcome } = await searchParams;

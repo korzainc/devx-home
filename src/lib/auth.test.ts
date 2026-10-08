@@ -3,10 +3,9 @@ import { applySetCookies } from "better-auth/cookies/utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createAuth, getAuth } from "./auth";
 
-// Real getAuth(), not a mock: the point of this suite is to prove the plugins are actually wired
-// into the betterAuth({...}) call, not to assert on assumptions about what they'd do. DATABASE_URL
-// only has to parse as a connection string - nothing here needs a reachable database, since a
-// present-but-unreachable one still proves the route is registered rather than 404ing.
+// Real getAuth(), not a mock: this suite proves the plugins are actually wired into the
+// betterAuth({...}) call. DATABASE_URL only needs to parse as a connection string - nothing
+// here needs it reachable, since present-but-unreachable still proves the route is registered.
 beforeEach(() => {
   vi.stubEnv(
     "DATABASE_URL",
@@ -21,11 +20,10 @@ afterEach(() => {
 });
 
 describe("device authorization plugin", () => {
-  // DATABASE_URL is present but unreachable (see the beforeEach above), deliberately: this is
-  // about the route being registered rather than disabled, not about a working response, so a
-  // real test database would prove nothing extra. That only distinguishes "registered" from
-  // "disabled" if the failure mode for an unreachable database is pinned down rather than
-  // asserted as merely "not 404", which a disabled path returns too.
+  // DATABASE_URL is deliberately unreachable (see beforeEach): this is about the route being
+  // registered, not about a working response, and a real database would prove nothing extra.
+  // That only holds if the unreachable-database failure mode is pinned down, not asserted as
+  // merely "not 404" - a disabled path also returns 404.
   it("exposes the device code endpoint", async () => {
     const res = await getAuth().handler(
       new Request("http://localhost/api/auth/device/code", {
@@ -48,12 +46,10 @@ describe("device authorization plugin", () => {
     expect(res.status).toBe(400);
   });
 
-  // The anti-phishing bypass this closes: `/device` (unlike `/device/code|token|approve|deny`)
-  // claims a user_code using whatever session cookie is on the request, needs no cookie to be
-  // reached at all since `/api/auth` is on the open-path allowlist, and - being a GET - skips the
-  // origin-check middleware. A `SameSite=lax` session cookie still rides along on a top-level
-  // cross-site navigation, so without this, an attacker's page could make a victim's browser
-  // claim the attacker's device code under the victim's own session with no typing involved.
+  // `/device` (unlike `/device/code|token|approve|deny`) claims a code from whatever session
+  // cookie is on the request - no cookie is needed, since `/api/auth` is open and GET skips
+  // the origin-check middleware. A `SameSite=lax` cookie rides cross-site navigation, so an
+  // attacker's page could make a victim's browser claim the code with no typing involved.
   it("disables the bare GET claim endpoint the anti-phishing flow depends on being closed", async () => {
     const res = await getAuth().handler(
       new Request("http://localhost/api/auth/device?user_code=WDJB-MJHT", {
@@ -65,13 +61,12 @@ describe("device authorization plugin", () => {
 });
 
 // This suite builds a real betterAuth instance against better-auth/adapters/memory instead of
-// getAuth()'s Postgres pool, so the hooks below run for real - the plugin pipeline, the global
-// `hooks.before`, and `databaseHooks.session.create.before` - rather than being asserted against
-// assumptions about what they'd do. There is no test database in this repo's vitest setup, and no
-// mockSession/mockOrgMember helpers exist to import.
+// getAuth()'s Postgres pool, so the hooks below run for real: the plugin pipeline, the global
+// `hooks.before`, and `databaseHooks.session.create.before`. No test database exists in this
+// repo's vitest setup, and no mockSession/mockOrgMember helpers exist to import.
 //
-// isOrgMember itself is mocked: its own GitHub-backed decision logic is membership.test.ts's job.
-// This suite is about whether that decision gates device approval, not about the decision itself.
+// isOrgMember itself is mocked: membership.test.ts owns its GitHub-backed decision logic.
+// This suite is about whether that decision gates device approval, not the decision itself.
 vi.mock("./membership", () => ({ isOrgMember: vi.fn() }));
 
 describe("device approval", () => {
@@ -204,10 +199,9 @@ describe("device approval", () => {
     return session ? { Cookie: session.cookie } : {};
   }
 
-  // Calls `deviceVerify` directly through `auth.api`, the same way the real
-  // `claimDeviceCode` server action does, rather than through the HTTP `GET /device` route -
-  // that route is disabled (see `disabledPaths` in ./auth.ts) precisely to close the bypass
-  // this suite used to exercise by driving it through `auth.handler(...)`.
+  // Calls `deviceVerify` directly through `auth.api`, the same way the real `claimDeviceCode`
+  // server action does - not through the HTTP `GET /device` route, which is disabled (see
+  // `disabledPaths` in ./auth.ts).
   async function claimDeviceCode(
     auth: Awaited<ReturnType<typeof testAuthInstance>>,
     userCode: string,

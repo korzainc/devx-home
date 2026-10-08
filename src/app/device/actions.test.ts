@@ -6,10 +6,9 @@ import { APIError } from "better-auth/api";
 import { CLAIM_COOKIE, CLAIM_COOKIE_MAX_AGE_SECONDS } from "./claim-cookie";
 
 // A real cookie jar, not a mock object per call, so `set` in one action and `get` in the page
-// component agree on what's actually stored - the same thing a browser's cookie jar guarantees
-// in production. `cookieOptions` records what `set()` was called with, so a test can assert on
-// the security properties (httpOnly, sameSite, path, maxAge) the fixes rely on, not just the
-// stored value.
+// agree on what's actually stored, the same guarantee a browser's cookie jar gives in
+// production. `cookieOptions` records what `set()` was called with, so a test can assert
+// the security properties (httpOnly, sameSite, path, maxAge) the fixes rely on.
 const { cookieStore, cookieOptions } = vi.hoisted(() => ({
   cookieStore: new Map<string, string>(),
   cookieOptions: new Map<string, Record<string, unknown>>(),
@@ -130,10 +129,10 @@ describe("claimDeviceCode", () => {
     });
   });
 
-  // This is the case the vulnerability relied on: a code already claimed by someone else, or
-  // already approved/denied, doesn't make `deviceVerify` throw - it returns normally with no
-  // `client_id` (not this session's to review) or a `status` other than "pending". Either must
-  // land on the error state, never set the claim cookie.
+  // A code already claimed by someone else, or already approved/denied, doesn't make
+  // `deviceVerify` throw - it returns normally with no `client_id` (not this session's to
+  // review) or a `status` other than "pending". Either must land on the error state, never
+  // set the claim cookie.
   it("does not set the claim cookie for a code this session cannot review", async () => {
     api.deviceVerify.mockResolvedValue({ status: "pending" }); // no client_id: someone else's
 

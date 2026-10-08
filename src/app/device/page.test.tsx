@@ -69,10 +69,10 @@ describe("DevicePage", () => {
     expect(html).toContain("WDJB-MJHT");
   });
 
-  // The core of the fix: the confirm screen used to be driven by `?claimed=<code>` in the URL,
-  // which is exactly what let an attacker's link show it for a code the victim never typed.
-  // The page no longer reads that field at all, so passing it (even forcing the type with a
-  // cast, since the real prop type no longer declares it) must have zero effect.
+  // The confirm screen must never be driven by a code value from the query string - that's
+  // exactly what would let an attacker's link show it for a code the victim never typed.
+  // Forcing the type with a cast (the real prop type no longer declares this field) confirms
+  // passing it has zero effect.
   it("ignores a claimed value smuggled in through the query string", async () => {
     sessionMock.mockResolvedValue(FAKE_SESSION);
 
