@@ -332,6 +332,28 @@ describe("device approval", () => {
     expect(result.client_id).toBeDefined();
   });
 
+  // deviceVerify and deviceApprove both resolve a user code through the same shared lookup
+  // (findDeviceCodeByUserCode in routes.mjs), so this isn't two independent implementations
+  // that could drift - but approve had no test of its own proving that.
+  it("approves a code that was claimed using a mangled (whitespace/case/dash) user code", async () => {
+    const auth = await testAuthInstance({ orgMember: true });
+    const session = await signInTestUser(auth);
+    const { userCode } = await startDeviceFlow(auth);
+    const mangled = ` ${userCode.toLowerCase().split("").join("-")} `;
+
+    await auth.api.deviceVerify({
+      query: { user_code: mangled },
+      headers: new Headers(authHeaders(session)),
+    });
+
+    await expect(
+      auth.api.deviceApprove({
+        body: { userCode: mangled },
+        headers: new Headers(authHeaders(session)),
+      }),
+    ).resolves.toMatchObject({ success: true });
+  });
+
   it("gives a device-issued session a roughly 30-day expiry", async () => {
     const auth = await testAuthInstance({ orgMember: true });
     const session = await signInTestUser(auth);
