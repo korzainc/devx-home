@@ -66,6 +66,8 @@ type RealTool = {
   };
 };
 
+// The catalogue import is cast, so this type is not checked against the JSON;
+// formatBundleDetails validates the invocation's shape before use.
 type RealBundle = RealTool & {
   wraps: { tool: string; capabilities: string[] }[];
   invocation?: BundleInvocation;
