@@ -409,7 +409,10 @@ describe("provenance", () => {
     // reshape of it. DX-170 bumped this 5 -> 6 because plugin rows were added, and nothing here
     // would have noticed. Bump it deliberately when taking a new shape, having checked what
     // moved.
-    expect(indexData.schemaVersion).toBe(6);
+    //
+    // 6 -> 7: marketplace#27 added `contractVersion`, naming which classification rules built
+    // the file. One key added, no row field changed.
+    expect(indexData.schemaVersion).toBe(7);
   });
 });
 
