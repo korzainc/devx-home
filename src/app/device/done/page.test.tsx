@@ -27,7 +27,7 @@ describe("DeviceDonePage", () => {
     expect(html).toContain("run the CLI command again to get a new code");
   });
 
-  // Fix 5: anything that isn't exactly "approved" must not render the approved copy - a missing,
+  // Anything that isn't exactly "approved" must not render the approved copy - a missing,
   // misspelled, or forged outcome is a false confirmation otherwise.
   it("shows a neutral state, not the approved copy, for a missing outcome", async () => {
     const html = await renderPage();

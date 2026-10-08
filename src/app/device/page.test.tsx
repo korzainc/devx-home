@@ -71,7 +71,7 @@ describe("DevicePage", () => {
 
   // The confirm screen must never be driven by a code value from the query string - that's
   // exactly what would let an attacker's link show it for a code the victim never typed.
-  // Forcing the type with a cast (the real prop type no longer declares this field) confirms
+  // Forcing the type with a cast (the real prop type doesn't declare this field) confirms
   // passing it has zero effect.
   it("ignores a claimed value smuggled in through the query string", async () => {
     sessionMock.mockResolvedValue(FAKE_SESSION);

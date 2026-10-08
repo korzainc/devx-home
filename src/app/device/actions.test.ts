@@ -55,9 +55,9 @@ const api = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/auth", () => ({ getAuth: () => ({ api }) }));
 
-// Stands in for the `deviceClaimAttempt` rate-limit table (Fix 1). The default implementation
-// below answers the select-count query with 0 and anything else (the insert) with an empty
-// result, so most tests never need to touch this directly.
+// Stands in for the `deviceClaimAttempt` rate-limit table. The default implementation below
+// answers the select-count query with 0 and anything else (the insert) with an empty result,
+// so most tests never need to touch this directly.
 const db = vi.hoisted(() => ({ query: vi.fn() }));
 vi.mock("@/lib/db", () => ({ getPool: () => db }));
 
@@ -185,8 +185,8 @@ describe("claimDeviceCode", () => {
     expect(api.deviceVerify).not.toHaveBeenCalled();
   });
 
-  // Fix 1: Better Auth's own device rate limiter is attached to the plugin's disabled HTTP
-  // route, so it never runs for this server action - this per-user counter is what's left.
+  // Better Auth's own device rate limiter is attached to the plugin's disabled HTTP route,
+  // so it never runs for this server action - this per-user counter is what's left.
   describe("rate limiting", () => {
     it("rejects a 6th attempt within the window without calling deviceVerify", async () => {
       mockAttemptCount(5);
