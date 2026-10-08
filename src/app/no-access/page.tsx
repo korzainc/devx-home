@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
+import { getAuth } from "@/lib/auth";
 import { signOut } from "@/lib/auth-actions";
+import { getPool } from "@/lib/db";
 import { getSession } from "@/lib/session";
 
 export const metadata: Metadata = {
@@ -25,8 +28,34 @@ export const metadata: Metadata = {
  */
 export const instant = false;
 
+/**
+ * A non-member who claimed a CLI device code before landing here would otherwise leave the CLI
+ * polling for the full 30-minute code lifetime with no way to find out it can never be approved -
+ * this page is the only place that knows both facts at once. Denies rather than approves: nobody
+ * reading this page can satisfy the gate, so there is nothing to approve.
+ */
+async function denyAnyPendingDeviceCode(userId: string): Promise<boolean> {
+  const { rows } = await getPool().query<{ userCode: string }>(
+    `select "userCode" from "deviceCode"
+      where "userId" = $1 and "status" = 'pending' and "expiresAt" > now()
+      limit 1`,
+    [userId],
+  );
+  const userCode = rows[0]?.userCode;
+  if (!userCode) return false;
+  try {
+    await getAuth().api.deviceDeny({ body: { userCode }, headers: await headers() });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export default async function NoAccessPage() {
   const session = await getSession();
+  const cancelledDeviceCode = session
+    ? await denyAnyPendingDeviceCode(session.user.id)
+    : false;
 
   return (
     <div className="mx-auto flex max-w-lg flex-col items-center gap-7 py-10 text-center">
@@ -62,6 +91,12 @@ export default async function NoAccessPage() {
           If you have a second GitHub account that is on the team, log out and
           use that one instead.
         </p>
+        {cancelledDeviceCode ? (
+          <p>
+            A Korza CLI sign-in waiting on this account has been cancelled, so
+            your terminal won&apos;t keep waiting on it.
+          </p>
+        ) : null}
       </div>
 
       <form action={signOut}>
