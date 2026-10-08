@@ -318,6 +318,20 @@ describe("device approval", () => {
     expect(body.user.email).toBe("member@example.com");
   });
 
+  it("claims a code typed with stray whitespace, lowercase letters, or dashes", async () => {
+    const auth = await testAuthInstance({ orgMember: true });
+    const session = await signInTestUser(auth);
+    const { userCode } = await startDeviceFlow(auth);
+    const mangled = ` ${userCode.toLowerCase().split("").join("-")} `;
+
+    const result = await auth.api.deviceVerify({
+      query: { user_code: mangled },
+      headers: new Headers(authHeaders(session)),
+    });
+
+    expect(result.client_id).toBeDefined();
+  });
+
   it("gives a device-issued session a roughly 30-day expiry", async () => {
     const auth = await testAuthInstance({ orgMember: true });
     const session = await signInTestUser(auth);

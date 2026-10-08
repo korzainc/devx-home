@@ -56,8 +56,9 @@ const api = vi.hoisted(() => ({
 vi.mock("@/lib/auth", () => ({ getAuth: () => ({ api }) }));
 
 // Stands in for the `deviceClaimAttempt` rate-limit table. The default implementation below
-// answers the select-count query with 0 and anything else (the insert) with an empty result,
-// so most tests never need to touch this directly.
+// answers the select-count query with 0, the insert with a fake id, and everything else
+// (cleanup, the reject-time delete) with an empty result, so most tests never need to touch
+// this directly.
 const db = vi.hoisted(() => ({ query: vi.fn() }));
 vi.mock("@/lib/db", () => ({ getPool: () => db }));
 
@@ -74,11 +75,16 @@ function formWith(userCode: string) {
   return data;
 }
 
+// `count` is the total after this attempt's own insert lands (the code inserts before it
+// counts), so 5 means this is the 5th attempt and still allowed; 6 means it's the 6th and
+// gets rejected.
 function mockAttemptCount(count: number) {
   db.query.mockImplementation(async (sql: string) =>
     sql.includes("count(*)")
       ? { rows: [{ count }] }
-      : { rows: [], rowCount: 1 },
+      : sql.includes("returning")
+        ? { rows: [{ id: "attempt-id" }], rowCount: 1 }
+        : { rows: [], rowCount: 1 },
   );
 }
 
@@ -168,11 +174,28 @@ describe("claimDeviceCode", () => {
     expect(cookieStore.has(CLAIM_COOKIE)).toBe(false);
   });
 
-  it("does nothing for an empty submission", async () => {
-    await claimDeviceCode(formWith(""));
+  it("does nothing for an empty or whitespace-only submission", async () => {
+    await claimDeviceCode(formWith("   "));
 
     expect(api.deviceVerify).not.toHaveBeenCalled();
     expect(cookieStore.has(CLAIM_COOKIE)).toBe(false);
+  });
+
+  it("trims and uppercases a pasted code before verifying and storing it", async () => {
+    api.deviceVerify.mockResolvedValue({
+      status: "pending",
+      client_id: "korza-cli",
+    });
+
+    await expect(
+      claimDeviceCode(formWith(" wdjb-mjht ")),
+    ).rejects.toMatchObject({ url: "/device" });
+
+    expect(api.deviceVerify).toHaveBeenCalledWith({
+      query: { user_code: "WDJB-MJHT" },
+      headers: expect.any(Headers),
+    });
+    expect(cookieStore.get(CLAIM_COOKIE)).toBe("WDJB-MJHT");
   });
 
   it("redirects to the error state with no session, without calling deviceVerify", async () => {
@@ -189,7 +212,7 @@ describe("claimDeviceCode", () => {
   // so it never runs for this server action - this per-user counter is what's left.
   describe("rate limiting", () => {
     it("rejects a 6th attempt within the window without calling deviceVerify", async () => {
-      mockAttemptCount(5);
+      mockAttemptCount(6);
 
       await expect(
         claimDeviceCode(formWith("WDJB-MJHT")),
@@ -198,8 +221,41 @@ describe("claimDeviceCode", () => {
       expect(api.deviceVerify).not.toHaveBeenCalled();
     });
 
-    it("allows an attempt when fewer than the limit fall inside the window", async () => {
-      mockAttemptCount(4);
+    it("records this attempt before counting, so the count always includes it", async () => {
+      mockAttemptCount(5);
+      api.deviceVerify.mockResolvedValue({
+        status: "pending",
+        client_id: "korza-cli",
+      });
+
+      await expect(
+        claimDeviceCode(formWith("WDJB-MJHT")),
+      ).rejects.toMatchObject({ url: "/device" });
+
+      const sqlCalls = db.query.mock.calls.map(([sql]) => sql as string);
+      const insertIndex = sqlCalls.findIndex((sql) =>
+        sql.includes("insert into"),
+      );
+      const countIndex = sqlCalls.findIndex((sql) => sql.includes("count(*)"));
+      expect(insertIndex).toBeGreaterThanOrEqual(0);
+      expect(insertIndex).toBeLessThan(countIndex);
+    });
+
+    it("removes a rejected attempt's own row so retrying doesn't extend the lockout", async () => {
+      mockAttemptCount(6);
+
+      await expect(
+        claimDeviceCode(formWith("WDJB-MJHT")),
+      ).rejects.toMatchObject({ url: "/device?error=1" });
+
+      expect(db.query).toHaveBeenCalledWith(
+        `delete from "deviceClaimAttempt" where "id" = $1`,
+        ["attempt-id"],
+      );
+    });
+
+    it("allows the 5th attempt, exactly at the limit, and keeps its own row", async () => {
+      mockAttemptCount(5);
       api.deviceVerify.mockResolvedValue({
         status: "pending",
         client_id: "korza-cli",
@@ -210,6 +266,28 @@ describe("claimDeviceCode", () => {
       ).rejects.toMatchObject({ url: "/device" });
 
       expect(api.deviceVerify).toHaveBeenCalled();
+      expect(db.query).not.toHaveBeenCalledWith(
+        expect.stringContaining(`delete from "deviceClaimAttempt" where "id"`),
+        expect.anything(),
+      );
+    });
+
+    it("opportunistically cleans up stale claim-attempt rows on every attempt", async () => {
+      mockAttemptCount(1);
+      api.deviceVerify.mockResolvedValue({
+        status: "pending",
+        client_id: "korza-cli",
+      });
+
+      await expect(
+        claimDeviceCode(formWith("WDJB-MJHT")),
+      ).rejects.toMatchObject({ url: "/device" });
+
+      expect(db.query).toHaveBeenCalledWith(
+        expect.stringContaining(
+          `delete from "deviceClaimAttempt" where "createdAt" < now() - interval '1 hour'`,
+        ),
+      );
     });
   });
 });

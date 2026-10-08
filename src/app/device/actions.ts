@@ -46,7 +46,34 @@ async function requireClaimedCode(): Promise<string> {
 // `auth.api` directly rather than that HTTP route.
 const CLAIM_RATE_LIMIT_MAX = 5;
 
-async function claimAttemptsInWindow(userId: string): Promise<number> {
+/**
+ * Insert-then-count: each query commits on its own, so whichever concurrent request counts
+ * last already sees every prior insert, including its own. A tie rejects both requests,
+ * never lets an extra one through.
+ *
+ * A rejected attempt deletes its own row right after, so retrying doesn't push this user's
+ * lockout window forward.
+ */
+async function recordClaimAttemptIsWithinLimit(
+  userId: string,
+): Promise<boolean> {
+  const {
+    rows: [attempt],
+  } = await getPool().query<{ id: string }>(
+    `insert into "deviceClaimAttempt" ("id", "userId") values ($1, $2) returning "id"`,
+    [randomUUID(), userId],
+  );
+  // Opportunistic cleanup, piggybacking on a write that's already happening - mirrors the
+  // deviceCode cleanup in auth.ts. Rows older than an hour are well past the 30-minute window
+  // this checks.
+  await getPool()
+    .query(
+      `delete from "deviceClaimAttempt" where "createdAt" < now() - interval '1 hour'`,
+    )
+    .catch((error) =>
+      console.error("Could not clean up stale device claim attempts.", error),
+    );
+
   const { rows } = await getPool().query<{ count: number }>(
     `select count(*)::int as count
        from "deviceClaimAttempt"
@@ -54,14 +81,13 @@ async function claimAttemptsInWindow(userId: string): Promise<number> {
         and "createdAt" > now() - interval '30 minutes'`,
     [userId],
   );
-  return rows[0]?.count ?? 0;
-}
-
-async function recordClaimAttempt(userId: string): Promise<void> {
-  await getPool().query(
-    `insert into "deviceClaimAttempt" ("id", "userId") values ($1, $2)`,
-    [randomUUID(), userId],
-  );
+  const withinLimit = (rows[0]?.count ?? 0) <= CLAIM_RATE_LIMIT_MAX;
+  if (!withinLimit) {
+    await getPool().query(`delete from "deviceClaimAttempt" where "id" = $1`, [
+      attempt.id,
+    ]);
+  }
+  return withinLimit;
 }
 
 /**
@@ -76,17 +102,24 @@ async function recordClaimAttempt(userId: string): Promise<void> {
  * means there's nothing for this session to approve or deny.
  */
 export async function claimDeviceCode(formData: FormData) {
-  const userCode = formData.get("userCode");
-  if (typeof userCode !== "string" || !userCode) return;
+  const rawUserCode = formData.get("userCode");
+  if (typeof rawUserCode !== "string") return;
+  // Trimmed and uppercased before this goes anywhere: a pasted code with stray
+  // whitespace or lowercase letters still matches server-side, but the raw form
+  // of it would otherwise end up in the claim cookie and on the confirm screen.
+  const userCode = rawUserCode.trim().toUpperCase();
+  if (!userCode) return;
 
   const requestHeaders = await headers();
   const session = await getAuth().api.getSession({ headers: requestHeaders });
   if (!session) redirect("/device?error=1");
 
-  if ((await claimAttemptsInWindow(session.user.id)) >= CLAIM_RATE_LIMIT_MAX) {
+  if (!(await recordClaimAttemptIsWithinLimit(session.user.id))) {
+    // Deliberately the same "that code didn't work" the wrong-code case shows, not a distinct
+    // "you're rate-limited" message - telling an attacker guessing codes that they've been
+    // throttled is itself a small signal worth not giving away.
     redirect("/device?error=1");
   }
-  await recordClaimAttempt(session.user.id);
 
   let result: { status?: string; client_id?: string };
   try {

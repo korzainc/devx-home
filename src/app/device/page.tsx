@@ -119,7 +119,6 @@ export default async function DevicePage({
             name="userCode"
             placeholder="WDJB-MJHT"
             required
-            maxLength={9}
             autoComplete="off"
             autoCapitalize="characters"
             spellCheck={false}

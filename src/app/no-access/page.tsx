@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
-import { getAuth } from "@/lib/auth";
 import { signOut } from "@/lib/auth-actions";
 import { getPool } from "@/lib/db";
 import { getSession } from "@/lib/session";
+import { cancelPendingDeviceCode } from "./actions";
 
 export const metadata: Metadata = {
   title: "No access",
@@ -32,33 +31,29 @@ export const instant = false;
  * A non-member who claimed a CLI code before landing here would otherwise leave the CLI
  * polling for the full 30-minute lifetime with no way to learn it can't be approved.
  *
- * Denies rather than approves: nobody reaching this page can satisfy the gate.
+ * Read-only on purpose: a GET here must never have a side effect - a retry, a restored tab,
+ * or the browser's own speculative prerender would otherwise deny a request the person still
+ * wanted to approve from elsewhere. Cancelling is a separate, explicit action (see ./actions.ts).
  */
-async function denyAnyPendingDeviceCode(userId: string): Promise<boolean> {
-  const { rows } = await getPool().query<{ userCode: string }>(
-    `select "userCode" from "deviceCode"
+async function hasPendingDeviceCode(userId: string): Promise<boolean> {
+  const { rows } = await getPool().query(
+    `select 1 from "deviceCode"
       where "userId" = $1 and "status" = 'pending' and "expiresAt" > now()
       limit 1`,
     [userId],
   );
-  const userCode = rows[0]?.userCode;
-  if (!userCode) return false;
-  try {
-    await getAuth().api.deviceDeny({
-      body: { userCode },
-      headers: await headers(),
-    });
-    return true;
-  } catch {
-    return false;
-  }
+  return rows.length > 0;
 }
 
-export default async function NoAccessPage() {
+export default async function NoAccessPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ cancelled?: string }>;
+}) {
   const session = await getSession();
-  const cancelledDeviceCode = session
-    ? await denyAnyPendingDeviceCode(session.user.id)
-    : false;
+  const { cancelled } = await searchParams;
+  const pendingDeviceCode =
+    !cancelled && session ? await hasPendingDeviceCode(session.user.id) : false;
 
   return (
     <div className="mx-auto flex max-w-lg flex-col items-center gap-7 py-10 text-center">
@@ -94,10 +89,17 @@ export default async function NoAccessPage() {
           If you have a second GitHub account that is on the team, log out and
           use that one instead.
         </p>
-        {cancelledDeviceCode ? (
+        {cancelled ? (
           <p>
-            A Korza CLI sign-in waiting on this account has been cancelled, so
-            your terminal won&apos;t keep waiting on it.
+            The CLI sign-in waiting on this account has been cancelled, so your
+            terminal won&apos;t keep waiting on it.
+          </p>
+        ) : pendingDeviceCode ? (
+          <p>
+            A terminal is waiting on a Korza CLI sign-in, and the code is now
+            tied to this account, so a different account can&apos;t claim it.
+            Cancel it below, or press Ctrl-C in that terminal, before signing in
+            with a team account instead.
           </p>
         ) : (
           <p>
@@ -108,6 +110,17 @@ export default async function NoAccessPage() {
           </p>
         )}
       </div>
+
+      {pendingDeviceCode ? (
+        <form action={cancelPendingDeviceCode}>
+          <button
+            type="submit"
+            className="rounded-lg border border-line-strong bg-surface-raised px-4 py-3 text-sm font-medium text-ink transition-colors hover:border-ink-faint"
+          >
+            Cancel the pending CLI sign-in
+          </button>
+        </form>
+      ) : null}
 
       <form action={signOut}>
         <button
