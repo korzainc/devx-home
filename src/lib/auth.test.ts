@@ -365,7 +365,10 @@ describe("device approval", () => {
       new Request(`${BASE}/device/code`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ client_id: "korza-cli", user_id: "someone-else" }),
+        body: JSON.stringify({
+          client_id: "korza-cli",
+          user_id: "someone-else",
+        }),
       }),
     );
 

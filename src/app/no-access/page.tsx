@@ -44,7 +44,10 @@ async function denyAnyPendingDeviceCode(userId: string): Promise<boolean> {
   const userCode = rows[0]?.userCode;
   if (!userCode) return false;
   try {
-    await getAuth().api.deviceDeny({ body: { userCode }, headers: await headers() });
+    await getAuth().api.deviceDeny({
+      body: { userCode },
+      headers: await headers(),
+    });
     return true;
   } catch {
     return false;
@@ -98,10 +101,10 @@ export default async function NoAccessPage() {
           </p>
         ) : (
           <p>
-            If a terminal is waiting on a Korza CLI sign-in, press Ctrl-C
-            there to stop it. The code it printed is still valid for a few
-            minutes, so logging out and signing in with a team account lets
-            you reuse it instead of starting over.
+            If a terminal is waiting on a Korza CLI sign-in, press Ctrl-C there
+            to stop it. The code it printed is still valid for a few minutes, so
+            logging out and signing in with a team account lets you reuse it
+            instead of starting over.
           </p>
         )}
       </div>

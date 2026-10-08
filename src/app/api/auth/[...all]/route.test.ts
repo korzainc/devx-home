@@ -34,7 +34,9 @@ describe("set-auth-token header stripping", () => {
   });
 
   it("keeps other exposed headers when stripping set-auth-token", async () => {
-    handler.mockResolvedValue(responseWithAuthToken("x-custom, set-auth-token"));
+    handler.mockResolvedValue(
+      responseWithAuthToken("x-custom, set-auth-token"),
+    );
 
     const res = await GET(
       new Request("https://example.com/api/auth/get-session"),

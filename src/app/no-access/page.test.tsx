@@ -42,7 +42,9 @@ describe("NoAccessPage", () => {
       body: { userCode: "WDJB-MJHT" },
       headers: expect.any(Headers),
     });
-    expect(html).toContain("Korza CLI sign-in waiting on this account has been cancelled");
+    expect(html).toContain(
+      "Korza CLI sign-in waiting on this account has been cancelled",
+    );
   });
 
   it("hints at Ctrl-C instead when there's no pending device code to cancel", async () => {

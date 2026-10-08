@@ -6,8 +6,14 @@ import { getAuth } from "@/lib/auth";
 // fetch. Only /device/token needs the header, and it already gets the token in its JSON body.
 const DEVICE_TOKEN_PATH = "/api/auth/device/token";
 
-function stripBearerTokenHeader(response: Response, pathname: string): Response {
-  if (pathname === DEVICE_TOKEN_PATH || !response.headers.has("set-auth-token")) {
+function stripBearerTokenHeader(
+  response: Response,
+  pathname: string,
+): Response {
+  if (
+    pathname === DEVICE_TOKEN_PATH ||
+    !response.headers.has("set-auth-token")
+  ) {
     return response;
   }
   response.headers.delete("set-auth-token");
@@ -18,7 +24,10 @@ function stripBearerTokenHeader(response: Response, pathname: string): Response 
       .map((header) => header.trim())
       .filter((header) => header && header.toLowerCase() !== "set-auth-token");
     if (remaining.length > 0) {
-      response.headers.set("Access-Control-Expose-Headers", remaining.join(", "));
+      response.headers.set(
+        "Access-Control-Expose-Headers",
+        remaining.join(", "),
+      );
     } else {
       response.headers.delete("access-control-expose-headers");
     }
