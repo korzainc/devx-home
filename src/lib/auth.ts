@@ -19,7 +19,7 @@ import { isOrgMember, type StoredMembership } from "./membership";
 // account table exists at all.
 
 // A CLI session, unlike the website's own, isn't something people run every day - 30 days keeps
-// `korza ci-coverage` working for a typical gap between invocations without landing the person
+// `korza inspect ci` working for a typical gap between invocations without landing the person
 // back in the device-code flow each time.
 const DEVICE_SESSION_EXPIRES_IN_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -85,7 +85,7 @@ export function createAuth(database: BetterAuthOptions["database"]) {
       },
     },
     plugins: [
-      // Lets a bearer token stand in for the session cookie, so `korza ci-coverage` can carry a
+      // Lets a bearer token stand in for the session cookie, so `korza inspect ci` can carry a
       // session the same way a browser's cookie jar does, with no separate token table or route.
       bearer(),
       // RFC 8628 device-code login for the CLI: open a browser, type a code, approve.
