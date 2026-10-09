@@ -7,6 +7,7 @@ import {
   getBaseline,
   getPlugin,
   installCommands,
+  isBundle,
   marketplaceName,
   marketplaceRepo,
   plugins,
@@ -29,7 +30,9 @@ describe("catalogue and baseline agree", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("gives every tool at least one way to be detected", () => {
+  it("detects every non-bundle tool and no bundle", () => {
+    // Bundles are recommendation-only: their wrapped tools carry the detection, and a bundle
+    // signal would credit each shared capability twice.
     for (const tool of tools) {
       const signals = [
         tool.detect.ciUses,
@@ -38,9 +41,15 @@ describe("catalogue and baseline agree", () => {
         tool.detect.manifestDeps,
       ].flatMap((signal) => signal ?? []);
 
-      expect(signals, `${tool.id} has no detection signals`).not.toHaveLength(
-        0,
-      );
+      if (isBundle(tool)) {
+        expect(signals, `bundle ${tool.id} has detection signals`).toHaveLength(
+          0,
+        );
+      } else {
+        expect(signals, `${tool.id} has no detection signals`).not.toHaveLength(
+          0,
+        );
+      }
     }
   });
 
