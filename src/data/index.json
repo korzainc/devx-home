@@ -1,4 +1,5 @@
 {
+  "contractVersion": "1.0.0",
   "marketplace": "korza-marketplace",
   "placeholder": false,
   "plugins": [
@@ -73,7 +74,7 @@
       "summary": "Core skills library: planning, verification, finishing work."
     }
   ],
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "skills": [
     {
       "agents": ["Claude Code", "Codex CLI"],
