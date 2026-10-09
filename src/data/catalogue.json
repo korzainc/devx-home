@@ -1137,9 +1137,9 @@
             "trivy image",
             "ci-run sca",
             "ci-run iac-config",
-            "ci-run image-scan",
             "ci-run scan",
-            "ci-run all"
+            "ci-run all",
+            "ci-run image-scan"
           ]
         },
         "azureDevops": {},
@@ -1614,7 +1614,7 @@
             "An azure/login@v2 step using vars.CI_COMMON_AZURE_CLIENT_ID/TENANT_ID/SUBSCRIPTION_ID, plus 'az acr login --name korzacitools', once per job, shared across every leaf below.",
             "Checkout with fetch-depth: 0 - secrets, sast, and sca all need real history on a pr run.",
             "$BASE_SHA/$HEAD_SHA come from the PR event (e.g. github.event.pull_request.base.sha/head.sha) - without them this falls back to main-push/whole-repo mode.",
-            "ci-run scan deliberately excludes image-scan - devx-home's gap analysis credits this bundle's image-scan capability as covered regardless, since it only checks whether ci-run scan ran at all, not which findings it actually produced. A real image-scan step (below) is still needed to scan anything.",
+            "ci-run scan and ci-run all skip image-scan. Add the ci-run image-scan step to scan a built image.",
             "ci-run report's container needs GITHUB_TOKEN and $GITHUB_STEP_SUMMARY explicitly forwarded/mounted in - without them it does not fail, it just silently skips posting the sticky comment and job summary, so a missing one won't show up as a red check.",
             "Full working recipe, follow it closely - every mount, env var, and flag there is load-bearing, not decorative: https://github.com/korzainc/shared-workflows/blob/main/images/ci-common/README.md#full-example"
           ],
@@ -1636,15 +1636,6 @@
           "scope": "full"
         },
         "azureDevops": {}
-      },
-      "detection": {
-        "github": {
-          "ciUses": [],
-          "commands": ["ci-run scan", "ci-run all"]
-        },
-        "azureDevops": {},
-        "configFiles": [],
-        "manifestDeps": []
       },
       "overlaps": [],
       "docsUrl": "https://github.com/korzainc/shared-workflows"
