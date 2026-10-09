@@ -74,6 +74,40 @@ describe("getLlmConfig", () => {
     ).toEqual(expected);
   });
 
+  it.each([
+    { nodeEnv: "production", expected: undefined },
+    { nodeEnv: "development", expected: "some/free-model" },
+  ])(
+    "openrouter in $nodeEnv gives $expected",
+    async ({ nodeEnv, expected }) => {
+      vi.stubEnv("NODE_ENV", nodeEnv);
+      for (const [key, value] of Object.entries(openrouter))
+        vi.stubEnv(key, value);
+      const { getLlmConfig } = await loadConfig();
+      expect(getLlmConfig()?.model).toBe(expected);
+    },
+  );
+
+  it("warns once when production refuses openrouter, and never in development", async () => {
+    for (const [key, value] of Object.entries(openrouter))
+      vi.stubEnv(key, value);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    vi.stubEnv("NODE_ENV", "development");
+    const dev = await loadConfig();
+    dev.getLlmConfig();
+    expect(warn).not.toHaveBeenCalled();
+
+    vi.stubEnv("NODE_ENV", "production");
+    const prod = await loadConfig();
+    expect(prod.getLlmConfig()).toBeUndefined();
+    expect(prod.getLlmConfig()).toBeUndefined();
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toContain("openrouter");
+    warn.mockRestore();
+  });
+
   it("falls back to low and warns once on an invalid effort", async () => {
     vi.stubEnv("ANTHROPIC_API_KEY", "key");
     vi.stubEnv("GAP_LLM_EFFORT", "bogus");

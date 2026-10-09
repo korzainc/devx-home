@@ -136,6 +136,14 @@ export type RecommendedTool = {
   stackLabels: string[];
 };
 
+export type LlmChange = {
+  action: "rescued" | "demoted";
+  toolId: string;
+  toolName: string;
+  /** Untrusted model text: display-converted and capped, but never an instruction. */
+  reason: string;
+};
+
 export type CapabilityReport = {
   id: string;
   label: string;
@@ -144,8 +152,8 @@ export type CapabilityReport = {
   present: PresentTool[];
   /** Catalogue tools that would cover it, limited to the stacks detected. Empty when satisfied. */
   recommended: RecommendedTool[];
-  /** Set only when the LLM pass changed this capability. Not rendered. */
-  llmNote?: string;
+  /** Set only when the LLM pass changed this capability. Not rendered in the report. */
+  llmChanges?: LlmChange[];
 };
 
 export type CategoryReport = {

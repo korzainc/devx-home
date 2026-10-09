@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import {
+  compareCapabilities,
   countCapabilities,
   evaluateCapability,
   findCapability,
@@ -13,6 +14,7 @@ import type {
   Baseline,
   BaselineStack,
   CapabilityReport,
+  LlmChange,
   PresentTool,
 } from "../types";
 import type { CiSignals } from "../detect";
@@ -37,11 +39,29 @@ import type {
 const promptVersion = "v4";
 const maxQuoteChars = 400;
 const maxReasonChars = 300;
+const maxEvidenceChars = 120;
 const maxDetectFindings = 20;
 const maxLoggedChars = 200;
 
 function clip(text: string): string {
   return text.slice(0, maxLoggedChars);
+}
+
+/** Clips by code point, so a surrogate pair is never split. */
+function clipCodePoints(text: string, max: number): string {
+  const chars = Array.from(text);
+  return chars.length > max ? `${chars.slice(0, max).join("")}…` : text;
+}
+
+/** Evidence in the shape the rules write: `uses: <ref>` or `runs <command> in <file>`. */
+function rescueEvidence(quote: string, entry: IndexedSignal): string {
+  const oneLine = toDisplayText(quote, entry.truncated)
+    .replace(/\s+/g, " ")
+    .trim();
+  const clipped = clipCodePoints(oneLine, maxEvidenceChars);
+  return entry.kind === "uses"
+    ? `uses: ${clipped}`
+    : `runs ${clipped} in ${entry.rawSource}`;
 }
 
 /** Content-addressed over model, effort, prompt version and exact prompt text, so an unchanged
@@ -202,8 +222,19 @@ type EvaluationContext = {
   stackIds: Set<string>;
 };
 
-function joinNotes(existing: string | undefined, note: string): string {
-  return existing ? `${existing} ${note}` : note;
+/** Trimmed before capping, so a blank reason is empty rather than a run of spaces and `…`. */
+function reasonText(reason: string): string {
+  return clipCodePoints(toDisplayText(reason).trim(), maxReasonChars);
+}
+
+function withChange(
+  capability: CapabilityReport,
+  change: LlmChange,
+): CapabilityReport {
+  return {
+    ...capability,
+    llmChanges: [...(capability.llmChanges ?? []), change],
+  };
 }
 
 /** Swaps in `present` and re-runs `evaluateCapability`, so a capability owned by several stacks is
@@ -224,12 +255,21 @@ function reevaluate(
   return { ...capability, present, satisfied, recommended };
 }
 
-function applyRescue(
-  capability: CapabilityReport,
-  evidence: string,
-  tool: AnalysisTool,
-  context: EvaluationContext,
-): CapabilityReport {
+type RescueInput = {
+  capability: CapabilityReport;
+  evidence: string;
+  tool: AnalysisTool;
+  verdict: LlmVerdict;
+  context: EvaluationContext;
+};
+
+function applyRescue({
+  capability,
+  evidence,
+  tool,
+  verdict,
+  context,
+}: RescueInput): CapabilityReport {
   const added: PresentTool = {
     id: tool.id,
     name: tool.name,
@@ -239,31 +279,34 @@ function applyRescue(
       owningStacksFor(context.stacks, capability.id),
     ),
   };
-  return {
-    ...reevaluate(capability, [...capability.present, added], context),
-    llmNote: joinNotes(
-      capability.llmNote,
-      `Rescued by the LLM pass: found ${tool.name} via "${evidence}"`,
-    ),
-  };
+  return withChange(
+    reevaluate(capability, [...capability.present, added], context),
+    {
+      action: "rescued",
+      toolId: tool.id,
+      toolName: tool.name,
+      reason:
+        reasonText(verdict.reason) ||
+        `Found ${tool.name} running in the CI config.`,
+    },
+  );
 }
 
 function applyAudit(
   capability: CapabilityReport,
   verdict: LlmVerdict,
-  toolId: string,
+  present: PresentTool,
   context: EvaluationContext,
 ): CapabilityReport {
-  const remaining = capability.present.filter((tool) => tool.id !== toolId);
-  const reasonChars = Array.from(verdict.reason);
-  const reason =
-    reasonChars.length > maxReasonChars
-      ? `${reasonChars.slice(0, maxReasonChars).join("")}…`
-      : verdict.reason;
-  return {
-    ...reevaluate(capability, remaining, context),
-    llmNote: joinNotes(capability.llmNote, toDisplayText(reason)),
-  };
+  const remaining = capability.present.filter((p) => p.id !== present.id);
+  return withChange(reevaluate(capability, remaining, context), {
+    action: "demoted",
+    toolId: present.id,
+    toolName: present.name,
+    reason:
+      reasonText(verdict.reason) ||
+      `${present.name} is not configured for this check.`,
+  });
 }
 
 /** A store outage must not discard a response that was already paid for. */
@@ -311,7 +354,8 @@ type PendingVerdict = {
   action: "rescue" | "audit";
   tool: AnalysisTool;
   verdict: LlmVerdict;
-  evidence: string;
+  quote: string;
+  entry: IndexedSignal;
 };
 
 /** Returns `analysis` untouched when the pass can't help. Unexpected failures (store or client
@@ -476,7 +520,8 @@ export async function applyLlmPass(
     }
 
     let failure: string | undefined;
-    let accepted: { verdict: LlmVerdict; evidence: string } | undefined;
+    let accepted:
+      { verdict: LlmVerdict; quote: string; entry: IndexedSignal } | undefined;
     for (const verdict of group) {
       const entry = signalById.get(verdict.signalId);
       if (!entry) {
@@ -492,10 +537,7 @@ export async function applyLlmPass(
         failure ??= "quote does not relate to the tool";
         continue;
       }
-      accepted = {
-        verdict,
-        evidence: toDisplayText(quote, entry.truncated),
-      };
+      accepted = { verdict, quote, entry };
       break;
     }
     if (!accepted) {
@@ -515,7 +557,7 @@ export async function applyLlmPass(
   pending.sort((a, b) => a.order - b.order);
 
   let result = analysis;
-  for (const { candidate, action, tool, verdict, evidence } of pending) {
+  for (const { candidate, action, tool, verdict, quote, entry } of pending) {
     const capability = findCapability(result, candidate.capabilityId);
     if (!capability) {
       verdictsDropped++;
@@ -528,8 +570,15 @@ export async function applyLlmPass(
         verdictsNoop++;
         continue;
       }
+      const evidence = rescueEvidence(quote, entry);
       result = updateCapability(result, capability.id, (c) =>
-        applyRescue(c, evidence, tool, evalContext),
+        applyRescue({
+          capability: c,
+          evidence,
+          tool,
+          verdict,
+          context: evalContext,
+        }),
       );
       verdictsApplied++;
       continue;
@@ -557,7 +606,7 @@ export async function applyLlmPass(
       continue;
     }
     result = updateCapability(result, capability.id, (c) =>
-      applyAudit(c, verdict, tool.id, evalContext),
+      applyAudit(c, verdict, present, evalContext),
     );
     verdictsApplied++;
   }
@@ -610,6 +659,10 @@ export async function applyLlmPass(
 
   return {
     ...result,
+    categories: result.categories.map((category) => ({
+      ...category,
+      capabilities: [...category.capabilities].sort(compareCapabilities),
+    })),
     buildSteps,
     ...countCapabilities(result.categories.flatMap((c) => c.capabilities)),
   };

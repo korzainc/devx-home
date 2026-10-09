@@ -1,12 +1,20 @@
 /**
  * @vitest-environment jsdom
  */
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, render, screen, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { GapReport } from "@/components/gap-report";
-import type { Analysis, BaselineStack } from "@/lib/gap/types";
+import { getBaseline, tools } from "@/lib/catalogue";
+import { analyze } from "@/lib/gap/analyze";
+import { ciSignals } from "@/lib/gap/detect";
+import { applyLlmPass } from "@/lib/gap/llm/apply";
+import { llm, provides, denies, responseFor } from "@/test/gap-fixtures";
+import type { Analysis, BaselineStack, RepoSnapshot } from "@/lib/gap/types";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 const stacks: BaselineStack[] = [
   { id: "javascript", label: "JavaScript", markers: [], expects: {} },
@@ -384,5 +392,117 @@ describe("GapReport", () => {
       ),
     ).toBeTruthy();
     expect(screen.queryByText(/for JavaScript/)).toBeNull();
+  });
+
+  it("renders LLM-flipped results in rule order with no AI-specific markup", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    const catalogue = { tools, baseline: getBaseline() };
+    const semgrep = "semgrep --config p/java --error gateway-runtime/src";
+    const trivy = "trivy fs --scanners vuln --exit-code 1 .";
+    const snapshot: RepoSnapshot = {
+      ref: { provider: "github", owner: "korza", repo: "gap-analysis-demo" },
+      defaultBranch: "main",
+      paths: ["pom.xml", "Dockerfile", ".github/workflows/ci.yml"],
+      files: {
+        "pom.xml": "<project></project>",
+        Dockerfile: "FROM eclipse-temurin:21\n",
+        ".github/workflows/ci.yml": [
+          "jobs:",
+          "  scan:",
+          "    steps:",
+          `      - run: ${semgrep}`,
+          `      - run: ${trivy}`,
+        ].join("\n"),
+      },
+    };
+    const signals = ciSignals(snapshot);
+    const rules = analyze(snapshot, catalogue, signals);
+    const flipped = await applyLlmPass(
+      rules,
+      signals,
+      catalogue,
+      llm(
+        responseFor(
+          { analysis: rules, signals, catalogue },
+          [
+            provides("sast:semgrep", semgrep),
+            denies("image-scan:trivy", trivy, "scans the filesystem"),
+            denies("iac-config:trivy", trivy, "scans dependencies"),
+          ],
+          [],
+        ),
+      ),
+    );
+    const baselineStacks = catalogue.baseline.stacks;
+    const row = (label: string) => {
+      const found = screen
+        .getByRole("heading", { name: label, level: 4 })
+        .closest("div.py-4");
+      if (!found) throw new Error(`no row container for "${label}"`);
+      return found as HTMLElement;
+    };
+
+    const { container } = render(
+      <GapReport stacks={baselineStacks} analysis={flipped} />,
+    );
+
+    expect(
+      screen.getByRole("heading", {
+        name: "2 of 10 recommended checks are running.",
+        level: 2,
+      }),
+    ).toBeTruthy();
+
+    const sast = row("Code Security (SAST)");
+    expect(within(sast).getByText("present")).toBeTruthy();
+    const evidence = within(sast).getByText(
+      `runs ${semgrep} in .github/workflows/ci.yml`,
+    );
+    expect(evidence.classList.contains("[overflow-wrap:anywhere]")).toBe(true);
+    for (const label of ["Container Scanning", "Infrastructure Config"]) {
+      expect(within(row(label)).getByText("missing")).toBeTruthy();
+      expect(
+        within(row(label)).getByText(
+          "Nothing found. The catalogue recommends",
+          {
+            exact: false,
+          },
+        ),
+      ).toBeTruthy();
+    }
+
+    // Within a category, no running row may precede a missing one. The selector must match every
+    // row, or the loop below checks nothing.
+    const headings = container.querySelectorAll("h4");
+    expect(headings.length).toBeGreaterThan(0);
+    expect(container.querySelectorAll("h4 + span")).toHaveLength(
+      headings.length,
+    );
+    for (const section of container.querySelectorAll("section")) {
+      const chips = [...section.querySelectorAll("h4 + span")].map(
+        (chip) => chip.textContent,
+      );
+      const firstRunning = chips.indexOf("present");
+      if (firstRunning >= 0)
+        expect(chips.slice(firstRunning)).toEqual(
+          chips.slice(firstRunning).map(() => "present"),
+        );
+    }
+
+    const stripped = {
+      ...flipped,
+      categories: flipped.categories.map((category) => ({
+        ...category,
+        capabilities: category.capabilities.map(
+          ({ llmChanges: _llmChanges, ...capability }) => capability,
+        ),
+      })),
+    };
+    const flippedHtml = container.innerHTML;
+    cleanup();
+    const plain = render(
+      <GapReport stacks={baselineStacks} analysis={stripped} />,
+    );
+    expect(plain.container.innerHTML).toBe(flippedHtml);
   });
 });

@@ -4,107 +4,32 @@ import { buildPrompt } from "./schema";
 import { analyze } from "../analyze";
 import { ciSignals } from "../detect";
 import { getBaseline, tools as realTools } from "@/lib/catalogue";
-import { scenario, tool } from "@/test/gap-fixtures";
-import type { Scenario } from "@/test/gap-fixtures";
-import type { LlmConfig, LlmResponse, Verdict } from "./types";
+import {
+  denies,
+  llm,
+  provides,
+  responseFor,
+  scenario,
+  tool,
+} from "@/test/gap-fixtures";
+import type { DetectSpec, Scenario, VerdictSpec } from "@/test/gap-fixtures";
+import type { LlmConfig } from "./types";
 import type { Analysis, BuildStepKind, RepoSnapshot } from "../types";
 
 const SEMGREP = "semgrep --config p/golang .";
 const NPM = "npm ci --frozen-lockfile";
 const TRIVY = "trivy fs . --severity HIGH,CRITICAL";
+const SNYK = "snyk test --severity-threshold=high";
 
 /** sast is a gap the rules missed (semgrep is only seen by the model), sca is satisfied by trivy. */
 const base = () =>
   scenario({ shell: [SEMGREP, NPM, TRIVY], deterministic: [TRIVY] });
 
-type VerdictSpec = {
-  pair: string;
-  verdict: Verdict;
-  quote: string;
-  reason?: string;
-  /** Substring that finds the cited entry; defaults to the quote. */
-  in?: string;
-  /** Overrides the lookup, for wrong or unknown ids. */
-  signalId?: string;
-};
-type DetectSpec = Pick<VerdictSpec, "quote" | "in" | "signalId"> & {
-  kind: BuildStepKind;
-};
-
-const provides = (
-  pair: string,
-  quote: string,
-  extra: Partial<VerdictSpec> = {},
-): VerdictSpec => ({ pair, verdict: "provides", quote, ...extra });
-const denies = (
-  pair: string,
-  quote: string,
-  reason = "does not cover it",
-  extra: Partial<VerdictSpec> = {},
-): VerdictSpec => ({
-  pair,
-  verdict: "does-not-provide",
-  quote,
-  reason,
-  ...extra,
-});
 const found = (
   kind: BuildStepKind,
   quote: string,
   extra: Partial<DetectSpec> = {},
 ): DetectSpec => ({ kind, quote, ...extra });
-
-/** The signal id a real `buildPrompt` assigned, so tests never hardcode id order. */
-function idOf(sc: Scenario, needle: string): string {
-  const { signals } = buildPrompt(sc.analysis, sc.signals, sc.catalogue);
-  const entry =
-    signals.find((e) => e.text === needle) ??
-    signals.find((e) => e.text.includes(needle));
-  if (!entry) throw new Error(`no signal entry contains "${needle}"`);
-  return entry.id;
-}
-
-function llm(response: LlmResponse, costUsd = 0.0042): LlmConfig {
-  return {
-    enabled: true,
-    client: {
-      complete: vi.fn().mockResolvedValue({
-        ok: true,
-        text: JSON.stringify(response),
-        inputTokens: 100,
-        outputTokens: 50,
-        costUsd,
-      }),
-    },
-    model: "claude-sonnet-5-5",
-    effort: "low",
-    readCache: vi.fn().mockResolvedValue(null),
-    writeCache: vi.fn().mockResolvedValue(undefined),
-    underDailySpendCap: vi.fn().mockResolvedValue(true),
-    recordSpend: vi.fn().mockResolvedValue(undefined),
-  };
-}
-
-function responseFor(
-  sc: Scenario,
-  verdicts: VerdictSpec[],
-  detect: DetectSpec[],
-): LlmResponse {
-  return {
-    verdicts: verdicts.map((spec) => ({
-      pair: spec.pair,
-      verdict: spec.verdict,
-      quote: spec.quote,
-      reason: spec.reason ?? "",
-      signalId: spec.signalId ?? idOf(sc, spec.in ?? spec.quote),
-    })),
-    detectFindings: detect.map((spec) => ({
-      kind: spec.kind,
-      quote: spec.quote,
-      signalId: spec.signalId ?? idOf(sc, spec.in ?? spec.quote),
-    })),
-  };
-}
 
 async function run(
   sc: Scenario,
@@ -166,13 +91,22 @@ describe("cacheKey", () => {
 
 describe("applyLlmPass: rescue and audit", () => {
   it("rescues a gap on a verified `provides` verdict and recomputes the counts", async () => {
-    const { result } = await run(base(), [provides("sast:semgrep", SEMGREP)]);
+    const { result } = await run(base(), [
+      provides("sast:semgrep", SEMGREP, { reason: "runs the scan" }),
+    ]);
     const sast = cap(result, "sast");
     expect(sast).toMatchObject({
       satisfied: true,
-      present: [{ id: "semgrep", evidence: SEMGREP }],
+      present: [{ id: "semgrep", evidence: `runs ${SEMGREP} in ci.yml` }],
     });
-    expect(sast.llmNote).toContain("semgrep");
+    expect(sast.llmChanges).toEqual([
+      {
+        action: "rescued",
+        toolId: "semgrep",
+        toolName: "semgrep",
+        reason: "runs the scan",
+      },
+    ]);
     expect(counts(result)).toEqual({
       satisfiedCount: 2,
       partialCount: 0,
@@ -186,7 +120,9 @@ describe("applyLlmPass: rescue and audit", () => {
     expect(cap(result, "sca")).toMatchObject({
       satisfied: false,
       present: [],
-      llmNote: reason,
+      llmChanges: [
+        { action: "demoted", toolId: "trivy", toolName: "trivy", reason },
+      ],
       recommended: [{ id: "trivy", name: "trivy", stackLabels: ["Any"] }],
     });
     expect(counts(result)).toEqual({
@@ -195,6 +131,79 @@ describe("applyLlmPass: rescue and audit", () => {
       gapCount: 2,
     });
   });
+
+  it("re-sorts each category after flips, so gaps stay first", async () => {
+    const sc = base();
+    expect(sc.analysis.categories[0].capabilities.map((c) => c.id)).toEqual([
+      "sast",
+      "sca",
+    ]);
+    const { result } = await run(sc, [
+      provides("sast:semgrep", SEMGREP),
+      denies("sca:trivy", TRIVY),
+    ]);
+    expect(result.categories[0].capabilities.map((c) => c.id)).toEqual([
+      "sca",
+      "sast",
+    ]);
+  });
+
+  const emojis = (count: number) => "😀".repeat(count);
+  it.each([
+    {
+      name: "a shell command",
+      entry: SEMGREP,
+      evidence: `runs ${SEMGREP} in dir/ci.yml`,
+    },
+    {
+      name: "a `uses` reference",
+      entry: "semgrep/semgrep-action@v1",
+      evidence: "uses: semgrep/semgrep-action@v1",
+      asUses: true,
+    },
+    {
+      name: "surrounding newlines",
+      entry: "\n  semgrep ci --config p/java \n",
+      evidence: "runs semgrep ci --config p/java in dir/ci.yml",
+    },
+    {
+      name: "a newline inside the command",
+      entry: "semgrep ci\n  --config p/java",
+      evidence: "runs semgrep ci --config p/java in dir/ci.yml",
+    },
+    {
+      name: "tabs and runs of spaces",
+      entry: "semgrep  ci\t\t--config   p/java",
+      evidence: "runs semgrep ci --config p/java in dir/ci.yml",
+    },
+    {
+      name: "exactly 120 code points",
+      entry: `semgrep ${emojis(112)}`,
+      evidence: `runs semgrep ${emojis(112)} in dir/ci.yml`,
+    },
+    {
+      name: "121 code points, clipped without splitting a surrogate pair",
+      entry: `semgrep ${emojis(113)}`,
+      evidence: `runs semgrep ${emojis(112)}… in dir/ci.yml`,
+    },
+  ])(
+    "writes rescue evidence in the rule shape for $name",
+    async ({ entry, evidence, asUses }) => {
+      const sc = scenario({
+        tools: [
+          tool("semgrep", ["sast"], { ciUses: ["semgrep/semgrep-action"] }),
+        ],
+        stacks: [{ id: "any", label: "Any", expects: { sast: "semgrep" } }],
+        shell: asUses ? [] : [[entry, "dir/ci.yml"]],
+        uses: asUses ? [{ value: entry, source: "dir/ci.yml" }] : [],
+      });
+      const quote = entry.replace(/\n/g, "⏎");
+      const { result } = await run(sc, [
+        provides("sast:semgrep", quote, { in: quote }),
+      ]);
+      expect(cap(result, "sast").present[0].evidence).toBe(evidence);
+    },
+  );
 
   const poly = (shell: string[], deterministic: string[]) =>
     scenario({
@@ -224,7 +233,9 @@ describe("applyLlmPass: rescue and audit", () => {
     const partial = await run(poly([GO], []), [provides("sca:trivy", GO)]);
     expect(cap(partial.result, "sca")).toMatchObject({
       satisfied: false,
-      present: [{ id: "trivy", evidence: GO, stackLabels: ["Go"] }],
+      present: [
+        { id: "trivy", evidence: `runs ${GO} in ci.yml`, stackLabels: ["Go"] },
+      ],
       recommended: [
         { id: "npm-audit", name: "npm audit", stackLabels: ["JavaScript"] },
       ],
@@ -272,6 +283,83 @@ describe("applyLlmPass: rescue and audit", () => {
     const { result } = await run(sc, [denies("sca:trivy", TRIVY)]);
     expect(cap(result, "sca").satisfied).toBe(true);
     expect(cap(result, "sca").present.map((p) => p.id)).toEqual(["snyk"]);
+  });
+
+  it("records the model's reason for a rescue, or a fallback when it is empty", async () => {
+    const reasons: [string, string][] = [
+      ["", "Found semgrep running in the CI config."],
+      ["line one⏎line two", "line one\nline two"],
+      ["😀".repeat(301), `${"😀".repeat(300)}…`],
+      [" ", "Found semgrep running in the CI config."],
+      ["⏎ ⏎", "Found semgrep running in the CI config."],
+      [" ".repeat(400), "Found semgrep running in the CI config."],
+    ];
+    for (const [reason, expected] of reasons) {
+      const { result } = await run(base(), [
+        provides("sast:semgrep", SEMGREP, { reason }),
+      ]);
+      expect(cap(result, "sast").llmChanges).toEqual([
+        {
+          action: "rescued",
+          toolId: "semgrep",
+          toolName: "semgrep",
+          reason: expected,
+        },
+      ]);
+    }
+  });
+
+  it("never records an empty demotion reason, falling back to the tool's display name", async () => {
+    const sc = scenario({
+      tools: [
+        tool("snyk", ["sca", "sast"], {
+          name: "Snyk",
+          commands: ["snyk test"],
+        }),
+      ],
+      stacks: [{ id: "any", label: "Any", expects: { sca: "snyk" } }],
+      shell: [SNYK],
+      deterministic: [SNYK],
+    });
+    for (const reason of ["", " ", "⏎ ⏎", " ".repeat(400)]) {
+      const { result } = await run(sc, [denies("sca:snyk", SNYK, reason)]);
+      expect(cap(result, "sca").llmChanges?.[0].reason).toBe(
+        "Snyk is not configured for this check.",
+      );
+    }
+  });
+
+  it("records one change per tool demoted from the same check, under the tool's display name", async () => {
+    const sc = scenario({
+      tools: [
+        tool("trivy", ["sca", "iac-config"]),
+        tool("snyk", ["sca", "sast"], {
+          name: "Snyk",
+          commands: ["snyk test"],
+        }),
+      ],
+      stacks: [{ id: "any", label: "Any", expects: { sca: "trivy" } }],
+      shell: [TRIVY, SNYK],
+      deterministic: [TRIVY, SNYK],
+    });
+    const { result } = await run(sc, [
+      denies("sca:trivy", TRIVY, "only scans the filesystem"),
+      denies("sca:snyk", SNYK, "dev dependencies only"),
+    ]);
+    expect(cap(result, "sca").llmChanges).toEqual([
+      {
+        action: "demoted",
+        toolId: "trivy",
+        toolName: "trivy",
+        reason: "only scans the filesystem",
+      },
+      {
+        action: "demoted",
+        toolId: "snyk",
+        toolName: "Snyk",
+        reason: "dev dependencies only",
+      },
+    ]);
   });
 
   it("applies several rescues of one capability in candidate order, whatever order the response lists them", async () => {
@@ -478,7 +566,9 @@ describe("applyLlmPass: quotes", () => {
         }),
       ],
     );
-    expect(cap(result, "sast").present[0].evidence).toBe(SEMGREP);
+    expect(cap(result, "sast").present[0].evidence).toBe(
+      `runs ${SEMGREP} in ci.yml`,
+    );
     expect(result.buildSteps).toEqual([
       {
         kind: "image-build",
@@ -511,14 +601,14 @@ describe("applyLlmPass: quotes", () => {
       expect(result.buildSteps).toHaveLength(kept ? 1 : 0);
     }
 
-    for (const [length, note] of [
-      [301, `${"é".repeat(300)}…`],
-      [300, "é".repeat(300)],
+    for (const [length, reason] of [
+      [301, `${"😀".repeat(300)}…`],
+      [300, "😀".repeat(300)],
     ] as const) {
       const { result } = await run(base(), [
-        denies("sca:trivy", TRIVY, "é".repeat(length)),
+        denies("sca:trivy", TRIVY, "😀".repeat(length)),
       ]);
-      expect(cap(result, "sca").llmNote).toBe(note);
+      expect(cap(result, "sca").llmChanges?.[0].reason).toBe(reason);
     }
   });
 
@@ -551,10 +641,12 @@ describe("applyLlmPass: quotes", () => {
         found("install", tail, { signalId: truncated.id }),
       ],
     );
-    const evidence = "semgrep --config p/java .\nsemgrep ci";
+    const evidence =
+      "runs semgrep --config p/java . semgrep ci in dir<<<x/ci.yml";
     expect(cap(result, "sast").present[0].evidence).toBe(evidence);
-    expect(cap(result, "sast").llmNote).toContain(`via "${evidence}"`);
-    expect(cap(result, "sca").llmNote).toBe("line one\nline two");
+    expect(cap(result, "sca").llmChanges?.[0].reason).toBe(
+      "line one\nline two",
+    );
     expect(result.buildSteps).toEqual([
       { kind: "build", evidence: "semgrep ci", source: "dir<<<x/ci.yml" },
       { kind: "install", evidence: tail.replace("…", ""), source: "long.yml" },
@@ -923,17 +1015,32 @@ describe("applyLlmPass: real catalogue", () => {
     expect(cap(result, "sast")).toMatchObject({
       satisfied: true,
       present: [{ id: "semgrep" }],
+      llmChanges: [
+        {
+          action: "rescued",
+          toolId: "semgrep",
+          toolName: "Semgrep",
+          reason: "Found Semgrep running in the CI config.",
+        },
+      ],
     });
     expect(cap(result, "image-scan")).toMatchObject({
       present: [],
-      llmNote: "scans the filesystem, not an image",
+      llmChanges: [
+        {
+          action: "demoted",
+          toolId: "trivy",
+          toolName: "Trivy",
+          reason: "scans the filesystem, not an image",
+        },
+      ],
     });
     expect(cap(result, "iac-config").present).toEqual([]);
     expect(cap(result, "sca")).toMatchObject({
       satisfied: true,
       present: [{ id: "trivy" }],
     });
-    expect(cap(result, "sca").llmNote).toBeUndefined();
+    expect(cap(result, "sca").llmChanges).toBeUndefined();
     expect(counts(analysis)).toEqual({
       satisfiedCount: 3,
       partialCount: 0,

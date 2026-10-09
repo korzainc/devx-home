@@ -1,6 +1,14 @@
+import { vi } from "vitest";
 import { analyze } from "@/lib/gap/analyze";
 import type { CiSignals } from "@/lib/gap/detect";
-import type { Analysis, AnalysisTool, Baseline } from "@/lib/gap/types";
+import { buildPrompt } from "@/lib/gap/llm/schema";
+import type { LlmConfig, LlmResponse, Verdict } from "@/lib/gap/llm/types";
+import type {
+  Analysis,
+  AnalysisTool,
+  Baseline,
+  BuildStepKind,
+} from "@/lib/gap/types";
 
 export type StackSpec = {
   id: string;
@@ -108,4 +116,87 @@ export function scenario(options: {
     seen,
   );
   return { analysis, signals, catalogue };
+}
+
+export type VerdictSpec = {
+  pair: string;
+  verdict: Verdict;
+  quote: string;
+  reason?: string;
+  /** Substring that finds the cited entry; defaults to the quote. */
+  in?: string;
+  /** Overrides the lookup, for wrong or unknown ids. */
+  signalId?: string;
+};
+export type DetectSpec = Pick<VerdictSpec, "quote" | "in" | "signalId"> & {
+  kind: BuildStepKind;
+};
+
+export const provides = (
+  pair: string,
+  quote: string,
+  extra: Partial<VerdictSpec> = {},
+): VerdictSpec => ({ pair, verdict: "provides", quote, ...extra });
+export const denies = (
+  pair: string,
+  quote: string,
+  reason = "does not cover it",
+  extra: Partial<VerdictSpec> = {},
+): VerdictSpec => ({
+  pair,
+  verdict: "does-not-provide",
+  quote,
+  reason,
+  ...extra,
+});
+/** The signal id a real `buildPrompt` assigned, so tests never hardcode id order. */
+function idOf(sc: Scenario, needle: string): string {
+  const { signals } = buildPrompt(sc.analysis, sc.signals, sc.catalogue);
+  const entry =
+    signals.find((e) => e.text === needle) ??
+    signals.find((e) => e.text.includes(needle));
+  if (!entry) throw new Error(`no signal entry contains "${needle}"`);
+  return entry.id;
+}
+
+export function llm(response: LlmResponse, costUsd = 0.0042): LlmConfig {
+  return {
+    enabled: true,
+    client: {
+      complete: vi.fn().mockResolvedValue({
+        ok: true,
+        text: JSON.stringify(response),
+        inputTokens: 100,
+        outputTokens: 50,
+        costUsd,
+      }),
+    },
+    model: "claude-sonnet-5-5",
+    effort: "low",
+    readCache: vi.fn().mockResolvedValue(null),
+    writeCache: vi.fn().mockResolvedValue(undefined),
+    underDailySpendCap: vi.fn().mockResolvedValue(true),
+    recordSpend: vi.fn().mockResolvedValue(undefined),
+  };
+}
+
+export function responseFor(
+  sc: Scenario,
+  verdicts: VerdictSpec[],
+  detect: DetectSpec[],
+): LlmResponse {
+  return {
+    verdicts: verdicts.map((spec) => ({
+      pair: spec.pair,
+      verdict: spec.verdict,
+      quote: spec.quote,
+      reason: spec.reason ?? "",
+      signalId: spec.signalId ?? idOf(sc, spec.in ?? spec.quote),
+    })),
+    detectFindings: detect.map((spec) => ({
+      kind: spec.kind,
+      quote: spec.quote,
+      signalId: spec.signalId ?? idOf(sc, spec.in ?? spec.quote),
+    })),
+  };
 }

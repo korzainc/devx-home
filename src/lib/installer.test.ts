@@ -39,6 +39,13 @@ const ARCHIVE_DIGEST = createHash("sha256")
   .update(ARCHIVE_PAYLOAD)
   .digest("hex");
 
+// Every case writes fresh executables, and macOS scans each one on first exec (about 150ms
+// apiece), so a case takes seconds on an idle machine and much longer when it is busy. The
+// timeouts below are budgets for that, not expected durations.
+const SPAWN_TIMEOUT_MS = 60_000;
+const SETUP_TIMEOUT_MS = 30_000;
+const CASE_TIMEOUT_MS = 90_000;
+
 // Run only installer control flow, never the bundled binary or a network client.
 // PATH contains fixtures and a small explicit utility allowlist. HOME and all
 // inherited environment variables are omitted. rm is a no-op: retain fixtures
@@ -203,7 +210,7 @@ switch (name) {
         ...scenario.env,
       },
       encoding: "utf8",
-      timeout: 15_000,
+      timeout: SPAWN_TIMEOUT_MS,
       input: "",
     },
   );
@@ -220,35 +227,39 @@ switch (name) {
 }
 
 describe("the fixture command wrapper", () => {
-  it("executes when the interpreter path contains a space", () => {
-    const parent = join(process.cwd(), ".claude", "installer-tests");
-    mkdirSync(parent, { recursive: true });
-    const root = mkdtempSync(join(parent, "interpreter-"));
-    const nested = join(root, "node dir");
-    mkdirSync(nested);
-    const interpreter = join(nested, "node");
-    symlinkSync(process.execPath, interpreter);
-    const script = join(root, "report.cjs");
-    writeFileSync(
-      script,
-      'process.stdout.write([process.env.FIXTURE_COMMAND, ...process.argv.slice(2)].join("|"));',
-    );
-    const command = join(root, "uname");
-    writeFileSync(command, commandWrapper("uname", interpreter, script), {
-      mode: 0o755,
-    });
+  it(
+    "executes when the interpreter path contains a space",
+    { timeout: SETUP_TIMEOUT_MS },
+    () => {
+      const parent = join(process.cwd(), ".claude", "installer-tests");
+      mkdirSync(parent, { recursive: true });
+      const root = mkdtempSync(join(parent, "interpreter-"));
+      const nested = join(root, "node dir");
+      mkdirSync(nested);
+      const interpreter = join(nested, "node");
+      symlinkSync(process.execPath, interpreter);
+      const script = join(root, "report.cjs");
+      writeFileSync(
+        script,
+        'process.stdout.write([process.env.FIXTURE_COMMAND, ...process.argv.slice(2)].join("|"));',
+      );
+      const command = join(root, "uname");
+      writeFileSync(command, commandWrapper("uname", interpreter, script), {
+        mode: 0o755,
+      });
 
-    const result = spawnSync(command, ["-s", "an argument"], {
-      encoding: "utf8",
-    });
-    expect(result.status, result.stderr).toBe(0);
-    expect(result.stdout).toBe("uname|-s|an argument");
-  });
+      const result = spawnSync(command, ["-s", "an argument"], {
+        encoding: "utf8",
+      });
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stdout).toBe("uname|-s|an argument");
+    },
+  );
 });
 
 describe(
   "the vendored installer with inert local fixtures",
-  { timeout: 20_000 },
+  { timeout: CASE_TIMEOUT_MS },
   () => {
     it("discovers releases from the renamed Korza CLI repository", () => {
       const result = install({ env: { KORZA_DIST_URL: "" } });
@@ -383,7 +394,7 @@ describe(
           cwd: result.root,
           env: { NODE_ENV: "test", PATH: result.commandPath },
           encoding: "utf8",
-          timeout: 5000,
+          timeout: SETUP_TIMEOUT_MS,
         });
         expect(setup.error).toBeUndefined();
         expect(setup.status, setup.stderr).toBe(0);
@@ -401,7 +412,7 @@ describe(
         cwd: result.root,
         env: { NODE_ENV: "test", PATH: result.commandPath },
         encoding: "utf8",
-        timeout: 5000,
+        timeout: SETUP_TIMEOUT_MS,
       });
       expect(setup.error).toBeUndefined();
       expect(setup.status, setup.stderr).toBe(0);
