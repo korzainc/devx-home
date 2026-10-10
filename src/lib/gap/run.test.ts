@@ -9,6 +9,7 @@ const snapshot = {
   defaultBranch: "main",
   paths: ["package.json"],
   files: {},
+  repoId: 42,
 };
 
 // Hoisted so the mock factory below can close over it, since vitest lifts vi.mock above the
@@ -54,6 +55,21 @@ const emptyBaseline: Baseline = {
 };
 
 describe("runAnalysis", () => {
+  it("returns the repository identity with a successful report for its caller to record", async () => {
+    loadSnapshot.mockResolvedValue(snapshot);
+    const result = await runAnalysis("korzainc/example", null, {
+      tools: [],
+      baseline: { categories: [], capabilities: {}, universal: [], stacks: [] },
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      repoId: 42,
+      analysis: { repo: "korzainc/example", defaultBranch: "main" },
+    });
+    if (result.ok) expect(result.analysis).not.toHaveProperty("repoId");
+  });
+
   it("maps a CatalogueDataError to a clean ok:false result instead of throwing", async () => {
     loadSnapshot.mockResolvedValue(snapshot);
 
@@ -122,7 +138,7 @@ describe("runAnalysis", () => {
     );
 
     expect(applyLlmPass).toHaveBeenCalledTimes(1);
-    expect(result).toEqual({ ok: true, analysis: rescuedAnalysis });
+    expect(result).toEqual({ ok: true, analysis: rescuedAnalysis, repoId: 42 });
   });
 
   it("falls back to the deterministic analysis instead of throwing when applyLlmPass throws unexpectedly", async () => {
@@ -138,7 +154,11 @@ describe("runAnalysis", () => {
       llm,
     );
 
-    expect(result.ok).toBe(true);
+    expect(result).toMatchObject({
+      ok: true,
+      repoId: 42,
+      analysis: { repo: "korzainc/example", buildSteps: [] },
+    });
     errorSpy.mockRestore();
   });
 });

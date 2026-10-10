@@ -1,12 +1,15 @@
 "use client";
 
 import {
+  Suspense,
+  use,
   useEffect,
   useLayoutEffect,
   useState,
   useSyncExternalStore,
 } from "react";
 import { CollapsibleGrid, PREVIEW } from "@/components/collapsible-grid";
+import type { SkillUsage } from "@/lib/skill-usage";
 import type { SkillEntry } from "@/lib/catalogue-entries";
 import {
   readOpenedSkill,
@@ -16,12 +19,16 @@ import {
   subscribeToSkillFocus,
 } from "@/lib/skill-link";
 
+type Usage = Record<string, SkillUsage>;
+
 export function PluginSkills({
   plugin,
   skills,
+  usagePromise,
 }: {
   plugin: string;
   skills: SkillEntry[];
+  usagePromise?: Promise<Usage | undefined>;
 }) {
   // Nothing happens on arrival: the strip above already names the skill. Unfolding here would
   // make what you see depend on how you got here.
@@ -88,10 +95,46 @@ export function PluginSkills({
               <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-ink-muted">
                 {skill.summary ?? skill.description}
               </p>
+              {usagePromise && (
+                <Suspense fallback={null}>
+                  <SkillUsageBadge
+                    name={skill.name}
+                    usagePromise={usagePromise}
+                  />
+                </Suspense>
+              )}
             </div>
           ),
         };
       })}
     />
+  );
+}
+
+function SkillUsageBadge({
+  name,
+  usagePromise,
+}: {
+  name: string;
+  usagePromise: Promise<Usage | undefined>;
+}) {
+  const counts = use(usagePromise)?.[name];
+  if (!counts) return null;
+  return (
+    <div
+      className="mt-3 rounded-lg border border-line-strong bg-surface-raised px-3 py-2 text-sm font-medium text-ink"
+      aria-label={`Recorded usage for ${name}`}
+    >
+      {[
+        counts.claude !== undefined
+          ? `${counts.claude} ${counts.claude === 1 ? "activation" : "activations"} via Claude Code`
+          : null,
+        counts.codex !== undefined
+          ? `${counts.codex} skill ${counts.codex === 1 ? "load" : "loads"} via Codex`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" · ")}
+    </div>
   );
 }

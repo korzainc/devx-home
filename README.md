@@ -28,6 +28,9 @@ and database-backed features need the existing project credentials and database
 connection. Follow [AGENTS.md](AGENTS.md) for access and database constraints;
 do not overwrite `.env.local` or provision a replacement database.
 
+Use the same host in `BETTER_AUTH_URL` and the GitHub App callback URL.
+Local sign-in redirects loopback aliases to that host to keep OAuth cookies consistent.
+
 `pnpm vercel-build` runs migrations only when `VERCEL_ENV=production`, then
 builds Next.js. Previews skip that migration step. `pnpm migrate` runs migrations
 explicitly against `DATABASE_URL_UNPOOLED`; the app uses pooled `DATABASE_URL`.
@@ -134,3 +137,69 @@ Use `pnpm-lock.yaml` for the resolved versions; this README does not claim every
 dependency is the latest release. When upgrading the lint toolchain, check
 compatibility with `eslint-config-next` and run formatting, tests, lint, type
 checking and a production build together.
+
+## Analysis usage counts
+
+- Public repositories can be analysed without signing in. Site-wide run and
+  distinct-repository totals include private repositories, so only signed-in
+  organisation members can view them.
+- A successful page run counts once; reloads and shared links reuse it. Another
+  Analyze submission or successful API request, including a retry, adds a run.
+  These are submission counts, not unique users or adoption.
+- Monitoring failures leave the report available. Zero totals display as zero;
+  unavailable totals are hidden.
+
+## Opt-in device monitoring backend
+
+- Off by default. Set `TELEMETRY_ENABLED=1`; leave `TELEMETRY_ENROLLMENT_MODE`
+  unset or set it to `consent`. Other modes reject enrollment and uploads.
+  CLI consent needs no company sign-in; viewing counts requires portal access.
+- The CLI filters and queues client signals before sending counts to
+  `/api/telemetry/events`. Home accepts approved plugins and normalized fields
+  only, with no prompts, tool arguments, email or file paths.
+- Device keys are stored as hashes and expire after 12 hours unless renewed.
+  Revocation stops uploads and renewal without deleting recorded counts.
+- Install totals combine native and Korza-assisted reports per client; different
+  sources can describe the same install. Skill loads do not prove task completion.
+  Counts are self-reported, not unique users or downloads.
+- Codex `/plugins` installs are not counted. Terminal wrappers cover their own
+  route; native install logs need a custom build. Codex skill counts require
+  successful loads (`status: ok`). Use a fresh baseline when checking counts.
+- Batches allow 1,000 records / 256 KiB, with 5,000 records per device per minute.
+  IDs deduplicate retries, but traffic limits do not prevent inflated reports.
+  Abuse controls, retention and deletion policy remain rollout requirements.
+
+### Database and collection setup
+
+- Apply migrations before enabling collection. **Use a fresh database for the
+  revised, unreleased `0004_usage_monitoring.sql`.** Preserve older test databases
+  and their migration ledgers. Runtime uses `DATABASE_URL`; migrations use
+  `DATABASE_URL_UNPOOLED`. Follow [AGENTS.md](AGENTS.md); never edit `.env.local`.
+- Hosted collection requires `NODE_ENV=production`, `VERCEL=1` and
+  `VERCEL_ENV=production`. Preview deployments cannot collect.
+- Local collection needs `KORZA_LOCAL_USAGE=1`, empty Vercel markers and an
+  isolated PostgreSQL URL on `localhost` or `127.0.0.1`. Host overrides are refused;
+  never tunnel to production. Supply a trusted TLS certificate with `sslrootcert`.
+  Export the fresh local `DATABASE_URL`, then run:
+
+```sh
+DATABASE_URL_UNPOOLED="$DATABASE_URL" node scripts/migrate.mjs
+VERCEL= VERCEL_ENV= KORZA_LOCAL_USAGE=1 TELEMETRY_ENABLED=1 pnpm dev
+```
+
+- `KORZA_LOCAL_SKILLS_PREVIEW=1` opens skill and plugin pages only on loopback in
+  development. Legacy `/api/telemetry/logs` and `/metrics` are also development-only
+  and require a `TELEMETRY_INGEST_TOKEN` of at least 32 characters.
+
+### Verify
+
+- Follow the [analysis walkthrough](https://github.com/korzainc/devx-home/pull/72)
+  and [client setup and count checks](https://github.com/korzainc/korza-cli/pull/5).
+- Run the [standard checks](#develop), then these database suites against isolated
+  loopback PostgreSQL. They create separate test schemas and also run in CI:
+
+```sh
+TEST_TELEMETRY_DATABASE_URL="$DATABASE_URL" pnpm exec vitest run src/lib/telemetry-postgres.test.ts src/lib/telemetry-consent-postgres.test.ts
+```
+
+- Real client delivery, portal login and deployment still need separate checks.

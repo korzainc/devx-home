@@ -1,4 +1,7 @@
 import { headers } from "next/headers";
+import { after } from "next/server";
+import { randomUUID } from "node:crypto";
+import { recordAnalysisRun } from "@/lib/analysis-usage";
 import { getBaseline, tools } from "@/lib/catalogue";
 import { getLlmConfig } from "@/lib/gap-llm-config";
 import { runAnalysis } from "@/lib/gap/run";
@@ -54,7 +57,12 @@ export async function POST(request: Request) {
     getLlmConfig(),
   );
 
-  return result.ok
-    ? Response.json(result.analysis)
-    : Response.json({ error: result.error }, { status: result.status });
+  if (!result.ok)
+    return Response.json({ error: result.error }, { status: result.status });
+
+  // API usage counts successful requests, including retries. Unlike the page's
+  // shared run URL, this endpoint has no client-supplied idempotency contract.
+  const runId = randomUUID();
+  after(() => recordAnalysisRun(runId, result.repoId));
+  return Response.json(result.analysis);
 }

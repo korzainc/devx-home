@@ -1,3 +1,8 @@
+import { after, connection } from "next/server";
+import { randomUUID } from "node:crypto";
+import { redirect } from "next/navigation";
+import { recordAnalysisRun, validRunId } from "@/lib/analysis-usage";
+import { AnalysisUsage } from "@/components/analysis-usage";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { GapReport } from "@/components/gap-report";
@@ -25,11 +30,21 @@ export const metadata: Metadata = {
 // Signed out, the token is null and the read goes out anonymously, which GitHub serves for public
 // repositories. So an open source repo needs no account, and the sign-in prompt is kept for the
 // two failures where logging in is the actual remedy rather than a wall in front of everyone.
-async function Result({ repo }: { repo: string }) {
+async function analyze(repo: string) {
   const token = await getGitHubToken();
-
   const baseline = getBaseline();
   const result = await runAnalysis(repo, token, { tools, baseline });
+  return { token, baseline, result };
+}
+
+async function Result({
+  repo,
+  analysis,
+}: {
+  repo: string;
+  analysis: ReturnType<typeof analyze>;
+}) {
+  const { token, baseline, result } = await analysis;
 
   if (!result.ok) {
     // Anonymously, 404 means no such public repo, which a private one is indistinguishable from,
@@ -128,9 +143,16 @@ function Pending({ repo }: { repo: string }) {
   );
 }
 
-function RepoForm({ target }: { target: string }) {
+function RepoForm({
+  target,
+  nextRunId,
+}: {
+  target: string;
+  nextRunId?: string;
+}) {
   return (
     <form className="flex flex-col gap-2">
+      {nextRunId ? <input type="hidden" name="run" value={nextRunId} /> : null}
       <label htmlFor="repo" className="text-xs font-medium text-ink-faint">
         Repository
       </label>
@@ -179,8 +201,25 @@ type Params = Pick<PageProps<"/ci-coverage">, "searchParams">;
 export const instant = false;
 
 export default async function CiCoveragePage({ searchParams }: Params) {
-  const { repo } = await searchParams;
+  const { repo, run } = await searchParams;
+  await connection();
+  const nextRunId = randomUUID();
+  const runId = validRunId(run) ? run : undefined;
   const target = (Array.isArray(repo) ? repo[0] : repo)?.trim() ?? "";
+  if (target && !runId) {
+    redirect(
+      `/ci-coverage?${new URLSearchParams({ repo: target, run: nextRunId })}`,
+    );
+  }
+
+  const analysis = target ? analyze(target) : undefined;
+  const recorded = analysis?.then(
+    ({ result }) =>
+      result.ok ? recordAnalysisRun(runId ?? "", result.repoId) : undefined,
+    () => {}, // The report boundary handles analysis errors; there is no run to record.
+  );
+  // Start recording now; after keeps it alive even when the reader cannot see totals.
+  if (recorded) after(recorded);
 
   return (
     <div className="flex flex-col gap-10">
@@ -193,15 +232,34 @@ export default async function CiCoveragePage({ searchParams }: Params) {
           out which stacks you are on, then reports how many of the recommended
           checks actually run.
         </p>
+        <div className="min-h-16 sm:min-h-10">
+          <Suspense
+            fallback={
+              <>
+                <div
+                  aria-hidden="true"
+                  className="analysis-usage-loading h-10 w-80 max-w-full rounded-lg border border-line-strong bg-surface-raised motion-safe:animate-pulse"
+                />
+                <noscript
+                  dangerouslySetInnerHTML={{
+                    __html:
+                      "<style>.analysis-usage-loading{display:none}</style>",
+                  }}
+                />
+              </>
+            }
+          >
+            <AnalysisUsage recorded={recorded} />
+          </Suspense>
+        </div>
       </header>
 
-      <RepoForm target={target} />
+      <RepoForm target={target} nextRunId={nextRunId} />
 
-      {/* Only the analysis stays behind a boundary: it is a GitHub round trip, and which failure
-          it hits decides whether the prompt or a notice follows. */}
-      {target ? (
+      {/* Recording and reading totals do not delay the report. */}
+      {analysis ? (
         <Suspense key={target} fallback={<Pending repo={target} />}>
-          <Result repo={target} />
+          <Result repo={target} analysis={analysis} />
         </Suspense>
       ) : null}
     </div>

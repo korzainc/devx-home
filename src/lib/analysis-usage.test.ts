@@ -1,0 +1,49 @@
+import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
+import { recordAnalysisRun } from "./analysis-usage";
+const query = vi.hoisted(() => vi.fn());
+vi.mock("./db", () => ({ getPool: () => ({ query }) }));
+beforeEach(() => {
+  vi.stubEnv("VERCEL", "");
+  vi.stubEnv("VERCEL_ENV", "");
+  vi.stubEnv("KORZA_LOCAL_USAGE", "1");
+  vi.stubEnv("DATABASE_URL", "postgresql://fixture:unused@127.0.0.1/fixture");
+});
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.restoreAllMocks();
+  query.mockReset();
+});
+const run = "12345678-1234-1234-1234-123456789abc";
+describe("analysis usage", () => {
+  it("records only valid run and repository identities with bound parameters", async () => {
+    query.mockResolvedValue({ rows: [] });
+    await recordAnalysisRun(run, 42);
+    expect(query).toHaveBeenCalledWith(
+      expect.objectContaining({
+        values: [run, 42],
+        text: expect.stringContaining("on conflict (run_id) do nothing"),
+      }),
+    );
+    query.mockClear();
+    await recordAnalysisRun("bad", 42);
+    await recordAnalysisRun(run, undefined);
+    await recordAnalysisRun(run, -1);
+    expect(query).not.toHaveBeenCalled();
+  });
+  it("does not fail an analysis when monitoring storage fails", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    query.mockRejectedValue(new Error("database unavailable"));
+    await expect(recordAnalysisRun(run, 42)).resolves.toBeUndefined();
+  });
+});
+
+it("does not write analysis totals from previews or unapproved local databases", async () => {
+  vi.stubEnv("VERCEL", "1");
+  vi.stubEnv("VERCEL_ENV", "preview");
+  await recordAnalysisRun(run, 42);
+  vi.stubEnv("VERCEL", "");
+  vi.stubEnv("VERCEL_ENV", "");
+  vi.stubEnv("DATABASE_URL", "postgresql://production.example/home");
+  await recordAnalysisRun(run, 42);
+  expect(query).not.toHaveBeenCalled();
+});

@@ -2,21 +2,48 @@
  * @vitest-environment node
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { Children, isValidElement, Suspense } from "react";
+import { AnalysisUsage } from "@/components/analysis-usage";
+import { Writable } from "node:stream";
+import { renderToPipeableStream } from "react-dom/server";
 import CiCoveragePage from "@/app/ci-coverage/page";
 import type { RunResult } from "@/lib/gap/run";
 import type { Analysis } from "@/lib/gap/types";
 import { noscriptBlocks } from "@/test-utils/noscript";
 import { renderStream } from "@/test-utils/render-stream";
 
+const afterResponse = vi.hoisted(() => [] as (() => Promise<void>)[]);
+const afterTaskErrors = vi.hoisted(() => [] as unknown[]);
+vi.mock("next/server", () => ({
+  connection: async () => {},
+  after: (task: Promise<void> | (() => Promise<void>)) => {
+    const observe = (promise: Promise<void>) =>
+      promise.catch((error) => {
+        afterTaskErrors.push(error);
+      });
+    // Match Next's AfterContext: promises are observed immediately; callbacks
+    // only begin after the response. Either reports errors without rejecting waitUntil.
+    if (typeof task === "function") afterResponse.push(() => observe(task()));
+    else {
+      const observed = observe(task);
+      afterResponse.push(() => observed);
+    }
+  },
+}));
+vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
+vi.mock("@/lib/membership", () => ({ isOrgMember: async () => true }));
+
 // Stubbed because reading the session calls `headers()`, which has no request scope here.
 const session = vi.hoisted(() => ({
   throws: false,
   token: null as string | null,
   reads: 0,
+  signedIn: false,
 }));
 
 vi.mock("@/lib/session", () => ({
-  getSession: async () => null,
+  getSession: async () =>
+    session.signedIn ? { user: { id: "member" } } : null,
   getGitHubToken: async () => {
     session.reads++;
     if (session.throws) throw new Error("DATABASE_URL is not set.");
@@ -65,13 +92,28 @@ const analyses = vi.hoisted(() => ({
   result: null as RunResult | null,
 }));
 
+const usage = vi.hoisted(() => vi.fn());
+const record = vi.hoisted(() => vi.fn());
+const fixPrompts = vi.hoisted(() => [] as string[]);
+vi.mock("@/components/fix-prompt", () => ({
+  FixPromptButton: ({ prompt }: { prompt: string }) => {
+    fixPrompts.push(prompt);
+    return null;
+  },
+}));
+vi.mock("@/lib/analysis-usage", async (original) => ({
+  ...(await original<typeof import("@/lib/analysis-usage")>()),
+  readAnalysisUsage: usage,
+  recordAnalysisRun: record,
+}));
+
 vi.mock("@/lib/gap/run", () => ({
   runAnalysis: async (
     repo: string,
     token: string | null,
   ): Promise<RunResult> => {
     analyses.calls.push({ repo, token });
-    return analyses.result ?? { ok: true, analysis };
+    return analyses.result ?? { ok: true, analysis, repoId: 42 };
   },
 }));
 
@@ -123,17 +165,24 @@ afterEach(() => {
   session.throws = false;
   session.token = null;
   session.reads = 0;
+  session.signedIn = false;
   analyses.calls.length = 0;
   analyses.result = null;
+  usage.mockReset();
+  record.mockReset();
+  fixPrompts.length = 0;
+  afterResponse.length = 0;
   // Drained before asserting, or a failure here leaves the array full and every later test
   // fails with the first test's error. Any boundary error no test claimed is a crash that would
   // otherwise pass unnoticed: the form and the recorded token survive it.
   expect(takeErrors()).toEqual([]);
+  expect(afterTaskErrors.splice(0)).toEqual([]);
 });
 
-const page = (repo?: string) => (
+const sharedRunId = "12345678-1234-1234-1234-123456789abc";
+const page = (repo?: string, run = sharedRunId) => (
   <CiCoveragePage
-    searchParams={Promise.resolve(repo === undefined ? {} : { repo })}
+    searchParams={Promise.resolve(repo === undefined ? {} : { repo, run })}
   />
 );
 
@@ -146,12 +195,19 @@ describe("the CI coverage page, for a client running no script", () => {
     expect(visible(markup)).toContain('value="facebook/react"');
   });
 
-  it("renders the bare page without touching the session", async () => {
-    // The common case from the nav, and it owes nobody a session query.
+  it("renders the bare form without requesting a GitHub token", async () => {
     const markup = visible(await render(page()));
 
     expect(markup).toContain('id="repo"');
     expect(session.reads).toBe(0);
+    expect(afterResponse).toHaveLength(0);
+    const skeletonClass = markup.match(
+      /<div aria-hidden="true" class="([^" ]+)[^"]*motion-safe:animate-pulse/,
+    )?.[1];
+    expect(skeletonClass).toBeDefined();
+    expect(noscriptBlocks(markup)).toContain(
+      `<style>.${skeletonClass}{display:none}</style>`,
+    );
   });
 
   it("analyses anonymously for a signed-out reader", async () => {
@@ -212,12 +268,207 @@ describe("the CI coverage page, for a client running no script", () => {
 
     expect(markup).toContain('value="facebook/react"');
     expect(takeErrors()).toEqual(["DATABASE_URL is not set."]);
+    await Promise.all(afterResponse.map((callback) => callback()));
+    expect(record).not.toHaveBeenCalled();
   });
 });
 
 // Separate, because both of these live inside the boundary: a client running no script sees
 // neither. They pin the server's output, which is a different subject from the suite above.
 describe("the CI coverage page, once the analysis resolves", () => {
+  it("includes the real bundle recipe in a recommended fix prompt", async () => {
+    analyses.result = {
+      ok: true,
+      repoId: 42,
+      analysis: {
+        ...analysis,
+        satisfiedCount: 0,
+        gapCount: 1,
+        categories: [
+          {
+            category: "Security",
+            capabilities: [
+              {
+                id: "secrets",
+                label: "Secrets scanning",
+                satisfied: false,
+                present: [],
+                recommended: [
+                  {
+                    id: "ci-base-checks",
+                    name: "Korza CI Base Checks",
+                    stackLabels: [],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    };
+
+    await render(page("facebook/react"));
+
+    expect(fixPrompts).toHaveLength(1);
+    expect(fixPrompts[0]).toContain("korzacitools.azurecr.io/ci-common:");
+    expect(fixPrompts[0]).toContain("ci-run scan --out /out");
+    expect(fixPrompts[0]).toContain("ci-run report --in /out");
+  });
+
+  it("keeps public analysis available without exposing or reading aggregate usage", async () => {
+    usage.mockResolvedValue({ runs: 413, repositories: 97 });
+
+    const bare = await render(page());
+    const report = await render(page("facebook/react"));
+
+    expect(bare).toContain('id="repo"');
+    expect(report).toContain("Style linting");
+    expect(bare).not.toContain('aria-label="Site-wide analysis usage"');
+    expect(report).not.toContain('aria-label="Site-wide analysis usage"');
+    expect(usage).not.toHaveBeenCalled();
+  });
+
+  it("retains a shared run's identity but assigns a new identity to another Analyze submission", async () => {
+    const first = await render(page("facebook/react"));
+    const shared = await render(page("facebook/react"));
+    const nextRun = first.match(/name="run" value="([^"]+)"/)?.[1];
+    const sharedNextRun = shared.match(/name="run" value="([^"]+)"/)?.[1];
+
+    expect(nextRun).toMatch(/^[0-9a-f-]{36}$/);
+    expect(nextRun).not.toBe(sharedRunId);
+    expect(sharedNextRun).not.toBe(sharedRunId);
+    expect(sharedNextRun).not.toBe(nextRun);
+    await render(page("facebook/react", nextRun));
+
+    // Opening the same URL is one logical run; choosing Analyze is another.
+    expect(record).toHaveBeenCalledTimes(3);
+    expect(afterResponse).toHaveLength(3);
+    await Promise.all(afterResponse.map((callback) => callback()));
+    expect(record.mock.calls).toEqual([
+      [sharedRunId, 42],
+      [sharedRunId, 42],
+      [nextRun, 42],
+    ]);
+  });
+
+  it("keeps one reserved usage slot below the description on both the bare and result pages", async () => {
+    for (const repo of [undefined, "facebook/react"]) {
+      const tree = await CiCoveragePage({
+        searchParams: Promise.resolve(repo ? { repo, run: sharedRunId } : {}),
+      });
+      const header = Children.toArray(tree.props.children)[0];
+      expect(isValidElement(header) && header.type).toBe("header");
+      if (!isValidElement<{ children: React.ReactNode }>(header))
+        throw new Error("Missing header");
+      const children = Children.toArray(header.props.children);
+      expect(
+        children.map((child) => isValidElement(child) && child.type),
+      ).toEqual(["h1", "p", "div"]);
+      const slot = children[2];
+      if (
+        !isValidElement<{
+          className: string;
+          children: React.ReactElement<{
+            fallback: React.ReactNode;
+            children: React.ReactElement;
+          }>;
+        }>(slot)
+      )
+        throw new Error("Missing usage slot");
+      expect(slot.props.className.split(" ")).toEqual(
+        expect.arrayContaining(["min-h-16", "sm:min-h-10"]),
+      );
+      expect(slot.props.children.type).toBe(Suspense);
+      expect(isValidElement(slot.props.children.props.fallback)).toBe(true);
+      expect(slot.props.children.props.children.type).toBe(AnalysisUsage);
+    }
+    await Promise.all(afterResponse.map((callback) => callback()));
+  });
+
+  it("streams the report while recording and then reading fresh member totals are each pending", async () => {
+    session.signedIn = true;
+    let finishRecording!: () => void;
+    record.mockReturnValue(
+      new Promise<void>((resolve) => (finishRecording = resolve)),
+    );
+    let finishUsage!: (value: { runs: number; repositories: number }) => void;
+    usage.mockReturnValue(new Promise((resolve) => (finishUsage = resolve)));
+    let markup = "";
+    const output = new Writable({
+      write(chunk, _encoding, done) {
+        markup += chunk.toString();
+        done();
+      },
+    });
+    const finished = new Promise<void>((resolve, reject) => {
+      output.on("finish", resolve);
+      output.on("error", reject);
+    });
+    const stream = renderToPipeableStream(page("facebook/react"), {
+      onShellReady: () => stream.pipe(output),
+      onError: (error) => {
+        boundaryErrors.push(error as Error);
+      },
+    });
+
+    try {
+      await vi.waitFor(() => {
+        expect(record).toHaveBeenCalledWith(sharedRunId, 42);
+        const reportBoundary = markup
+          .replace(/<!--.*?-->/g, "")
+          .match(
+            /<template id="([^"]+)"[^>]*><\/template><p[^>]*>Reading facebook\/react/,
+          )?.[1];
+        expect(reportBoundary).toBeDefined();
+        // Hidden report bytes alone do not prove that the client can see them.
+        expect(markup).toContain(`$RC("${reportBoundary}"`);
+        expect(markup).toContain("Style linting");
+      });
+      expect(usage).not.toHaveBeenCalled();
+      expect(markup).not.toContain('aria-label="Site-wide analysis usage"');
+      expect(afterResponse).toHaveLength(1);
+      expect(analyses.calls).toEqual([{ repo: "facebook/react", token: null }]);
+
+      finishRecording();
+      await vi.waitFor(() => expect(usage).toHaveBeenCalledOnce());
+      expect(markup).toContain("Style linting");
+      expect(markup).not.toContain('aria-label="Site-wide analysis usage"');
+    } finally {
+      finishRecording();
+      finishUsage({ runs: 413, repositories: 97 });
+      await finished;
+    }
+    expect(markup.replace(/<[^>]*>/g, "")).toContain(
+      "97 repositories analysed · 413 total runs",
+    );
+    expect(markup.match(/aria-label="Site-wide analysis usage"/g)).toHaveLength(
+      1,
+    );
+    await afterResponse[0]();
+    expect(record).toHaveBeenCalledOnce();
+  });
+
+  it.each([false, true])(
+    "observes recording rejection immediately without interrupting the report (signed in: %s)",
+    async (signedIn) => {
+      session.signedIn = signedIn;
+      const error = new Error("unexpected recorder failure");
+      record.mockRejectedValue(error);
+
+      const markup = await render(page("facebook/react"));
+
+      expect(markup).toContain("Style linting");
+      expect(markup).not.toContain('aria-label="Site-wide analysis usage"');
+      expect(usage).not.toHaveBeenCalled();
+      expect(record).toHaveBeenCalledWith(sharedRunId, 42);
+      // No post-response drain has run: a signed-out usage gate cannot be the
+      // rejection observer, so after must attach one when it receives the promise.
+      expect(afterTaskErrors.splice(0)).toEqual([error]);
+      expect(afterResponse).toHaveLength(1);
+      await expect(afterResponse[0]()).resolves.toBeUndefined();
+    },
+  );
+
   it("offers a login when an anonymous read fails in a way that a login would fix", async () => {
     // `signingInWouldHelp` in the page: only a signed-out 404 or 429 earns the prompt. Subtle
     // enough to have produced a live bug already, per its own comment on 403.
@@ -230,6 +481,8 @@ describe("the CI coverage page, once the analysis resolves", () => {
     const markup = await render(page("facebook/react"));
 
     expect(markup).toContain("Log in to analyze");
+    await Promise.all(afterResponse.map((callback) => callback()));
+    expect(record).not.toHaveBeenCalled();
   });
 
   it("shows a plain notice when a login would not help", async () => {
@@ -240,5 +493,7 @@ describe("the CI coverage page, once the analysis resolves", () => {
 
     expect(markup).toContain("No such repository.");
     expect(markup).not.toContain("Log in to analyze");
+    await Promise.all(afterResponse.map((callback) => callback()));
+    expect(record).not.toHaveBeenCalled();
   });
 });
